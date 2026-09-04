@@ -10,24 +10,46 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from backtest.interface import Evaluator, FactorMetrics
 from engine.config import IS_END, IS_START
+from engine.io_utils import atomic_output_path, atomic_write_text
 from paths import CACHE_DIR
 
 # 本机默认路径;换电脑用环境变量 ALPHALAB_DIR 覆盖(见 .env / .env.example)
 FALLBACK_ALPHALAB_DIR = r"C:\Users\Administrator\Desktop\因子检测操作步骤"
 
 IS_WINDOW = (IS_START, IS_END)   # 默认评测窗口 = 样本内(筛选/入库只看 IS)
+
+
+class UnsafeValidationConfiguration(ValueError):
+    """A holdout run attempted to tune direction on the holdout itself."""
+
+
+def _load_config(text: str) -> dict:
+    config = yaml.safe_load(text)
+    if not isinstance(config, dict):
+        raise ValueError("AlphaLab config must be a YAML mapping")
+    return config
+
+
+def _uses_adaptive_direction(config: dict) -> bool:
+    direction = config.get("direction") or {}
+    if not isinstance(direction, dict):
+        raise ValueError("AlphaLab direction config must be a mapping")
+    mode = str(direction.get("mode", "")).strip().lower()
+    ref = str(direction.get("ref", "")).strip().lower()
+    return mode == "auto" or ref == "best_icir"
 
 
 class AlphalabEvaluator(Evaluator):
@@ -47,7 +69,7 @@ class AlphalabEvaluator(Evaluator):
         self.gate = gate
         self.timeout = timeout
         self.keep_output = keep_output   # True=保留回测结果目录(默认 False:解析完即删,省盘)
-        self.window = window or IS_WINDOW   # 评测窗口(默认样本内 IS;OOS 用 window=(OOS_START, OOS_END))
+        self.window = window or IS_WINDOW
 
     # ---- 可执行命令 ----
     def _exe_cmd(self) -> list[str]:
@@ -65,10 +87,11 @@ class AlphalabEvaluator(Evaluator):
         df.index.name = "date"
         df.columns = df.columns.astype(str)
         df = df.astype("float32")
-        df = df.loc[start:end]   # 只回测指定窗口(warmup 部分不回测;IS/OOS 由调用方定)
+        df = df.loc[start:end]   # Only the explicitly authorized evaluation window.
         self.in_root.mkdir(parents=True, exist_ok=True)
         path = self.in_root / f"{name}.parquet"
-        df.to_parquet(path)  # index.name='date' → 写出 'date' 列 + 股票列
+        with atomic_output_path(path) as tmp:
+            df.to_parquet(tmp)
         return path
 
     # ---- 按窗口派生配置 ----
@@ -76,22 +99,42 @@ class AlphalabEvaluator(Evaluator):
         """把基准 yaml 的 sample.start/end 替换为评测窗口,派生 yaml 缓存复用。
 
         alphalab 要求因子宽表覆盖其配置 sample 的每个交易日(缺一即报错),因此
-        IS/OOS 窗口回测必须用对应 sample 的配置(2026-08-17 切分;曾因沿用全窗口
-        配置导致 IS parquet 全部被拒)。基准 yaml 中 start:/end: 仅出现在 sample 段。
+        每个评测窗口必须使用一致的 sample 配置；非 IS 窗口还必须冻结方向。
+        基准 yaml 中 start:/end: 仅出现在 sample 段。
         """
         start, end = self.window
-        tag = f"{start}_{end}"
+        text = self.config_yaml.read_text(encoding="utf-8")
+        config = _load_config(text)
+        if self.window != IS_WINDOW:
+            if _uses_adaptive_direction(config):
+                raise UnsafeValidationConfiguration(
+                    "holdout evaluation refused: freeze factor direction from IS before "
+                    "evaluating an untouched sample"
+                )
+        digest = hashlib.sha256(
+            text.encode("utf-8") + f"\0{start}\0{end}".encode("ascii")
+        ).hexdigest()[:16]
+        tag = f"{start}_{end}_{digest}"
         derived = CACHE_DIR / "alphalab_cfg" / f"alphalab_{tag}.yaml"
         if derived.exists():
             return derived
-        text = self.config_yaml.read_text(encoding="utf-8")
-        text, n1 = re.subn(r"(?m)^(\s*start:\s*)\S+", rf"\g<1>{start}", text, count=1)
-        text, n2 = re.subn(r"(?m)^(\s*end:\s*)\S+", rf"\g<1>{end}", text, count=1)
-        if n1 != 1 or n2 != 1:
-            raise ValueError(f"基准 yaml 未找到 sample.start/end(改了 {n1}/{n2} 处):{self.config_yaml}")
-        derived.parent.mkdir(parents=True, exist_ok=True)
-        derived.write_text(text, encoding="utf-8")
+        sample = config.get("sample")
+        if not isinstance(sample, dict) or "start" not in sample or "end" not in sample:
+            raise ValueError(f"基准 yaml 未找到 sample.start/end:{self.config_yaml}")
+        sample["start"] = start
+        sample["end"] = end
+        derived_text = yaml.safe_dump(config, sort_keys=False, allow_unicode=True)
+        atomic_write_text(derived, derived_text)
         return derived
+
+    def provenance(self) -> dict:
+        return {
+            "class": f"{type(self).__module__}.{type(self).__qualname__}",
+            "config_sha256": hashlib.sha256(self.config_yaml.read_bytes()).hexdigest(),
+            "horizon": self.horizon,
+            "window": list(self.window),
+            "gate": self.gate,
+        }
 
     # ---- 跑 alphalab ----
     def _run(self, parquet: Path, outdir: Path, name: str) -> subprocess.CompletedProcess:

@@ -6,5 +6,6 @@
   - alphalab_adapter.py   真实适配器(调用户的 alphalab check)
   - mock.py               离线 Mock evaluator
 
-回测引擎口径以用户 alphalab 为准(universe=中证全指、行业+市值中性、单边千一、2018-2025)。
+回测引擎口径以配置的 alphalab 为准。自动发现只能使用 2018-01-01 至
+2023-06-30 的 IS 窗口；2025 历史结果已污染，不得用于准入或最终性能声明。
 """

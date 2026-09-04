@@ -65,7 +65,10 @@ class Perturber:
 
     def observe(self, key: str, n: float, sharpe: float) -> None:
         """记录一次 (n, sharpe),并据此更新该键的动量/二阶矩。"""
+        if not np.isfinite(n) or not np.isfinite(sharpe):
+            return
         self.history[key].append((float(n), float(sharpe)))
+        del self.history[key][:-2000]
         self.update_gradient(key, self.gradient(key, float(n)))
 
     # ---- 提议新窗口 ----
@@ -86,6 +89,7 @@ class Perturber:
             "m": dict(self.m),
             "v": dict(self.v),
             "beta": self.beta, "lr": self.lr, "bandwidth": self.bandwidth,
+            "min_history": self.min_history,
         }
 
     def load_state(self, s: dict) -> None:
@@ -93,3 +97,7 @@ class Perturber:
                                           for k, v in s.get("history", {}).items()})
         self.m = defaultdict(float, s.get("m", {}))
         self.v = defaultdict(float, s.get("v", {}))
+        self.beta = float(s.get("beta", self.beta))
+        self.lr = float(s.get("lr", self.lr))
+        self.bandwidth = float(s.get("bandwidth", self.bandwidth))
+        self.min_history = int(s.get("min_history", self.min_history))

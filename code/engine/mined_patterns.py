@@ -19,10 +19,10 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 from paths import OUTPUT_DIR
+from engine.io_utils import atomic_write_json
 
 from engine.config import (FUND_FIELDS, MINED_SUBTREE_CAP, MINED_TREE_CAP,
                            FAMILY_SUBTREE_MIN_NODES)
@@ -117,11 +117,7 @@ def is_mined_out(node) -> str | None:
 def save() -> None:
     """原子落盘。"""
     lib = _load()
-    _PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = _PATH.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(lib, f, ensure_ascii=False)
-    os.replace(tmp, _PATH)
+    atomic_write_json(_PATH, lib)
 
 
 def summary_line() -> str:

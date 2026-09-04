@@ -3,7 +3,7 @@
 
   mock 模式(离线,无 LLM / 无 alphalab):
       uv run --directory factor_loop_engine code/run_round_cli.py --mock --n 100
-  真实模式(GLM-5.3 生成 + LLM 终审 + alphalab 回测,2018-2025):
+  真实模式(GLM-5.3 生成 + LLM 终审 + alphalab IS 回测,2018-2023H1):
       uv run --directory factor_loop_engine code/run_round_cli.py --n 100
 
 每轮:生成 N 候选 → 审查五过滤 → 回测 → 十一项过滤 → 入库 → 检查点原子落盘(断点续跑)。
@@ -23,9 +23,11 @@ from adaptive import budget_mode, dynamic_budget, round_signals
 from backtest.alphalab_adapter import AlphalabEvaluator
 from backtest.mock import MockEvaluator
 from engine.checkpoint import Checkpoint
-from engine.config import OOS_END, OOS_START
 from engine.evolve import Evolver
+from engine.config import COMPUTE_START_YEAR, IS_END
 from engine.fsa import FSA
+from engine.io_utils import AlreadyRunningError, ProcessLock, atomic_output_path, atomic_write_text
+from engine.perturb import Perturber
 from llm.mechanisms import make_evolve_llm_hook
 from llm.settings import generation_provider, review_provider
 from loop_orchestrate import build_field_panels, restore_fsa, run_round
@@ -54,16 +56,17 @@ def _synth_panels() -> dict[str, pd.DataFrame]:
             for f in FIELDS}
 
 
-PANELS_VERSION = "mv=close×fc + adj=raw×f_t(PIT) 2026-08-18 + fundamental6+ps-guard 2026-08-24 + fundamental2x6 2026-08-27"   # 口径版本:变更时缓存自动失效重建
+PANELS_VERSION = ("mv=close×fc + adj=raw×f_t(PIT) 2026-08-18 + "
+                  "fundamental6+ps-guard 2026-08-24 + fundamental2x6 2026-08-27 + "
+                  f"discovery-cutoff={IS_END}")
 
 
 def _real_panels() -> dict[str, pd.DataFrame]:
-    """真实模式:载 COMPUTE_START_YEAR(2015)-2025 因子数据 → 字段宽表(含 warmup buffer)。
+    """真实模式:只载入 warmup 起点至 IS_END 的因子数据。
 
     缓存双重校验:①起始年 ≤ COMPUTE_START_YEAR;②口径版本标记(如 mv 复权口径变更)
     ——只看起始年感知不到口径变更,2026-08-18 审计后加入(mv口径修正方案.md §3.3)。
     """
-    from engine.config import COMPUTE_START_YEAR
     from paths import PROJECT_ROOT
     marker = PANELS_CACHE / ".version"
     PANELS_CACHE.mkdir(parents=True, exist_ok=True)
@@ -71,17 +74,22 @@ def _real_panels() -> dict[str, pd.DataFrame]:
             marker.exists() and marker.read_text(encoding="utf-8") == PANELS_VERSION:
         first_min_year = pd.read_parquet(PANELS_CACHE / f"{FIELDS[0]}.parquet").index.min().year
         if first_min_year <= COMPUTE_START_YEAR:
-            return {f: pd.read_parquet(PANELS_CACHE / f"{f}.parquet") for f in FIELDS}
+            return {f: pd.read_parquet(PANELS_CACHE / f"{f}.parquet").loc[:IS_END]
+                    for f in FIELDS}
         print(f"缓存面板起始年={first_min_year} > {COMPUTE_START_YEAR}(warmup),重建…", flush=True)
     elif any((PANELS_CACHE / f"{f}.parquet").exists() for f in FIELDS):
         print(f"面板口径版本变更(期望 [{PANELS_VERSION}]),重建缓存…", flush=True)
     from data_layer import load_factor_data
-    print(f"构建字段宽表({COMPUTE_START_YEAR}-2025,缓存到 cache/panels/)…", flush=True)
-    df = load_factor_data(COMPUTE_START_YEAR, 2025)
-    panels = build_field_panels(df, FIELDS)
+    end_year = int(IS_END[:4])
+    print(f"构建字段宽表({COMPUTE_START_YEAR}-{IS_END},缓存到 cache/panels/)…",
+          flush=True)
+    df = load_factor_data(COMPUTE_START_YEAR, end_year)
+    panels = {name: panel.loc[:IS_END]
+              for name, panel in build_field_panels(df, FIELDS).items()}
     for f, p in panels.items():
-        p.to_parquet(PANELS_CACHE / f"{f}.parquet")
-    marker.write_text(PANELS_VERSION, encoding="utf-8")
+        with atomic_output_path(PANELS_CACHE / f"{f}.parquet") as tmp:
+            p.to_parquet(tmp)
+    atomic_write_text(marker, PANELS_VERSION)
     return panels
 
 
@@ -114,6 +122,16 @@ def main() -> None:
         print("高峰时段(北京时间 9:00-12:00、14:00-18:00),跳过本轮。", flush=True)
         return
 
+    try:
+        with ProcessLock(OUTPUT_DIR / ".engine.lock"):
+            _run(args)
+    except AlreadyRunningError as exc:
+        print(f"LOCKED: {exc}", flush=True)
+        raise SystemExit(75) from exc
+
+
+def _run(args) -> None:
+
     cp = Checkpoint.load(args.checkpoint)            # 断点续跑
     cfg, breason = dynamic_budget(cp.history)        # 自适应预算(M3)
     if args.mode or args.llm is not None:            # 用户指定覆盖(跑完不带参数自动回自适应)
@@ -122,27 +140,27 @@ def main() -> None:
     print(f"BUDGET: 【{budget_mode(breason)}】{breason} | mutate/crossover/perturb/random/llm = "
           f"{cfg.mutate}/{cfg.crossover}/{cfg.perturb}/{cfg.random}/{cfg.llm}")
 
-    gen_provider, rev_provider, oos_evaluator = None, None, None
+    perturber = Perturber()
+    perturber.load_state(cp.perturb_state)
+    gen_provider, rev_provider = None, None
     if args.mock:
         panels = _synth_panels()
         evaluator = MockEvaluator()
-        evolver = Evolver(FIELDS, config=cfg, rng=np.random.default_rng())           # 无 llm_provider
+        evolver = Evolver(FIELDS, config=cfg, perturber=perturber,
+                          rng=np.random.default_rng())
     else:
         panels = _real_panels()
         evaluator = AlphalabEvaluator(horizon=5, config_yaml=args.alphalab_config)   # 默认窗口=IS
-        oos_evaluator = AlphalabEvaluator(horizon=5, config_yaml=args.alphalab_config,
-                                          window=(OOS_START, OOS_END))               # 样本外,只存档
         gen_provider = generation_provider()
         rev_provider = review_provider()
-        evolver = Evolver(FIELDS, config=cfg, rng=np.random.default_rng(),
+        evolver = Evolver(FIELDS, config=cfg, perturber=perturber, rng=np.random.default_rng(),
                           llm_provider=make_evolve_llm_hook(gen_provider))  # GLM 生成(机制引导)
 
     fsa = restore_fsa(cp) if cp.fsa_state else FSA()
     stats = run_round(checkpoint=cp, evolver=evolver, evaluator=evaluator,
                       field_panels=panels, fsa=fsa, fields=FIELDS,
                       n_candidates=args.n, n_workers=args.workers,
-                      llm_reviewer=rev_provider,      # None(mock)→跳过 LLM 终审
-                      oos_evaluator=oos_evaluator)    # None(mock)→跳过 OOS 存档
+                      llm_reviewer=rev_provider)
     print(stats)
     if stats.sample_reject_reasons:
         print("REJECTS:")
@@ -199,8 +217,8 @@ def main() -> None:
         print(f"  IS: IC={v['ic']:+.4f} ICIR={v['icir']:.2f} 夏普={v['sharpe']:.2f} "
               f"Calmar={v['calmar']:.2f} 多头超额={v['long_excess']:+.2%} 单调={v['monotonicity']:.2f}")
         print(f"  逐年: {annual}")
-    from lib_status import oos_health, corr_report_lines
-    print(oos_health(cp.stored_factors))   # OOS 崩塌跳闸(用户 2026-08-18:ALERT → 停 loop 汇报)
+    from lib_status import validation_status, corr_report_lines
+    print(validation_status(cp.stored_factors))
     for line in corr_report_lines(cp.stored_factors):   # 双口径相关+灰区(观察,不做准入)
         print(line)
     from engine import failed_patterns as fplib

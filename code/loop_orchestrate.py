@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """单轮编排:生成 → 审查 → 去重 → 回测 → 十一项过滤 → 入库 → 检查点。
 
-防 Goodhart(指南 §2):生成/审查只处理【表达式】,回测指标在后半段才产生、
-且【不回流】给生成端 —— 本纯 Python 层做逻辑隔离(物理隔离=独立子代理+临时 JSON,阶段 7)。
+防 Goodhart:生成/结构审查只处理表达式。唯一允许的指标反馈是 M4 参数扰动器接收
+成功回测的 Sharpe，用于预先声明的窗口局部搜索；LLM prompt 和机制族不接收指标值。
 
 用法(阶段 6 默认 mock 模式,无 LLM、无真实回测):
     stats = run_round(checkpoint=..., evolver=..., evaluator=MockEvaluator(),
@@ -16,19 +16,22 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
 
 from backtest.interface import Evaluator
+from backtest.returns import nav_to_returns
 from engine import review
 from engine.checkpoint import Checkpoint
-from engine.config import (BACKTEST_START, COVERAGE_LOCAL_RATIO_MIN, DEAD_RESAMPLE_TRIES,
-                           SCALE_DOMINANCE)
+from engine.config import (BACKTEST_END, BACKTEST_START, COVERAGE_LOCAL_RATIO_MIN,
+                           DEAD_RESAMPLE_TRIES, SCALE_DOMINANCE)
 from engine.evolve import Evolver
 from engine import failed_patterns as fplib
 from engine.expression import evaluate, parse
 from engine.fsa import FSA, skeleton
+from engine.provenance import evaluation_record, metrics_match_evaluator
 from filters import FilterResult, apply_filters
 from llm.mechanisms import (add_family_note, family_of, is_metric_reason,
                             register_family, review_expression)
@@ -96,14 +99,15 @@ def build_field_panels(df: pd.DataFrame, fields: list[str]) -> dict[str, pd.Data
 
 def _coverage_reason(panel: pd.DataFrame, months_ctx: int = 12,
                      ratio_min: float = COVERAGE_LOCAL_RATIO_MIN,
-                     start: str = BACKTEST_START) -> str | None:
+                     start: str = BACKTEST_START,
+                     end: str = BACKTEST_END) -> str | None:
     """逐月覆盖率本地塌陷检测(回测前,确定性防线):任一月覆盖率 < 前后各 months_ctx 个月
     中位数的 ratio_min → 拒。针对嵌套时序算子 min_periods=n 的 NaN 乘性放大
     (2019-04 roc 除零 inf 事故曾把 2 个坏日放大成 40 个交易日 0% 覆盖)。
     只看回测窗口(start 起)——warmup 期(面板起始的滚动窗预热)天然低覆盖,不算塌陷
     (全库体检曾暴露:不切窗口会把每个候选都误杀)。
     返回 ValueError 前缀原因(主循环按确定性缺陷永久去重);正常返回 None。"""
-    cov = panel.loc[start:].notna().mean(axis=1).resample("ME").mean().dropna()
+    cov = panel.loc[start:end].notna().mean(axis=1).resample("ME").mean().dropna()
     if len(cov) < 6:
         return None                      # 数据太少不判(保守放行)
     med = cov.rolling(2 * months_ctx + 1, center=True, min_periods=6).median()
@@ -135,10 +139,19 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
               field_panels: dict[str, pd.DataFrame], fsa: FSA,
               fields: list[str], n_candidates: int = 100,
               parents: list | None = None, capture_ic_series: bool = True,
-              n_workers: int = 4, llm_reviewer=None, oos_evaluator=None) -> RoundStats:
+              n_workers: int = 4, llm_reviewer=None) -> RoundStats:
     """跑一轮。parents 默认从已入库因子解析(种子优先入库因子,见 M3)。
     n_workers>1 时回测(alphalab 子进程)并行;过滤+入库仍串行(#9 IC去重/#10 FSA 顺序敏感)。"""
     t0 = time.perf_counter()
+    mismatched = [f.get("hash", "<missing>") for f in checkpoint.stored_factors
+                  if not metrics_match_evaluator(f, evaluator)]
+    if mismatched:
+        raise RuntimeError(
+            f"factor library contains {len(mismatched)} stale or incompatible metric artifacts; "
+            "run code/revalidate_library.py before mining"
+        )
+    run_evaluation = evaluation_record(evaluator)
+    failed_hashes = set(checkpoint.failed_hashes)
     new_iter = checkpoint.iteration + 1
     reject_records: list[dict] = []
     final_vetoes: list[dict] = []      # 终审拒详情(表达式+拒因+IS指标,进每轮汇报)
@@ -183,30 +196,42 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
             register_family(cand.expr_hash(), fam)
 
     # ---- 2) 审查四过滤 + 哈希去重(轮内去重用内存集;审查未过→标已测去重,回测异常→不标)----
-    reviewed: list = []          # [(node, hash)]
+    reviewed: list = []          # [(canonical_node, canonical_hash, raw_hash)]
     n_unique = 0
-    seen_this_round: set[str] = set()
+    seen_raw: set[str] = set()
+    seen_canonical: set[str] = set()
     src_total: Counter = Counter()
     src_pass: Counter = Counter()
     src_dedup: Counter = Counter()      # 被去重拦下的候选(按源,用户 2026-08-27:验证 LLM 撞hash 率)
     for i, node in enumerate(candidates):
-        h = node.expr_hash()
-        if checkpoint.is_tested(h) or h in seen_this_round:
+        raw_hash = node.expr_hash()
+        if checkpoint.is_tested(raw_hash) or raw_hash in seen_raw:
             src_dedup[cand_meta[i].get("op", "?") if i < len(cand_meta) else "?"] += 1
             continue
-        seen_this_round.add(h)
-        n_unique += 1
+        seen_raw.add(raw_hash)
         op = cand_meta[i].get("op", "?") if i < len(cand_meta) else "?"
+        canonical = review.simplify(node)
+        h = canonical.expr_hash()
+        if checkpoint.is_tested(h) or h in seen_canonical:
+            src_dedup[op] += 1
+            continue
+        seen_canonical.add(h)
+        n_unique += 1
         src_total[op] += 1
-        simplified, _reason = review.apply(node)
+        family = family_of(raw_hash)
+        if family and family_of(h) is None:
+            register_family(h, family)
+        simplified, _reason = review.apply(canonical)
         if simplified is not None:
-            reviewed.append((simplified, h))
+            reviewed.append((simplified, h, raw_hash))
             src_pass[op] += 1
         else:
             checkpoint.add_tested(h)   # 审查未过=确定性拒绝,标已测去重
-            reject_records.append({"iter": new_iter, "hash": h, "expr": node.to_str(),
+            checkpoint.add_failed(h)
+            reject_records.append({"iter": new_iter, "hash": h, "raw_hash": raw_hash,
+                                   "expr": canonical.to_str(), "raw_expr": node.to_str(),
                                    "disp": "review_reject", "reasons": [_reason]})
-            fplib.record_reject(node, "review_reject", [_reason], new_iter)
+            fplib.record_reject(canonical, "review_reject", [_reason], new_iter)
 
     # ---- 3) 回测 + 十一项过滤(此处才接触指标;不回流给生成端)----
     new_exprs: list[str] = []
@@ -215,7 +240,7 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
     # 3a) 并行回测:瓶颈是 alphalab 子进程(~40s/个),ThreadPool 在 subprocess 等待时释放 GIL,
     #     且线程共享 field_panels(免 pickle)。每个候选 name=hash 唯一,无文件冲突。
     def _eval(nh):
-        node, h = nh
+        node, h, raw_hash = nh
         try:
             if not node.is_leaf() and node.op in ("add", "sub") and len(node.children) == 2:
                 p1 = evaluate(node.children[0], field_panels)
@@ -223,24 +248,28 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
                 node2, panel = _simplify_or_combine(node, p1, p2)
                 if node2 is not node:            # 分支支配 → 取支配支(可能变浅/与已测重复)
                     h2 = node2.expr_hash()
+                    h = h2
                     if node2.depth() < 3:
-                        return (node2, h, "ValueError: 分支支配简化后深度不足"
+                        return (node2, h, raw_hash, "ValueError: 分支支配简化后深度不足"
                                 f"(原式 {node.to_str()[:60]})")
                     if checkpoint.is_tested(h2):
-                        return (node2, h, "ValueError: 分支支配简化后与已测重复"
+                        return (node2, h, raw_hash, "ValueError: 分支支配简化后与已测重复"
                                 f"(原式 {node.to_str()[:60]})")
                     node, h = node2, h2
+                    family = family_of(raw_hash)
+                    if family and family_of(h) is None:
+                        register_family(h, family)
             else:
                 panel = evaluate(node, field_panels)
             cov = _coverage_reason(panel)
             if cov:   # 覆盖率塌陷:确定性结构缺陷,回测前拦下(ValueError 前缀 → 永久去重)
-                return (node, h, cov)
+                return (node, h, raw_hash, cov)
             m = evaluator.evaluate(panel, name=h)
             m.expr = node.to_str()
-            return (node, h, m)
+            return (node, h, raw_hash, m)
         except Exception as e:  # noqa: BLE001
             msg = str(e).replace("\n", " ").strip()
-            return (node, h, f"{type(e).__name__}: {msg[:300]}")   # 字符串=失败标记(留完整信息便于诊断)
+            return (node, h, raw_hash, f"{type(e).__name__}: {msg[:300]}")
 
     if n_workers and n_workers > 1 and len(reviewed) > 1:
         with ThreadPoolExecutor(max_workers=n_workers) as ex:
@@ -249,24 +278,49 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
         results = [_eval(nh) for nh in reviewed]
 
     # 3b) 顺序过滤 + 入库(#9 IC去重、#10 FSA 顺序敏感,必须串行)
-    for node, h, m in results:
+    processed_hashes: set[str] = set()
+    for node, h, raw_hash, m in results:
+        if h in processed_hashes or checkpoint.is_tested(h):
+            reject_records.append({"iter": new_iter, "hash": h, "raw_hash": raw_hash,
+                                   "expr": node.to_str(), "disp": "canonical_duplicate",
+                                   "reasons": ["normalized expression already processed"]})
+            continue
+        processed_hashes.add(h)
         if isinstance(m, str):   # 回测异常:瞬时错误(alphalab 抖动)不标已测→下轮可重试;
             # 确定性 ValueError(如全 NaN 拦截、字段缺失)→ 标已测,防止同表达式反复白评估
             if len(rejects) < 5:
                 rejects.append(f"{node.to_str()}: 回测异常 {m}")
-            reject_records.append({"iter": new_iter, "hash": h, "expr": node.to_str(),
+            reject_records.append({"iter": new_iter, "hash": h, "raw_hash": raw_hash,
+                                   "expr": node.to_str(),
                                    "disp": "backtest_error", "reasons": [m]})
-            fplib.record_reject(node, "backtest_error", [m], new_iter)
             if m.startswith("ValueError"):
+                fplib.record_reject(node, "backtest_error", [m], new_iter)
                 checkpoint.add_tested(h)   # 确定性坏表达式 → 永久去重
+                checkpoint.add_failed(h)
             continue
         checkpoint.add_tested(h)   # 回测成功(指标可解析)才落盘去重
-        fr = apply_filters(m, fsa=fsa, node=node, stored_factors=checkpoint.stored_factors, expr_hash=h)
+        if hasattr(evolver, "observe"):
+            evolver.observe(node, m.ls_sharpe)
+        fr = apply_filters(m, fsa=fsa, node=node, stored_factors=checkpoint.stored_factors,
+                           failed_hashes=failed_hashes, expr_hash=h)
+        admission = {
+            "path": "standard",
+            "raw_hash": raw_hash,
+            "canonical_hash": h,
+            "llm_review_required": llm_reviewer is not None,
+            "review_status": "not_run",
+            "override_applied": False,
+        }
         # LLM 终审(用户 2026-08-17 接线,2026-08-18 升级):仅对过全部过滤、即将入库的候选把关;
         # 携带 IS 指标供诊断(选择端合法);拒因分两类——指标类只进台账,**结构/经济类回流该机制族
         # 生成 prompt 的「已知缺陷」栏**(防 Goodhart:指标数值永不回流生成端)
         if fr.passed and llm_reviewer is not None:
             accept, why = review_expression(llm_reviewer, node, metrics=m)
+            admission.update({
+                "review_status": "accepted" if accept else "rejected",
+                "review_verdict": why[:300],
+                "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            })
             # 终审审计(2026-08-24):裁决原文落盘——此前 47 次调用 0 拒且原文全丢,
             # 无法排除 GLM 偶发中文输出被默认放行;现在每次裁决可追溯
             try:
@@ -291,24 +345,22 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
                 })
                 fr = FilterResult(passed=False, reasons=[f"16.LLM终审拒:{why[:80]}"])
         if fr.passed:
-            # OOS 样本外指标(用户 2026-08-17):入库时算一次存档,**只报告、绝不参与筛选**
-            # (oos_evaluator 的评测窗口=OOS;失败不阻塞入库,记 None)
-            oos_metrics = None
-            if oos_evaluator is not None:
-                try:
-                    mo = oos_evaluator.evaluate(evaluate(node, field_panels), name="oos_" + h[:8])
-                    oos_metrics = _metrics_summary(mo)
-                except Exception:  # noqa: BLE001
-                    oos_metrics = None
+            factor_evaluation = dict(run_evaluation)
+            result_meta = getattr(m, "meta", {}) or {}
+            factor_evaluation["result_engine"] = {
+                key: result_meta[key]
+                for key in ("alphalab_version", "sample", "mock")
+                if key in result_meta
+            }
             new_factor = {
                 "expr": node.to_str(), "hash": h, "skeleton": skeleton(node),
                 "ic_series": (m.ic_series if capture_ic_series else None),
-                # 多空日收益(ls_nav 差分;pearson 对仿射变换不变,diff vs pct 等价)——
-                # PnL 口径相关性观察用(用户 2026-08-24:只进体检行,不做准入门槛)
-                "ls_ret": (np.diff(np.asarray(m.ls_nav, dtype=float)).tolist()
+                "ls_ret": (nav_to_returns(m.ls_nav).tolist()
                            if getattr(m, "ls_nav", None) is not None else None),
+                "ls_ret_kind": "simple_return",
                 "metrics": _metrics_summary(m),
-                "oos_metrics": oos_metrics,
+                "evaluation": factor_evaluation,
+                "admission": admission,
                 "family": family_of(h),           # 生成机制族(供演化子代继承/拒因回流)
             }
             if fr.replace_hashes:
@@ -332,7 +384,9 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
                 fsa.observe_tree(node)
                 disp, disp_reasons = "stored", []
             new_exprs.append(node.to_str())
-            reject_records.append({"iter": new_iter, "hash": h, "expr": node.to_str(),
+            checkpoint.clear_failed(h)
+            reject_records.append({"iter": new_iter, "hash": h, "raw_hash": raw_hash,
+                                   "expr": node.to_str(),
                                    "disp": disp, "reasons": disp_reasons})
             fplib.record_stored(node, new_iter)   # 成功史永久(被替换出库不扣减)
             from engine import mined_patterns as mplib
@@ -341,7 +395,9 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
         else:
             if len(rejects) < 5:
                 rejects.append(f"{node.to_str()}: {fr.reasons}")
-            reject_records.append({"iter": new_iter, "hash": h, "expr": node.to_str(),
+            checkpoint.add_failed(h)
+            reject_records.append({"iter": new_iter, "hash": h, "raw_hash": raw_hash,
+                                   "expr": node.to_str(),
                                    "disp": "filter_reject", "reasons": fr.reasons})
             fplib.record_reject(node, "filter_reject", fr.reasons, new_iter)
 
@@ -399,7 +455,7 @@ def run_round(*, checkpoint: Checkpoint, evolver: Evolver, evaluator: Evaluator,
         "n_tested": stats.n_tested, "n_pass_review": stats.n_pass_review,
         "n_pass_filters": stats.n_pass_filters, "stored_total": stats.stored_total,
     })
-    checkpoint.capture(fsa=fsa)
+    checkpoint.capture(fsa=fsa, perturber=getattr(evolver, "perturber", None))
     checkpoint.save()
     fplib.save(stats.iteration)     # 失败模式库轮末落盘(原子写)
     return stats

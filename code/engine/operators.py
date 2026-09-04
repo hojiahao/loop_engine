@@ -6,7 +6,8 @@
   - 截面算子:每个 date 截面上跨股票。
   - 逐元素算子:两个面板按 index/columns 对齐做四则。
 
-所有时序算子 min_periods=n(前 n-1 行为 NaN,作预热期,避免部分窗口估计)。
+滚动算子默认要求至少 max(3, 2n/3) 个有效观测；`skew` 的矩和无偏修正均使用
+窗口内实际有效样本数，而不是配置窗口宽度。
 跨量纲维度(供 review.py 过滤 #3 用)见本文件末 FIELD_DIM / OP 维度规则。
 
 窗口范围(docs/项目执行指南.md M1):
@@ -52,7 +53,7 @@ def op_min(p: pd.DataFrame, n: int) -> pd.DataFrame:
 def op_roc(p: pd.DataFrame, n: int) -> pd.DataFrame:
     """n 日变化率(收益率):p[t]/p[t-n] − 1。除零产生的 ±inf → NaN(与 op_div 同口径;
     否则 inf 会毒化截面 zscore 的均值/标准差,2019-04-18/19 数据事故曾因此放大成 40 日瘫痪)。"""
-    r = p.pct_change(periods=n)
+    r = p.pct_change(periods=n, fill_method=None)
     return r.replace([np.inf, -np.inf], np.nan)
 
 
@@ -72,17 +73,21 @@ def op_skew(p: pd.DataFrame, n: int) -> pd.DataFrame:
     季中的窗口几乎全常数,m2=0 → 0/0=NaN 曾致整月覆盖塌陷(实测 skew(op_margin,20)
     单独覆盖仅 32%)。对称退化的极限 = 0,数学上自然;对排名/IC 无害。
     """
-    s1 = p.rolling(n, min_periods=_mp(n)).sum()
+    rolling = p.rolling(n, min_periods=_mp(n))
+    count = rolling.count()
+    s1 = rolling.sum()
     s2 = (p * p).rolling(n, min_periods=_mp(n)).sum()
     s3 = (p ** 3).rolling(n, min_periods=_mp(n)).sum()
-    m2 = (s2 - s1 * s1 / n) / n
-    m3 = (s3 - 3.0 * s1 * s2 / n + 2.0 * s1 ** 3 / n ** 2) / n
+    m2 = (s2 - s1 * s1 / count) / count
+    m3 = (s3 - 3.0 * s1 * s2 / count + 2.0 * s1 ** 3 / count ** 2) / count
+    # Cancellation can make a mathematically zero variance infinitesimally negative.
+    m2 = m2.clip(lower=0.0)
     with np.errstate(divide="ignore", invalid="ignore"):
-        g1 = m3 / m2.pow(1.5)          # m2=0(常数窗)→ 0/0=NaN
-    g1 = g1.fillna(0).where(m2.notna() & p.rolling(n, min_periods=_mp(n)).count().gt(0))
-    # m2 为 NaN(窗口不足)→ 保持 NaN;m2=0(常数窗)→ 0
-    adj = float(np.sqrt(n * (n - 1)) / (n - 2))   # G1 调整系数(窗口范围 ≥10,n>2 恒成立)
-    return g1 * adj
+        g1 = m3 / m2.pow(1.5)
+        adj = np.sqrt(count * (count - 1.0)) / (count - 2.0)
+    valid = count.ge(_mp(n)) & count.gt(2)
+    # m2=0 is a symmetric degenerate distribution; insufficient windows stay NaN.
+    return (g1.where(m2.gt(0), 0.0) * adj).where(valid)
 
 
 def _ts_rank_last(w: np.ndarray) -> float:

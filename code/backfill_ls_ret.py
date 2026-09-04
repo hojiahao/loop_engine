@@ -2,7 +2,7 @@
 """一次性回填在库因子的 ls_ret(多空日收益,PnL 口径相关性观察用,用户 2026-08-24)。
 
 历史因子入库时未持久化 ls_nav;本脚本对缺 ls_ret 的在库因子重跑本地 alphalab
-回测(h5 缓存,无网络配额)提取 ls_nav → 差分存 checkpoint。跑前自动备份。
+回测(h5 缓存,无网络配额)提取 ls_nav → 简单收益率存 checkpoint。跑前自动备份。
 
 跑法:  uv run code/backfill_ls_ret.py
 """
@@ -14,14 +14,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 
 sys.path.insert(0, "code")
 
 from backtest.alphalab_adapter import AlphalabEvaluator
+from backtest.returns import nav_to_returns
 from engine.checkpoint import Checkpoint
 from engine.expression import evaluate, parse
+from engine.io_utils import ProcessLock
 from paths import CACHE_DIR, OUTPUT_DIR, PROJECT_ROOT
 
 PANELS_CACHE = CACHE_DIR / "panels"
@@ -32,13 +33,18 @@ FIELDS = ["adj_close", "adj_high", "adj_low", "overnight", "intraday", "amplitud
 
 
 def main() -> None:
+    with ProcessLock(OUTPUT_DIR / ".engine.lock"):
+        _run()
+
+
+def _run() -> None:
     ckpt_path = OUTPUT_DIR / "checkpoint.json"
     cp = Checkpoint.load(str(ckpt_path))
     todo = [f for f in cp.stored_factors if not f.get("ls_ret") and f.get("expr")]
     if not todo:
         print("全部在库因子已有 ls_ret,无需回填。")
         return
-    bak = ckpt_path.with_name(f"checkpoint.json.bak-lsret-{datetime.now():%Y%m%d}")
+    bak = ckpt_path.with_name(f"checkpoint.lsret-{datetime.now():%Y%m%d-%H%M%S}.bak")
     shutil.copy(ckpt_path, bak)
     print(f"待回填 {len(todo)}/{len(cp.stored_factors)} 个,已备份 → {bak.name}")
 
@@ -60,7 +66,8 @@ def main() -> None:
     with ThreadPoolExecutor(max_workers=3) as ex:
         for factor, nav in ex.map(_one, todo):
             if nav is not None:
-                factor["ls_ret"] = np.diff(np.asarray(nav, dtype=float)).tolist()
+                factor["ls_ret"] = nav_to_returns(nav).tolist()
+                factor["ls_ret_kind"] = "simple_return"
                 ok += 1
     cp.save()
     print(f"回填完成: {ok}/{len(todo)} 个,耗时 {(time.perf_counter()-t0)/60:.1f}min")

@@ -9,29 +9,25 @@ import json
 
 import numpy as np
 
+from backtest.returns import pairwise_finite_corr
+from engine.provenance import metrics_are_current
 from paths import OUTPUT_DIR
 
 CKPT = OUTPUT_DIR / "checkpoint.json"
 
 
-def oos_health(factors: list) -> str:
-    """OOS 系统性崩塌体检(用户 2026-08-18 拍板:崩塌 → 立即停 loop 向用户汇报)。
+def validation_status(factors: list) -> str:
+    """Report legacy development validation without presenting it as unbiased OOS."""
+    legacy = sum(1 for f in factors
+                 if f.get("legacy_validation_metrics") or f.get("oos_metrics"))
+    stale = sum(1 for f in factors if not metrics_are_current(f))
+    return (f"验证状态: 当前指标={len(factors) - stale}/{len(factors)}, "
+            f"历史2025开发验证={legacy}(方向曾重选,不得视为严格OOS)")
 
-    崩塌定义(带 OOS 存档的因子 ≥5 个时评估):
-      中位 OOS IC ≤ 0,或 OOS IC 为负的因子占比 ≥ 50%。
-    正常时返回体检行;崩塌时返回 OOS ALERT(编排器见 ALERT 必须停止续链)。
-    """
-    ics = [f["oos_metrics"].get("ic_mean") for f in factors if f.get("oos_metrics")]
-    ics = [float(x) for x in ics if x is not None]
-    if len(ics) < 5:
-        return f"OOS体检: 样本不足({len(ics)}/5)"
-    ics_sorted = sorted(ics)
-    med = ics_sorted[len(ics) // 2] if len(ics) % 2 else (ics_sorted[len(ics) // 2 - 1] + ics_sorted[len(ics) // 2]) / 2
-    neg = sum(1 for x in ics if x < 0) / len(ics)
-    if med <= 0 or neg >= 0.5:
-        return (f"OOS ALERT: 系统性崩塌(中位OOS IC={med:+.4f}, 负占比={neg:.0%})"
-                f"→ 立即停止 loop 并向用户汇报!")
-    return f"OOS体检: n={len(ics)} 中位OOS IC={med:+.4f} 负占比={neg:.0%}(正常)"
+
+def oos_health(factors: list) -> str:
+    """Backward-compatible alias; no automated decision may use contaminated results."""
+    return validation_status(factors)
 
 
 def _pairwise_corr(factors: list, key: str) -> tuple[int, list, list]:
@@ -51,7 +47,9 @@ def _pairwise_corr(factors: list, key: str) -> tuple[int, list, list]:
             m = min(len(s[i]), len(s[j]))
             if m < 20:
                 continue
-            c = float(np.corrcoef(s[i][-m:], s[j][-m:])[0, 1])
+            c = pairwise_finite_corr(s[i][-m:], s[j][-m:], min_observations=20)
+            if not np.isfinite(c):
+                continue
             pair = (abs(c), c, sf[i]["expr"], sf[j]["expr"])
             if abs(c) >= 0.7:
                 hi.append(pair)
@@ -98,26 +96,32 @@ def main() -> None:
     factors = data.get("stored_factors", [])
     print(f"迭代={iteration}  已测={tested}  入库={len(factors)}")
     if factors:
-        # 按 IC 均值降序,展示 Top 5
-        ranked = sorted(factors, key=lambda f: f.get("metrics", {}).get("ic_mean", 0),
-                        reverse=True)[:5]
-        print("Top 5(按 |IC|):")
-        for f in ranked:
-            m = f.get("metrics", {})
-            print(f"  IC={m.get('ic_mean', 0):.4f} 多空年化={m.get('ls_annual', 0):.2%} "
-                  f"夏普={m.get('ls_sharpe', 0):.2f} Calmar={m.get('calmar', 0):.2f} | {f.get('expr')}")
-        # IS vs OOS 对比(样本外只报告,不参与筛选;老因子无 oos_metrics 则跳过)
-        oos_rows = [(f, f["oos_metrics"]) for f in factors if f.get("oos_metrics")]
-        if oos_rows:
-            print(f"IS→OOS 衰减(样本外,OOS_END~):")
-            for f, om in oos_rows:
+        current = [factor for factor in factors if metrics_are_current(factor)]
+        if current:
+            # Only provenance-valid metrics may be ranked or used for correlation decisions.
+            ranked = sorted(current,
+                            key=lambda f: f.get("metrics", {}).get("ic_mean", 0),
+                            reverse=True)[:5]
+            print("当前有效指标 Top 5(按 IC):")
+            for f in ranked:
+                m = f.get("metrics", {})
+                print(f"  IC={m.get('ic_mean', 0):.4f} 多空年化={m.get('ls_annual', 0):.2%} "
+                      f"夏普={m.get('ls_sharpe', 0):.2f} Calmar={m.get('calmar', 0):.2f} | {f.get('expr')}")
+            _corr_report(current)
+        else:
+            print("当前有效指标为 0；过期指标已禁止排名与相关性决策，需先全库重测。")
+        legacy_rows = [(f, f.get("legacy_validation_metrics") or f.get("oos_metrics"))
+                       for f in factors
+                       if f.get("legacy_validation_metrics") or f.get("oos_metrics")]
+        if legacy_rows:
+            print("历史审计: IS→2025开发验证(方向曾重选,非严格OOS,不得用于决策):")
+            for f, om in legacy_rows:
                 im = f.get("metrics", {})
                 print(f"  IC {im.get('ic_mean', 0):+.3f}→{om.get('ic_mean', float('nan')):+.3f}  "
                       f"夏普 {im.get('ls_sharpe', 0):.2f}→{om.get('ls_sharpe', float('nan')):.2f}  "
                       f"单调 {im.get('monotonicity', 0):.2f}→{om.get('monotonicity', float('nan')):.2f}"
                       f" | {f.get('expr', '')[:46]}")
-        _corr_report(factors)
-        print(oos_health(factors))
+        print(validation_status(factors))
     # 失败模式库体检(用户 2026-08-24:全灭/占位骨架计数,无库文件 → 提示回填)
     from engine import failed_patterns as fplib
     if (OUTPUT_DIR / "failed_patterns.json").exists():

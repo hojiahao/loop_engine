@@ -3,7 +3,9 @@
 import json
 from pathlib import Path
 
-from engine.checkpoint import Checkpoint
+import pytest
+
+from engine.checkpoint import Checkpoint, CheckpointConflictError
 
 
 def test_save_load_roundtrip(tmp_path):
@@ -12,6 +14,7 @@ def test_save_load_roundtrip(tmp_path):
     cp.iteration = 42
     cp.add_tested("abc123")
     cp.add_tested("def456")
+    cp.add_failed("def456")
     cp.add_factor({"expr": "zscore(ma(close, 20))", "ic_mean": 0.05, "ic_series": [0.04, 0.05, 0.06]})
     cp.perturb_state = {"m": {"ma|close": 0.3}, "v": {"ma|close": 0.1}}
     cp.fsa_state = {"counts": {"ma(FLD, N)": 3}}
@@ -20,6 +23,7 @@ def test_save_load_roundtrip(tmp_path):
     loaded = Checkpoint.load(p)
     assert loaded.iteration == 42
     assert loaded.tested_hashes == {"abc123", "def456"}
+    assert loaded.failed_hashes == {"def456"}
     assert loaded.stored_factors == cp.stored_factors
     assert loaded.perturb_state == cp.perturb_state
     assert loaded.fsa_state == cp.fsa_state
@@ -63,3 +67,27 @@ def test_overwrite_preserves_latest(tmp_path):
     loaded = Checkpoint.load(p)
     assert loaded.iteration == 99
     assert "zzz" in loaded.tested_hashes
+
+
+def test_stale_writer_cannot_overwrite_newer_revision(tmp_path):
+    path = tmp_path / "cp.json"
+    initial = Checkpoint(path)
+    initial.save()
+    writer_a = Checkpoint.load(path)
+    writer_b = Checkpoint.load(path)
+    writer_a.iteration = 1
+    writer_a.save()
+    writer_b.iteration = 2
+    with pytest.raises(CheckpointConflictError):
+        writer_b.save()
+    assert Checkpoint.load(path).iteration == 1
+
+
+def test_process_lock_is_non_reentrant_across_file_handles(tmp_path):
+    from engine.io_utils import AlreadyRunningError, ProcessLock
+
+    first = ProcessLock(tmp_path / "engine.lock")
+    second = ProcessLock(tmp_path / "engine.lock")
+    with first:
+        with pytest.raises(AlreadyRunningError):
+            second.acquire()

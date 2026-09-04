@@ -17,11 +17,13 @@ import argparse
 import json
 import shutil
 from collections import Counter
+from contextlib import nullcontext
 
 from engine import review
 from engine.checkpoint import Checkpoint
 from engine.config import FAMILY_SUBTREE_CAP, FAMILY_SUBTREE_MIN_NODES
 from engine.expression import parse
+from engine.io_utils import ProcessLock, atomic_write_json
 from filters import _quality, _subtree_skeletons
 from paths import OUTPUT_DIR
 
@@ -86,6 +88,13 @@ def main() -> None:
     ap.add_argument("--apply", action="store_true", help="真清洗(默认 dry-run)")
     args = ap.parse_args()
 
+    lock = ProcessLock(OUTPUT_DIR / ".engine.lock") if args.apply else nullcontext()
+    with lock:
+        _run(args)
+
+
+def _run(args) -> None:
+
     cp = Checkpoint.load(args.checkpoint)
     n0 = len(cp.stored_factors)
     kept, removed = clean(cp.stored_factors)
@@ -102,7 +111,7 @@ def main() -> None:
         print("\n(dry-run,未落盘;加 --apply 执行)")
         return
 
-    backup = cp.path.with_name(cp.path.name + ".bak-20260817-preclean")
+    backup = cp.path.with_name(cp.path.name + ".preclean.bak")
     shutil.copy2(cp.path, backup)
     counts = dict(cp.fsa_state.get("counts", {}))
     for f, _r in removed:                      # FSA 整树骨架计数同步扣减
@@ -115,11 +124,10 @@ def main() -> None:
     cp.stored_factors = kept
     cp.save()
     ledger = OUTPUT_DIR / "library_clean_20260817.json"
-    with open(ledger, "w", encoding="utf-8") as fh:
-        json.dump({"kept": len(kept),
-                   "removed": [{"expr": f["expr"], "hash": f.get("hash"), "reason": r,
-                                "metrics": f.get("metrics")} for f, r in removed]},
-                  fh, ensure_ascii=False, indent=1)
+    atomic_write_json(ledger, {"kept": len(kept),
+                               "removed": [{"expr": f["expr"], "hash": f.get("hash"),
+                                            "reason": r, "metrics": f.get("metrics")}
+                                           for f, r in removed]}, indent=1)
     print(f"\n已落盘:{cp.path}(备份 → {backup.name});移除台账 → {ledger.name}")
 
 

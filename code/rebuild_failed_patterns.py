@@ -17,12 +17,19 @@ import sys
 from paths import OUTPUT_DIR
 
 from engine.checkpoint import Checkpoint
+from engine import review
 from engine.expression import parse
 from engine.fsa import skeleton
 from engine import failed_patterns as fplib
+from engine.io_utils import ProcessLock
 
 
 def main() -> None:
+    with ProcessLock(OUTPUT_DIR / ".engine.lock"):
+        _run()
+
+
+def _run() -> None:
     rejects_path = OUTPUT_DIR / "rejects.jsonl"
     if not rejects_path.exists():
         print("无 rejects.jsonl,退出。")
@@ -35,22 +42,26 @@ def main() -> None:
         for line in f:
             n_rows += 1
             r = json.loads(line)
-            h = r.get("hash")
-            if h in seen:
-                continue
-            seen.add(h)
-            n_uniq += 1
             it = r.get("iter", 0)
             max_iter = max(max_iter, it)
             disp = r.get("disp")
             try:
-                skel = skeleton(parse(r["expr"]))
+                node = review.simplify(parse(r["expr"]))
+                h = node.expr_hash()
+                skel = skeleton(node)
             except Exception:                  # noqa: BLE001  历史表达式解析失败 → 跳过
                 n_parse_err += 1
                 continue
+            if h in seen:
+                continue
+            seen.add(h)
+            n_uniq += 1
             if disp in ("stored", "replaced"):
                 fplib.record_stored(skel, it)
-            else:
+            elif disp in ("review_reject", "filter_reject"):
+                fplib.record_reject(skel, disp, r.get("reasons") or [], it)
+            elif disp == "backtest_error" and any(
+                    str(reason).startswith("ValueError") for reason in r.get("reasons") or []):
                 fplib.record_reject(skel, disp, r.get("reasons") or [], it)
     # checkpoint 当前库存也计成功史(含无 rejects 记录的老因子)
     cp = Checkpoint.load(str(OUTPUT_DIR / "checkpoint.json"))

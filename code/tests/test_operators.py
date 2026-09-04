@@ -209,6 +209,17 @@ def test_skew_matches_series_skew():
     assert op_skew(const, 20).iloc[25, 0] == 0.0
 
 
+def test_skew_uses_actual_valid_count_in_partial_window():
+    """Sparse windows divide moments by their valid count, not the configured width."""
+    import pandas as pd
+    from engine.operators import op_skew
+
+    values = pd.DataFrame({"A": [2.0, np.nan, 4.0, 5.0, 6.0]})
+    actual = op_skew(values, 5).iloc[-1, 0]
+    expected = values["A"].dropna().skew()
+    assert actual == pytest.approx(expected, abs=1e-12)
+
+
 def test_zscore_zero_sd_outputs_zero():
     """zscore sd=0 保护(2026-08-27 覆盖率塌陷根因):截面全同值 → 输出 0(中性)而非
     0/0=NaN 整天蒸发;原始 NaN 仍保留 NaN。季更阶梯字段的 delta/roc 在季中月

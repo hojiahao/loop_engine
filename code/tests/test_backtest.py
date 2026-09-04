@@ -4,7 +4,7 @@ import pyarrow.parquet as pq
 import pandas as pd
 import pytest
 
-from backtest.alphalab_adapter import AlphalabEvaluator
+from backtest.alphalab_adapter import AlphalabEvaluator, UnsafeValidationConfiguration
 from backtest.mock import MockEvaluator
 
 REAL_OUT = r"C:\Users\Administrator\Desktop\因子检测操作步骤\output_factor_gru_ir"
@@ -81,3 +81,57 @@ def test_write_panel_format(tmp_path):
     # 读回:index 为 date,值为 float
     df = pd.read_parquet(path)
     assert df.index.name == "date"
+
+
+def test_holdout_rejects_adaptive_direction(tmp_path):
+    config = tmp_path / "adaptive.yaml"
+    config.write_text(
+        "sample:\n  start: 2018-01-01\n  end: 2025-12-31\n"
+        "direction:\n  mode: auto\n  ref: best_icir\n",
+        encoding="utf-8",
+    )
+    evaluator = AlphalabEvaluator(
+        alphalab_dir=tmp_path, config_yaml=config,
+        window=("2025-01-01", "2025-12-31"),
+    )
+    with pytest.raises(UnsafeValidationConfiguration, match="freeze factor direction"):
+        evaluator._config_for_window()
+
+
+def test_holdout_direction_validation_is_structural(tmp_path, monkeypatch):
+    import backtest.alphalab_adapter as adapter
+
+    monkeypatch.setattr(adapter, "CACHE_DIR", tmp_path / "cache")
+    config = tmp_path / "fixed.yaml"
+    config.write_text(
+        "sample:\n  start: 2018-01-01\n  end: 2025-12-31\n"
+        "notes:\n  mode: auto\n  ref: best_icir\n"
+        "direction:\n  mode: fixed\n  value: -1\n",
+        encoding="utf-8",
+    )
+    evaluator = AlphalabEvaluator(
+        alphalab_dir=tmp_path, config_yaml=config,
+        window=("2026-01-01", "2026-12-31"),
+    )
+
+    derived = evaluator._config_for_window()
+    loaded = adapter._load_config(derived.read_text(encoding="utf-8"))
+
+    assert loaded["sample"] == {"start": "2026-01-01", "end": "2026-12-31"}
+    assert loaded["direction"] == {"mode": "fixed", "value": -1}
+
+
+def test_derived_config_cache_key_includes_source_digest(tmp_path, monkeypatch):
+    import backtest.alphalab_adapter as adapter
+
+    monkeypatch.setattr(adapter, "CACHE_DIR", tmp_path / "cache")
+    paths = []
+    for cost in (10, 20):
+        config = tmp_path / f"config-{cost}.yaml"
+        config.write_text(
+            f"sample:\n  start: 2000-01-01\n  end: 2001-01-01\ncost: {cost}\n"
+            "direction:\n  mode: fixed\n  value: 1\n",
+            encoding="utf-8",
+        )
+        paths.append(AlphalabEvaluator(config_yaml=config)._config_for_window())
+    assert paths[0] != paths[1]

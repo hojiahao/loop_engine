@@ -181,6 +181,24 @@ class Evolver:
         flds = sorted(ts_node.children[0].fields())
         return f"{ts_node.op}|{flds[0] if flds else '_'}"
 
+    def observe(self, tree: Node, sharpe: float) -> None:
+        """Feed successful backtest evidence into the window perturber.
+
+        One factor contributes at most one observation per (key, window), which
+        avoids overweighting repeated identical subtrees in a single expression.
+        """
+        if not np.isfinite(sharpe):
+            return
+        seen: set[tuple[str, int]] = set()
+        for node in tree.walk():
+            if node.is_leaf() or node.window is None:
+                continue
+            item = (self._param_key(node), int(node.window))
+            if item in seen:
+                continue
+            seen.add(item)
+            self.perturber.observe(item[0], item[1], float(sharpe))
+
     def llm_op(self, tree: Node | None = None) -> Node:
         """LLM 机制引导(阶段 4 provider);阶段 3 stub → 随机。"""
         if self.llm_provider is not None:

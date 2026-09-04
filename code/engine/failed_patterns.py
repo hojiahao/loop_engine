@@ -22,11 +22,11 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from pathlib import Path
 
 from paths import OUTPUT_DIR
+from engine.io_utils import atomic_write_json
 
 from engine.config import DEAD_MIN_FAILS, DEAD_PROMPT_TOP_K
 from engine.fsa import skeleton as _skeleton
@@ -98,6 +98,9 @@ def record_reject(node_or_skel: "Node | str", disp: str, reasons: list[str],
     backtest_error)→ fails,非占位规则号进 top_rules。
     """
     skel = node_or_skel if isinstance(node_or_skel, str) else _skeleton(node_or_skel)
+    if disp == "backtest_error" and not any(
+            str(reason).startswith("ValueError") for reason in reasons or []):
+        return
     if disp == "filter_reject":
         rules = _rule_numbers(reasons)
         if rules and rules <= _OCCUPIED_RULES:
@@ -108,7 +111,8 @@ def record_reject(node_or_skel: "Node | str", disp: str, reasons: list[str],
         for k in sorted(rules - _OCCUPIED_RULES):
             e["top_rules"][k] = e["top_rules"].get(k, 0) + 1
         return
-    # review_reject(结构拒)/ backtest_error(确定性结构缺陷)→ 直接死证据
+    # review_reject / deterministic backtest_error only. Callers must not feed
+    # transient infrastructure failures into structural learning.
     e = _entry(skel, iteration)
     e["fails"] += 1
     key = "review" if disp == "review_reject" else "bt_err"
@@ -155,15 +159,11 @@ def prompt_block(top_k: int = DEAD_PROMPT_TOP_K) -> str:
 
 
 def save(iteration: int) -> None:
-    """原子落盘(tmp + os.replace)。轮末调用一次;测试经 _reset(path=…) 换路径。"""
+    """用唯一同目录临时文件耐久原子落盘。"""
     lib = failed_patterns()
     p = _PATH
     data = {"version": 1, "updated_iter": iteration, "patterns": lib}
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=1)
-    os.replace(tmp, p)
+    atomic_write_json(p, data, indent=1)
 
 
 def summary_line() -> str:

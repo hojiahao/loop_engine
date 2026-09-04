@@ -58,3 +58,11 @@ class MockEvaluator(Evaluator):
             ic_series=ic_series, long_excess_nav=long_excess_nav, ls_nav=ls_nav,
             admission_pass=None, meta={"name": name, "mock": True},
         )
+
+    def provenance(self) -> dict:
+        return {
+            "class": f"{type(self).__module__}.{type(self).__qualname__}",
+            "horizon": self.horizon,
+            "years": self.years,
+            "synthetic": True,
+        }

@@ -8,7 +8,7 @@ FactorMetrics 涵盖 M7 十一项过滤所需的全部字段(horizon 默认 5,�
   IC 类:ic_mean / icir / icir_annual / t_stat_nw / positive_ratio
   多空:ls_annual / ls_sharpe / ls_max_dd / calmar(= ls_annual / |ls_max_dd|)
   多头超额:long_excess_annual / long_excess_sharpe
-  按年:annual_ls_return {年: 多空收益}、annual_ic {年: ic_mean}(给「每年都过」)
+  按年:annual_ls_return {年: 多空收益}、annual_ic {年: ic_mean}(给 IS「每年都过」)
   序列:ic_series(给 IC 相关性去重)、long_excess_nav(给滚动 9/12 月超额)
   入库:admission_pass(alphalab --gate,可选)
 """
@@ -23,7 +23,7 @@ import pandas as pd
 class FactorMetrics:
     """单个因子在某 horizon 下的回测指标。"""
     expr: str = ""
-    direction: int = 0          # alphalab 自动定方向:1 正向 / -1 反向
+    direction: int = 0          # IS 可选方向；holdout 必须冻结为 1 或 -1
     horizon: int = 5
 
     # ---- IC 类 ----
@@ -73,6 +73,10 @@ class Evaluator:
 
     def evaluate(self, panel: pd.DataFrame, name: str = "factor") -> FactorMetrics:
         raise NotImplementedError
+
+    def provenance(self) -> dict:
+        """Stable evaluator configuration used to bind metrics to an implementation."""
+        return {"class": f"{type(self).__module__}.{type(self).__qualname__}"}
 
     def evaluate_expr(self, node, field_panels: dict[str, pd.DataFrame],
                       name: str = "factor") -> FactorMetrics:

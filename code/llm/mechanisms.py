@@ -335,21 +335,21 @@ def extract_expression(text: str | None, allowed_fields: list[str] | None = None
 
 
 def parse_verdict(text: str | None) -> tuple[bool, str]:
-    """解析审查裁决 → (accept, reason)。无法解析→默认放行(True,fail-open:审查不可用不崩轮)。
+    """解析审查裁决 → (accept, reason)。无法解析时失败关闭。
 
     判定按**首个出现**的关键词(2026-08-24 修正:原 ACCEPT 优先会把「若X则ACCEPT否则REJECT」
     这类条件句误判成放行);prompt 要求行首输出关键词,行首匹配优先,全文兜底。
     """
     t = (text or "").strip()
     if not t:
-        return True, t
+        return False, "REJECT: empty review verdict"
     m = re.search(r"^\s*(ACCEPT|REJECT)\b", t, re.I)
     if m:
         return m.group(1).upper() == "ACCEPT", t
     first = re.search(r"\b(ACCEPT|REJECT)\b", t, re.I)
     if first:
         return first.group(1).upper() == "ACCEPT", t
-    return True, t
+    return False, f"REJECT: unparseable review verdict: {t[:200]}"
 
 
 # ============================================================================
@@ -423,13 +423,14 @@ def _log_gen_failure(mech_id: str, raw: str | None, why: str) -> None:
 def review_expression(provider, node: Node, temperature: float = 0.1,
                       metrics=None) -> tuple[bool, str]:
     """LLM 审查精判:返回 (accept, reason)。metrics=IS 回测指标(仅诊断参考,选择端合法)。
-    LLM 超时/连接错 → 放行(不崩)。"""
+    LLM 超时/连接错 → 失败关闭,避免未经审查的候选入库。"""
     prompt = build_review_prompt(node, metrics=metrics)
     try:
         text = provider.complete(prompt, temperature=temperature)
-    except Exception:
+    except Exception as exc:
         _bump(provider, "llm_rev_error")
-        return True, "LLM 审查不可用,放行"
+        _bump(provider, "llm_rev_reject")
+        return False, f"REJECT: review service unavailable ({type(exc).__name__})"
     _bump(provider, "llm_rev_ok")
     accept, reason = parse_verdict(text)
     # 通过/拒分开计数(2026-08-25:健康行的 ok 只计调用成功,曾致汇报把拒绝误读为通过)

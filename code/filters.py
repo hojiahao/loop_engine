@@ -3,7 +3,7 @@
 
 口径:多空(ls)为「超额」主口径(用户 2026-08-11 确认)。
 阈值见 engine/config.py(研报 §9)。11 项:
-  1 |IC|>0.03        2 每年多空>0(2018..2025)  3 整体多空年化>0
+  1 |IC|>0.03        2 每年多空>0(IS 年份)  3 整体多空年化>0
   4 整体夏普>0.5     5 末年夏普>0.5(从 ls_nav 末 252 日)  6 Calmar>1.0
   7 近9月多空>0      8 近12月多空>0(滚动,相对末日,从 ls_nav)
   9 IC 相关性<0.70(与已入库)  10 FSA 结构去重  11 失败模式库排除
@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from backtest.interface import FactorMetrics
+from backtest.returns import nav_to_returns, pairwise_finite_corr
 from engine.config import (
     BACKTEST_YEARS, CALMAR_MIN, FAMILY_SUBTREE_CAP, FAMILY_SUBTREE_MIN_NODES,
     IC_CORR_MAX, IC_GATE, ICIR_MIN, LONG_EXCESS_MIN,
@@ -54,8 +55,7 @@ def _quality(ic_mean: float, icir: float, monotonicity: float,
 
 
 def _daily_returns(nav: list) -> np.ndarray:
-    a = np.asarray(nav, dtype=float)
-    return np.diff(a) / a[:-1]
+    return nav_to_returns(nav)
 
 
 def _ann_sharpe(returns: np.ndarray) -> float:
@@ -71,7 +71,11 @@ def _trailing_return(nav: list, n_days: int) -> float:
     a = np.asarray(nav, dtype=float)
     if len(a) < n_days + 1:
         return float("nan")
-    return float(a[-1] / a[-n_days - 1] - 1)
+    try:
+        returns = nav_to_returns(a[-n_days - 1:])
+    except ValueError:
+        return float("nan")
+    return float(np.prod(1.0 + returns) - 1.0)
 
 
 def _subtree_skeletons(node: Node, min_nodes: int = FAMILY_SUBTREE_MIN_NODES) -> set[str]:
@@ -143,7 +147,10 @@ def apply_filters(
 
     # 5) 末年夏普 > 0.5(从 ls_nav 末 ~252 个交易日)
     if metrics.ls_nav:
-        sh_last = _ann_sharpe(_daily_returns(metrics.ls_nav[-TD_PER_YEAR:]))
+        try:
+            sh_last = _ann_sharpe(_daily_returns(metrics.ls_nav[-TD_PER_YEAR:]))
+        except ValueError:
+            sh_last = float("nan")
         if not (sh_last > sharpe_min):
             reasons.append(f"5.末年夏普={sh_last:.3f}≤{sharpe_min}")
     else:
@@ -184,7 +191,7 @@ def apply_filters(
             n = min(len(arr), len(b))
             if n < 5:
                 continue
-            c = np.corrcoef(arr[-n:], b[-n:])[0, 1]
+            c = pairwise_finite_corr(arr[-n:], b[-n:])
             if not np.isnan(c) and abs(c) >= ic_corr_max:
                 correlated.append((abs(c), f))
         if correlated:

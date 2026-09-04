@@ -12,9 +12,17 @@ import sys
 sys.path.insert(0, "code")
 
 from engine import mined_patterns as mplib
+from engine import review
 from engine.expression import parse
+from engine.io_utils import ProcessLock
+from paths import OUTPUT_DIR
 
 def main() -> None:
+    with ProcessLock(OUTPUT_DIR / ".engine.lock"):
+        _run()
+
+
+def _run() -> None:
     mplib._reset(lib={})                          # 全量重建
     n = n_err = 0
     with open("output/rejects.jsonl", encoding="utf-8") as f:
@@ -23,7 +31,7 @@ def main() -> None:
             if r["disp"] not in ("stored", "replaced"):
                 continue
             try:
-                node = parse(r["expr"])
+                node = review.simplify(parse(r["expr"]))
             except Exception:                     # noqa: BLE001
                 n_err += 1
                 continue

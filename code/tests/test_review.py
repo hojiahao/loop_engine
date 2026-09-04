@@ -26,7 +26,7 @@ def test_zscore_rank_mix_preserved():
     """用户 2026-08-18 拍板:zscore(std≈1) 与 rank_cs(std≈0.29,≈3.4x)直接混合【保留】,
     不做形态包装;真正失衡(≥5x)由回测前的分支支配简化处理。"""
     t = parse("add(rank_cs(log_mv), rank_cs(log_amount))")
-    assert simplify(t).to_str() == "add(rank_cs(log_mv), rank_cs(log_amount))"
+    assert simplify(t).to_str() == "add(rank_cs(log_amount), rank_cs(log_mv))"
 
 
 # ---------------- 过滤4:最小复杂度 ----------------
@@ -99,6 +99,15 @@ def test_simplify_flattens_and_orders_add():
     c = simplify(parse("add(add(rank_cs(log_amount), zscore(ret)), rank_cs(log_mv))"))
     assert a.to_str() == b.to_str() == c.to_str()
     assert a.expr_hash() == b.expr_hash() == c.expr_hash()
+
+
+def test_simplify_orders_binary_commutative_operators():
+    """Two-operand add/mul must share identity when operands are swapped."""
+    for op in ("add", "mul"):
+        a = simplify(parse(f"{op}(rank_cs(log_mv), zscore(ret))"))
+        b = simplify(parse(f"{op}(zscore(ret), rank_cs(log_mv))"))
+        assert a.to_str() == b.to_str()
+        assert a.expr_hash() == b.expr_hash()
 
 
 def test_simplify_flattens_mul_not_sub():

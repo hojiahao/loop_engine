@@ -37,6 +37,24 @@ class AlwaysPass(Evaluator):
         )
 
 
+class ScriptedEvolver:
+    def __init__(self, nodes):
+        self.nodes = nodes
+        self.last_gen_meta = []
+        self._delegate = Evolver(FIELDS, rng=np.random.default_rng(0))
+        self.perturber = self._delegate.perturber
+
+    def set_field_usage(self, usage):
+        pass
+
+    def generate(self, parents, n, llm_time_budget=360.0):
+        self.last_gen_meta = [{"op": "scripted"}] * len(self.nodes[:n])
+        return self.nodes[:n]
+
+    def observe(self, node, sharpe):
+        self._delegate.observe(node, sharpe)
+
+
 def test_run_round_mock_restores(tmp_path):
     panels = _synth_panels()
     cp = Checkpoint(tmp_path / "cp.json")
@@ -73,6 +91,16 @@ def test_coverage_ignores_warmup_months():
     df = pd.DataFrame(rng.normal(0, 1, (1100, 5)), index=idx)
     df.loc[:"2017-12-31"] = np.nan                               # warmup 全 NaN
     assert _coverage_reason(df) is None                          # 不得误报
+
+
+def test_coverage_ignores_data_after_is_end():
+    """A development-period coverage collapse must not influence IS admission."""
+    from loop_orchestrate import _coverage_reason
+    idx = pd.date_range("2021-01-01", "2025-12-31", freq="B")
+    rng = np.random.default_rng(11)
+    df = pd.DataFrame(rng.normal(size=(len(idx), 5)), index=idx)
+    df.loc["2025-05-01":"2025-05-31"] = np.nan
+    assert _coverage_reason(df) is None
 
 
 def test_simplify_or_combine():
@@ -208,6 +236,71 @@ def test_store_persists_ls_ret(tmp_path):
     stored_with_ret = [f for f in cp2.stored_factors if f.get("ls_ret")]
     assert stored_with_ret, "入库因子应带 ls_ret"
     assert len(stored_with_ret[0]["ls_ret"]) > 20
+    assert stored_with_ret[0]["ls_ret_kind"] == "simple_return"
+
+
+def test_normalization_rehashes_and_deduplicates_before_backtest(tmp_path):
+    from engine import review
+    from engine.expression import parse
+
+    first = parse("zscore(add(add(rank_cs(ret), rank_cs(overnight)), rank_cs(amplitude)))")
+    second = parse("zscore(add(rank_cs(amplitude), add(rank_cs(overnight), rank_cs(ret))))")
+    assert first.expr_hash() != second.expr_hash()
+    canonical_hash = review.simplify(first).expr_hash()
+    cp = Checkpoint(tmp_path / "cp.json")
+    stats = run_round(
+        checkpoint=cp, evolver=ScriptedEvolver([first, second]), evaluator=AlwaysPass(),
+        field_panels=_synth_panels(), fsa=FSA(), fields=FIELDS,
+        n_candidates=2, n_workers=1,
+    )
+    assert stats.n_tested == 1
+    assert canonical_hash in cp.tested_hashes
+    assert all(f["hash"] == parse(f["expr"]).expr_hash() for f in cp.stored_factors)
+
+
+def test_binary_commutative_forms_deduplicate_before_backtest(tmp_path):
+    from engine.expression import parse
+
+    first = parse("zscore(add(ma(ret, 20), rank_ts(overnight, 40)))")
+    second = parse("zscore(add(rank_ts(overnight, 40), ma(ret, 20)))")
+    cp = Checkpoint(tmp_path / "cp.json")
+    stats = run_round(
+        checkpoint=cp, evolver=ScriptedEvolver([first, second]), evaluator=AlwaysPass(),
+        field_panels=_synth_panels(), fsa=FSA(), fields=FIELDS,
+        n_candidates=2, n_workers=1,
+    )
+    assert stats.n_tested == 1
+
+
+def test_failed_hash_filter_is_wired_in_production_path(tmp_path):
+    from engine import review
+    from engine.expression import parse
+
+    node = parse("zscore(add(add(rank_cs(ret), rank_cs(overnight)), rank_cs(amplitude)))")
+    canonical_hash = review.simplify(node).expr_hash()
+    cp = Checkpoint(tmp_path / "cp.json")
+    cp.failed_hashes.add(canonical_hash)
+    stats = run_round(
+        checkpoint=cp, evolver=ScriptedEvolver([node]), evaluator=AlwaysPass(),
+        field_panels=_synth_panels(), fsa=FSA(), fields=FIELDS,
+        n_candidates=1, n_workers=1,
+    )
+    reasons = [reason for event in stats.reject_records for reason in event["reasons"]]
+    assert any("11.命中失败模式库" in reason for reason in reasons)
+
+
+def test_successful_backtests_persist_perturber_observations(tmp_path):
+    from engine.expression import parse
+
+    node = parse("zscore(add(ma(ret, 20), ma(overnight, 40)))")
+    cp = Checkpoint(tmp_path / "cp.json")
+    run_round(
+        checkpoint=cp, evolver=ScriptedEvolver([node]), evaluator=AlwaysPass(),
+        field_panels=_synth_panels(), fsa=FSA(), fields=FIELDS,
+        n_candidates=1, n_workers=1,
+    )
+    loaded = Checkpoint.load(tmp_path / "cp.json")
+    assert loaded.perturb_state["history"]
 
 
 def test_gen_src_pass_review_counts(tmp_path):

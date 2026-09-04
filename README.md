@@ -1,65 +1,100 @@
-# factor_loop_engine —— Loop+Engineering 自动化因子发现引擎
+# loop_engine
 
-基于中金《大模型系列(7):基于 Loop+Engineering 的自动化因子发现引擎》。
-**核心算法层纯 Python**(131 单元测试),OSS+duckdb 取数,LLM 可切换 provider,真实回测接 alphalab。
+维护者：[hojiahao](https://github.com/hojiahao)
 
-## 文档
-- 执行总纲:`docs/项目执行指南.md`(研报 M1–M9 拆解、7 阶段规划、关键参数)
-- 取数背景:`docs/OSS取数说明.md`(阿里云 OSS + DuckDB + RAM 角色)
-- Claude Code 对接/定时闭环:`output/claude_code_integration.md`
+`loop_engine` 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
+量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与
+PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 AlphaLab CLI
+完成横截面因子评测。
 
-## 快速开始
+> 当前状态：代码与 checkpoint 已完成一致性和安全迁移，但 23 个历史入库因子
+> 的指标全部被标记为 `stale`。在使用当前算子实现完成全库重测前，系统会拒绝
+> 新一轮挖掘、指标排名和正式导出。仓库当前不包含可用于性能声明的严格样本外结果。
 
-```powershell
-uv sync --directory factor_loop_engine                                    # 装依赖(首次)
-uv run --directory factor_loop_engine pytest                              # 131 测试
-uv run --directory factor_loop_engine code/run_round_cli.py --mock --n 100 # 跑一轮(离线 mock,不花钱)
-uv run --directory factor_loop_engine code/lib_status.py                   # 看因子库状态
-uv run --directory factor_loop_engine code/export_factors.py               # 导出入库因子为 parquet
+## 研究边界
+
+| 区间 | 用途 | 自动发现进程权限 |
+|---|---|---|
+| 2015-01-01 至 2017-12-31 | 因子预热 | 只用于因果滚动计算 |
+| 2018-01-01 至 2023-06-30 | IS 研究与准入 | 可见、可选择方向 |
+| 2023-07-01 至 2024-12-31 | 隔离带 | 不评测 |
+| 2025-01-01 至 2025-12-31 | 已污染开发验证 | 仅保留历史审计，不得用于准入或最终结论 |
+
+2025 年曾使用 `direction.mode: auto` / `best_icir` 重新选择方向，并参与过重准入
+决策，因此不是严格 OOS。当前发现进程只加载到 IS 截止日；任何非 IS 评测若仍启用
+自适应方向，`AlphalabEvaluator` 会直接拒绝执行。真正的最终测试集必须在表达式、
+方向、超参数和数据口径冻结后一次性解锁。
+
+## 已修复的关键问题
+
+1. **样本隔离**：移除自动 2025 评测，收紧数据加载、覆盖率检查和导出边界；历史
+   OOS 文件改名为受污染开发验证审计文件。
+2. **代码/指标一致性**：每个因子保存算子与评测器指纹；旧指标默认失效；新增全库
+   原子重测工具，导出默认拒绝 stale 指标。
+3. **规范哈希**：先规范表达式再计算 SHA-1；`add`/`mul` 按交换结合律统一；迁移器
+   补齐 tested/failed 哈希并对入库碰撞 fail closed。
+4. **缺失窗口偏度**：二、三阶矩和无偏修正统一使用窗口实际有效样本数；常数窗口
+   返回 0，观测不足返回 NaN。
+5. **进程安全**：生产入口使用单写者进程锁；状态采用唯一同目录临时文件、`fsync`
+   和原子替换；checkpoint 带 schema/revision 冲突检测。
+6. **扰动与失败记忆**：成功回测会更新窗口-Sharpe 历史，扰动状态可恢复/持久化；
+   过滤器 #11 已接入生产 `failed_hashes`。
+7. **重准入一致性**：重准入重新经过规范化、覆盖率、IS 回测、机器过滤和 fail-closed
+   LLM 终审；`--force` 只能显式豁免 #16，并完整记录 override 审计。
+8. **PnL 相关性**：统一使用 `NAV[t] / NAV[t-1] - 1` 的简单收益率，并对旧 delta-NAV
+   序列执行可审计迁移。
+
+## 运行架构
+
+```text
+候选生成 -> 结构审查/规范化 -> IS 因子求值 -> AlphaLab 评测
+         -> 过滤 #1-#15 -> LLM 终审 #16 -> 入库/替换 -> 原子 checkpoint
 ```
-真实模式(GLM 生成 + DeepSeek 终审 + alphalab 回测):配好 `.env` 后去掉 `--mock`。
 
-## 数据字段与机制族
+- `code/engine/`：表达式、算子、演化、扰动、FSA、状态与持久化。
+- `code/backtest/`：统一评测接口、AlphaLab 适配器和收益率口径。
+- `code/data_layer/`：现有 A 股 OSS/DuckDB 数据加载与 PIT 字段派生。
+- `code/loop_orchestrate.py`：单轮生成、回测、过滤、审计与入库。
+- `code/revalidate_library.py`：使用当前语义重测全库；任一评测失败则不提交状态。
+- `code/migrate_checkpoint_v2.py`：幂等迁移旧哈希、指标 provenance 和收益序列。
+- `output/factors/`：当前可导出结果及明确隔离的历史审计文件。
 
-**字段 25 个**(引擎可用叶子;`run_round_cli.FIELDS`):
-- **价量 13**(原始+派生,2015-2025):adj OHLC、overnight/intraday/amplitude、影线、hl_ratio、ret、log_volume/log_amount/log_mv
-- **基本面一期 6**(2026-08-24,OSS `fin_indicators`/`valuation` 日频 PIT 表):roe、roa、profit_growth、bm、div_yield、ps(故意排除 PE/PEG——负值 rank 语义反转)
-- **基本面二期 6**(2026-08-27,`income`/`balance_sheet`/`cash_flow` 三表跨表比率,杜邦/现金流族):op_margin(营业利润率)、asset_turn(资产周转)、ocf_asset(OCF/总资产)、ocf_margin(现金流含量)、debt_ratio(资产负债率)、np_margin(净利率)
+## 本地验证
 
-基本面表均为**日频、按公告时点 PIT 对齐**(阶梯性已实测验证:每股每年 4-5 个 distinct 值,跳变集中于 4/8/10 月披露季);分母护栏(营收/总资产>0、ps>0、inf 置 NULL)在 `data_loader.py`。
+需要 Python 3.11+ 和 [uv](https://docs.astral.sh/uv/)：
 
-**机制族 17 张卡片**(`llm/mechanisms.py`,LLM 机制引导生成):图表 7 原始 12 族(时序 8 + 截面 4)+ 基本面一期 3 族(cs_value 价值修复 / cs_quality 质量溢价 / cs_growth 成长,2026-08-24)+ 二期 2 族(cs_dupont 杜邦效率 / cs_cashflow 现金流质量,2026-08-27)。基本面 5 族 boost 6.0 最高优先;卡片 hint 内置「基本面×价量混血」形态指引(各分支标准化后相加——库内实证唯一稳定可行形态)。
-
-## 目录结构(四分离:代码 / 缓存 / 产出 / 文档)
-
-```
-factor_loop_engine/
-├── code/        💻 源代码(engine/ data_layer/ llm/ backtest/ tests/ + 编排/CLI 脚本)
-├── config/      ⚙️ alphalab.yaml(项目专用回测配置)
-├── docs/        📄 规格(项目执行指南、OSS取数说明)
-├── output/      📊 产出(claude_code_integration.md、lessons.md、运行时 checkpoint/factors)
-├── cache/       📦 可重建缓存(OSS 行情/面板 parquet;gitignore)
-├── .env(.example)   LLM key + alphalab 路径(.env gitignore,.example 是模板)
-└── pyproject.toml / uv.lock
+```bash
+uv sync
+uv run pytest
+uv run code/lib_status.py
+uv run code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
 ```
 
-## 新机器部署(可移植性)
+当前测试集收集 217 个测试（本环境 216 通过、1 个真实 Windows AlphaLab fixture
+因外部依赖缺失而跳过）。mock 模式仅验证流水线，不产生投资研究结论。
 
-| 依赖 | 说明 |
-|---|---|
-| **Python + uv** | Python ≥3.11;`uv sync` 装依赖(`pyproject.toml`) |
-| **数据(OSS)** | 取数靠阿里云 ECS 实例元数据(IMDS)。**两种办法**:① 新机器也是阿里云 ECS(同 region);② **把 `cache/` 整个拷过去**——加载器优先读本地缓存,有就不碰 OSS,无需改代码 |
-| **回测(alphalab)** | 外部工具(独立 venv + rqdatac 凭证 + 缓存预热)。路径用环境变量 `ALPHALAB_DIR` 配(见 `.env`),换机器改这一处 |
-| **LLM** | 复制 `.env.example` → `.env`,填 DeepSeek/GLM key;切 provider 改 `GENERATION_PROVIDER`/`REVIEW_PROVIDER` |
-| **运行** | `uv sync` → 配 `.env` → `uv run --directory factor_loop_engine code/run_round_cli.py --n 30` |
+## 真实重测与导出
 
-> `package=false`(uv 虚拟项目):规避中文路径写进 venv `.pth` 致 site 崩溃。导入用扁平包:`from data_layer import oss`(`uv run code/x.py` 自动把 `code/` 放进 `sys.path[0]`)。
+真实模式仍需要原项目的私有 AlphaLab CLI、RQData/行情缓存和 OSS 数据权限。
+PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此伪造重测结果。
+依赖和数据就绪后按以下顺序执行：
 
-## 关键参数
-全部集中在 `code/engine/config.py`,每条标【出处】([研报]/[推断]/[默认]/[用户]):
-算子 14 / 深度≤4 / 演化预算 25·25·15·15·20 / 窗口集 {5,10,20,40,60,80,120,250} / FSA 15%·2·5 /
-回测 2018-2025 horizon=5 / 16 项过滤(#1-#15 机器关 + #16 LLM 终审 DeepSeek)/ warmup 从 2015 起。
+```bash
+uv run code/migrate_checkpoint_v2.py
+uv run code/revalidate_library.py --workers 3
+uv run code/lib_status.py
+uv run code/export_factors.py
+```
 
-## 运行观测(方式 B,Claude /loop)
+`--allow-stale-metrics` 只允许诊断性导出，并会在 manifest 标记 `stale`；不得用于
+研究结论。迁移前的清单和 2025 开发验证保存在 `output/factors/legacy_*.csv`。
 
-每轮完整汇报:漏斗五数、LLM 健康(生成解析失败/兜底 + 过审查按源)、终审通过/拒/错(拒因详情+IS 指标强制入报)、OOS 体检、双口径相关性(IC/PnL 含 0.5-0.7 灰区)、失败模式库(死骨架规避)、入库替换明细。审计日志:`output/final_review_log.jsonl`(终审)、`llm_gen_failures.jsonl`(生成失败)、`rejects.jsonl`(全量台账)、`lessons.md`(经验沉淀)。回滚标签:`pre-fundamental-20260824`。
+## 已知限制与下一阶段
+
+- 当前 universe、字段、成本和企业行动口径均为 A 股专用，尚不能用于美股研究。
+- 当前 JSON checkpoint 已具备单机进程安全，但美股重构会升级为事务型元数据存储、
+  内容寻址 Parquet 数据快照和不可见 holdout 权限边界。
+- 美股数据供应商、回测内核、品牌名称和所有者署名将在重构计划确认后切换；第三方
+  许可证及不可变审计历史必须依法保留，不会伪装成原创内容。
+- 本项目用于研究基础设施，不构成投资建议；任何结果都必须经过独立复核、成本与容量
+  压测以及真正未触碰样本的验证。

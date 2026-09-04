@@ -59,12 +59,11 @@ def simplify(tree: Node) -> Node:
     # add/mul 规范化:展平嵌套同类 → 字典序排序 → 左倾重建
     if node.op in ("add", "mul") and len(node.children) == 2:
         args = _flatten_ac(node, node.op)
-        if len(args) > 2:
-            args.sort(key=lambda s: s.to_str())
-            t = args[0]
-            for a in args[1:]:
-                t = Node(node.op, None, None, [t, a])
-            node = t
+        args.sort(key=lambda s: s.to_str())
+        t = args[0]
+        for a in args[1:]:
+            t = Node(node.op, None, None, [t, a])
+        node = t
     return node
 
 
