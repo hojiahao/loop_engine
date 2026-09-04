@@ -2,6 +2,12 @@
 
 维护者：[hojiahao](https://github.com/hojiahao)
 
+> 美股 Loop Engineering 重构正在
+> [`refactor/us-equities-loop-runtime`](https://github.com/hojiahao/loop_engine/tree/refactor/us-equities-loop-runtime)
+> 分支按阶段实施。执行状态与强制退出条件见
+> [`docs/IMPLEMENTATION_TODO.md`](docs/IMPLEMENTATION_TODO.md)。当前 `main` 仍是已冻结的
+> A 股 legacy 基线，不代表美股版本已经完成。
+
 `loop_engine` 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
 量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与
 PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 AlphaLab CLI
