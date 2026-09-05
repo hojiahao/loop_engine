@@ -30,7 +30,7 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 - [x] Re-run tests and validate all Phase 0 documents.
 - [x] Commit and push the Phase 0 deliverables.
 
-## Phase 1 - Reproducible toolchain (`in_progress`)
+## Phase 1 - Reproducible toolchain (`complete`)
 
 - [x] Pin Rust, Node.js, pnpm, Python, uv, and container toolchains.
 - [x] Create the Rust, TypeScript, and Python workspace layout.
@@ -39,7 +39,7 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 - [x] Add formatting, linting, type checking, unit tests, and CI matrices.
 - [x] Add a development container and deterministic bootstrap documentation.
 - [x] Pass host and clean-container gates and record the evidence.
-- [ ] Commit and push the Phase 1 implementation to the remote branch.
+- [x] Commit and push the Phase 1 implementation to the remote branch.
 
 ## Phase 2 - Core contracts (`pending`)
 

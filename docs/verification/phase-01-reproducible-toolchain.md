@@ -2,7 +2,9 @@
 
 - Date: 2026-09-05 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
-- Implementation commit: pending remote push
+- Implementation commit: `c435c3bf5632019ca815e857577949d17e07e97b`
+- CI correction commit: `97680b219cc77e9c4764bc4998b145b5982be31e`
+- Remote gate: [GitHub Actions run 33950368197](https://github.com/hojiahao/loop_engine/actions/runs/33950368197) (`success`)
 - Scope: toolchains, workspace skeletons, unified gates, CI, and development container
 
 ## Pinned toolchains
@@ -74,6 +76,14 @@ providerd TypeScript typecheck: passed
 The disposable runtime volume and Compose network were removed after the
 verification. They contain only caches, virtual environments, and build output
 and are recreated by `./scripts/bootstrap.sh`.
+
+The remote gate repeated the language-specific jobs, unified workspace gates,
+and a clean DaoCloud development-container build. All six jobs passed. The
+container job completed in 4 minutes 8 seconds; the unified job completed in 1
+minute 54 seconds. An earlier run exposed an implicit `setup-node` cache path
+that did not exist because bootstrap intentionally uses the isolated runtime
+store. Commit `97680b2` disabled that implicit cache only for the unified gate;
+the TypeScript-specific job retains its valid explicit pnpm cache.
 
 ## Reproducibility boundary
 
