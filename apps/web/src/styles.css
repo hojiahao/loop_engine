@@ -1,0 +1,93 @@
+:root {
+  color: #e8eaed;
+  background: #151719;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+.shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid #34383c;
+  background: #1b1e20;
+}
+
+.environment,
+.eyebrow,
+dt {
+  color: #9ba1a6;
+  font-size: 0.8rem;
+}
+
+.workspace {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+h1 {
+  margin: 0 0 32px;
+  font-size: 2rem;
+  letter-spacing: 0;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid #34383c;
+}
+
+.status-grid div {
+  min-width: 0;
+  padding: 20px 16px 20px 0;
+  border-bottom: 1px solid #34383c;
+}
+
+dt,
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+dd {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    padding: 0 16px;
+  }
+
+  .workspace {
+    padding: 36px 16px;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}

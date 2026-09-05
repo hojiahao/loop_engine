@@ -1,12 +1,34 @@
 # 密钥(绝不提交)
-.env
+.env*
+!.env.example
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+.agents/
+.codex/
+*.key
+*.p12
+*.pfx
+*.pem
 
 # uv / Python
 .venv/
+.venv-*/
+.tools/
 __pycache__/
 *.pyc
+*.egg-info/
+.hypothesis/
+build/
+
+# Rust / TypeScript build products
+target/
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
 
 # 缓存(可重建,不提交)
 cache/
@@ -21,3 +43,5 @@ output/factors/*
 !output/factors/legacy_*.csv
 output/loop.log
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/

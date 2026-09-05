@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+
+# Do not admit packages published within the last 24 hours. This slows down
+# dependency-confusion and compromised-release propagation without weakening
+# exact lockfile pinning.
+minimumReleaseAge: 1440
+
+# Native optional packages are materialized only for the machine running the
+# workspace. The lockfile still records all supported targets for CI portability.
+supportedArchitectures:
+  os:
+    - current
+  cpu:
+    - current
+  libc:
+    - current

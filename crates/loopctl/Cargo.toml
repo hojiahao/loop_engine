@@ -1,0 +1,13 @@
+[package]
+name = "loopctl"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+loop-core = { path = "../loop-core" }
+serde_json.workspace = true

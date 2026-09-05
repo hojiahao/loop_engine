@@ -1,0 +1,16 @@
+[package]
+name = "loopd"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+clap.workspace = true
+loop-core = { path = "../loop-core" }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

@@ -1,0 +1,27 @@
+{
+  "name": "loop-engine-workspace",
+  "version": "0.2.0-alpha.1",
+  "private": true,
+  "description": "Provider-neutral Loop Engineering platform for US equity factor research",
+  "author": "hojiahao <hojiahao@outlook.com>",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": "24.17.0",
+    "pnpm": "11.25.0"
+  },
+  "scripts": {
+    "build": "corepack pnpm -r --if-present build",
+    "check": "corepack pnpm format:check && corepack pnpm lint && corepack pnpm typecheck",
+    "format": "biome format --write apps *.json",
+    "format:check": "biome format apps *.json",
+    "lint": "biome lint apps",
+    "test": "corepack pnpm -r --if-present test",
+    "typecheck": "corepack pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}

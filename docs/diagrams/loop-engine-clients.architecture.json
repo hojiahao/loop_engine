@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Loop Engine 客户端与运行架构",
+    "locale": "zh-CN",
+    "output": "loop-engine-clients.architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [1390, 680],
+    "views": [
+      {
+        "id": "web-research",
+        "label": "Web 研究工作台",
+        "focus": ["operator", "web", "loopd", "loop_runtime", "researchd", "parquet"],
+        "note": "从研究工作台发起任务，并沿可审计路径读取因子与回测结果。"
+      },
+      {
+        "id": "tui-operation",
+        "label": "TUI 运行与恢复",
+        "focus": ["operator", "tui", "loopd", "run_harness", "providerd"],
+        "note": "通过 SSH 监督 Agent 步骤、预算、审批、暂停和恢复。"
+      },
+      {
+        "id": "durable-evidence",
+        "label": "持久状态与证据",
+        "focus": ["loopd", "loop_runtime", "sqlite", "researchd", "parquet"],
+        "note": "控制状态进入事务数据库，大型研究数据保持为不可变内容寻址快照。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "operator",
+      "type": "external",
+      "label": "研究员 / 运维员",
+      "sublabel": "同一身份与审计主体",
+      "pos": [30, 276],
+      "size": [150, 68]
+    },
+    {
+      "id": "tui",
+      "type": "frontend",
+      "label": "Ratatui TUI",
+      "sublabel": "SSH 运行 / 审批 / 恢复",
+      "tag": "键盘优先",
+      "pos": [240, 96],
+      "size": [170, 72]
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "React Web",
+      "sublabel": "分析 / 对账 / 治理",
+      "tag": "主工作台",
+      "pos": [240, 274],
+      "size": [170, 72]
+    },
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "loopctl CLI",
+      "sublabel": "自动化 / CI / 精确管理",
+      "tag": "稳定命令面",
+      "pos": [240, 452],
+      "size": [170, 72]
+    },
+    {
+      "id": "loopd",
+      "type": "backend",
+      "label": "loopd API",
+      "sublabel": "Rust / Axum / gRPC",
+      "tag": "统一权限与审计",
+      "pos": [490, 274],
+      "size": [170, 72]
+    },
+    {
+      "id": "loop_runtime",
+      "type": "backend",
+      "label": "Loop Runtime",
+      "sublabel": "任务 / 调度 / 跨轮状态",
+      "tag": "有界循环",
+      "pos": [740, 96],
+      "size": [180, 72]
+    },
+    {
+      "id": "run_harness",
+      "type": "security",
+      "label": "Run Harness",
+      "sublabel": "工具 / capability / 预算",
+      "tag": "fail closed",
+      "pos": [740, 274],
+      "size": [180, 72]
+    },
+    {
+      "id": "providerd",
+      "type": "backend",
+      "label": "providerd",
+      "sublabel": "TypeScript Provider Host",
+      "tag": "原生协议 + 插件",
+      "pos": [990, 96],
+      "size": [190, 72]
+    },
+    {
+      "id": "researchd",
+      "type": "backend",
+      "label": "researchd",
+      "sublabel": "Python 因子与回测",
+      "tag": "确定性数值路径",
+      "pos": [990, 360],
+      "size": [190, 72]
+    },
+    {
+      "id": "models",
+      "type": "external",
+      "label": "LLM Providers",
+      "sublabel": "固定模型 ID",
+      "pos": [1250, 96],
+      "size": [130, 72]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite WAL",
+      "sublabel": "revision / lease / audit",
+      "tag": "事务元数据",
+      "pos": [740, 452],
+      "size": [180, 72]
+    },
+    {
+      "id": "parquet",
+      "type": "database",
+      "label": "Parquet 快照",
+      "sublabel": "URI / schema / SHA-256",
+      "tag": "不可变大型数据",
+      "pos": [1250, 360],
+      "size": [130, 72]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "客户端：相同 API、权限与状态",
+      "wraps": ["tui", "web", "cli"],
+      "pad": 24
+    },
+    {
+      "kind": "security-group",
+      "label": "Rust 控制平面",
+      "wraps": ["loopd", "loop_runtime", "run_harness", "sqlite"],
+      "pad": 24
+    }
+  ],
+  "connections": [
+    {
+      "id": "operator_web",
+      "from": "operator",
+      "to": "web",
+      "label": "浏览器 HTTPS",
+      "variant": "emphasis",
+      "labelAt": [280, 370]
+    },
+    {
+      "id": "operator_tui",
+      "from": "operator",
+      "to": "tui",
+      "label": "SSH"
+    },
+    {
+      "id": "operator_cli",
+      "from": "operator",
+      "to": "cli",
+      "label": "Shell / CI"
+    },
+    {
+      "id": "web_api",
+      "from": "web",
+      "to": "loopd",
+      "label": "版本化 API",
+      "variant": "emphasis",
+      "labelAt": [530, 370]
+    },
+    {
+      "id": "tui_api",
+      "from": "tui",
+      "to": "loopd",
+      "label": "运行事件"
+    },
+    {
+      "id": "cli_api",
+      "from": "cli",
+      "to": "loopd",
+      "label": "管理命令"
+    },
+    {
+      "id": "loopd_runtime",
+      "from": "loopd",
+      "to": "loop_runtime",
+      "label": "调度与停止条件",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runtime_harness",
+      "from": "loop_runtime",
+      "to": "run_harness",
+      "label": "启动单次 Agent",
+      "labelAt": [830, 182]
+    },
+    {
+      "id": "harness_provider",
+      "from": "run_harness",
+      "to": "providerd",
+      "label": "标准化模型请求",
+      "variant": "security"
+    },
+    {
+      "id": "provider_models",
+      "from": "providerd",
+      "to": "models",
+      "label": "原生 / 兼容协议",
+      "labelAt": [1215, 182]
+    },
+    {
+      "id": "harness_research",
+      "from": "run_harness",
+      "to": "researchd",
+      "label": "类型化研究工具",
+      "variant": "security",
+      "labelAt": [1040, 340]
+    },
+    {
+      "id": "loopd_state",
+      "from": "loopd",
+      "to": "sqlite",
+      "label": "事务 / lease / 审计"
+    },
+    {
+      "id": "research_snapshots",
+      "from": "researchd",
+      "to": "parquet",
+      "label": "内容寻址读写"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Web 主工作台",
+      "items": [
+        "运行、数据、因子、回测、Provider、Holdout 与审计视图",
+        "适合表格比较、曲线、风险暴露和双回测对账"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "TUI 与 CLI",
+      "items": [
+        "TUI 面向 SSH 监督、审批、暂停、取消与崩溃恢复",
+        "CLI 面向脚本、CI 和可重复的精确管理命令"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "治理边界",
+      "items": [
+        "Holdout 解锁、强制重准入和预算提升进入独立审批流",
+        "客户端与 Provider 不直接访问研究状态或 Holdout 存储"
+      ]
+    }
+  ]
+}

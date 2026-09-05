@@ -1,4 +1,4 @@
-# loop_engine
+# Loop Engine
 
 维护者：[hojiahao](https://github.com/hojiahao)
 
@@ -8,7 +8,32 @@
 > [`docs/IMPLEMENTATION_TODO.md`](docs/IMPLEMENTATION_TODO.md)。当前 `main` 仍是已冻结的
 > A 股 legacy 基线，不代表美股版本已经完成。
 
-`loop_engine` 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
+目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
+[`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；
+目标目录所有权和迁移顺序见
+[`ADR 0003`](docs/adr/0003-repository-layout-and-ownership.md)。
+
+## Phase 1 重构工作区
+
+当前分支已经建立 Rust 控制平面、TypeScript Provider/Web 和 Python researchd
+三套工作区骨架。新工作区使用统一门禁，详细版本、容器来源和宿主机要求见
+[`开发环境说明`](docs/development/bootstrap.md)，实际验收证据见
+[`Phase 1 验证记录`](docs/verification/phase-01-reproducible-toolchain.md)。
+
+```bash
+./scripts/bootstrap.sh
+just check
+just test
+just build
+just doctor
+```
+
+开发容器的基础镜像全部通过 DaoCloud 拉取并固定 OCI 摘要。工具缓存、Python
+虚拟环境和 pnpm content store 放在独立具名卷中，不会复用宿主机环境；生成的
+`node_modules` 仍位于 bind-mounted 工作区并被 Git 忽略。生产数据、Provider 密钥和
+holdout capability 均不进入构建上下文。
+
+Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
 量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与
 PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 AlphaLab CLI
 完成横截面因子评测。
@@ -65,15 +90,16 @@ PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 
 - `code/migrate_checkpoint_v2.py`：幂等迁移旧哈希、指标 provenance 和收益序列。
 - `output/factors/`：当前可导出结果及明确隔离的历史审计文件。
 
-## 本地验证
+## Legacy A 股诊断
 
-需要 Python 3.11+ 和 [uv](https://docs.astral.sh/uv/)：
+新重构代码统一使用前述 `just` 门禁。只有在单独诊断冻结的 A 股实现时，才使用
+根目录 legacy Python 3.11+ 环境：
 
 ```bash
-uv sync
-uv run pytest
-uv run code/lib_status.py
-uv run code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
+uv sync --locked
+uv run --locked pytest
+uv run --locked code/lib_status.py
+uv run --locked code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
 ```
 
 当前测试集收集 217 个测试（本环境 216 通过、1 个真实 Windows AlphaLab fixture
@@ -86,10 +112,10 @@ PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此
 依赖和数据就绪后按以下顺序执行：
 
 ```bash
-uv run code/migrate_checkpoint_v2.py
-uv run code/revalidate_library.py --workers 3
-uv run code/lib_status.py
-uv run code/export_factors.py
+uv run --locked code/migrate_checkpoint_v2.py
+uv run --locked code/revalidate_library.py --workers 3
+uv run --locked code/lib_status.py
+uv run --locked code/export_factors.py
 ```
 
 `--allow-stale-metrics` 只允许诊断性导出，并会在 manifest 标记 `stale`；不得用于
@@ -100,7 +126,7 @@ uv run code/export_factors.py
 - 当前 universe、字段、成本和企业行动口径均为 A 股专用，尚不能用于美股研究。
 - 当前 JSON checkpoint 已具备单机进程安全，但美股重构会升级为事务型元数据存储、
   内容寻址 Parquet 数据快照和不可见 holdout 权限边界。
-- 美股数据供应商、回测内核、品牌名称和所有者署名将在重构计划确认后切换；第三方
-  许可证及不可变审计历史必须依法保留，不会伪装成原创内容。
+- 新工作区已经使用 Loop Engine 品牌和维护者信息；美股数据供应商与回测内核将在
+  对应阶段接入。第三方许可证及不可变审计历史必须依法保留，不会伪装成原创内容。
 - 本项目用于研究基础设施，不构成投资建议；任何结果都必须经过独立复核、成本与容量
   压测以及真正未触碰样本的验证。
