@@ -2,7 +2,7 @@
 
 - Date: 2026-09-07 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
-- Status: review checkpoint; final workspace, container, and remote CI gates pending
+- Status: complete; implementation `0615d81` pushed and all exit gates passed
 - Decision: `docs/adr/0004-core-protocol-and-canonical-identities.md`
 - Protocol baseline history: `docs/verification/phase-02-protocol-baseline.md`
 
@@ -107,28 +107,41 @@ not assumed to preserve unknown fields after re-encoding.
 
 Shared tabular negative vectors currently cover 105 job-record combinations,
 59 holdout identity cases, 25 research-boundary cases, 14 holdout-boundary
-cases, 18 artifact-reference cases, 8 protocol-selection negatives, 7 holdout
-job-binding cases, and 6 grant-lifetime cases. Canonical JSON fixtures add
+cases, 18 artifact-reference cases, 15 protocol-negotiation cases,
+8 protocol-selection negatives, 7 holdout job-binding cases, and 6 grant-lifetime cases. Canonical JSON fixtures add
 positive, tamper, size-limit, ordering, and replay cases for factors, operator
 semantics, holdout plans, and audit chains.
 
 ## Exit-gate evidence
 
-The following evidence is recorded only after running against the final working
-tree. This table remains intentionally incomplete until the corresponding gate
-and remote delivery have succeeded.
+The implementation was delivered in `ed85d2d`, followed by the contributor
+language rule in `9ba4a36` and the CI cache correction in `0615d81`.
+All are pushed to the refactor branch. The final host gates passed on
+2026-09-07, and
+[CI run 34101687394](https://github.com/hojiahao/loop_engine/actions/runs/34101687394)
+passed all seven jobs for `0615d818e4e0e7fdf404db02ee9ca1c5e0683889`.
 
 | Gate | Result |
 | --- | --- |
-| deterministic generation and protocol baseline guard | pending final run |
-| Rust format, Clippy, unit, property, and integration tests | pending final run |
-| TypeScript format, lint, type, contract tests, and build | pending final run |
-| Python 3.14 protocol Ruff, mypy, contract tests, and build | pending final run |
-| cross-language wire and canonical fixtures | pending final run |
-| `just check` / `test` / `build` / `doctor` | pending final run |
-| clean DaoCloud development-container gate | pending |
-| commit and remote branch push | checkpoint `ed85d2d` and follow-up `9ba4a36` pushed |
-| GitHub Actions for pushed commit | run `34101082316`: Python tests passed; cache post-step failed; correction pending verification |
+| deterministic generation and protocol baseline guard | passed; checked-in bindings and wire producers match |
+| Rust format, Clippy, unit, property, and integration tests | passed; 76 workspace tests |
+| TypeScript format, lint, type, contract tests, and build | passed on host and CI |
+| Python 3.14 protocol Ruff, mypy, contract tests, and build | passed; 236 protocol tests |
+| cross-language wire and canonical fixtures | passed; no baseline change |
+| host `just check` / `test` / `build` / `doctor` | all passed |
+| research and isolated legacy regression | 1 research test; 216 legacy passed, 1 skipped, 12 NumPy warnings |
+| clean DaoCloud development-container gate | passed in CI job `101677333027`; fresh Ubuntu 24.04 runner and unique Compose volumes |
+| commit and remote branch push | implementation through `0615d81` pushed |
+| GitHub Actions for pushed commit | run `34101687394`: 7/7 jobs passed |
+
+The first run `34101082316` exposed a setup-uv cache-location mismatch after
+successful Python test steps. The correction explicitly aligns the action
+cache with `scripts/uv.sh`; no check was disabled. Its details are retained in
+the Python 3.14 amendment verification record.
+
+The subsequent phase-closure documentation commit changes evidence and status
+only. It does not alter the verified schema, bindings, implementation, locks,
+or test fixtures. Phase completion is not a merge to `main` or a product release.
 
 ## Explicitly deferred runtime work
 

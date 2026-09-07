@@ -19,7 +19,7 @@
 三套工作区骨架。新工作区使用统一门禁，详细版本、容器来源和宿主机要求见
 [`开发环境说明`](docs/development/bootstrap.md)，实际验收证据见
 [`Phase 1 验证记录`](docs/verification/phase-01-reproducible-toolchain.md)。Python
-工具链正在按 [`ADR 0005`](docs/adr/0005-python-314-uv-workspace.md) 升级为
+工具链已按 [`ADR 0005`](docs/adr/0005-python-314-uv-workspace.md) 升级为
 3.14.4、一个根 uv workspace、一个根 `uv.lock` 和一个 `.venv`；修订验收记录见
 [`Python 3.14 workspace 验证`](docs/verification/phase-01-python-314-amendment.md)。
 
@@ -38,10 +38,12 @@ Git 忽略的 `.venv`；容器把独立具名卷挂载到同一 `/workspace/.ven
 仍位于 bind-mounted 工作区并被 Git 忽略。生产数据、Provider 密钥和 holdout
 capability 均不进入构建上下文。
 
-## Phase 2 核心协议（实施中）
+## Phase 2 核心协议（已验收）
 
-当前代码作为可审查的阶段性 checkpoint 交付；核心契约和三语言实现已落地，完整工作区、
-干净容器和远端 CI 的最终验收仍待完成。阶段状态及证据以
+实现已通过提交 `0615d81` 推送；本地 `just check/test/build/doctor` 全部通过，
+[GitHub Actions](https://github.com/hojiahao/loop_engine/actions/runs/34101687394)
+的 7 个任务全部通过，包括 DaoCloud 干净容器验收。阶段完成不表示已经合并到 `main`，
+也不表示美股引擎已完整可用。阶段状态及证据以
 [`实施清单`](docs/IMPLEMENTATION_TODO.md)和
 [`Phase 2 验证记录`](docs/verification/phase-02-core-contracts.md)为准。
 
@@ -65,7 +67,7 @@ enqueue 或 dispatch；通用 `ArtifactRef` 也必须受 prompt-safe schema、�
 Phase 10；在这些门禁通过前，协议协商不会广告 `streams.terminal-event.v1`，也不会把
 DTO 定义误报为可执行能力。
 
-Phase 2 同时正在建立 Rust、TypeScript 和 Python 共用的规范因子身份。表达式先依据
+Phase 2 已建立 Rust、TypeScript 和 Python 共用的规范因子身份。表达式先依据
 固定算子注册表完成类型检查与规范化，再计算 SHA-256；冻结的 `FactorSpec` 进一步绑定
 表达式 ID、算子注册表摘要、固定方向和九项研究 policy。AST 可以表示类型化参数子树，
 但只有严格重解析后根类型为 `series` 的表达式才能进入 FactorSpec 或研究执行。规范详情见
@@ -79,8 +81,9 @@ provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 
 [`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
 [`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
 
-上述接口和规范仍在 Phase 2 退出门禁内；在跨语言向量、兼容性、边界和生成确定性测试、
-提交与推送全部通过前，本 README 不将 Phase 2 标记为完成。
+跨语言向量、兼容性、边界和生成确定性测试均已通过；Python 协议测试为 236 项，
+旧系统回归为 216 passed / 1 skipped。下一阶段为 Phase 3 的 SQLite 事务、作业状态、
+revision、lease、幂等入队及崩溃恢复，当前尚未实现。
 
 Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
 量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与

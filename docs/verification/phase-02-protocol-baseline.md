@@ -2,7 +2,7 @@
 
 - Date: 2026-09-05 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
-- Status: unreleased trust-anchor candidate; full Phase 2 exit gate pending
+- Status: accepted Phase 2 seed trust anchor; product release not claimed
 - Current and baseline descriptor SHA-256:
   `27a38398e290caee3fb857063c0f2adbbe43a7d2d44322103dbf4b72535be979`
 
@@ -37,7 +37,7 @@ snapshot IDs still require Phase 4/5 server-owned
 role resolution and capability enforcement before persistence or execution;
 this descriptor boundary does not claim to prove what an ID names.
 
-## Candidate evidence
+## Baseline evidence
 
 The candidate descriptor was generated from the checked-out `.proto` sources.
 The following checks establish that the candidate baseline and generated
@@ -76,12 +76,14 @@ Correction-specific verification recorded before the full exit gate:
 | TypeScript discovery/research boundary targets | 6 passed |
 | Python discovery/research boundary targets | 8 passed |
 
-`./scripts/proto-check.sh` and the complete repository gates remain pending for
-this candidate. They will refresh/check the aggregate wire fixtures after all
-concurrent Phase 2 contract corrections have stabilized.
+`./scripts/proto-check.sh` and the complete host gates passed on 2026-09-07.
+Pushed implementation commit `0615d81` also passed all seven jobs in
+[CI run 34101687394](https://github.com/hojiahao/loop_engine/actions/runs/34101687394),
+including deterministic generation and a clean DaoCloud container sequence.
+The digest above is therefore the accepted Phase 2 seed trust anchor, without
+changing either descriptor during phase closure. The aggregate evidence is in
+`docs/verification/phase-02-core-contracts.md`.
 
-No Phase 2 completion, release, or final freeze is claimed by this record. The
-remaining full repository gate, commit, and push are required by
-`docs/IMPLEMENTATION_TODO.md`. After release, a breaking change uses a new
-package major and reviewed migration; normal generation never advances the
-baseline.
+This is not a product release, a research freeze, or evidence of migration from
+a released protocol. Breaking changes require a new package major and reviewed
+migration; normal generation never advances the baseline.

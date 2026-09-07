@@ -41,19 +41,22 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 - [x] Pass host and clean-container gates and record the evidence.
 - [x] Commit and push the Phase 1 implementation to the remote branch.
 
-## Phase 1 amendment - Python 3.14 uv workspace (`in_progress`)
+## Phase 1 amendment - Python 3.14 uv workspace (`complete`)
 
 - [x] Pin the primary Python toolchain and package constraints to 3.14.4.
 - [x] Replace three independent uv projects with one root workspace, lockfile,
       and `.venv`.
 - [x] Update local wrappers, CI, container isolation, and wire producer metadata.
-- [ ] Pass host and clean-container gates on the amended toolchain.
-- [ ] Commit, push, and record a successful remote CI run.
+- [x] Pass host and clean-container gates on the amended toolchain.
+- [x] Commit, push, and record a successful remote CI run.
 
-## Phase 2 - Core contracts (`in_progress`)
+## Phase 2 - Core contracts (`complete`)
 
-Implementation is available as a review checkpoint. The phase remains in
-progress until the final workspace, clean-container, and remote CI gates pass.
+Implementation commit `0615d81` is pushed. Host `just check/test/build/doctor`
+and all seven jobs in GitHub Actions run `34101687394` passed, including the
+clean DaoCloud container gate. Detailed evidence is recorded in
+`docs/verification/phase-02-core-contracts.md`. Completion does not imply a
+merge to `main`, a production release, or implementation of later phases.
 
 - [x] Define versioned Protobuf contracts for jobs, factors, data, models,
       streams, backtests, and audit events.
@@ -61,8 +64,8 @@ progress until the final workspace, clean-container, and remote CI gates pass.
 - [x] Generate Rust, TypeScript, and Python bindings.
 - [x] Add schema evolution, unknown-field, and cross-language round-trip tests.
 - [x] Add pure protocol negotiation and persisted-selection availability checks.
-- [ ] Pass final workspace and clean-container gates.
-- [ ] Commit, push, and record a successful remote CI run for phase closure.
+- [x] Pass final workspace and clean-container gates.
+- [x] Commit, push, and record a successful remote CI run for phase closure.
 
 ## Phase 3 - Durable state (`pending`)
 

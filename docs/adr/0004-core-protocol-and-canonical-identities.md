@@ -167,13 +167,15 @@ checked out and must regenerate deterministically. The separately committed
 Normal generation and `--write` update only the current descriptor; baseline
 creation is an explicit one-time action that refuses to overwrite an existing
 baseline.
-The current unreleased Phase 2 trust-anchor candidate, created after narrowing
+The accepted Phase 2 seed trust anchor, created after narrowing
 the discovery, holdout, and research dependency surfaces, has SHA-256
 `27a38398e290caee3fb857063c0f2adbbe43a7d2d44322103dbf4b72535be979`.
 The unpublished safety-audit correction sequence and every rejected descriptor
 are recorded in `docs/verification/phase-02-protocol-baseline.md` and
-`fixtures/contracts/protocol/history/`. This is a candidate until the complete
-Phase 2 exit gate, commit, and push succeed.
+`fixtures/contracts/protocol/history/`. Its complete Phase 2 host and
+clean-container exit gates passed for pushed implementation `0615d81`, as
+recorded in `docs/verification/phase-02-core-contracts.md`. This acceptance is
+not a product release or a research freeze.
 
 ### Keep capabilities out of domain messages
 

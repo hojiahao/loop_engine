@@ -2,7 +2,7 @@
 
 - Date: 2026-09-07 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
-- Status: checkpoint pushed; final workspace, container, and remote CI gates pending
+- Status: complete; implementation `0615d81` pushed and all exit gates passed
 - Decision: `docs/adr/0005-python-314-uv-workspace.md`
 
 ## Scope
@@ -75,7 +75,7 @@ The Protobuf current and baseline descriptor SHA-256 remains
 `27a38398e290caee3fb857063c0f2adbbe43a7d2d44322103dbf4b72535be979`;
 the interpreter migration did not advance the wire compatibility baseline.
 
-## Pending exit evidence
+## Final exit evidence
 
 The implementation checkpoint `ed85d2d` and contributor-rule follow-up
 `9ba4a36` were pushed to the refactor branch. GitHub Actions run
@@ -84,23 +84,34 @@ steps (including 236 protocol tests), but the Python jobs failed in the
 setup-uv post-job cache step. The action's default temporary cache path did
 not match `scripts/uv.sh`, which writes to `.tools/uv-cache`. All four
 setup-uv callers now explicitly select that workspace cache path. No test or
-cache-failure check is suppressed; a new remote run must verify the correction.
+cache-failure check is suppressed. The correction passed all seven jobs in
+[GitHub Actions run 34101687394](https://github.com/hojiahao/loop_engine/actions/runs/34101687394)
+for pushed commit `0615d818e4e0e7fdf404db02ee9ca1c5e0683889`.
 
 The amended development image builds successfully with DaoCloud base images.
 Its Rust component archives are individually SHA-256 pinned and rechecked in
 a network-disabled installation layer. Verified image index digest:
 `6ee2ce637026655e0cd2ef829a9682df1ea567d4d30355a9a05bdbffa5fc0451`.
 Host bootstrap has also exercised direct component installation and subsequent
-standalone-prefix validation. These checks do not replace the complete
-workspace and clean-container gates below.
+standalone-prefix validation. Final verification on 2026-09-07 was:
 
-This amendment is not complete until the following all succeed on the final
-working tree:
+| Gate | Result |
+| --- | --- |
+| host `just check` / `test` / `build` / `doctor` | all passed |
+| host `uv lock --check --offline` | passed; 40 packages |
+| exact interpreter and root environment | CPython 3.14.4, single root `.venv` |
+| final Python protocol tests | 236 passed |
+| final research tests | 1 passed |
+| final isolated legacy tests | 216 passed, 1 skipped, 12 NumPy warnings |
+| remote isolated Python package tests and cache post-steps | all passed |
+| clean DaoCloud container build, bootstrap, check, test, build, recheck, doctor | passed in CI job `101677333027` |
+| implementation commit and push | `0615d81`, synchronized with origin |
+| complete remote CI | 7/7 jobs passed in run `34101687394` |
 
-- `just check`, `just test`, `just build`, and `just doctor`;
-- a clean DaoCloud development-container build and gate sequence;
-- a reviewable commit and remote branch push; and
-- the pushed GitHub Actions run.
+The final clean-container sequence ran on a fresh GitHub-hosted Ubuntu 24.04
+runner with unique Compose volumes. This is the clean-container evidence;
+the local host was separately verified without unnecessarily repeating the
+same container sequence. The original failing run remains part of the record.
 
 No production market-data or factor-performance claim follows from a toolchain
 compatibility run.

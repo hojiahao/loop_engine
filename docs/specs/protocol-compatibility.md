@@ -558,12 +558,12 @@ checked-out `.proto` source and must match it byte-for-byte on a clean second
 generation. `schema.baseline.binpb` is the immutable comparison point for Buf
 breaking checks. Ordinary generation updates `schema.current.binpb` only.
 Baseline initialization is explicit and refuses to overwrite an existing file.
-`scripts/verify-protocol-baseline.sh` additionally pins the candidate digest and
+`scripts/verify-protocol-baseline.sh` additionally pins the baseline digest and
 proves on a tampered temporary copy that the guard fails closed. Advancing the
 baseline requires a reviewed release operation that updates this explicit trust
 anchor, never an automatic generator side effect.
 
-The current unreleased Phase 2 baseline candidate was created only after
+The accepted Phase 2 seed baseline was created only after
 removing generic-job reachability from discovery and research, removing the
 caller-controlled holdout specification path, and splitting development-safe
 research provenance from `backtest.proto`. A subsequent boundary correction
@@ -575,10 +575,11 @@ descriptor SHA-256 is
 The complete unpublished correction sequence is recorded in
 `docs/verification/phase-02-protocol-baseline.md`; rejected descriptors are
 content-addressed under `fixtures/contracts/protocol/history/` and verified by
-the baseline guard. This trust anchor remains a candidate until the full Phase
-2 exit gate, commit, and push succeed.
+the baseline guard. The full Phase 2 host, clean-container, and remote CI gates
+passed for pushed implementation `0615d81`; see
+`docs/verification/phase-02-core-contracts.md` for the acceptance evidence.
 
-Because this is the first unpublished protocol candidate,
+Because this is the first accepted seed baseline, not a released-client migration,
 `schema.baseline.binpb` currently equals `schema.current.binpb`. The resulting
 Buf check proves deterministic self-compatibility and establishes a guard for
 future evolution; it does not demonstrate migration from a previously released
