@@ -4,17 +4,38 @@ set -euo pipefail
 loop_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 loop_runtime_root="${LOOP_ENGINE_RUNTIME_ROOT:-${loop_repo_dir}}"
 loop_tools_dir="${loop_runtime_root}/.tools"
-loop_rustup_home="${loop_tools_dir}/rustup"
 loop_cargo_home="${loop_tools_dir}/cargo"
-loop_rustup_target="x86_64-unknown-linux-gnu"
-loop_rustup_init_sha256="dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71"
-loop_rust_version="$(sed -n 's/^channel = "\([^"]*\)"/\1/p' "${loop_repo_dir}/rust-toolchain.toml")"
+loop_rust_release_date="2026-02-12"
+loop_rust_dist_mirror="${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
+source "${loop_repo_dir}/scripts/rust-toolchain-common.sh"
+loop_rust_metadata_init "${loop_repo_dir}" "${loop_runtime_root}"
 loop_node_version="24.17.0"
 loop_pnpm_version="11.25.0"
-loop_python_version="3.12.13"
+loop_python_version="3.14.4"
 loop_uv_version="0.11.29"
 loop_just_version="1.45.0"
 loop_just_sha256="dc3f958aaf8c6506dd90426e9b03f86dd15e74a6467ee0e54929f750af3d9e49"
+loop_python_identity_code='import platform, sysconfig; print("|".join((platform.python_implementation(), platform.python_version(), str(int(sysconfig.get_config_var("Py_GIL_DISABLED") or 0)))))'
+
+case "${loop_rust_dist_mirror}" in
+  rsproxy)
+    loop_rust_dist_server="https://rsproxy.cn"
+    ;;
+  ustc)
+    loop_rust_dist_server="https://mirrors.ustc.edu.cn/rust-static"
+    ;;
+  sjtug)
+    loop_rust_dist_server="https://mirrors.sjtug.sjtu.edu.cn/rust-static"
+    ;;
+  official)
+    loop_rust_dist_server="https://static.rust-lang.org"
+    ;;
+  *)
+    echo "unsupported LOOP_ENGINE_RUST_DIST_MIRROR: ${loop_rust_dist_mirror}" >&2
+    echo "expected one of: rsproxy, ustc, sjtug, official" >&2
+    exit 2
+    ;;
+esac
 
 if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
   echo "bootstrap currently supports Linux x86_64 only" >&2
@@ -26,7 +47,13 @@ if [[ -z "${loop_rust_version}" ]]; then
   exit 2
 fi
 
-for loop_command in curl sha256sum node corepack uv; do
+if [[ ! -f "${loop_rust_checksums}" ]] ||
+  [[ "$(wc -l < "${loop_rust_checksums}")" -ne 5 ]]; then
+  echo "missing or invalid Rust component checksum manifest: ${loop_rust_checksums}" >&2
+  exit 2
+fi
+
+for loop_command in cmp curl realpath sha256sum tar xz node corepack uv; do
   if ! command -v "${loop_command}" >/dev/null 2>&1; then
     echo "required bootstrap command is missing: ${loop_command}" >&2
     exit 2
@@ -43,47 +70,72 @@ if [[ "$(uv --version | awk '{print $2}')" != "${loop_uv_version}" ]]; then
   exit 2
 fi
 
-mkdir -p "${loop_tools_dir}" "${loop_cargo_home}" "${loop_rustup_home}"
+mkdir -p "${loop_tools_dir}" "${loop_cargo_home}"
 
-if command -v rustc >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1 && \
-  command -v rustfmt >/dev/null 2>&1 && command -v cargo-clippy >/dev/null 2>&1 && \
-  [[ "$(rustc --version | awk '{print $2}')" == "${loop_rust_version}" ]] && \
-  [[ "$(cargo --version | awk '{print $2}')" == "${loop_rust_version}" ]]; then
-  loop_use_system_rust=1
+loop_system_prefix="$(loop_system_rust_prefix || true)"
+if [[ -n "${loop_system_prefix}" ]] && loop_rust_prefix_is_valid "${loop_system_prefix}"; then
+  loop_active_rust_prefix="${loop_system_prefix}"
+elif loop_rust_prefix_is_valid "${loop_rust_local_prefix}"; then
+  loop_active_rust_prefix="${loop_rust_local_prefix}"
 else
-  if [[ ! -x "${loop_cargo_home}/bin/rustup" ]]; then
-    loop_download_dir="$(mktemp -d)"
-    trap 'rm -rf "${loop_download_dir}"' EXIT
-    curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-      --fail --silent --show-error --location \
-    "https://static.rust-lang.org/rustup/dist/${loop_rustup_target}/rustup-init" \
-      --output "${loop_download_dir}/rustup-init"
-    echo "${loop_rustup_init_sha256}  ${loop_download_dir}/rustup-init" | sha256sum --check
-    chmod 0755 "${loop_download_dir}/rustup-init"
-    CARGO_HOME="${loop_cargo_home}" RUSTUP_HOME="${loop_rustup_home}" \
-      "${loop_download_dir}/rustup-init" -y --no-modify-path --profile minimal \
-      --default-toolchain "${loop_rust_version}" --component clippy --component rustfmt
-  else
-    CARGO_HOME="${loop_cargo_home}" RUSTUP_HOME="${loop_rustup_home}" \
-      "${loop_cargo_home}/bin/rustup" toolchain install "${loop_rust_version}" \
-      --profile minimal --component clippy --component rustfmt
+  if [[ -e "${loop_rust_local_prefix}" ]]; then
+    echo "existing local Rust prefix failed validation: ${loop_rust_local_prefix}" >&2
+    exit 2
   fi
+
+  loop_download_dir="$(mktemp -d "${loop_tools_dir}/.rust-download.XXXXXX")"
+  loop_install_prefix="$(mktemp -d "${loop_tools_dir}/.rust-install.XXXXXX")"
+  cleanup_rust_install() {
+    [[ -z "${loop_download_dir}" ]] || rm -rf -- "${loop_download_dir}"
+    [[ -z "${loop_install_prefix}" ]] || rm -rf -- "${loop_install_prefix}"
+  }
+  trap cleanup_rust_install EXIT
+
+  while read -r loop_digest loop_archive; do
+    case "${loop_archive}" in
+      cargo-${loop_rust_version}-${loop_rust_target}.tar.xz|clippy-${loop_rust_version}-${loop_rust_target}.tar.xz|rust-std-${loop_rust_version}-${loop_rust_target}.tar.xz|rustc-${loop_rust_version}-${loop_rust_target}.tar.xz|rustfmt-${loop_rust_version}-${loop_rust_target}.tar.xz) ;;
+      *)
+        echo "unexpected Rust component archive: ${loop_archive}" >&2
+        exit 2
+        ;;
+    esac
+    curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
+      --fail --silent --show-error --location --retry 3 \
+      --connect-timeout 15 --max-time 600 \
+      "${loop_rust_dist_server}/dist/${loop_rust_release_date}/${loop_archive}" \
+      --output "${loop_download_dir}/${loop_archive}"
+    echo "${loop_digest}  ${loop_download_dir}/${loop_archive}" | sha256sum --check
+  done < "${loop_rust_checksums}"
+
+  while read -r _ loop_archive; do
+    loop_component_dir="${loop_download_dir}/${loop_archive%.tar.xz}"
+    tar -xJf "${loop_download_dir}/${loop_archive}" -C "${loop_download_dir}"
+    "${loop_component_dir}/install.sh" \
+      --prefix="${loop_install_prefix}" --disable-ldconfig
+  done < "${loop_rust_checksums}"
+
+  cp "${loop_rust_checksums}" "${loop_install_prefix}/.loop-engine-components.sha256"
+  if ! loop_rust_prefix_is_valid "${loop_install_prefix}"; then
+    echo "installed Rust toolchain failed identity validation" >&2
+    exit 2
+  fi
+  mv "${loop_install_prefix}" "${loop_rust_local_prefix}"
+  loop_install_prefix=""
+  if ! loop_rust_prefix_is_valid "${loop_rust_local_prefix}"; then
+    echo "moved Rust toolchain failed identity validation" >&2
+    exit 2
+  fi
+  loop_active_rust_prefix="${loop_rust_local_prefix}"
 fi
 
 export CARGO_HOME="${loop_cargo_home}"
-export PATH="${CARGO_HOME}/bin:${PATH}"
-
-if [[ "${loop_use_system_rust:-0}" != "1" ]]; then
-  export RUSTUP_HOME="${loop_rustup_home}"
-fi
+export PATH="${loop_active_rust_prefix}/bin:${CARGO_HOME}/bin:${PATH}"
 export COREPACK_HOME="${COREPACK_HOME:-${loop_tools_dir}/corepack}"
 export UV_CACHE_DIR="${loop_tools_dir}/uv-cache"
 export UV_PYTHON_INSTALL_DIR="${loop_tools_dir}/python"
 
-if [[ "$(rustc --version | awk '{print $2}')" != "${loop_rust_version}" ]] || \
-  [[ "$(cargo --version | awk '{print $2}')" != "${loop_rust_version}" ]] || \
-  ! command -v rustfmt >/dev/null 2>&1 || ! command -v cargo-clippy >/dev/null 2>&1; then
-  echo "Rust ${loop_rust_version} with rustfmt and clippy is required" >&2
+if ! loop_rust_prefix_is_valid "${loop_active_rust_prefix}"; then
+  echo "Rust ${loop_rust_version} component identity validation failed" >&2
   exit 2
 fi
 
@@ -93,17 +145,17 @@ if [[ "$(corepack pnpm --version)" != "${loop_pnpm_version}" ]]; then
 fi
 
 if command -v python3 >/dev/null 2>&1 && \
-  [[ "$(python3 -c 'import platform; print(platform.python_version())')" == "${loop_python_version}" ]]; then
+  [[ "$(python3 -c "${loop_python_identity_code}")" == \
+  "CPython|${loop_python_version}|0" ]]; then
   loop_python="$(command -v python3)"
 else
   uv python install "${loop_python_version}"
   loop_python="$(uv python find "${loop_python_version}")"
 fi
 
-UV_PROJECT_ENVIRONMENT="${loop_runtime_root}/.venv-legacy" \
-  uv sync --project "${loop_repo_dir}" --python "${loop_python}" --locked
-UV_PROJECT_ENVIRONMENT="${loop_runtime_root}/.venv-research" \
-  uv sync --project "${loop_repo_dir}/python/loop_research" --python "${loop_python}" --locked
+"${loop_repo_dir}/scripts/uv.sh" sync --python "${loop_python}" \
+  --all-packages --all-groups --locked
+"${loop_repo_dir}/scripts/verify-python-environment.sh"
 
 "${loop_repo_dir}/scripts/pnpm.sh" install --frozen-lockfile --config.confirmModulesPurge=false
 cargo fetch --locked
@@ -130,7 +182,8 @@ if [[ "$(just --version)" != "just ${loop_just_version}" ]]; then
   exit 2
 fi
 
-printf 'rustc %s\nnode %s\npnpm %s\npython %s\nuv %s\njust %s\n' \
-  "${loop_rust_version}" "${loop_node_version}" "${loop_pnpm_version}" \
+printf 'rustc %s\nrust distribution mirror %s\nnode %s\npnpm %s\npython %s\nuv %s\njust %s\n' \
+  "${loop_rust_version}" "${loop_rust_dist_mirror}" "${loop_node_version}" \
+  "${loop_pnpm_version}" \
   "${loop_python_version}" "${loop_uv_version}" "${loop_just_version}"
 echo "Loop Engine toolchain is ready."

@@ -12,13 +12,15 @@
   "scripts": {
     "build": "corepack pnpm -r --if-present build",
     "check": "corepack pnpm format:check && corepack pnpm lint && corepack pnpm typecheck",
-    "format": "biome format --write apps *.json",
-    "format:check": "biome format apps *.json",
-    "lint": "biome lint apps",
+    "format": "biome format --write apps packages *.json",
+    "format:check": "biome format apps packages *.json",
+    "lint": "biome lint apps packages",
     "test": "corepack pnpm -r --if-present test",
     "typecheck": "corepack pnpm -r --if-present typecheck"
   },
   "devDependencies": {
+    "@bufbuild/buf": "1.72.0",
+    "@bufbuild/protoc-gen-es": "2.14.1",
     "@biomejs/biome": "2.5.12",
     "@types/node": "24.13.3",
     "typescript": "7.0.2",

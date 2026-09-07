@@ -16,7 +16,7 @@ concurrency:
 
 env:
   FORCE_COLOR: "1"
-  PYTHON_VERSION: "3.12.13"
+  PYTHON_VERSION: "3.14.4"
   UV_VERSION: "0.11.29"
 
 jobs:
@@ -32,8 +32,8 @@ jobs:
           components: clippy,rustfmt
       - run: cargo fetch --locked
       - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets --locked --offline -- -D warnings
-      - run: cargo test --workspace --locked --offline
+      - run: cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
+      - run: cargo test --workspace --all-features --locked --offline
 
   typescript:
     name: TypeScript
@@ -68,12 +68,37 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
-      - run: uv sync --locked
-      - run: uv run --locked ruff check src tests
-      - run: uv run --locked ruff format --check src tests
-      - run: uv run --locked mypy
-      - run: uv run --locked pytest
-      - run: uv run --locked --offline hatchling build
+      - run: ../../scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
+      - run: ../../scripts/verify-python-environment.sh
+      - run: ../../scripts/uv-research.sh run --locked --offline --no-sync ruff check src tests
+      - run: ../../scripts/uv-research.sh run --locked --offline --no-sync ruff format --check src tests
+      - run: ../../scripts/uv-research.sh run --locked --offline --no-sync mypy
+      - name: Test declared research dependencies in isolation
+        run: ../../scripts/uv-research.sh run --isolated --locked pytest
+      - run: ../../scripts/uv-research.sh run --locked --offline --no-sync hatchling build
+
+  python-protocol:
+    name: Python protocol contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: python/loop_protocol
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: ../../scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
+      - run: ../../scripts/verify-python-environment.sh
+      - run: ../../scripts/uv-protocol.sh run --locked --offline --no-sync ruff check src tests
+      - run: ../../scripts/uv-protocol.sh run --locked --offline --no-sync ruff format --check src tests
+      - run: ../../scripts/uv-protocol.sh run --locked --offline --no-sync mypy
+      - name: Test declared protocol dependencies in isolation
+        run: ../../scripts/uv-protocol.sh run --isolated --locked pytest
+      - run: ../../scripts/uv-protocol.sh run --locked --offline --no-sync hatchling build
 
   python-legacy:
     name: Legacy regression
@@ -86,8 +111,10 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
-      - run: uv sync --locked
-      - run: uv run --locked pytest
+      - run: ./scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
+      - run: ./scripts/verify-python-environment.sh
+      - name: Test declared legacy dependencies in isolation
+        run: ./scripts/uv.sh run --isolated --locked pytest
 
   workspace-gates:
     name: Unified workspace gates
@@ -95,10 +122,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-        with:
-          toolchain: 1.93.1
-          components: clippy,rustfmt
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
         with:
           version: 11.25.0
@@ -128,16 +151,4 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Build and verify clean container
-        run: |
-          export LOOP_ENGINE_UID="$(id -u)"
-          export LOOP_ENGINE_GID="$(id -g)"
-          docker compose build development
-          docker compose run --rm development ./scripts/bootstrap.sh
-          docker compose run --rm development just check
-          docker compose run --rm development just test
-          docker compose run --rm development just build
-          docker compose run --rm development just check
-          docker compose run --rm development just doctor
-      - name: Remove project runtime volume
-        if: always()
-        run: docker compose down --volumes
+        run: ./scripts/container-gate.sh

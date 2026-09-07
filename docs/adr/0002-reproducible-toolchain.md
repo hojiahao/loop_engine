@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: hojiahao
+- Python decision amended by: ADR 0005
 
 ## Context
 
@@ -17,7 +18,8 @@ operator requires DaoCloud as the image transport.
 ## Decision
 
 1. Pin Rust 1.93.1, Node 24.17.0, pnpm 11.25.0, Python 3.12.13, uv 0.11.29,
-   and just 1.45.0.
+   and just 1.45.0. ADR 0005 supersedes the Python pin and environment layout
+   with Python 3.14.4 and one root uv workspace environment.
 2. Commit Cargo, pnpm, and uv lockfiles. CI installs only from those locks.
 3. Pull official upstream images through `m.daocloud.io`, with the upstream
    registry path retained in the image reference and the OCI index digest
@@ -40,9 +42,21 @@ operator requires DaoCloud as the image transport.
     and bounded apt retries in the development image. This is independent of
     the DaoCloud transport used for OCI images.
 11. Bake the exact Clippy and rustfmt components into the development image.
-    rustup verifies their signed toolchain manifests and downloads them through
-    RSProxy during image construction; runtime bootstrap must not reinstall a
-    second Rust toolchain when the pinned system toolchain is complete.
+    Install Cargo, rustc, rust-std, Clippy, and rustfmt from their individual
+    upstream distribution archives. Verify every archive against the SHA-256
+    manifest committed under `config/toolchains` before executing its installer.
+    Runtime bootstrap reuses a toolchain only when its exact versions, resolved
+    sysroot, and repository checksum marker all validate; an unmarked system or
+    rustup toolchain is not treated as content-pinned.
+12. Default host Rust component downloads to SJTUG. A closed
+    `LOOP_ENGINE_RUST_DIST_MIRROR` selector also permits USTC, RSProxy, and the
+    official distribution endpoint. Arbitrary mirror URLs are rejected. Mirrors
+    are untrusted transports: the same repository-recorded component digests
+    apply to every endpoint, and mismatched bytes fail before extraction.
+13. Build the development image from the DaoCloud-proxied Python base and
+    install those content-pinned Rust components directly. This avoids both the
+    unusually large Rust OCI layer and rustup's second, separately fetched
+    manifest while retaining pinned compiler, Cargo, Clippy, and rustfmt bytes.
 
 ## Consequences
 
@@ -52,6 +66,8 @@ operator requires DaoCloud as the image transport.
   annotations and digests continue to identify the official upstream build.
 - RSProxy is likewise a crate transport. It cannot change locked package bytes
   without failing Cargo's checksum verification.
+- The Rust distribution mirror selector does not affect Docker/OCI image pulls; DaoCloud
+  remains the separately controlled image transport.
 - Rebuilding after an upstream registry outage remains possible while the
   pinned content is present in DaoCloud or an approved internal cache.
 - The pinned base-image digest and language lockfiles provide identity and

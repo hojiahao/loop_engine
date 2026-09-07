@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+import "loop/v1/data.proto";
+
+enum HoldoutGrantState {
+  HOLDOUT_GRANT_STATE_UNSPECIFIED = 0;
+  HOLDOUT_GRANT_STATE_ISSUED = 1;
+  HOLDOUT_GRANT_STATE_CONSUMED = 2;
+  HOLDOUT_GRANT_STATE_EXPIRED = 3;
+  HOLDOUT_GRANT_STATE_REVOKED = 4;
+}
+
+// HoldoutPeriodState is monotonic. A period can transition from SEALED to
+// GRANT_ISSUED exactly once, then to CONSUMED or CLOSED. GRANT_ISSUED,
+// CONSUMED, and CLOSED permanently forbid issuing another grant.
+enum HoldoutPeriodState {
+  HOLDOUT_PERIOD_STATE_UNSPECIFIED = 0;
+  HOLDOUT_PERIOD_STATE_SEALED = 1;
+  HOLDOUT_PERIOD_STATE_GRANT_ISSUED = 2;
+  HOLDOUT_PERIOD_STATE_CONSUMED = 3;
+  HOLDOUT_PERIOD_STATE_CLOSED = 4;
+}
+
+// HoldoutEvaluationPlanReference pins the complete batch authorized for one
+// historical holdout. canonical_plan uses the
+// "loop.holdout-evaluation-plan/v1" schema and contains every frozen
+// FactorSpecId, a content-addressed complete canonical BacktestSpec artifact
+// reference, and per-entry job budget in entry-index order. plan_sha256 covers
+// the exact canonical artifact bytes and MUST equal canonical_plan.sha256.
+// holdout_evaluation_plan_id is the domain-separated identity of those bytes.
+// The server resolves the plan and every backtest artifact locally, then
+// verifies the plan schema, size, digest, period binding, entry count, strict
+// identity shapes, and referenced artifact envelopes. The owning BacktestSpec
+// parser must separately verify artifact contents before approval,
+// materialization, or dispatch; a matching content digest is not that proof.
+message HoldoutEvaluationPlanReference {
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 1;
+  ArtifactRef canonical_plan = 2;
+  Sha256Digest plan_sha256 = 3;
+  // From 1 through 4,096 and exactly equal to the decoded entry count.
+  uint32 entry_count = 4;
+  HoldoutPeriodId holdout_period_id = 5;
+  Sha256Digest canonical_period_sha256 = 6;
+}
+
+message FreezeManifestReference {
+  reserved 2;
+  reserved "source_commit_sha256";
+  ArtifactRef manifest = 1;
+  Sha256Digest configuration_sha256 = 3;
+  Sha256Digest model_catalog_sha256 = 4;
+  Sha256Digest data_manifest_sha256 = 5;
+  VcsObjectId source_commit = 6;
+  // SHA-256 of the canonical path/mode/content manifest for the frozen source
+  // tree; this is independent of the repository's native VCS object algorithm.
+  Sha256Digest source_tree_sha256 = 7;
+  // The server, not the requesting client, loads this policy to determine the
+  // required count and roles of distinct authenticated human approvals.
+  PolicyReference holdout_approval_policy = 8;
+  // The complete evaluation batch is fixed before any approval or grant.
+  HoldoutEvaluationPlanReference holdout_evaluation_plan = 9;
+}
+
+// HoldoutPeriod has no caller-selected alias. canonical_period_sha256 is:
+// SHA-256(ASCII("loop.holdout-period/v1") || 0x00 || canonical_period_bytes).
+// canonical_period_bytes commit to SampleRole, the inclusive sample window,
+// sorted unique snapshot IDs, and snapshot_manifest_sha256.
+// holdout_period_id MUST be "sha256:" plus the lowercase hexadecimal encoding
+// of canonical_period_sha256. Phase 3 persistence places a unique constraint on
+// both representations and rejects a mismatch before insertion or lookup.
+message HoldoutPeriod {
+  HoldoutPeriodId holdout_period_id = 1;
+  SampleWindow sample = 2;
+  // At most 128 sorted, unique immutable snapshot IDs.
+  repeated SnapshotId snapshot_ids = 3;
+  Sha256Digest snapshot_manifest_sha256 = 4;
+  Sha256Digest canonical_period_sha256 = 5;
+}
+
+// HoldoutPeriodRecord is the durable compare-and-swap aggregate that prevents
+// reuse of a historical holdout. issued_grant_id is retained in every state
+// after the first grant, including when that grant expires or is revoked.
+message HoldoutPeriodRecord {
+  HoldoutPeriod period = 1;
+  HoldoutPeriodState state = 2;
+  uint64 revision = 3;
+  HoldoutGrantId issued_grant_id = 4;
+  google.protobuf.Timestamp grant_issued_at = 5;
+  google.protobuf.Timestamp terminal_at = 6;
+}
+
+// HoldoutApprovalRecord is written by one authenticated human approval RPC.
+// approved_by is derived from the authenticated transport principal and must
+// match the descriptive command actor. Clients cannot submit another actor's
+// approval. Records are immutable, expire independently, and can be attached
+// to at most one grant.
+message HoldoutApprovalRecord {
+  HoldoutApprovalRecordId holdout_approval_record_id = 1;
+  HoldoutPeriodId holdout_period_id = 2;
+  Sha256Digest freeze_manifest_sha256 = 3;
+  Actor approved_by = 4;
+  string reason = 5;
+  // At most 64 immutable evidence artifacts.
+  repeated ArtifactRef evidence = 6;
+  google.protobuf.Timestamp approved_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  // Covers the canonical approval record excluding this field.
+  Sha256Digest approval_record_sha256 = 9;
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 10;
+  Sha256Digest evaluation_plan_sha256 = 11;
+  uint32 evaluation_plan_entry_count = 12;
+  Sha256Digest canonical_period_sha256 = 13;
+}
+
+message HoldoutApprovalRecordReference {
+  HoldoutApprovalRecordId holdout_approval_record_id = 1;
+  HoldoutPeriodId holdout_period_id = 2;
+  Sha256Digest freeze_manifest_sha256 = 3;
+  ActorId approved_by_actor_id = 4;
+  google.protobuf.Timestamp approved_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  Sha256Digest approval_record_sha256 = 7;
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 8;
+  Sha256Digest evaluation_plan_sha256 = 9;
+  uint32 evaluation_plan_entry_count = 10;
+  Sha256Digest canonical_period_sha256 = 11;
+}
+
+// HoldoutGrantReference is an auditable database reference, not a bearer
+// secret or authority. loopd re-authorizes the authenticated caller and checks
+// state, frozen identities, expiry, and single-use consumption server-side.
+message HoldoutGrantReference {
+  HoldoutGrantId holdout_grant_id = 1;
+  HoldoutPeriodId holdout_period_id = 2;
+  Sha256Digest freeze_manifest_sha256 = 3;
+  google.protobuf.Timestamp issued_at = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 6;
+  Sha256Digest evaluation_plan_sha256 = 7;
+  uint32 evaluation_plan_entry_count = 8;
+  Sha256Digest canonical_period_sha256 = 9;
+}
+
+message HoldoutGrantRecord {
+  HoldoutGrantReference reference = 1;
+  HoldoutGrantState state = 2;
+  uint64 revision = 3;
+  // At most eight server-resolved approval records in actor-ID order. Grant
+  // creation atomically verifies they are current, bind the exact period and
+  // freeze manifest, represent distinct authenticated humans, and satisfy the
+  // pinned approval policy.
+  repeated HoldoutApprovalRecordReference approval_records = 4;
+  google.protobuf.Timestamp consumed_at = 5;
+  // The server loads this immutable policy to determine the required number
+  // and roles of distinct authenticated approvers.
+  PolicyReference approval_policy = 6;
+  // These fields intentionally repeat the reference binding. A mismatch is a
+  // corrupt record, never a value to repair or infer during consumption.
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 7;
+  Sha256Digest evaluation_plan_sha256 = 8;
+  uint32 evaluation_plan_entry_count = 9;
+  Sha256Digest canonical_period_sha256 = 10;
+}

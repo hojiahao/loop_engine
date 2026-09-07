@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package loop.jobs.v1;
+
+import "google/protobuf/duration.proto";
+import "loop/v1/common.proto";
+import "loop/v1/job.proto";
+
+service JobService {
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  rpc AcquireJobLease(AcquireJobLeaseRequest) returns (AcquireJobLeaseResponse);
+  rpc HeartbeatJobLease(HeartbeatJobLeaseRequest) returns (HeartbeatJobLeaseResponse);
+  rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+}
+
+message GetJobRequest {
+  loop.v1.JobId job_id = 1;
+}
+
+message GetJobResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message AcquireJobLeaseRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+  google.protobuf.Duration requested_duration = 4;
+}
+
+message AcquireJobLeaseResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message HeartbeatJobLeaseRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+  google.protobuf.Duration requested_extension = 5;
+}
+
+message HeartbeatJobLeaseResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message CompleteJobRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+  loop.v1.JobOutcome outcome = 5;
+}
+
+message CompleteJobResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message CancelJobRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+  string reason = 4;
+}
+
+message CancelJobResponse {
+  loop.v1.JobRecord job = 1;
+}

@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/common.proto";
+
+// FactorDirection is frozen during in-sample research. There is intentionally
+// no automatic or best-on-current-sample direction.
+enum FactorDirection {
+  FACTOR_DIRECTION_UNSPECIFIED = 0;
+  FACTOR_DIRECTION_HIGHER_IS_BETTER = 1;
+  FACTOR_DIRECTION_LOWER_IS_BETTER = 2;
+}
+
+// FieldReference is one stable dot-qualified semantic identifier such as
+// "market.close", never a vendor column name.
+message FieldReference {
+  string field = 1;
+}
+
+// OperatorReference pins numerical semantics. operator_version is a canonical
+// positive unsigned decimal string such as "1", with no sign or leading zeroes.
+// It changes whenever null, window, or ranking behavior can change a value; the
+// canonical schema major is carried separately by the AST identity prefix.
+message OperatorReference {
+  string operator = 1;
+  string operator_version = 2;
+}
+
+message OperatorCall {
+  OperatorReference operator = 1;
+  // arguments are ordered. A canonicalizer may reorder only when its pinned
+  // operator registry explicitly declares the operation commutative. A call
+  // has at most 1,024 direct arguments after associative flattening.
+  repeated FactorAstNode arguments = 2;
+}
+
+message VersionedEnumLiteral {
+  string enum_type = 1;
+  string value = 2;
+}
+
+message FactorLiteral {
+  oneof value {
+    ExactDecimal decimal = 1;
+    bool boolean = 2;
+    VersionedEnumLiteral enumeration = 3;
+  }
+}
+
+// FactorAstNode admits data references, exact numeric literals, and calls only.
+// It cannot carry source code or an executable model response. The default
+// domain limits are 256 KiB serialized, 4,096 nodes, and depth 64; deployments
+// may lower but never silently raise them for an existing policy version.
+message FactorAstNode {
+  oneof node {
+    FieldReference field = 1;
+    FactorLiteral literal = 2;
+    OperatorCall call = 3;
+  }
+}
+
+message FactorAst {
+  uint32 schema_version = 1;
+  FactorAstNode root = 2;
+}
+
+// CanonicalFactorAst binds an AST to canonical JSON. expression_id is calculated
+// over the versioned canonicalization prefix and bytes, never over raw input.
+message CanonicalFactorAst {
+  FactorExpressionId expression_id = 1;
+  FactorAst ast = 2;
+  string canonicalization_profile = 3;
+  bytes canonical_json = 4;
+}
+
+// FrozenResearchPolicyReference has exactly the nine identity-bearing policy
+// references in the canonical FactorSpec v1 schema. Freeze time and approval
+// belong to metadata and audit records, not this identity value.
+message FrozenResearchPolicyReference {
+  PolicyReference universe_policy = 1;
+  PolicyReference data_policy = 2;
+  PolicyReference calendar_policy = 3;
+  PolicyReference preprocess_policy = 4;
+  PolicyReference neutralization_policy = 5;
+  PolicyReference portfolio_policy = 6;
+  PolicyReference execution_policy = 7;
+  PolicyReference cost_policy = 8;
+  PolicyReference evaluation_policy = 9;
+}
+
+// FactorSpec carries the canonical identity-bearing semantics and a verified
+// copy of its referenced expression. factor_spec_id is computed from dedicated
+// FactorSpec v1 bytes containing expression_id, operator_registry_sha256,
+// direction, and the nine policy references; it is never computed from
+// Protobuf serialization or field numbers, and the attached AST bytes are not
+// repeated in that identity input.
+// expression_id MUST match expression.expression_id after AST normalization.
+// Validation rejects an unspecified direction. Display names, prose,
+// authorship, and timestamps are kept in FactorMetadata and cannot change
+// either identity.
+message FactorSpec {
+  FactorSpecId factor_spec_id = 1;
+  FactorExpressionId expression_id = 2;
+  CanonicalFactorAst expression = 3;
+  FactorDirection direction = 4;
+  FrozenResearchPolicyReference frozen_policy = 5;
+  // Identity of the exact registry that defines operator versions,
+  // normalization laws, null handling, and execution semantics. This digest is
+  // part of FactorSpec identity but is not a tenth research policy.
+  Sha256Digest operator_registry_sha256 = 6;
+}
+
+message FactorMetadata {
+  FactorSpecId factor_spec_id = 1;
+  FactorExpressionId expression_id = 2;
+  string name = 3;
+  string thesis = 4;
+  google.protobuf.Timestamp created_at = 5;
+  Actor created_by = 6;
+  google.protobuf.Timestamp frozen_at = 7;
+  Actor frozen_by = 8;
+}

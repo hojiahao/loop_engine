@@ -1,5 +1,10 @@
 # Phase 1 verification: reproducible polyglot toolchain
 
+> Historical record: this evidence describes the original Python 3.12.13
+> implementation. ADR 0005 amends that decision with Python 3.14.4 and one root
+> uv workspace environment. The amendment has a separate verification record
+> and does not rewrite this completed run.
+
 - Date: 2026-09-05 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
 - Implementation commit: `c435c3bf5632019ca815e857577949d17e07e97b`

@@ -1,0 +1,264 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+
+enum ModelRole {
+  MODEL_ROLE_UNSPECIFIED = 0;
+  MODEL_ROLE_SYSTEM = 1;
+  MODEL_ROLE_USER = 2;
+  MODEL_ROLE_ASSISTANT = 3;
+  MODEL_ROLE_TOOL = 4;
+}
+
+enum ImageDetail {
+  IMAGE_DETAIL_UNSPECIFIED = 0;
+  IMAGE_DETAIL_AUTO = 1;
+  IMAGE_DETAIL_LOW = 2;
+  IMAGE_DETAIL_HIGH = 3;
+  IMAGE_DETAIL_ORIGINAL = 4;
+}
+
+enum ToolChoiceMode {
+  TOOL_CHOICE_MODE_UNSPECIFIED = 0;
+  TOOL_CHOICE_MODE_AUTO = 1;
+  TOOL_CHOICE_MODE_NONE = 2;
+  TOOL_CHOICE_MODE_REQUIRED = 3;
+  TOOL_CHOICE_MODE_NAMED = 4;
+}
+
+enum ModelFinishReason {
+  reserved 5, 6;
+  reserved "MODEL_FINISH_REASON_CANCELLED", "MODEL_FINISH_REASON_ERROR";
+  MODEL_FINISH_REASON_UNSPECIFIED = 0;
+  MODEL_FINISH_REASON_STOP = 1;
+  MODEL_FINISH_REASON_LENGTH = 2;
+  MODEL_FINISH_REASON_TOOL_CALL = 3;
+  MODEL_FINISH_REASON_CONTENT_FILTER = 4;
+}
+
+enum ToolResultStatus {
+  TOOL_RESULT_STATUS_UNSPECIFIED = 0;
+  TOOL_RESULT_STATUS_SUCCESS = 1;
+  TOOL_RESULT_STATUS_ERROR = 2;
+}
+
+enum ModelProtocolFamily {
+  MODEL_PROTOCOL_FAMILY_UNSPECIFIED = 0;
+  MODEL_PROTOCOL_FAMILY_OPENAI_RESPONSES = 1;
+  MODEL_PROTOCOL_FAMILY_OPENAI_CHAT_COMPLETIONS = 2;
+  MODEL_PROTOCOL_FAMILY_ANTHROPIC_MESSAGES = 3;
+  MODEL_PROTOCOL_FAMILY_GOOGLE_GENERATE_CONTENT = 4;
+  MODEL_PROTOCOL_FAMILY_GOOGLE_INTERACTIONS = 5;
+  MODEL_PROTOCOL_FAMILY_AWS_BEDROCK_CONVERSE = 6;
+  MODEL_PROTOCOL_FAMILY_COHERE_V2_CHAT = 7;
+}
+
+// JsonDocument contains bounded UTF-8 JSON. canonical_sha256 covers an RFC
+// 8785 canonical representation; services parse and validate it before use.
+// Tool and structured-output documents are limited to 256 KiB.
+message JsonDocument {
+  bytes utf8_json = 1;
+  Sha256Digest canonical_sha256 = 2;
+  string schema_id = 3;
+  Sha256Digest schema_sha256 = 4;
+}
+
+message JsonSchema {
+  string schema_id = 1;
+  uint32 schema_version = 2;
+  bytes canonical_json = 3;
+  Sha256Digest schema_sha256 = 4;
+}
+
+message TextContent {
+  string text = 1;
+}
+
+message ImageContent {
+  // providerd resolves only Phase 9 prompt-safe schemas in its isolated
+  // artifact namespace; a generic ArtifactRef is not itself authorization.
+  ArtifactRef artifact = 1;
+  ImageDetail detail = 2;
+}
+
+message DocumentContent {
+  // The Phase 9 provider boundary rejects research/holdout namespaces and any
+  // schema not explicitly allowed for model input.
+  ArtifactRef artifact = 1;
+}
+
+// ReasoningContinuationReference is a non-secret record ID for continuation
+// state retained by the Provider Host. Provider-specific bytes never enter the
+// core contract, logs, or model context. The server re-authorizes the caller,
+// validates provider/model binding and expiry, and verifies state_sha256 before
+// resolving the record; this reference is not bearer authority.
+message ReasoningContinuationReference {
+  ProviderContinuationId provider_continuation_id = 1;
+  ProviderId provider_id = 2;
+  ModelResolutionId model_resolution_id = 3;
+  Sha256Digest state_sha256 = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+message ReasoningContent {
+  string text = 1;
+  reserved 2;
+  reserved "opaque_state";
+  ReasoningContinuationReference continuation = 3;
+}
+
+message ToolCallContent {
+  string tool_call_id = 1;
+  string tool_name = 2;
+  JsonDocument arguments = 3;
+}
+
+message ToolResultContent {
+  string tool_call_id = 1;
+  // Domain validation rejects UNSPECIFIED so an omitted proto3 scalar cannot
+  // silently turn an error into a successful result.
+  ToolResultStatus status = 2;
+  oneof result {
+    TextContent text = 3;
+    JsonDocument json = 4;
+    // Subject to the same Phase 9 prompt-safe namespace and schema ACL as
+    // image and document content.
+    ArtifactRef artifact = 5;
+  }
+}
+
+message RefusalContent {
+  string reason = 1;
+}
+
+message StructuredOutputContent {
+  JsonDocument output = 1;
+}
+
+message ContentBlock {
+  oneof content {
+    TextContent text = 1;
+    ImageContent image = 2;
+    ReasoningContent reasoning = 3;
+    ToolCallContent tool_call = 4;
+    ToolResultContent tool_result = 5;
+    DocumentContent document = 6;
+    RefusalContent refusal = 7;
+    StructuredOutputContent structured_output = 8;
+  }
+}
+
+message ModelMessage {
+  ModelRole role = 1;
+  // At most 256 blocks in semantic order.
+  repeated ContentBlock content = 2;
+}
+
+message ToolDefinition {
+  string name = 1;
+  string description = 2;
+  JsonSchema input_schema = 3;
+  // Presence is required. true requests strict schema enforcement; false is an
+  // explicit, auditable non-strict choice rather than an omitted proto3 zero.
+  optional bool strict = 4;
+}
+
+message ToolChoice {
+  ToolChoiceMode mode = 1;
+  string named_tool = 2;
+}
+
+message StructuredOutputDefinition {
+  string name = 1;
+  string description = 2;
+  JsonSchema json_schema = 3;
+  // Presence is required; consumers reject an omitted value.
+  optional bool strict = 4;
+}
+
+message ModelCapabilities {
+  uint64 context_window_tokens = 1;
+  uint64 maximum_output_tokens = 2;
+  bool supports_tools = 3;
+  bool supports_parallel_tools = 4;
+  bool supports_structured_output = 5;
+  bool supports_vision = 6;
+  bool supports_reasoning = 7;
+  bool supports_prompt_caching = 8;
+  bool supports_streaming = 9;
+}
+
+message ModelPricing {
+  Money input_per_million_tokens = 1;
+  Money output_per_million_tokens = 2;
+  Money cached_input_per_million_tokens = 3;
+}
+
+// ModelResolutionSnapshot freezes alias resolution and capabilities for the
+// entire run. Catalog hot reloads cannot mutate an existing snapshot.
+message ModelResolutionSnapshot {
+  ModelResolutionId resolution_id = 1;
+  ProviderId provider_id = 2;
+  ModelId model_id = 3;
+  string requested_alias = 4;
+  ModelProtocolFamily protocol_family = 5;
+  ModelCapabilities capabilities = 6;
+  ModelPricing pricing = 7;
+  Sha256Digest capability_sha256 = 8;
+  Sha256Digest catalog_sha256 = 9;
+  google.protobuf.Timestamp resolved_at = 10;
+  string provider_plugin_name = 11;
+  string provider_plugin_version = 12;
+  Sha256Digest provider_plugin_sha256 = 13;
+  // Covers the validated canonical snapshot, excluding this field. It binds
+  // model identity, protocol, capabilities, pricing, catalog, and plugin.
+  Sha256Digest snapshot_sha256 = 14;
+}
+
+// InvocationBudget is enforced before and during transport. Exact money avoids
+// binary floating-point accounting drift.
+message InvocationBudget {
+  uint64 maximum_input_tokens = 1;
+  uint64 maximum_output_tokens = 2;
+  Money maximum_cost = 3;
+  google.protobuf.Duration maximum_wall_time = 4;
+}
+
+message ModelInvocation {
+  RequestId request_id = 1;
+  ModelResolutionSnapshot model = 2;
+  // At most 512 messages in semantic order.
+  repeated ModelMessage messages = 3;
+  // At most 128 uniquely named tool definitions.
+  repeated ToolDefinition tools = 4;
+  ToolChoice tool_choice = 5;
+  StructuredOutputDefinition structured_output = 6;
+  InvocationBudget budget = 7;
+  reserved 8;
+  reserved "extensions";
+  PolicyReference request_policy = 9;
+}
+
+message ModelUsage {
+  uint64 input_tokens = 1;
+  uint64 output_tokens = 2;
+  uint64 cached_input_tokens = 3;
+  uint64 reasoning_tokens = 4;
+  Money charged_cost = 5;
+}
+
+message ModelResponse {
+  RequestId request_id = 1;
+  ModelResolutionId resolution_id = 2;
+  // At most 256 blocks in semantic order.
+  repeated ContentBlock content = 3;
+  ModelFinishReason finish_reason = 4;
+  ModelUsage usage = 5;
+  reserved 6;
+  reserved "extensions";
+}

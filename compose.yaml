@@ -13,8 +13,10 @@ services:
       COREPACK_HOME: /usr/local/share/corepack
     volumes:
       - .:/workspace
+      - development-python:/workspace/.venv
       - development-runtime:/var/lib/loop-engine-dev
     working_dir: /workspace
 
 volumes:
+  development-python:
   development-runtime:

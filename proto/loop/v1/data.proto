@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+
+enum SampleRole {
+  SAMPLE_ROLE_UNSPECIFIED = 0;
+  SAMPLE_ROLE_OPERATOR_WARMUP = 1;
+  SAMPLE_ROLE_IN_SAMPLE = 2;
+  SAMPLE_ROLE_DEVELOPMENT_VALIDATION = 3;
+  SAMPLE_ROLE_FIRST_LOCKED_CONFIRMATION = 4;
+  SAMPLE_ROLE_SECOND_LOCKED_HISTORICAL_HOLDOUT = 5;
+  SAMPLE_ROLE_TEMPORAL_ISOLATION = 6;
+  SAMPLE_ROLE_PROSPECTIVE_OBSERVATION = 7;
+}
+
+enum DataQualityLevel {
+  DATA_QUALITY_LEVEL_UNSPECIFIED = 0;
+  DATA_QUALITY_LEVEL_SYNTHETIC = 1;
+  DATA_QUALITY_LEVEL_PUBLIC_DEVELOPMENT = 2;
+  DATA_QUALITY_LEVEL_LICENSED_RESEARCH = 3;
+  DATA_QUALITY_LEVEL_PRODUCTION = 4;
+}
+
+message SampleWindow {
+  SampleRole role = 1;
+  CivilDate start_inclusive = 2;
+  CivilDate end_inclusive = 3;
+}
+
+// SecurityReference never uses a mutable ticker as identity. ticker is only a
+// time-qualified display alias for the stable security_id.
+message SecurityReference {
+  SecurityId security_id = 1;
+  string ticker = 2;
+  string listing_venue = 3;
+  CivilDate ticker_effective_from = 4;
+  CivilDate ticker_effective_through = 5;
+}
+
+// BitemporalInterval records market effectiveness separately from when the
+// information became observable to research code.
+message BitemporalInterval {
+  google.protobuf.Timestamp effective_at = 1;
+  google.protobuf.Timestamp known_at = 2;
+  google.protobuf.Timestamp ingested_at = 3;
+}
+
+message DataSourceReference {
+  string source_name = 1;
+  string dataset_name = 2;
+  string entitlement_level = 3;
+  string source_revision = 4;
+  // Digest of the canonical extraction query, filters, adjustments, and
+  // adapter configuration, with credentials removed.
+  Sha256Digest extraction_configuration_sha256 = 5;
+}
+
+// DataSnapshot is immutable. known_through is the latest information time, not
+// merely the latest market date. All tabular payloads remain ArtifactRefs.
+message DataSnapshot {
+  SnapshotId snapshot_id = 1;
+  uint32 schema_version = 2;
+  DataSourceReference source = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp known_through = 5;
+  SampleWindow window = 6;
+  DataQualityLevel quality_level = 7;
+  // At most 256 immutable artifacts in manifest order.
+  repeated ArtifactRef artifacts = 8;
+  Sha256Digest manifest_sha256 = 9;
+  Sha256Digest trading_calendar_sha256 = 10;
+  // At most 32 direct lineage parents, sorted by snapshot ID.
+  repeated SnapshotId parent_snapshot_ids = 11;
+}

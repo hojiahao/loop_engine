@@ -1,0 +1,211 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/backtest.proto";
+import "loop/v1/common.proto";
+import "loop/v1/development_data.proto";
+import "loop/v1/factor.proto";
+import "loop/v1/holdout.proto";
+import "loop/v1/model.proto";
+import "loop/v1/research_common.proto";
+
+enum JobKind {
+  JOB_KIND_UNSPECIFIED = 0;
+  JOB_KIND_DISCOVERY = 1;
+  JOB_KIND_FACTOR_EVALUATION = 2;
+  JOB_KIND_BACKTEST = 3;
+  JOB_KIND_INDEPENDENT_RECONCILIATION = 4;
+  JOB_KIND_REPORT = 5;
+  JOB_KIND_PROSPECTIVE_OBSERVATION = 6;
+  JOB_KIND_HOLDOUT_BACKTEST = 7;
+}
+
+enum JobState {
+  JOB_STATE_UNSPECIFIED = 0;
+  JOB_STATE_QUEUED = 1;
+  JOB_STATE_LEASED = 2;
+  JOB_STATE_RUNNING = 3;
+  JOB_STATE_SUCCEEDED = 4;
+  JOB_STATE_FACTOR_REJECTED = 5;
+  JOB_STATE_INFRASTRUCTURE_FAILED = 6;
+  JOB_STATE_CANCELLED = 7;
+  JOB_STATE_BUDGET_EXHAUSTED = 8;
+}
+
+enum FactorRejectionCode {
+  reserved 1;
+  reserved "FACTOR_REJECTION_CODE_INVALID_SPECIFICATION";
+  FACTOR_REJECTION_CODE_UNSPECIFIED = 0;
+  FACTOR_REJECTION_CODE_DUPLICATE = 2;
+  FACTOR_REJECTION_CODE_PREVIOUSLY_FAILED = 3;
+  FACTOR_REJECTION_CODE_INSUFFICIENT_COVERAGE = 4;
+  FACTOR_REJECTION_CODE_DETERMINISTIC_FILTER = 5;
+  FACTOR_REJECTION_CODE_PERFORMANCE = 6;
+  FACTOR_REJECTION_CODE_CORRELATION = 7;
+  FACTOR_REJECTION_CODE_SEMANTIC_REVIEW = 8;
+  FACTOR_REJECTION_CODE_POLICY = 9;
+}
+
+// JobBudget bounds a complete job independently of per-invocation model limits.
+message JobBudget {
+  uint32 maximum_steps = 1;
+  uint64 maximum_input_tokens = 2;
+  uint64 maximum_output_tokens = 3;
+  Money maximum_cost = 4;
+  google.protobuf.Duration maximum_wall_time = 5;
+}
+
+// DiscoveryJobInput has no field capable of naming a holdout grant or token.
+// Its opaque dataset reference requires server-owned role resolution before
+// persistence or dispatch; wire-shape validation alone does not prove role.
+message DiscoveryJobInput {
+  DevelopmentDatasetReference dataset = 1;
+  PolicyReference research_policy = 2;
+  ModelResolutionSnapshot maker_model = 3;
+  ModelResolutionSnapshot checker_model = 4;
+  JobBudget budget = 5;
+  uint32 maximum_candidates = 6;
+}
+
+message FactorEvaluationJobInput {
+  reserved 3;
+  reserved "evaluation_policy";
+  FactorSpec factor = 1;
+  DevelopmentDatasetReference dataset = 2;
+  JobBudget budget = 4;
+}
+
+message BacktestJobInput {
+  reserved 1;
+  reserved "backtest";
+  JobBudget budget = 2;
+  FactorSpecId factor_spec_id = 3;
+  // This wire type can name development snapshots only. It has no SampleRole,
+  // generic snapshot list, or BacktestSpec field through which a caller could
+  // submit a locked confirmation or holdout sample.
+  DevelopmentDatasetReference dataset = 4;
+  ReturnDefinition return_definition = 5;
+  ResearchProvenanceFingerprint provenance = 6;
+  Sha256Digest deterministic_seed = 7;
+}
+
+message ReconciliationJobInput {
+  BacktestId primary_backtest_id = 1;
+  BacktestId independent_backtest_id = 2;
+  PolicyReference reconciliation_policy = 3;
+  JobBudget budget = 4;
+}
+
+// HoldoutBacktestJobInput is an internal durable input constructed only by
+// loopd. budget is read from the frozen canonical evaluation-plan entry;
+// frozen_backtest_spec is parsed from the exact content-addressed artifact
+// referenced by that entry. No consume RPC can supply or replace either value.
+// The plan and batch binding plus one-based entry index are checked against the
+// consumed grant before a worker can lease the job.
+message HoldoutBacktestJobInput {
+  HoldoutGrantReference consumed_grant = 1;
+  uint64 consumed_grant_revision = 2;
+  BacktestSpec frozen_backtest_spec = 3;
+  JobBudget budget = 4;
+  JobBatchId job_batch_id = 5;
+  HoldoutEvaluationPlanId holdout_evaluation_plan_id = 6;
+  Sha256Digest evaluation_plan_sha256 = 7;
+  uint32 evaluation_plan_entry_index = 8;
+}
+
+message ArtifactJobInput {
+  ArtifactRef input = 1;
+  PolicyReference policy = 2;
+  JobBudget budget = 3;
+}
+
+message JobSpecification {
+  JobId job_id = 1;
+  RunId run_id = 2;
+  JobKind kind = 3;
+  oneof input {
+    DiscoveryJobInput discovery = 4;
+    FactorEvaluationJobInput factor_evaluation = 5;
+    BacktestJobInput backtest = 6;
+    ReconciliationJobInput reconciliation = 7;
+    HoldoutBacktestJobInput holdout_backtest = 8;
+    ArtifactJobInput artifact = 9;
+  }
+  google.protobuf.Timestamp submitted_at = 10;
+  Actor submitted_by = 11;
+  IdempotencyKey idempotency_key = 12;
+  CorrelationId correlation_id = 13;
+  CausationId causation_id = 14;
+  ProtocolSelectionSnapshot protocol_selection = 15;
+}
+
+message JobLease {
+  LeaseId lease_id = 1;
+  JobId job_id = 2;
+  Actor owner = 3;
+  uint64 acquired_revision = 4;
+  google.protobuf.Timestamp issued_at = 5;
+  google.protobuf.Timestamp heartbeat_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message JobSuccess {
+  // At most 64 immutable output artifacts in schema-defined order.
+  repeated ArtifactRef outputs = 1;
+}
+
+// FactorRejection is a successful, auditable determination about a valid
+// FactorSpec. Malformed specifications fail RPC validation with a non-OK gRPC
+// status and typed ServiceError details; they can never become a rejection.
+// Rejections do not trigger infrastructure retry policy.
+message FactorRejection {
+  FactorSpecId factor_spec_id = 1;
+  FactorRejectionCode code = 2;
+  string reason = 3;
+  // At most 64 immutable evidence artifacts.
+  repeated ArtifactRef evidence = 4;
+  google.protobuf.Timestamp rejected_at = 5;
+}
+
+message InfrastructureFailure {
+  ServiceError error = 1;
+  uint32 attempt = 2;
+  google.protobuf.Timestamp failed_at = 3;
+}
+
+message JobCancellation {
+  string reason = 1;
+  Actor cancelled_by = 2;
+  google.protobuf.Timestamp cancelled_at = 3;
+}
+
+message BudgetExhaustion {
+  string exhausted_limit = 1;
+  JobBudget enforced_budget = 2;
+  google.protobuf.Timestamp exhausted_at = 3;
+}
+
+message JobOutcome {
+  oneof outcome {
+    JobSuccess success = 1;
+    FactorRejection factor_rejection = 2;
+    InfrastructureFailure infrastructure_failure = 3;
+    JobCancellation cancellation = 4;
+    BudgetExhaustion budget_exhaustion = 5;
+  }
+}
+
+// revision is advanced with compare-and-swap on every durable transition.
+message JobRecord {
+  JobSpecification specification = 1;
+  JobState state = 2;
+  uint64 revision = 3;
+  uint32 attempt = 4;
+  JobLease active_lease = 5;
+  JobOutcome outcome = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}

@@ -1,0 +1,294 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// ActorKind identifies the class of principal recorded in commands and audit
+// events. Authorization is evaluated from server-side policy, never from this
+// descriptive value alone.
+enum ActorKind {
+  ACTOR_KIND_UNSPECIFIED = 0;
+  ACTOR_KIND_HUMAN = 1;
+  ACTOR_KIND_SERVICE = 2;
+  ACTOR_KIND_AGENT = 3;
+  ACTOR_KIND_SCHEDULER = 4;
+}
+
+// ErrorCategory separates operational failures from domain outcomes. In
+// particular, factor rejection is represented by FactorRejection in job.proto
+// and MUST NOT be encoded as a ServiceError.
+enum ErrorCategory {
+  ERROR_CATEGORY_UNSPECIFIED = 0;
+  ERROR_CATEGORY_VALIDATION = 1;
+  ERROR_CATEGORY_AUTHENTICATION = 2;
+  ERROR_CATEGORY_AUTHORIZATION = 3;
+  ERROR_CATEGORY_NOT_FOUND = 4;
+  ERROR_CATEGORY_CONFLICT = 5;
+  ERROR_CATEGORY_RATE_LIMIT = 6;
+  ERROR_CATEGORY_TIMEOUT = 7;
+  ERROR_CATEGORY_CANCELLED = 8;
+  ERROR_CATEGORY_DEPENDENCY = 9;
+  ERROR_CATEGORY_INTERNAL = 10;
+  ERROR_CATEGORY_BUDGET_EXHAUSTED = 11;
+}
+
+enum VcsObjectAlgorithm {
+  VCS_OBJECT_ALGORITHM_UNSPECIFIED = 0;
+  VCS_OBJECT_ALGORITHM_SHA1 = 1;
+  VCS_OBJECT_ALGORITHM_SHA256 = 2;
+}
+
+// Opaque typed identifiers prevent accidental substitution across domain
+// boundaries. Domain implementations validate a canonical textual encoding of
+// at most 128 ASCII bytes for every value.
+message ActorId {
+  string value = 1;
+}
+
+message ArtifactId {
+  string value = 1;
+}
+
+message AuditEventId {
+  string value = 1;
+}
+
+message AuditLedgerId {
+  string value = 1;
+}
+
+message BacktestId {
+  string value = 1;
+}
+
+message CorrelationId {
+  string value = 1;
+}
+
+message CausationId {
+  string value = 1;
+}
+
+message ExperimentId {
+  string value = 1;
+}
+
+message FactorExpressionId {
+  // Exactly "sha256:" followed by 64 lowercase hexadecimal characters.
+  string value = 1;
+}
+
+message FactorSpecId {
+  // Exactly "sha256:" followed by 64 lowercase hexadecimal characters.
+  string value = 1;
+}
+
+message HoldoutGrantId {
+  string value = 1;
+}
+
+message HoldoutEvaluationPlanId {
+  // Exactly "sha256:" followed by 64 lowercase hexadecimal characters. The
+  // digest is domain-separated as defined by the holdout protocol.
+  string value = 1;
+}
+
+message HoldoutApprovalRecordId {
+  string value = 1;
+}
+
+message HoldoutPeriodId {
+  // Exactly "sha256:" followed by 64 lowercase hexadecimal characters. It is
+  // derived from the canonical period; arbitrary aliases are invalid.
+  string value = 1;
+}
+
+message IdempotencyKey {
+  string value = 1;
+}
+
+message JobId {
+  string value = 1;
+}
+
+message JobBatchId {
+  string value = 1;
+}
+
+message LeaseId {
+  string value = 1;
+}
+
+message ModelId {
+  string value = 1;
+}
+
+message ModelResolutionId {
+  string value = 1;
+}
+
+message PolicyId {
+  string value = 1;
+}
+
+message PageToken {
+  string value = 1;
+}
+
+message ProviderId {
+  string value = 1;
+}
+
+message ProviderContinuationId {
+  string value = 1;
+}
+
+message RequestId {
+  string value = 1;
+}
+
+message RunId {
+  string value = 1;
+}
+
+message SecurityId {
+  string value = 1;
+}
+
+message SnapshotId {
+  string value = 1;
+}
+
+// Sha256Digest is exactly 32 bytes. The wire format cannot express the length
+// constraint, so every producer and consumer MUST reject any other length.
+message Sha256Digest {
+  bytes value = 1;
+}
+
+// VcsObjectId preserves the repository's native object algorithm. value is
+// exactly 20 bytes for SHA-1 and 32 bytes for SHA-256; textual abbreviations
+// and ambiguous hex strings are rejected.
+message VcsObjectId {
+  VcsObjectAlgorithm algorithm = 1;
+  bytes value = 2;
+}
+
+// ExactDecimal carries one normalized signed fixed-point decimal string without
+// binary floating-point loss. Exponents, leading plus, redundant zeroes,
+// trailing fractional zeroes, negative zero, NaN, and infinities are invalid.
+// Implementations enforce operator-specific precision, scale, and range.
+message ExactDecimal {
+  string value = 1;
+}
+
+// Money is exact and uses an uppercase ISO 4217 currency code.
+message Money {
+  ExactDecimal amount = 1;
+  string currency_code = 2;
+}
+
+// CivilDate represents an exchange-local calendar date. Domain validation
+// rejects impossible dates; zero components are never a valid business date.
+message CivilDate {
+  int32 year = 1;
+  uint32 month = 2;
+  uint32 day = 3;
+}
+
+message Actor {
+  ActorId actor_id = 1;
+  ActorKind kind = 2;
+  string display_name = 3;
+  string authenticated_subject = 4;
+}
+
+// PolicyReference pins a policy document by immutable content identity.
+message PolicyReference {
+  PolicyId policy_id = 1;
+  // A normalized unsigned decimal integer string greater than zero.
+  string revision = 2;
+  Sha256Digest sha256 = 3;
+}
+
+message PageRequest {
+  // page_size is capped at 500; zero requests the server default.
+  uint32 page_size = 1;
+  // page_token is opaque, expiring, and limited to 128 bytes.
+  PageToken page_token = 2;
+}
+
+message PageInfo {
+  PageToken next_page_token = 1;
+}
+
+message ProtocolLimits {
+  uint64 maximum_unary_bytes = 1;
+  uint64 maximum_stream_event_bytes = 2;
+  uint64 maximum_canonical_ast_bytes = 3;
+  uint32 maximum_ast_nodes = 4;
+  uint32 maximum_ast_depth = 5;
+  uint32 maximum_page_records = 6;
+  uint32 maximum_identity_bytes = 7;
+  uint32 maximum_artifact_uri_bytes = 8;
+}
+
+// ProtocolInfo is immutable for one deployed build. Peers negotiate this before
+// submitting mutable or cost-incurring work and pin the result in run state.
+message ProtocolInfo {
+  // At most 16 package identifiers such as "loop.v1".
+  repeated string supported_packages = 1;
+  // At most 256 stable, dot-qualified feature identifiers in sorted order.
+  repeated string features = 2;
+  ProtocolLimits limits = 3;
+  string build_version = 4;
+  Sha256Digest build_sha256 = 5;
+}
+
+// ProtocolSelectionSnapshot freezes the negotiated wire contract for a job.
+// enabled_features is sorted and unique. selection_sha256 covers the validated
+// canonical selection document excluding selection_sha256 itself. Workers
+// validate both peer build identities when leasing or resuming a job and fail
+// closed if the pinned contract is unavailable.
+message ProtocolSelectionSnapshot {
+  string selected_package = 1;
+  repeated string enabled_features = 2;
+  ProtocolLimits effective_limits = 3;
+  string server_build_version = 4;
+  Sha256Digest server_build_sha256 = 5;
+  Sha256Digest schema_descriptor_sha256 = 6;
+  Sha256Digest selection_sha256 = 7;
+  google.protobuf.Timestamp selected_at = 8;
+  string client_build_version = 9;
+  Sha256Digest client_build_sha256 = 10;
+}
+
+// CommandContext is supplied to mutating operations. actor is descriptive;
+// the server verifies it against authenticated transport identity.
+message CommandContext {
+  RequestId request_id = 1;
+  CorrelationId correlation_id = 2;
+  CausationId causation_id = 3;
+  IdempotencyKey idempotency_key = 4;
+  Actor actor = 5;
+  google.protobuf.Timestamp requested_at = 6;
+}
+
+message ErrorDetail {
+  string field_path = 1;
+  string code = 2;
+  string message = 3;
+}
+
+// ServiceError is attached to a non-OK gRPC rich status using the type URL
+// "type.googleapis.com/loop.v1.ServiceError". RPC response bodies never encode
+// transport, cancellation, authorization, validation, or infrastructure
+// failures as successful application results.
+message ServiceError {
+  ErrorCategory category = 1;
+  string code = 2;
+  string message = 3;
+  bool retryable = 4;
+  // At most 32 allowlisted, redacted details.
+  repeated ErrorDetail details = 5;
+}

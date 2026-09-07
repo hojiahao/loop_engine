@@ -1,0 +1,114 @@
+{
+  "fixture_schema": "loop.contract-fixture-manifest/v2",
+  "message_type": "loop.v1.ProtocolInfo",
+  "schema_descriptor": {
+    "path": "schema.current.binpb",
+    "sha256": "sha256:27a38398e290caee3fb857063c0f2adbbe43a7d2d44322103dbf4b72535be979"
+  },
+  "expected_domain_projection": {
+    "supported_packages": [
+      "loop.audit.v1",
+      "loop.discovery.v1",
+      "loop.holdout.v1",
+      "loop.jobs.v1",
+      "loop.protocol.v1",
+      "loop.provider.v1",
+      "loop.research.v1",
+      "loop.v1"
+    ],
+    "features": [
+      "artifacts.by-reference.v1",
+      "factors.canonical-json.v1"
+    ],
+    "limits": {
+      "maximum_unary_bytes": 4194304,
+      "maximum_stream_event_bytes": 1048576,
+      "maximum_canonical_ast_bytes": 262144,
+      "maximum_ast_nodes": 4096,
+      "maximum_ast_depth": 64,
+      "maximum_page_records": 500,
+      "maximum_identity_bytes": 128,
+      "maximum_artifact_uri_bytes": 2048
+    },
+    "build_version": "0.2.0-alpha.1+wire-fixture.1",
+    "build_sha256": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+  },
+  "producers": [
+    {
+      "language": "python",
+      "toolchain": [
+        "python==3.14.4",
+        "protobuf==7.36.1"
+      ],
+      "source": {
+        "path": "tests/contracts/protocol/generate_wire_fixtures.py",
+        "sha256": "sha256:de65a99a9e97e4b6301f601cca0c8921664c215411c32bce76cd4f38e6302d92"
+      },
+      "path": "protocol_info_v1.binpb",
+      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+    },
+    {
+      "language": "rust",
+      "toolchain": [
+        "rustc==1.93.1",
+        "prost==0.14.4"
+      ],
+      "source": {
+        "path": "crates/loop-protocol/src/bin/generate_wire_fixture.rs",
+        "sha256": "sha256:4cf76ad3458fc8a8cd2da005bd43c0bbdd8ef751b21b3cb6bc967e2ce381a6ae"
+      },
+      "path": "protocol_info_v1.rust.binpb",
+      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+    },
+    {
+      "language": "typescript",
+      "toolchain": [
+        "node==24.17.0",
+        "typescript==7.0.2",
+        "@bufbuild/protobuf==2.14.1"
+      ],
+      "source": {
+        "path": "packages/protocol-ts/src/bin/generate-wire-fixture.ts",
+        "sha256": "sha256:48febc8b6eeb369f0f2478480d1a263aa52c4b39300cd70fdecb0a980c44f19c"
+      },
+      "path": "protocol_info_v1.typescript.binpb",
+      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+    }
+  ],
+  "compatibility_fixtures": [
+    {
+      "path": "protocol_info_v1_unknown_field.binpb",
+      "wire_sha256": "sha256:eb2e00cecc7ccdb729940947561dbad4d1095a8af2e9cdb615823bd0d446e164",
+      "contains_injected_unknown_field": true,
+      "unknown_field": {
+        "field_number": 536870911,
+        "wire_type": "length-delimited",
+        "payload_utf8": "ignored-additive-field"
+      },
+      "lossless_original_byte_forwarding_required": false
+    }
+  ],
+  "semantic_negative_fixtures": [
+    {
+      "path": "job_specification_v1_unknown_enum.binpb",
+      "message_type": "loop.v1.JobSpecification",
+      "wire_sha256": "sha256:6f4e21667e2e89b1c6f2e8613537968f9849b499618ce76a19e7ca42999a9ac6",
+      "unknown_enum_numeric": 127,
+      "expected_error": "unsupported_enum"
+    },
+    {
+      "path": "job_specification_v1_unknown_oneof.binpb",
+      "message_type": "loop.v1.JobSpecification",
+      "wire_sha256": "sha256:705976447508b97bf8051848db3ca575bcace1c775647cb0d9753d13de29f04d",
+      "future_oneof_field_number": 16,
+      "expected_error": "unsupported_oneof"
+    }
+  ],
+  "auxiliary_contracts": [
+    {
+      "path": "tests/contracts/operational_failure.json",
+      "sha256": "sha256:3c8000215526d0bce07a6390cabe0fd4d1264478545c53dca6dafe33d6076a84",
+      "contract": "loop.rpc-operational-failure/v1"
+    }
+  ]
+}

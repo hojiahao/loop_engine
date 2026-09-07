@@ -1,0 +1,388 @@
+{
+  "schema": "loop.factor-conformance/v1",
+  "registry": {
+    "fields": [
+      { "field": "market.close", "outputType": "series" },
+      { "field": "market.high", "outputType": "series" },
+      { "field": "market.low", "outputType": "series" },
+      { "field": "market.open", "outputType": "series" }
+    ],
+    "enums": [
+      { "enumType": "rank.method", "values": ["average", "dense"] }
+    ],
+    "operators": [
+      {
+        "operator": "arithmetic.add",
+        "operatorVersion": "1",
+        "semanticContractSha256": "sha256:6953742c63f6cd8ef5c14c597ed65c95b3da47d3252f889cddf6e1d8b713e308",
+        "parameters": [],
+        "variadic": { "type": "series" },
+        "minArguments": 2,
+        "maxArguments": 1024,
+        "outputType": "series",
+        "associative": true,
+        "commutative": true
+      },
+      {
+        "operator": "arithmetic.add",
+        "operatorVersion": "2",
+        "semanticContractSha256": "sha256:a4f75998eb8af72fa2d0e9333815315aec8b9dd82ea692c21a4193c3d4b89e84",
+        "parameters": [],
+        "variadic": { "type": "series" },
+        "minArguments": 2,
+        "maxArguments": 1024,
+        "outputType": "series",
+        "associative": false,
+        "commutative": false
+      },
+      {
+        "operator": "arithmetic.subtract",
+        "operatorVersion": "1",
+        "semanticContractSha256": "sha256:872f9de1278659f80e6d33e889c8e974e432b8ad2ca6daf9fc05155f0c1c9387",
+        "parameters": [{ "type": "series" }, { "type": "series" }],
+        "outputType": "series",
+        "associative": false,
+        "commutative": false
+      },
+      {
+        "operator": "decimal.identity",
+        "operatorVersion": "1",
+        "semanticContractSha256": "sha256:d295bd2cbf046d80dada365ac626e4e3509172199f27310c2edb6b8c7e1f9cb4",
+        "parameters": [
+          {
+            "type": "decimal",
+            "literalOnly": true,
+            "decimal": {
+              "maxPrecision": 3,
+              "maxScale": 0,
+              "minimum": "0",
+              "maximum": "999"
+            }
+          }
+        ],
+        "outputType": "decimal",
+        "associative": false,
+        "commutative": false
+      },
+      {
+        "operator": "rolling.mean",
+        "operatorVersion": "1",
+        "semanticContractSha256": "sha256:1390d5f38e80f35864eec21c87123c645d6da53052777d2458fc6f66c599d444",
+        "parameters": [
+          { "type": "series" },
+          {
+            "type": "decimal",
+            "literalOnly": true,
+            "decimal": {
+              "maxPrecision": 3,
+              "maxScale": 0,
+              "minimum": "2",
+              "maximum": "252"
+            }
+          }
+        ],
+        "outputType": "series",
+        "associative": false,
+        "commutative": false
+      },
+      {
+        "operator": "rank.cross_section",
+        "operatorVersion": "1",
+        "semanticContractSha256": "sha256:2539c785b736934bd786b4fa18033d5494a173060415304cac8aee49b169782f",
+        "parameters": [
+          { "type": "series" },
+          { "type": { "enumType": "rank.method" }, "literalOnly": true }
+        ],
+        "outputType": "series",
+        "associative": false,
+        "commutative": false
+      }
+    ]
+  },
+  "registry_canonical_utf8": "{\"schema\":\"loop.operator-registry/v1\",\"fields\":[{\"field\":\"market.close\",\"outputType\":\"series\"},{\"field\":\"market.high\",\"outputType\":\"series\"},{\"field\":\"market.low\",\"outputType\":\"series\"},{\"field\":\"market.open\",\"outputType\":\"series\"}],\"enums\":[{\"enumType\":\"rank.method\",\"values\":[\"average\",\"dense\"]}],\"operators\":[{\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"semanticContractSha256\":\"sha256:6953742c63f6cd8ef5c14c597ed65c95b3da47d3252f889cddf6e1d8b713e308\",\"parameters\":[],\"variadic\":{\"type\":\"series\"},\"minArguments\":\"2\",\"maxArguments\":\"1024\",\"outputType\":\"series\",\"associative\":true,\"commutative\":true},{\"operator\":\"arithmetic.add\",\"operatorVersion\":\"2\",\"semanticContractSha256\":\"sha256:a4f75998eb8af72fa2d0e9333815315aec8b9dd82ea692c21a4193c3d4b89e84\",\"parameters\":[],\"variadic\":{\"type\":\"series\"},\"minArguments\":\"2\",\"maxArguments\":\"1024\",\"outputType\":\"series\",\"associative\":false,\"commutative\":false},{\"operator\":\"arithmetic.subtract\",\"operatorVersion\":\"1\",\"semanticContractSha256\":\"sha256:872f9de1278659f80e6d33e889c8e974e432b8ad2ca6daf9fc05155f0c1c9387\",\"parameters\":[{\"type\":\"series\"},{\"type\":\"series\"}],\"outputType\":\"series\",\"associative\":false,\"commutative\":false},{\"operator\":\"decimal.identity\",\"operatorVersion\":\"1\",\"semanticContractSha256\":\"sha256:d295bd2cbf046d80dada365ac626e4e3509172199f27310c2edb6b8c7e1f9cb4\",\"parameters\":[{\"type\":\"decimal\",\"literalOnly\":true,\"decimal\":{\"maxPrecision\":\"3\",\"maxScale\":\"0\",\"minimum\":\"0\",\"maximum\":\"999\"}}],\"outputType\":\"decimal\",\"associative\":false,\"commutative\":false},{\"operator\":\"rank.cross_section\",\"operatorVersion\":\"1\",\"semanticContractSha256\":\"sha256:2539c785b736934bd786b4fa18033d5494a173060415304cac8aee49b169782f\",\"parameters\":[{\"type\":\"series\"},{\"type\":{\"enumType\":\"rank.method\"},\"literalOnly\":true}],\"outputType\":\"series\",\"associative\":false,\"commutative\":false},{\"operator\":\"rolling.mean\",\"operatorVersion\":\"1\",\"semanticContractSha256\":\"sha256:1390d5f38e80f35864eec21c87123c645d6da53052777d2458fc6f66c599d444\",\"parameters\":[{\"type\":\"series\"},{\"type\":\"decimal\",\"literalOnly\":true,\"decimal\":{\"maxPrecision\":\"3\",\"maxScale\":\"0\",\"minimum\":\"2\",\"maximum\":\"252\"}}],\"outputType\":\"series\",\"associative\":false,\"commutative\":false}]}",
+  "registry_sha256": "sha256:a323a8ca1bfb78a94deeb5cc1c9e6925cf97e44822030f5d7999a730568cb002",
+  "registry_operator_vectors": {
+    "accepted": [
+      {
+        "name": "variadic_minimum_one",
+        "definition": {
+          "operator": "fixture.accepted_minimum",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 1,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": false,
+          "commutative": false
+        }
+      },
+      {
+        "name": "variadic_maximum_boundary",
+        "definition": {
+          "operator": "fixture.accepted_maximum",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 1,
+          "maxArguments": 1024,
+          "outputType": "series",
+          "associative": true,
+          "commutative": true
+        }
+      }
+    ],
+    "rejected": [
+      {
+        "name": "variadic_zero_minimum",
+        "definition": {
+          "operator": "fixture.zero_minimum",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 0,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": false,
+          "commutative": false
+        }
+      },
+      {
+        "name": "variadic_zero_maximum",
+        "definition": {
+          "operator": "fixture.zero_maximum",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 1,
+          "maxArguments": 0,
+          "outputType": "series",
+          "associative": false,
+          "commutative": false
+        }
+      },
+      {
+        "name": "variadic_maximum_below_minimum",
+        "definition": {
+          "operator": "fixture.reversed_bounds",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 2,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": false,
+          "commutative": false
+        }
+      },
+      {
+        "name": "boolean_is_not_an_integer",
+        "definition": {
+          "operator": "fixture.boolean_minimum",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": true,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": false,
+          "commutative": false
+        }
+      },
+      {
+        "name": "associative_requires_boolean",
+        "definition": {
+          "operator": "fixture.numeric_associative",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 1,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": 1,
+          "commutative": false
+        }
+      },
+      {
+        "name": "commutative_requires_boolean",
+        "definition": {
+          "operator": "fixture.string_commutative",
+          "operatorVersion": "1",
+          "parameters": [],
+          "variadic": { "type": "series" },
+          "minArguments": 1,
+          "maxArguments": 1,
+          "outputType": "series",
+          "associative": false,
+          "commutative": "false"
+        }
+      }
+    ]
+  },
+  "expression_vectors": [
+    {
+      "name": "rolling_mean_window_20",
+      "input": {
+        "node": "call",
+        "operator": "rolling.mean",
+        "operator_version": "1",
+        "arguments": [
+          { "node": "field", "field": "market.close" },
+          { "node": "decimal", "value": "20" }
+        ]
+      },
+      "canonical_utf8": "{\"node\":\"call\",\"operator\":\"rolling.mean\",\"operator_version\":\"1\",\"arguments\":[{\"node\":\"field\",\"field\":\"market.close\"},{\"node\":\"decimal\",\"value\":\"20\"}]}",
+      "expression_id": "sha256:6140234b602a8fa1108888ce9fad225c4d4741f22cc261aa93b64e63d641593d"
+    },
+    {
+      "name": "commutative_associative_add",
+      "input": {
+        "node": "call",
+        "operator": "arithmetic.add",
+        "operator_version": "1",
+        "arguments": [
+          { "node": "field", "field": "market.open" },
+          {
+            "node": "call",
+            "operator": "arithmetic.add",
+            "operator_version": "1",
+            "arguments": [
+              { "node": "field", "field": "market.high" },
+              { "node": "field", "field": "market.close" }
+            ]
+          }
+        ]
+      },
+      "canonical_utf8": "{\"node\":\"call\",\"operator\":\"arithmetic.add\",\"operator_version\":\"1\",\"arguments\":[{\"node\":\"field\",\"field\":\"market.close\"},{\"node\":\"field\",\"field\":\"market.high\"},{\"node\":\"field\",\"field\":\"market.open\"}]}",
+      "expression_id": "sha256:b47c3e954d7dd625e746ac73530985e61bf6ff0c2b4041ee56da26d39941988f"
+    },
+    {
+      "name": "associative_outer_arity_normalizes_to_minimum",
+      "input": {
+        "node": "call",
+        "operator": "arithmetic.add",
+        "operator_version": "1",
+        "arguments": [
+          {
+            "node": "call",
+            "operator": "arithmetic.add",
+            "operator_version": "1",
+            "arguments": [
+              { "node": "field", "field": "market.open" },
+              { "node": "field", "field": "market.close" }
+            ]
+          }
+        ]
+      },
+      "canonical_utf8": "{\"node\":\"call\",\"operator\":\"arithmetic.add\",\"operator_version\":\"1\",\"arguments\":[{\"node\":\"field\",\"field\":\"market.close\"},{\"node\":\"field\",\"field\":\"market.open\"}]}",
+      "expression_id": "sha256:4a65ce89092ec916ddd9c34d8d9b10d77321d3522c1c0b543c93fb38d42e228d"
+    },
+    {
+      "name": "closed_enum_literal",
+      "input": {
+        "node": "call",
+        "operator": "rank.cross_section",
+        "operator_version": "1",
+        "arguments": [
+          { "node": "field", "field": "market.close" },
+          { "node": "enum", "enum_type": "rank.method", "value": "average" }
+        ]
+      },
+      "canonical_utf8": "{\"node\":\"call\",\"operator\":\"rank.cross_section\",\"operator_version\":\"1\",\"arguments\":[{\"node\":\"field\",\"field\":\"market.close\"},{\"node\":\"enum\",\"enum_type\":\"rank.method\",\"value\":\"average\"}]}",
+      "expression_id": "sha256:19172e82274db1ef269d0edb24d6392a8d844ab30683578d63e518708024387e"
+    },
+    {
+      "name": "boolean_false",
+      "input": { "node": "boolean", "value": false },
+      "canonical_utf8": "{\"node\":\"boolean\",\"value\":false}",
+      "expression_id": "sha256:3b5e8208adc284c2382527be1e6fbe522de1899dbf6ae2028886c7fef0a207d5"
+    }
+  ],
+  "factor_spec_vectors": [
+    {
+      "name": "higher_is_better_all_policies",
+      "input": {
+        "schema": "loop.factor-spec/v1",
+        "expression_id": "sha256:6140234b602a8fa1108888ce9fad225c4d4741f22cc261aa93b64e63d641593d",
+        "operator_registry_sha256": "sha256:a323a8ca1bfb78a94deeb5cc1c9e6925cf97e44822030f5d7999a730568cb002",
+        "direction": "higher_is_better",
+        "universe_policy": { "policy_id": "us_common_stock", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000001" },
+        "data_policy": { "policy_id": "pit_market_v1", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000002" },
+        "calendar_policy": { "policy_id": "xnys_xnas", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000003" },
+        "preprocess_policy": { "policy_id": "cross_section_v1", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000004" },
+        "neutralization_policy": { "policy_id": "industry_size_beta", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000005" },
+        "portfolio_policy": { "policy_id": "decile_long_short", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000006" },
+        "execution_policy": { "policy_id": "next_tradable_open", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000007" },
+        "cost_policy": { "policy_id": "us_equities_cost_v1", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000008" },
+        "evaluation_policy": { "policy_id": "factor_admission_v1", "revision": "1", "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000009" }
+      },
+      "expression_canonical_utf8": "{\"node\":\"call\",\"operator\":\"rolling.mean\",\"operator_version\":\"1\",\"arguments\":[{\"node\":\"field\",\"field\":\"market.close\"},{\"node\":\"decimal\",\"value\":\"20\"}]}",
+      "canonical_utf8": "{\"schema\":\"loop.factor-spec/v1\",\"expression_id\":\"sha256:6140234b602a8fa1108888ce9fad225c4d4741f22cc261aa93b64e63d641593d\",\"operator_registry_sha256\":\"sha256:a323a8ca1bfb78a94deeb5cc1c9e6925cf97e44822030f5d7999a730568cb002\",\"direction\":\"higher_is_better\",\"universe_policy\":{\"policy_id\":\"us_common_stock\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000001\"},\"data_policy\":{\"policy_id\":\"pit_market_v1\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000002\"},\"calendar_policy\":{\"policy_id\":\"xnys_xnas\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000003\"},\"preprocess_policy\":{\"policy_id\":\"cross_section_v1\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000004\"},\"neutralization_policy\":{\"policy_id\":\"industry_size_beta\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000005\"},\"portfolio_policy\":{\"policy_id\":\"decile_long_short\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000006\"},\"execution_policy\":{\"policy_id\":\"next_tradable_open\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000007\"},\"cost_policy\":{\"policy_id\":\"us_equities_cost_v1\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000008\"},\"evaluation_policy\":{\"policy_id\":\"factor_admission_v1\",\"revision\":\"1\",\"sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000009\"}}",
+      "factor_spec_id": "sha256:a4b925ea71723eabfcd33f7220aa18323b8ab722b1094fc59dbfc493129b7765"
+    }
+  ],
+  "rejected_registry_bindings": [
+    {
+      "name": "factor_spec_registry_digest_mismatch",
+      "operator_registry_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "rejected_factor_bindings": [
+    {
+      "name": "decimal_root_is_not_a_factor",
+      "canonical_expression_utf8": "{\"node\":\"decimal\",\"value\":\"20\"}",
+      "expression_id": "sha256:9b250afabf9d30e00745962f4dbcfe261d45cf707efe2ddba5b2ca8928875bc0"
+    },
+    {
+      "name": "boolean_root_is_not_a_factor",
+      "canonical_expression_utf8": "{\"node\":\"boolean\",\"value\":false}",
+      "expression_id": "sha256:3b5e8208adc284c2382527be1e6fbe522de1899dbf6ae2028886c7fef0a207d5"
+    },
+    {
+      "name": "enum_root_is_not_a_factor",
+      "canonical_expression_utf8": "{\"node\":\"enum\",\"enum_type\":\"rank.method\",\"value\":\"average\"}",
+      "expression_id": "sha256:eeb538bf3a937417021b92cdab5bb90844de0fdedbbb28de7def5c229ce4fe4c"
+    }
+  ],
+  "rejected_factor_spec_canonical_mutations": [
+    "leading_whitespace",
+    "reordered_top_level_fields",
+    "duplicate_direction",
+    "unknown_top_level_field",
+    "missing_evaluation_policy",
+    "reordered_policy_fields",
+    "duplicate_policy_field",
+    "unknown_policy_field",
+    "missing_policy_field",
+    "wrong_schema",
+    "auto_direction"
+  ],
+  "accepted_decimals": ["0", "1", "-1", "0.5", "-0.5", "10.25", "0.0001"],
+  "accepted_positive_integers": ["1", "18446744073709551615"],
+  "rejected_decimals": ["", "+1", "-0", "00", "01", ".5", "1.", "1.0", "1.20", "1e3", "NaN", "Infinity"],
+  "rejected_positive_integers": ["0", "00", "18446744073709551616", "999999999999999999999999999999999999"],
+  "rejected_identifiers": ["", "Market.close", "2market.close", "market..close", "market/close", "market%2eclose", "market.closé"],
+  "rejected_directions": ["auto", "best_ic", "best_icir", "higher", "lower", ""],
+  "rejected_canonical_utf8": [
+    " {\"node\":\"field\",\"field\":\"market.close\"}",
+    "{\"field\":\"market.close\",\"node\":\"field\"}",
+    "{\"node\":\"field\",\"field\":\"market.close\",\"field\":\"market.open\"}",
+    "{\"node\":\"decimal\",\"value\":20}",
+    "{\"node\":\"field\",\"field\":\"market.close\",\"extra\":\"x\"}",
+    "{"
+  ],
+  "rejected_expressions": [
+    { "name": "unknown_field", "input": { "node": "field", "field": "market.volume" } },
+    { "name": "unknown_enum", "input": { "node": "enum", "enum_type": "rank.method", "value": "ordinal" } },
+    { "name": "unknown_operator", "input": { "node": "call", "operator": "rolling.skew", "operator_version": "1", "arguments": [] } },
+    { "name": "wrong_arity", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }] } },
+    { "name": "associative_flatten_still_below_minimum", "input": { "node": "call", "operator": "arithmetic.add", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }] } },
+    { "name": "associative_flatten_exceeds_deployment_limit", "limit_overrides": { "max_direct_arguments": 2 }, "input": { "node": "call", "operator": "arithmetic.add", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "call", "operator": "arithmetic.add", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.open" }, { "node": "field", "field": "market.high" }] }] } },
+    { "name": "type_mismatch", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "field", "field": "market.open" }] } },
+    { "name": "literal_required", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "call", "operator": "decimal.identity", "operator_version": "1", "arguments": [{ "node": "decimal", "value": "20" }] }] } },
+    { "name": "precision_exceeded", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "decimal", "value": "1000" }] } },
+    { "name": "scale_exceeded", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "decimal", "value": "2.5" }] } },
+    { "name": "below_minimum", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "decimal", "value": "1" }] } },
+    { "name": "above_maximum", "input": { "node": "call", "operator": "rolling.mean", "operator_version": "1", "arguments": [{ "node": "field", "field": "market.close" }, { "node": "decimal", "value": "253" }] } }
+  ]
+}

@@ -41,13 +41,28 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 - [x] Pass host and clean-container gates and record the evidence.
 - [x] Commit and push the Phase 1 implementation to the remote branch.
 
-## Phase 2 - Core contracts (`pending`)
+## Phase 1 amendment - Python 3.14 uv workspace (`in_progress`)
 
-- [ ] Define versioned Protobuf contracts for jobs, factors, data, models,
+- [x] Pin the primary Python toolchain and package constraints to 3.14.4.
+- [x] Replace three independent uv projects with one root workspace, lockfile,
+      and `.venv`.
+- [x] Update local wrappers, CI, container isolation, and wire producer metadata.
+- [ ] Pass host and clean-container gates on the amended toolchain.
+- [ ] Commit, push, and record a successful remote CI run.
+
+## Phase 2 - Core contracts (`in_progress`)
+
+Implementation is available as a review checkpoint. The phase remains in
+progress until the final workspace, clean-container, and remote CI gates pass.
+
+- [x] Define versioned Protobuf contracts for jobs, factors, data, models,
       streams, backtests, and audit events.
-- [ ] Define canonical `FactorSpec` and typed content blocks.
-- [ ] Generate Rust, TypeScript, and Python bindings.
-- [ ] Add schema evolution, unknown-field, and cross-language round-trip tests.
+- [x] Define canonical `FactorSpec` and typed content blocks.
+- [x] Generate Rust, TypeScript, and Python bindings.
+- [x] Add schema evolution, unknown-field, and cross-language round-trip tests.
+- [x] Add pure protocol negotiation and persisted-selection availability checks.
+- [ ] Pass final workspace and clean-container gates.
+- [ ] Commit, push, and record a successful remote CI run for phase closure.
 
 ## Phase 3 - Durable state (`pending`)
 
@@ -75,6 +90,10 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 
 - [ ] Port and specify operators, canonical AST evaluation, neutralization,
       coverage checks, and trial registry.
+- [ ] Prove every evaluator conforms to its resolved operator semantic contract
+      with cross-language goldens, missing/constant-window properties, and
+      reference numerical comparisons; bind source changes through
+      `ResearchProvenance.source_code_sha256`.
 - [ ] Add golden, property, determinism, and look-ahead tests.
 
 ## Phase 7 - Primary backtester (`pending`)

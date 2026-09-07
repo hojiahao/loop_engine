@@ -1,0 +1,296 @@
+{
+  "schema": "loop.audit-action-binding/v1",
+  "event_envelope": {
+    "audit_ledger_id": "ledger.action-bindings",
+    "sequence": "1",
+    "previous_event_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "audit_event_id": "audit.action-binding.0001",
+    "occurred_at": "2026-09-05T07:00:00.000000000Z",
+    "correlation_id": "correlation.action-binding",
+    "causation_id": "causation.action-binding",
+    "actor": {
+      "actor_id": "actor.contract-test",
+      "kind": "service",
+      "display_name": "contract test",
+      "authenticated_subject": "spiffe://loop/contract-test"
+    }
+  },
+  "accepted": [
+    {
+      "name": "command_accepted",
+      "action": "command_accepted",
+      "payload_schema": "loop.audit.command_accepted",
+      "canonical_payload": "{\"command\":\"research.run\",\"request_id\":\"request.0001\",\"summary\":\"start research\"}",
+      "target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "forbidden_target": {
+        "kind": "holdout_grant_id",
+        "value": "grant.01"
+      },
+      "payload_sha256": "sha256:a4326e8adc57e54ef242896e6e97d80cb8726c36afe220d74c69b562857c39b1",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"command_accepted\",\"target\":{\"kind\":\"job_id\",\"value\":\"job.01\"},\"payload\":{\"schema_name\":\"loop.audit.command_accepted\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:a4326e8adc57e54ef242896e6e97d80cb8726c36afe220d74c69b562857c39b1\"}}",
+      "event_sha256": "sha256:e87aca93fea71693a0c42b428425d61b0be064e0ac16b76ed37c1e37e74ce9a1"
+    },
+    {
+      "name": "state_transitioned",
+      "action": "state_transitioned",
+      "payload_schema": "loop.audit.state_transitioned",
+      "canonical_payload": "{\"from\":\"queued\",\"to\":\"running\",\"reason\":\"worker leased job\"}",
+      "target": {
+        "kind": "run_id",
+        "value": "run.01"
+      },
+      "forbidden_target": {
+        "kind": "artifact_id",
+        "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "payload_sha256": "sha256:763b76e37a565c90ad62ccd204e7580d626b8edb59db64ea0217a56d47ce5bca",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"state_transitioned\",\"target\":{\"kind\":\"run_id\",\"value\":\"run.01\"},\"payload\":{\"schema_name\":\"loop.audit.state_transitioned\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:763b76e37a565c90ad62ccd204e7580d626b8edb59db64ea0217a56d47ce5bca\"}}",
+      "event_sha256": "sha256:2a22e79ea2137052b84d602cecea1a74744db384096e1f2775fd243b63f626e9"
+    },
+    {
+      "name": "factor_admitted",
+      "action": "factor_admitted",
+      "payload_schema": "loop.audit.factor_admitted",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"decision\":\"admitted\",\"evidence_artifact_id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "target": {
+        "kind": "factor_spec_id",
+        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:63e23259b154b6f7d6b953cb9a55ff839c0baab08772760922660c92b67d02cf",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"factor_admitted\",\"target\":{\"kind\":\"factor_spec_id\",\"value\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"},\"payload\":{\"schema_name\":\"loop.audit.factor_admitted\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:63e23259b154b6f7d6b953cb9a55ff839c0baab08772760922660c92b67d02cf\"}}",
+      "event_sha256": "sha256:4bdba4f110bdf258922bad16e148243d22be04c7ce0c2231b8ec11def7277eea"
+    },
+    {
+      "name": "factor_rejected",
+      "action": "factor_rejected",
+      "payload_schema": "loop.audit.factor_rejected",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"rejection_code\":\"performance\",\"reason\":\"failed frozen threshold\",\"evidence_artifact_id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "target": {
+        "kind": "factor_spec_id",
+        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:d0b1f08ded5206d3f23ca9a2dfbb203562964d68923918c3135bad7fbca26dea",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"factor_rejected\",\"target\":{\"kind\":\"factor_spec_id\",\"value\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"},\"payload\":{\"schema_name\":\"loop.audit.factor_rejected\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:d0b1f08ded5206d3f23ca9a2dfbb203562964d68923918c3135bad7fbca26dea\"}}",
+      "event_sha256": "sha256:329bc79aa2965bf78b9553a2c42ec033e4549cd055dc33061f8653a9da32cd9b"
+    },
+    {
+      "name": "override_authorized",
+      "action": "override_authorized",
+      "payload_schema": "loop.audit.override_authorized",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"override_kind\":\"policy_exception\",\"authorized_by_actor_id\":\"actor.risk_officer\",\"reason\":\"documented policy exception\",\"approval_reference\":\"approval.override.01\",\"evidence_artifact_id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "target": {
+        "kind": "factor_spec_id",
+        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:fed4eca60bb44daf854911ed1bbfbc27aa4d7f10bc183d1fd3de7bc84ff82bc4",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"override_authorized\",\"target\":{\"kind\":\"factor_spec_id\",\"value\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"},\"payload\":{\"schema_name\":\"loop.audit.override_authorized\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:fed4eca60bb44daf854911ed1bbfbc27aa4d7f10bc183d1fd3de7bc84ff82bc4\"}}",
+      "event_sha256": "sha256:441c75abb612ec616d9ed197330f11d755e0a10f5b9f97a91d9361303d4f6e3b"
+    },
+    {
+      "name": "readmission_requested",
+      "action": "readmission_requested",
+      "payload_schema": "loop.audit.readmission_requested",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"original_rejection_event_id\":\"audit.reject.01\",\"requested_by_actor_id\":\"actor.researcher\",\"reason\":\"new independent evidence\"}",
+      "target": {
+        "kind": "factor_spec_id",
+        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:d37bf2ec1b76d20219c18ad9d7a2c56056fca00a5e5ff37e3ae2f5370eaaeab5",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"readmission_requested\",\"target\":{\"kind\":\"factor_spec_id\",\"value\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"},\"payload\":{\"schema_name\":\"loop.audit.readmission_requested\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:d37bf2ec1b76d20219c18ad9d7a2c56056fca00a5e5ff37e3ae2f5370eaaeab5\"}}",
+      "event_sha256": "sha256:340f868ed719c02673f26120697870f240ec9675a4ae46f2487725003245fd6c"
+    },
+    {
+      "name": "readmission_decided",
+      "action": "readmission_decided",
+      "payload_schema": "loop.audit.readmission_decided",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"original_rejection_event_id\":\"audit.reject.01\",\"disposition\":\"quarantined\",\"decided_by_actor_id\":\"actor.checker\",\"reason\":\"awaiting independent replay\"}",
+      "target": {
+        "kind": "factor_spec_id",
+        "value": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:5d9db67b8ec3011e7f6fc4de001d9b2aef6722c2a87de4b867bc5c91eb3e6af9",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"readmission_decided\",\"target\":{\"kind\":\"factor_spec_id\",\"value\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"},\"payload\":{\"schema_name\":\"loop.audit.readmission_decided\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:5d9db67b8ec3011e7f6fc4de001d9b2aef6722c2a87de4b867bc5c91eb3e6af9\"}}",
+      "event_sha256": "sha256:f9cdff5ea355bc5bdaf69f88b0a5280341d2c3516039c859bb3982752b2e66d7"
+    },
+    {
+      "name": "holdout_grant_issued",
+      "action": "holdout_grant_issued",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"},{\"holdout_approval_record_id\":\"holdout_approval.02\",\"approval_record_sha256\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"approved_by_actor_id\":\"actor.security_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "target": {
+        "kind": "holdout_grant_id",
+        "value": "grant.01"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "grant.02",
+      "payload_sha256": "sha256:1b18023281f37490f7fc0dfa4ac44eb3f45c4b7cf575100b2a527550c5476455",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"holdout_grant_issued\",\"target\":{\"kind\":\"holdout_grant_id\",\"value\":\"grant.01\"},\"payload\":{\"schema_name\":\"loop.audit.holdout_grant_issued\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:1b18023281f37490f7fc0dfa4ac44eb3f45c4b7cf575100b2a527550c5476455\"}}",
+      "event_sha256": "sha256:5d904646929c28d983bf2c66811886203bacddb91a9d493eb8dd13735241d5ef"
+    },
+    {
+      "name": "holdout_grant_consumed",
+      "action": "holdout_grant_consumed",
+      "payload_schema": "loop.audit.holdout_grant_consumed",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"job_batch_id\":\"batch.01\",\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "target": {
+        "kind": "holdout_grant_id",
+        "value": "grant.01"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "grant.02",
+      "payload_sha256": "sha256:17ae3771b1647a49f05a7e4b0713ee35846a1d00b55ed569c1cfb5375975c781",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"holdout_grant_consumed\",\"target\":{\"kind\":\"holdout_grant_id\",\"value\":\"grant.01\"},\"payload\":{\"schema_name\":\"loop.audit.holdout_grant_consumed\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:17ae3771b1647a49f05a7e4b0713ee35846a1d00b55ed569c1cfb5375975c781\"}}",
+      "event_sha256": "sha256:23431463cb4997c23cc715d37c0ce093ca11918274987db340aa0698853fdd89"
+    },
+    {
+      "name": "artifact_exported",
+      "action": "artifact_exported",
+      "payload_schema": "loop.audit.artifact_exported",
+      "canonical_payload": "{\"artifact_id\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"export_class\":\"audit_bundle\",\"policy_id\":\"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"destination_class\":\"approved_object_store\"}",
+      "target": {
+        "kind": "artifact_id",
+        "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "payload_sha256": "sha256:b582c9e53ab6767c1b6a7de040ca45a1c16153d7ac3d39235fa45e127daa16c2",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"artifact_exported\",\"target\":{\"kind\":\"artifact_id\",\"value\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"payload\":{\"schema_name\":\"loop.audit.artifact_exported\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:b582c9e53ab6767c1b6a7de040ca45a1c16153d7ac3d39235fa45e127daa16c2\"}}",
+      "event_sha256": "sha256:290c33af04187d0aba9133b8c9235326463ac0c53b51d5aee4551548a7181ee0"
+    },
+    {
+      "name": "holdout_approval_recorded",
+      "action": "holdout_approval_recorded",
+      "payload_schema": "loop.audit.holdout_approval_recorded",
+      "canonical_payload": "{\"holdout_approval_record_id\":\"holdout_approval.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"approved_by_actor_id\":\"actor.risk_officer\",\"expires_at\":\"2026-09-06T00:00:00.000000000Z\"}",
+      "target": {
+        "kind": "holdout_approval_record_id",
+        "value": "holdout_approval.01"
+      },
+      "forbidden_target": {
+        "kind": "job_id",
+        "value": "job.01"
+      },
+      "mismatched_target_value": "holdout_approval.02",
+      "payload_sha256": "sha256:ba848852e03c2dd95580e9478d400edd69ec81907b491ac9cfcbb729111cb047",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"holdout_approval_recorded\",\"target\":{\"kind\":\"holdout_approval_record_id\",\"value\":\"holdout_approval.01\"},\"payload\":{\"schema_name\":\"loop.audit.holdout_approval_recorded\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:ba848852e03c2dd95580e9478d400edd69ec81907b491ac9cfcbb729111cb047\"}}",
+      "event_sha256": "sha256:15dcbb9a7d1a2c802ea76a7a5cc426fb0590172ad05b2a927ea1bec4289a3f23"
+    }
+  ],
+  "malformed_payloads": [
+    {
+      "name": "holdout_approval_records_empty",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "non_canonical_payload"
+    },
+    {
+      "name": "holdout_approval_records_unsorted",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.02\",\"approval_record_sha256\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"approved_by_actor_id\":\"actor.security_officer\"},{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "non_canonical_payload"
+    },
+    {
+      "name": "holdout_approval_record_id_duplicate",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"},{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"approved_by_actor_id\":\"actor.security_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "non_canonical_payload"
+    },
+    {
+      "name": "holdout_approval_record_digest_duplicate",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"},{\"holdout_approval_record_id\":\"holdout_approval.02\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.security_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "non_canonical_payload"
+    },
+    {
+      "name": "holdout_approval_actor_duplicate",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"},{\"holdout_approval_record_id\":\"holdout_approval.02\",\"approval_record_sha256\":\"sha256:2222222222222222222222222222222222222222222222222222222222222222\",\"approved_by_actor_id\":\"actor.risk_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "non_canonical_payload"
+    },
+    {
+      "name": "invalid_holdout_approval_record_digest",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:ABC\",\"approved_by_actor_id\":\"actor.risk_officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "invalid_digest"
+    },
+    {
+      "name": "invalid_holdout_approval_actor_id",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor risk officer\"}],\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "invalid_identifier"
+    },
+    {
+      "name": "unknown_holdout_capability_class",
+      "payload_schema": "loop.audit.holdout_grant_issued",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"approval_records\":[{\"holdout_approval_record_id\":\"holdout_approval.01\",\"approval_record_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"approved_by_actor_id\":\"actor.risk_officer\"}],\"capability_class\":\"unknown\",\"authorization_decision\":\"authorized\"}",
+      "expected_code": "invalid_enum"
+    },
+    {
+      "name": "unknown_holdout_authorization_decision",
+      "payload_schema": "loop.audit.holdout_grant_consumed",
+      "canonical_payload": "{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"holdout_evaluation_plan_id\":\"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\",\"job_batch_id\":\"batch.01\",\"capability_class\":\"holdout_evaluation\",\"authorization_decision\":\"denied\"}",
+      "expected_code": "invalid_enum"
+    },
+    {
+      "name": "unknown_rejection_code",
+      "payload_schema": "loop.audit.factor_rejected",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"rejection_code\":\"unknown\",\"reason\":\"invalid enum\",\"evidence_artifact_id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "expected_code": "invalid_enum"
+    },
+    {
+      "name": "malformed_factor_identity",
+      "payload_schema": "loop.audit.factor_admitted",
+      "canonical_payload": "{\"factor_spec_id\":\"factor.not-content-addressed\",\"decision\":\"admitted\",\"evidence_artifact_id\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "expected_code": "invalid_digest"
+    },
+    {
+      "name": "empty_required_reason",
+      "payload_schema": "loop.audit.readmission_requested",
+      "canonical_payload": "{\"factor_spec_id\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\",\"original_rejection_event_id\":\"audit.reject.01\",\"requested_by_actor_id\":\"actor.researcher\",\"reason\":\"\"}",
+      "expected_code": "invalid_text"
+    },
+    {
+      "name": "invalid_payload_timestamp",
+      "payload_schema": "loop.audit.holdout_approval_recorded",
+      "canonical_payload": "{\"holdout_approval_record_id\":\"holdout_approval.01\",\"holdout_period_id\":\"sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"freeze_manifest_sha256\":\"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"approved_by_actor_id\":\"actor.risk_officer\",\"expires_at\":\"2026-09-06T00:00:00Z\"}",
+      "expected_code": "invalid_timestamp"
+    }
+  ]
+}

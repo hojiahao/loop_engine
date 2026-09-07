@@ -1,0 +1,7 @@
+name	expected_binder	expected_wire	submitted_seconds	submitted_nanos
+submission_just_before_grant_issue	invalid_input	invalid_specification	3	999999999
+submission_at_grant_issue	accept	accept	4	0
+submission_inside_grant_lifetime	accept	accept	5	0
+submission_just_before_grant_expiry	accept	accept	99	999999999
+submission_at_grant_expiry	invalid_input	invalid_specification	100	0
+submission_just_after_grant_expiry	invalid_input	invalid_specification	100	1

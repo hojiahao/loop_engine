@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+import "loop/v1/data.proto";
+import "loop/v1/research_common.proto";
+
+enum BacktestEngineKind {
+  BACKTEST_ENGINE_KIND_UNSPECIFIED = 0;
+  BACKTEST_ENGINE_KIND_PRIMARY_CROSS_SECTIONAL = 1;
+  BACKTEST_ENGINE_KIND_ALPHALENS_VALIDATION = 2;
+  BACKTEST_ENGINE_KIND_ZIPLINE_VALIDATION = 3;
+}
+
+enum ReconciliationDisposition {
+  RECONCILIATION_DISPOSITION_UNSPECIFIED = 0;
+  RECONCILIATION_DISPOSITION_ACCEPTED = 1;
+  RECONCILIATION_DISPOSITION_REJECTED = 2;
+}
+
+// BacktestSpec is immutable after backtest_id is assigned. Validation resolves
+// and verifies factor_spec_id, policy references, sample role, and snapshot
+// manifest before execution.
+message BacktestSpec {
+  reserved 6, 7, 9, 10;
+  reserved "borrow_policy", "execution_timing", "frozen_policy", "portfolio";
+  BacktestId backtest_id = 1;
+  uint32 schema_version = 2;
+  FactorSpecId factor_spec_id = 3;
+  // At most 128 sorted, unique immutable snapshot IDs.
+  repeated SnapshotId snapshot_ids = 4;
+  SampleWindow sample = 5;
+  // This accounting definition is a protocol invariant. The policies reached
+  // through factor_spec_id are prohibited from redefining return arithmetic.
+  ReturnDefinition return_definition = 8;
+  ResearchProvenanceFingerprint provenance = 11;
+  Sha256Digest canonical_spec_sha256 = 12;
+  google.protobuf.Timestamp created_at = 13;
+  // Required 32-byte deterministic seed for every stochastic algorithm. The
+  // seed is part of canonical_spec_sha256 and must be reused on reconciliation.
+  Sha256Digest deterministic_seed = 14;
+}
+
+message BacktestMetric {
+  string name = 1;
+  ExactDecimal value = 2;
+  string unit = 3;
+  string estimator = 4;
+}
+
+// All time series and ledgers remain immutable artifacts. In particular,
+// simple_returns contains NAV[t] / NAV[t-1] - 1, never delta NAV.
+message BacktestArtifacts {
+  ArtifactRef factor_values = 1;
+  ArtifactRef target_positions = 2;
+  ArtifactRef orders = 3;
+  ArtifactRef fills = 4;
+  ArtifactRef nav = 5;
+  ArtifactRef simple_returns = 6;
+  ArtifactRef risk_exposures = 7;
+  ArtifactRef cost_ledger = 8;
+}
+
+message BacktestResult {
+  BacktestId backtest_id = 1;
+  BacktestEngineKind engine = 2;
+  string engine_version = 3;
+  ResearchProvenanceFingerprint provenance = 4;
+  // At most 256 uniquely named metrics, sorted by name.
+  repeated BacktestMetric metrics = 5;
+  BacktestArtifacts artifacts = 6;
+  Sha256Digest result_manifest_sha256 = 7;
+  google.protobuf.Timestamp completed_at = 8;
+}
+
+message ReconciliationDifference {
+  string field_path = 1;
+  ExactDecimal primary_value = 2;
+  ExactDecimal independent_value = 3;
+  ExactDecimal absolute_tolerance = 4;
+  string explanation = 5;
+}
+
+message BacktestReconciliation {
+  reserved 4;
+  reserved "accepted";
+  BacktestId primary_backtest_id = 1;
+  BacktestId independent_backtest_id = 2;
+  // At most 1,024 differences in stable field-path order.
+  repeated ReconciliationDifference differences = 3;
+  ArtifactRef detailed_report = 5;
+  Sha256Digest reconciliation_sha256 = 6;
+  ReconciliationDisposition disposition = 7;
+}

@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+pub mod audit;
+pub mod factor;
+pub mod holdout;
+
 pub const PRODUCT_NAME: &str = "Loop Engine";
 pub const PRODUCT_VERSION: &str = env!("CARGO_PKG_VERSION");
 

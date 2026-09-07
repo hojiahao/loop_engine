@@ -7,7 +7,7 @@
 | Rust / Cargo | 1.93.1 | `rust-toolchain.toml` |
 | Node.js | 24.17.0 | root `package.json` and development container |
 | pnpm | 11.25.0 | root `package.json` |
-| Python | 3.12.13 | research `.python-version` and development container |
+| Python | CPython 3.14.4 | root `.python-version` and development container |
 | uv | 0.11.29 | CI and development container |
 | just | 1.45.0 | development container and bootstrap script |
 
@@ -18,38 +18,39 @@ upstream `docker.io/library/python` image is referenced as
 `m.daocloud.io/docker.io/library/python`. Every base image in the Dockerfile is
 also pinned to a full OCI index digest.
 
-The Rust image layer includes the Clippy and rustfmt components for the exact
-toolchain in `rust-toolchain.toml`. They are installed and version-checked while
-the image is built, so a clean runtime volume does not download a second copy
-of Rust.
+The development image installs Cargo, rustc, rust-std, Clippy, and rustfmt from
+the SJTUG copies of the official component archives. Before extraction, every
+archive must match the SHA-256 manifest committed under `config/toolchains`.
+This makes the mirror a transport rather than a provenance authority. A clean
+runtime volume does not download a second copy of Rust or pull the large Rust
+OCI image layer.
 
 Debian packages inside the image use the Tencent Cloud HTTPS mirror because direct
 Debian HTTP transport is unreliable in the target network. Debian repository
 signatures remain mandatory; the mirror is transport, not a trust authority.
 Package requests have bounded retries and timeouts.
 
-To start the environment:
+Run the full clean-container gate with:
 
 ```bash
-export LOOP_ENGINE_UID="$(id -u)"
-export LOOP_ENGINE_GID="$(id -g)"
-docker compose build development
-docker compose run --rm development just bootstrap
-docker compose run --rm development just check
-docker compose run --rm development just test
-docker compose run --rm development just build
-docker compose run --rm development just check
-docker compose run --rm development just doctor
+just container-gate
 ```
+
+`container-gate` creates a unique Compose project name, starts with new
+`development-python` and `development-runtime` volumes, runs bootstrap plus all
+repository gates, and removes those containers and volumes on both success and
+failure. It does not reuse or delete an interactive developer's default Compose
+volumes.
 
 The Docker daemon does not need a global registry-mirror mutation. Keeping the
 mirror prefix in source makes the effective transport reviewable per image.
 The explicit UID/GID mapping prevents bind-mounted source files from changing
-ownership. A named `development-runtime` volume holds container-only tool
-caches and virtual environments, so absolute interpreter paths from a host
-checkout can never leak into `/workspace`. The cache volume root uses sticky
-temporary-directory permissions so the explicitly mapped caller UID can create
-its own state without making existing entries mutable by other UIDs.
+ownership. A named `development-runtime` volume holds container-only tool and
+download caches. A second named `development-python` volume is mounted at the
+conventional `/workspace/.venv` path, so the container has one root project
+environment without reusing the host environment or its absolute interpreter
+paths. Both targets use sticky temporary-directory permissions so the
+explicitly mapped caller UID can initialize them.
 
 The development image is pinned by digest, but its Debian packages are resolved
 from the package sources configured in that image. This phase guarantees pinned
@@ -60,9 +61,9 @@ SBOM verification are a Phase 14 release gate.
 ## Host bootstrap
 
 The supported host path is Linux x86-64 with Node.js 24.17.0, Corepack, uv
-0.11.29, curl, and SHA-256 tooling available. `$HOME/.local/bin` must be on
-`PATH` when just is not already installed. Start with the script because a
-clean host may not have just yet:
+0.11.29, curl, SHA-256 tooling, tar, and xz available. `$HOME/.local/bin` must
+be on `PATH` when just is not already installed. Start with the script because
+a clean host may not have just yet:
 
 ```bash
 ./scripts/bootstrap.sh
@@ -72,16 +73,31 @@ just build
 just doctor
 ```
 
-Bootstrap reuses a system Rust compiler only when it exactly matches
-`rust-toolchain.toml`. Otherwise it downloads rustup into the repository-local
-ignored `.tools` directory. The rustup bootstrap executable is restricted to
-HTTPS redirects and verified against the SHA-256 value recorded in the script;
-the requested Rust toolchain is then installed with rustfmt and Clippy. Python
-environments and caches also remain repository-local. If just is absent,
-bootstrap verifies the pinned release archive in `.tools`, installs the binary
-into `$HOME/.local/bin`, and removes the archive. The archive is fetched through
-DaoCloud's GitHub binary mirror and checked against the repository-pinned
-upstream SHA-256.
+Bootstrap reuses a Rust installation only when all four tool versions match,
+its resolved sysroot contains the component checksum marker, and that marker
+exactly matches the repository manifest. Ordinary system packages and rustup
+toolchains have no such provenance marker and are not reused. Bootstrap instead
+downloads the five component archives into a temporary directory on the
+runtime filesystem, verifies each archive against
+`config/toolchains/rust-1.93.1-x86_64-unknown-linux-gnu.sha256`, and installs
+them atomically under the ignored runtime `.tools` directory.
+`LOOP_ENGINE_RUST_DIST_MIRROR` selects a reviewed transport and defaults to
+`sjtug`; accepted values are `rsproxy`, `ustc`, `sjtug`, and `official`.
+Unknown values fail closed instead of turning bootstrap into an arbitrary
+downloader. All redirects must remain HTTPS and all endpoints are subject to
+the same pinned digests. This selection affects Rust archives only, not OCI
+image pulls.
+The root
+`pyproject.toml` defines one uv workspace for the legacy regression dependencies,
+`loop_research`, and `loop_protocol`. Bootstrap creates one Git-ignored `.venv`
+at the repository root with standard CPython 3.14.4 and synchronizes all
+workspace packages and dependency groups from the single root `uv.lock`. uv download and managed
+interpreter caches remain under runtime `.tools`; a `LOOP_ENGINE_RUNTIME_ROOT`
+override moves those caches but never moves the project `.venv`. If just is
+absent, bootstrap verifies the pinned release archive in `.tools`, installs the
+binary into `$HOME/.local/bin`, and removes the archive. The archive is fetched
+through DaoCloud's GitHub binary mirror and checked against the
+repository-pinned upstream SHA-256.
 
 Cargo downloads use the repository-scoped RSProxy sparse index configuration in
 `.cargo/config.toml`. Package identity and integrity remain fixed by
@@ -92,11 +108,32 @@ with network state. Bootstrap uses `--locked`, rather than `--frozen`, so a
 manifest/lock mismatch fails immediately.
 
 The command wrappers honor `LOOP_ENGINE_RUNTIME_ROOT` for isolated container or
-CI state. They switch to a repository-local rustup installation only when that
-installation actually contains a toolchain; otherwise a pinned system or
-container toolchain remains authoritative. pnpm uses an explicit store under
+CI cache state. They switch to a runtime-local direct Rust installation only
+when its Cargo executable exists; otherwise a pinned system or container
+toolchain remains authoritative. pnpm uses an explicit store under
 that runtime root and copy import mode, so a container volume never redirects
 its content store into the bind-mounted checkout.
+
+Use `./scripts/uv.sh` for workspace-wide Python commands and every environment
+or dependency mutation. The package wrappers `uv-research.sh` and
+`uv-protocol.sh` accept only `run`, select their owning workspace package, and
+change to that package's working directory; all three wrappers resolve the same
+root lock and `.venv`. CI additionally runs each package's tests through uv's
+ephemeral isolated mode so undeclared workspace imports fail. The environment
+gate rejects stale `.venv-*` directories, package-local virtual environments,
+non-CPython interpreters, and free-threaded CPython builds.
+
+Every repository Shell entry point is parsed by `bash -n` during `just check`.
+
+Reviewed Rust distribution mirror configuration references:
+
+- [RSProxy](https://rsproxy.cn/)
+- [USTC](https://mirrors.ustc.edu.cn/help/rust-static.html)
+- [SJTUG](https://mirrors.sjtug.sjtu.edu.cn/docs/rust-static)
+
+Tsinghua TUNA documents Rust distribution support but does not currently retain the
+pinned Rust 1.93.1 channel manifest, so it is not an accepted selector for this
+toolchain revision.
 
 No bootstrap command reads production credentials. Provider and market-data
 secrets are introduced only by later runtime secret references.

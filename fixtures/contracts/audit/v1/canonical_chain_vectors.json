@@ -1,0 +1,156 @@
+{
+  "schema": "loop.audit-conformance/v1",
+  "accepted_chain": [
+    {
+      "name": "genesis_unicode_actor_and_payload",
+      "payload": {
+        "schema_name": "loop.audit.command_accepted",
+        "schema_version": "1",
+        "canonical_utf8": "{\"command\":\"research.run\",\"request_id\":\"request.0001\",\"summary\":\"启动研究：\\\"质量\\\" + 换行\\nok\"}",
+        "payload_sha256": "sha256:306beaff6d65c1f5234591db2f88029f34b4966ef8b1bd3d57ff50ef6027d245"
+      },
+      "event": {
+        "audit_ledger_id": "ledger.primary",
+        "sequence": "1",
+        "previous_event_sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "audit_event_id": "audit.00000001",
+        "occurred_at": "2026-09-05T06:30:00.000000000Z",
+        "correlation_id": "correlation.01",
+        "causation_id": "causation.01",
+        "actor": {
+          "actor_id": "actor.hojiahao",
+          "kind": "human",
+          "display_name": "何家豪 🚀",
+          "authenticated_subject": "github:hojiahao"
+        },
+        "action": "command_accepted",
+        "target": {
+          "kind": "job_id",
+          "value": "job.01"
+        }
+      },
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.primary\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.00000001\",\"occurred_at\":\"2026-09-05T06:30:00.000000000Z\",\"correlation_id\":\"correlation.01\",\"causation_id\":\"causation.01\",\"actor\":{\"actor_id\":\"actor.hojiahao\",\"kind\":\"human\",\"display_name\":\"何家豪 🚀\",\"authenticated_subject\":\"github:hojiahao\"},\"action\":\"command_accepted\",\"target\":{\"kind\":\"job_id\",\"value\":\"job.01\"},\"payload\":{\"schema_name\":\"loop.audit.command_accepted\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:306beaff6d65c1f5234591db2f88029f34b4966ef8b1bd3d57ff50ef6027d245\"}}",
+      "event_sha256": "sha256:84b1872973ea5b679983854cac5ac928c921037c72b33843612f4fc09fc2a6c5"
+    },
+    {
+      "name": "second_event_nanoseconds_and_unicode_service",
+      "payload": {
+        "schema_name": "loop.audit.state_transitioned",
+        "schema_version": "1",
+        "canonical_utf8": "{\"from\":\"queued\",\"to\":\"running\",\"reason\":\"检查通过 ✓\"}",
+        "payload_sha256": "sha256:4f00a2b29524c80c753d9eb6eb69d21e2a5a987e53d1176c309107de5a1719ae"
+      },
+      "event": {
+        "audit_ledger_id": "ledger.primary",
+        "sequence": "2",
+        "previous_event_sha256": "sha256:84b1872973ea5b679983854cac5ac928c921037c72b33843612f4fc09fc2a6c5",
+        "audit_event_id": "audit.00000002",
+        "occurred_at": "2026-09-05T06:31:02.123456789Z",
+        "correlation_id": "correlation.01",
+        "causation_id": "causation.02",
+        "actor": {
+          "actor_id": "actor.researchd",
+          "kind": "service",
+          "display_name": "研究服务",
+          "authenticated_subject": "spiffe://loop/researchd"
+        },
+        "action": "state_transitioned",
+        "target": {
+          "kind": "run_id",
+          "value": "run.01"
+        }
+      },
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.primary\",\"sequence\":\"2\",\"previous_event_sha256\":\"sha256:84b1872973ea5b679983854cac5ac928c921037c72b33843612f4fc09fc2a6c5\",\"audit_event_id\":\"audit.00000002\",\"occurred_at\":\"2026-09-05T06:31:02.123456789Z\",\"correlation_id\":\"correlation.01\",\"causation_id\":\"causation.02\",\"actor\":{\"actor_id\":\"actor.researchd\",\"kind\":\"service\",\"display_name\":\"研究服务\",\"authenticated_subject\":\"spiffe://loop/researchd\"},\"action\":\"state_transitioned\",\"target\":{\"kind\":\"run_id\",\"value\":\"run.01\"},\"payload\":{\"schema_name\":\"loop.audit.state_transitioned\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:4f00a2b29524c80c753d9eb6eb69d21e2a5a987e53d1176c309107de5a1719ae\"}}",
+      "event_sha256": "sha256:06d63c00a4922542afbf1db60b36300f6c99667e1345cc6ac55b92a00ec36c63"
+    }
+  ],
+  "action_values": [
+    "command_accepted",
+    "state_transitioned",
+    "factor_admitted",
+    "factor_rejected",
+    "override_authorized",
+    "readmission_requested",
+    "readmission_decided",
+    "holdout_grant_issued",
+    "holdout_grant_consumed",
+    "artifact_exported",
+    "holdout_approval_recorded"
+  ],
+  "target_vectors": [
+    { "kind": "run_id", "value": "run.01" },
+    { "kind": "job_id", "value": "job.01" },
+    {
+      "kind": "factor_spec_id",
+      "value": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    { "kind": "backtest_id", "value": "backtest.01" },
+    { "kind": "snapshot_id", "value": "snapshot.01" },
+    { "kind": "holdout_grant_id", "value": "holdout_grant.01" },
+    {
+      "kind": "artifact_id",
+      "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    { "kind": "holdout_approval_record_id", "value": "holdout_approval.01" }
+  ],
+  "boundary_vectors": {
+    "max_domain_id_bytes": "128",
+    "max_schema_text_bytes": "4096",
+    "max_payload_bytes": "262144",
+    "max_schema_version": "4294967295",
+    "max_sequence": "18446744073709551615"
+  },
+  "negative_vectors": [
+    {
+      "name": "payload_bytes_tampered",
+      "mutation": "payload_tamper",
+      "expected_code": "payload_digest_mismatch"
+    },
+    {
+      "name": "event_field_tampered",
+      "mutation": "event_tamper",
+      "expected_code": "event_digest_mismatch"
+    },
+    {
+      "name": "events_reordered",
+      "mutation": "event_reorder",
+      "expected_code": "invalid_sequence"
+    },
+    {
+      "name": "previous_digest_tampered",
+      "mutation": "previous_digest_tamper",
+      "expected_code": "chain_mismatch"
+    },
+    {
+      "name": "event_replayed_into_other_ledger",
+      "mutation": "cross_ledger_replay",
+      "expected_code": "event_digest_mismatch"
+    },
+    { "name": "sequence_gap", "mutation": "sequence_gap", "expected_code": "invalid_sequence" },
+    {
+      "name": "nonzero_genesis_previous_digest",
+      "mutation": "invalid_genesis",
+      "expected_code": "chain_mismatch"
+    },
+    {
+      "name": "timestamp_has_no_nanoseconds",
+      "mutation": "invalid_timestamp",
+      "expected_code": "invalid_timestamp"
+    },
+    {
+      "name": "duplicate_event_identifier",
+      "mutation": "duplicate_event_id",
+      "expected_code": "duplicate_event_id"
+    },
+    {
+      "name": "payload_schema_mutated",
+      "mutation": "schema_mutation",
+      "expected_code": "unsupported_schema"
+    },
+    {
+      "name": "payload_schema_version_mutated",
+      "mutation": "schema_version_mutation",
+      "expected_code": "unsupported_schema"
+    }
+  ]
+}

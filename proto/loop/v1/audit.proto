@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+
+enum AuditAction {
+  AUDIT_ACTION_UNSPECIFIED = 0;
+  AUDIT_ACTION_COMMAND_ACCEPTED = 1;
+  AUDIT_ACTION_STATE_TRANSITIONED = 2;
+  AUDIT_ACTION_FACTOR_ADMITTED = 3;
+  AUDIT_ACTION_FACTOR_REJECTED = 4;
+  AUDIT_ACTION_OVERRIDE_AUTHORIZED = 5;
+  AUDIT_ACTION_READMISSION_REQUESTED = 6;
+  AUDIT_ACTION_READMISSION_DECIDED = 7;
+  AUDIT_ACTION_HOLDOUT_GRANT_ISSUED = 8;
+  AUDIT_ACTION_HOLDOUT_GRANT_CONSUMED = 9;
+  AUDIT_ACTION_ARTIFACT_EXPORTED = 10;
+  AUDIT_ACTION_HOLDOUT_APPROVAL_RECORDED = 11;
+}
+
+enum OverrideKind {
+  OVERRIDE_KIND_UNSPECIFIED = 0;
+  OVERRIDE_KIND_FORCE_ADMISSION = 1;
+  OVERRIDE_KIND_READMISSION = 2;
+  OVERRIDE_KIND_POLICY_EXCEPTION = 3;
+}
+
+enum ReadmissionDisposition {
+  READMISSION_DISPOSITION_UNSPECIFIED = 0;
+  READMISSION_DISPOSITION_ADMITTED = 1;
+  READMISSION_DISPOSITION_REJECTED = 2;
+  READMISSION_DISPOSITION_QUARANTINED = 3;
+}
+
+message AuditTarget {
+  oneof target {
+    RunId run_id = 1;
+    JobId job_id = 2;
+    FactorSpecId factor_spec_id = 3;
+    BacktestId backtest_id = 4;
+    SnapshotId snapshot_id = 5;
+    HoldoutGrantId holdout_grant_id = 6;
+    ArtifactId artifact_id = 7;
+    HoldoutApprovalRecordId holdout_approval_record_id = 8;
+  }
+}
+
+// AuditPayload is bounded canonical JSON. Servers independently recalculate
+// payload_sha256 and reject non-canonical or oversized content.
+message AuditPayload {
+  string schema_name = 1;
+  uint32 schema_version = 2;
+  bytes canonical_json = 3;
+  Sha256Digest payload_sha256 = 4;
+}
+
+// AuditEvent forms an append-only hash chain. event_sha256 covers the canonical
+// event excluding event_sha256 itself and includes previous_event_sha256. The
+// genesis previous digest is 32 zero bytes.
+message AuditEvent {
+  AuditEventId audit_event_id = 1;
+  uint64 sequence = 2;
+  Sha256Digest previous_event_sha256 = 3;
+  Sha256Digest event_sha256 = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+  CorrelationId correlation_id = 6;
+  Actor actor = 7;
+  AuditAction action = 8;
+  AuditTarget target = 9;
+  AuditPayload payload = 10;
+  CausationId causation_id = 11;
+  // sequence and previous_event_sha256 are scoped to this immutable ledger.
+  // The ledger ID is included in event_sha256 to prevent cross-chain replay.
+  AuditLedgerId audit_ledger_id = 12;
+}
+
+// OverrideAuthorization always represents an authenticated, named human. The
+// domain layer rejects blank display names, service actors, blank reasons, and
+// missing evidence required by policy.
+message OverrideAuthorization {
+  OverrideKind kind = 1;
+  Actor authorized_by = 2;
+  string reason = 3;
+  string approval_reference = 4;
+  // At most 64 immutable evidence artifacts.
+  repeated ArtifactRef evidence = 5;
+  google.protobuf.Timestamp authorized_at = 6;
+}
+
+// ReadmissionRecord preserves the original rejection and the outcome of the
+// same admission command handler used for ordinary candidates.
+message ReadmissionRecord {
+  FactorSpecId factor_spec_id = 1;
+  AuditEventId original_rejection_event_id = 2;
+  OverrideAuthorization authorization = 3;
+  ReadmissionDisposition disposition = 4;
+  AuditEventId decision_event_id = 5;
+  string decision_reason = 6;
+}

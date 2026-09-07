@@ -18,7 +18,10 @@
 当前分支已经建立 Rust 控制平面、TypeScript Provider/Web 和 Python researchd
 三套工作区骨架。新工作区使用统一门禁，详细版本、容器来源和宿主机要求见
 [`开发环境说明`](docs/development/bootstrap.md)，实际验收证据见
-[`Phase 1 验证记录`](docs/verification/phase-01-reproducible-toolchain.md)。
+[`Phase 1 验证记录`](docs/verification/phase-01-reproducible-toolchain.md)。Python
+工具链正在按 [`ADR 0005`](docs/adr/0005-python-314-uv-workspace.md) 升级为
+3.14.4、一个根 uv workspace、一个根 `uv.lock` 和一个 `.venv`；修订验收记录见
+[`Python 3.14 workspace 验证`](docs/verification/phase-01-python-314-amendment.md)。
 
 ```bash
 ./scripts/bootstrap.sh
@@ -28,10 +31,56 @@ just build
 just doctor
 ```
 
-开发容器的基础镜像全部通过 DaoCloud 拉取并固定 OCI 摘要。工具缓存、Python
-虚拟环境和 pnpm content store 放在独立具名卷中，不会复用宿主机环境；生成的
-`node_modules` 仍位于 bind-mounted 工作区并被 Git 忽略。生产数据、Provider 密钥和
-holdout capability 均不进入构建上下文。
+开发容器的基础镜像全部通过 DaoCloud 拉取并固定 OCI 摘要。`just container-gate`
+使用一次性 Compose project 和全新具名卷完成容器门禁，并在退出时清理。宿主机在仓库根使用
+Git 忽略的 `.venv`；容器把独立具名卷挂载到同一 `/workspace/.venv` 路径，避免复用
+宿主解释器。工具缓存和 pnpm content store 使用 runtime 卷，生成的 `node_modules`
+仍位于 bind-mounted 工作区并被 Git 忽略。生产数据、Provider 密钥和 holdout
+capability 均不进入构建上下文。
+
+## Phase 2 核心协议（实施中）
+
+当前代码作为可审查的阶段性 checkpoint 交付；核心契约和三语言实现已落地，完整工作区、
+干净容器和远端 CI 的最终验收仍待完成。阶段状态及证据以
+[`实施清单`](docs/IMPLEMENTATION_TODO.md)和
+[`Phase 2 验证记录`](docs/verification/phase-02-core-contracts.md)为准。
+
+当前重构分支已加入共享 `loop.v1` DTO，以及按角色隔离的
+`loop.{protocol,discovery,provider,research,jobs,audit,holdout}.v1` gRPC 服务入口。
+协议规定长耗时的发现、因子评测、回测和对账只通过提交 RPC 返回窄作业句柄，不在请求
+线程内执行；SQLite 持久化、原子入队、lease 和崩溃恢复属于 Phase 3，当前尚未实现。
+Discovery、Research 和 Provider 三项 role RPC 的请求/响应消息图均不能到达 holdout
+输入；Discovery 与 Research 还通过独立的 `development_data.proto` 叶子依赖避免加载
+锁定样本窗口和完整数据快照。这只是类型可达性隔离；opaque snapshot ID 的角色必须在
+Phase 4/5 由服务端 registry 与 capability 解析后才能持久化或执行，当前 wire 校验不作
+该项能力声明。RPC 验证或基础设施故障使用
+非 OK gRPC status 和类型化 `ServiceError`，有效因子的确定性拒绝则是独立的
+`FactorRejection` 作业结果，两者不可互换。
+
+Model content 与 stream 在本阶段只定义类型化 wire DTO。完整的内容、JSON 和能力验证
+属于 Phase 9；`ModelResolutionSnapshot` 当前也只校验 wire 形状，必须在 Phase 9 由
+服务端 catalog 重算并验证 capability、catalog、plugin 与 snapshot identity 后才可用于
+enqueue 或 dispatch；通用 `ArtifactRef` 也必须受 prompt-safe schema、独立 namespace
+和 providerd 存储 ACL 限制。序号、请求绑定、唯一完成事件和 OK EOF 等 stream 状态机验证属于
+Phase 10；在这些门禁通过前，协议协商不会广告 `streams.terminal-event.v1`，也不会把
+DTO 定义误报为可执行能力。
+
+Phase 2 同时正在建立 Rust、TypeScript 和 Python 共用的规范因子身份。表达式先依据
+固定算子注册表完成类型检查与规范化，再计算 SHA-256；冻结的 `FactorSpec` 进一步绑定
+表达式 ID、算子注册表摘要、固定方向和九项研究 policy。AST 可以表示类型化参数子树，
+但只有严格重解析后根类型为 `series` 的表达式才能进入 FactorSpec 或研究执行。规范详情见
+[`Factor canonicalization v1`](docs/specs/factor-canonicalization-v1.md)。
+
+协议生成将当前源码描述符写入 `schema.current.binpb`，兼容性检查则针对不可由普通生成
+流程覆盖的 `schema.baseline.binpb`。协议规定作业绑定协议选择、VCS/tree、数据和回测
+provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；相应持久化
+及 capability 强制执行分别属于 Phase 3 和 Phase 4，当前尚未实现。审计链使用
+独立规范文档计算 payload/event SHA-256，不对 Protobuf 字节做哈希。相关约束见
+[`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
+[`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
+
+上述接口和规范仍在 Phase 2 退出门禁内；在跨语言向量、兼容性、边界和生成确定性测试、
+提交与推送全部通过前，本 README 不将 Phase 2 标记为完成。
 
 Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
 量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与
@@ -93,13 +142,13 @@ PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 
 ## Legacy A 股诊断
 
 新重构代码统一使用前述 `just` 门禁。只有在单独诊断冻结的 A 股实现时，才使用
-根目录 legacy Python 3.11+ 环境：
+根目录统一 Python 3.14.4 uv workspace：
 
 ```bash
-uv sync --locked
-uv run --locked pytest
-uv run --locked code/lib_status.py
-uv run --locked code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
+./scripts/uv.sh sync --all-packages --all-groups --locked
+./scripts/uv.sh run --all-packages --all-groups --locked pytest
+./scripts/uv.sh run --all-packages --all-groups --locked code/lib_status.py
+./scripts/uv.sh run --all-packages --all-groups --locked code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
 ```
 
 当前测试集收集 217 个测试（本环境 216 通过、1 个真实 Windows AlphaLab fixture
@@ -112,10 +161,10 @@ PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此
 依赖和数据就绪后按以下顺序执行：
 
 ```bash
-uv run --locked code/migrate_checkpoint_v2.py
-uv run --locked code/revalidate_library.py --workers 3
-uv run --locked code/lib_status.py
-uv run --locked code/export_factors.py
+./scripts/uv.sh run --all-packages --all-groups --locked code/migrate_checkpoint_v2.py
+./scripts/uv.sh run --all-packages --all-groups --locked code/revalidate_library.py --workers 3
+./scripts/uv.sh run --all-packages --all-groups --locked code/lib_status.py
+./scripts/uv.sh run --all-packages --all-groups --locked code/export_factors.py
 ```
 
 `--allow-stale-metrics` 只允许诊断性导出，并会在 manifest 标记 `stale`；不得用于

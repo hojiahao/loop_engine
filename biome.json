@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.12/schema.json",
   "files": {
-    "includes": ["**", "!!**/coverage", "!!**/coverage/**", "!!**/dist", "!!**/dist/**"]
+    "includes": [
+      "**",
+      "!!**/coverage",
+      "!!**/coverage/**",
+      "!!**/dist",
+      "!!**/dist/**",
+      "!!packages/protocol-ts/src/generated",
+      "!!packages/protocol-ts/src/generated/**"
+    ]
   },
   "formatter": {
     "enabled": true,

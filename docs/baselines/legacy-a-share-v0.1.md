@@ -46,4 +46,5 @@ stored factors, and zero current metrics. All 23 stored metrics are stale. The
 The complete dependency resolution is `uv.lock` at the checksum above. The
 active environment contained Python 3.14.4, uv 0.11.29, DuckDB 1.5.5, NumPy
 2.5.2, pandas 3.0.5, PyArrow 25.0.1, PyYAML 6.0.3, requests 2.34.2, and pytest
-9.1.1. The refactor will use a separately pinned Python 3.12 environment.
+9.1.1. The original Phase 1 plan selected Python 3.12; ADR 0005 later
+superseded that forward-looking choice with a pinned Python 3.14.4 workspace.

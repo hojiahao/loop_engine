@@ -1,0 +1,51 @@
+{
+  "name": "@loop-engine/protocol",
+  "version": "0.2.0-alpha.1",
+  "private": true,
+  "description": "Generated wire contracts and canonical identities for Loop Engine",
+  "author": "hojiahao <hojiahao@outlook.com>",
+  "repository": "https://github.com/hojiahao/loop_engine",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./audit": {
+      "types": "./dist/wire/audit.d.ts",
+      "default": "./dist/wire/audit.js"
+    },
+    "./discovery": {
+      "types": "./dist/wire/discovery.d.ts",
+      "default": "./dist/wire/discovery.js"
+    },
+    "./holdout": {
+      "types": "./dist/wire/holdout.d.ts",
+      "default": "./dist/wire/holdout.js"
+    },
+    "./jobs": {
+      "types": "./dist/wire/jobs.d.ts",
+      "default": "./dist/wire/jobs.js"
+    },
+    "./protocol": {
+      "types": "./dist/wire/protocol.d.ts",
+      "default": "./dist/wire/protocol.js"
+    },
+    "./provider": {
+      "types": "./dist/wire/provider.d.ts",
+      "default": "./dist/wire/provider.js"
+    },
+    "./research": {
+      "types": "./dist/wire/research.d.ts",
+      "default": "./dist/wire/research.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.14.1"
+  }
+}

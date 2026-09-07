@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "loop/v1/common.proto";
+
+// ReturnDefinition is explicit so a NAV delta can never masquerade as a
+// return. SIMPLE_NAV_RETURN means NAV[t] / NAV[t-1] - 1.
+enum ReturnDefinition {
+  RETURN_DEFINITION_UNSPECIFIED = 0;
+  RETURN_DEFINITION_SIMPLE_NAV_RETURN = 1;
+}
+
+// ResearchProvenanceFingerprint makes metrics stale if any computational,
+// configuration, data, calendar, or environment input changes. This file is a
+// development-safe shared dependency: it must not import a backtest
+// specification, sample window, job, or holdout contract.
+message ResearchProvenanceFingerprint {
+  Sha256Digest source_code_sha256 = 1;
+  Sha256Digest operator_registry_sha256 = 2;
+  Sha256Digest configuration_sha256 = 3;
+  Sha256Digest data_manifest_sha256 = 4;
+  Sha256Digest trading_calendar_sha256 = 5;
+  Sha256Digest environment_sha256 = 6;
+}

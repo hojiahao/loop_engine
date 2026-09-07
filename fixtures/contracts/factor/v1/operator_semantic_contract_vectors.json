@@ -1,0 +1,62 @@
+{
+  "schema": "loop.operator-semantic-contract-fixtures/v1",
+  "accepted": [
+    {
+      "name": "arithmetic_add_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+      "sha256": "sha256:6953742c63f6cd8ef5c14c597ed65c95b3da47d3252f889cddf6e1d8b713e308"
+    },
+    {
+      "name": "arithmetic_add_v2",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"2\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+      "sha256": "sha256:a4f75998eb8af72fa2d0e9333815315aec8b9dd82ea692c21a4193c3d4b89e84"
+    },
+    {
+      "name": "arithmetic_subtract_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.subtract\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+      "sha256": "sha256:872f9de1278659f80e6d33e889c8e974e432b8ad2ca6daf9fc05155f0c1c9387"
+    },
+    {
+      "name": "decimal_identity_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"decimal.identity\",\"operatorVersion\":\"1\",\"nullPolicy\":\"not_applicable\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"not_applicable\",\"numericPolicy\":\"exact_decimal\"}",
+      "sha256": "sha256:d295bd2cbf046d80dada365ac626e4e3509172199f27310c2edb6b8c7e1f9cb4"
+    },
+    {
+      "name": "rolling_mean_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"rolling.mean\",\"operatorVersion\":\"1\",\"nullPolicy\":\"ignore_missing\",\"windowPolicy\":\"trailing_argument_2_full_window_right_inclusive_constant_preserve\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"unary_preserve_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+      "sha256": "sha256:1390d5f38e80f35864eec21c87123c645d6da53052777d2458fc6f66c599d444"
+    },
+    {
+      "name": "rank_cross_section_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"rank.cross_section\",\"operatorVersion\":\"1\",\"nullPolicy\":\"preserve_target_ignore_peers\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"argument_2_average_or_dense_valid_count_constant_midpoint\",\"alignmentPolicy\":\"unary_preserve_timestamp_and_security\",\"numericPolicy\":\"ordinal_unit_interval\"}",
+      "sha256": "sha256:2539c785b736934bd786b4fa18033d5494a173060415304cac8aee49b169782f"
+    },
+    {
+      "name": "skew_effective_observations_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"stats.skew\",\"operatorVersion\":\"1\",\"nullPolicy\":\"ignore_missing\",\"windowPolicy\":\"trailing_argument_2_minimum_valid_min_n_max_3_floor_2n_div_3_right_inclusive_constant_preserve\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"unary_preserve_timestamp_and_security\",\"numericPolicy\":\"binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing\"}",
+      "sha256": "sha256:fc49356041a9eaa9a9ab68cd32ceb89f73c381033de8e5aed93e9f21dbe27df1"
+    },
+    {
+      "name": "rank_time_series_target_last_v1",
+      "canonical_utf8": "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"rank.time_series\",\"operatorVersion\":\"1\",\"nullPolicy\":\"preserve_target_ignore_peers\",\"windowPolicy\":\"trailing_argument_2_minimum_valid_min_n_max_3_floor_2n_div_3_right_inclusive_constant_preserve\",\"tiePolicy\":\"target_last_stable_order_valid_count_minus_one_constant_midpoint\",\"alignmentPolicy\":\"unary_preserve_timestamp_and_security\",\"numericPolicy\":\"ordinal_unit_interval\"}",
+      "sha256": "sha256:3ad492c81ba7b891fc44be9b75da46f9557abd3a505b689f3415d50b34190b0a"
+    }
+  ],
+  "deep_nesting": 1100,
+  "policy_variants": {
+    "nullPolicy": ["not_applicable", "propagate", "ignore_missing", "preserve_target_ignore_peers", "reject_missing"],
+    "windowPolicy": ["not_applicable", "trailing_argument_2_full_window_right_inclusive_constant_preserve", "trailing_argument_2_minimum_valid_min_n_max_3_floor_2n_div_3_right_inclusive_constant_preserve", "lag_argument_2"],
+    "tiePolicy": ["not_applicable", "average_valid_count", "dense_valid_count", "stable_first_valid_count_minus_one", "argument_2_average_or_dense_valid_count_constant_midpoint", "target_last_stable_order_valid_count_minus_one_constant_midpoint"],
+    "alignmentPolicy": ["not_applicable", "unary_preserve_timestamp_and_security", "strict_timestamp_and_security", "intersection_timestamp_and_security"],
+    "numericPolicy": ["not_applicable", "exact_decimal", "binary64_non_finite_to_missing", "binary64_reject_non_finite", "ordinal_unit_interval", "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing"]
+  },
+  "rejected_canonical_utf8": [
+    " {\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+    "{\"operator\":\"arithmetic.add\",\"schema\":\"loop.operator-semantic-contract/v1\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+    "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+    "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\"}",
+    "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":null,\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+    "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"skip\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\"}",
+    "{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"arithmetic.add\",\"operatorVersion\":\"1\",\"nullPolicy\":\"propagate\",\"windowPolicy\":\"not_applicable\",\"tiePolicy\":\"not_applicable\",\"alignmentPolicy\":\"strict_timestamp_and_security\",\"numericPolicy\":\"binary64_non_finite_to_missing\",\"implementation\":\"unknown\"}"
+  ]
+}

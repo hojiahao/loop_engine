@@ -1,5 +1,9 @@
 packages:
   - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  "@bufbuild/buf": true
 
 # Do not admit packages published within the last 24 hours. This slows down
 # dependency-confusion and compromised-release propagation without weakening

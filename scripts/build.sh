@@ -4,6 +4,9 @@ set -euo pipefail
 loop_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${loop_repo_dir}"
 
-./scripts/cargo.sh build --locked --offline --workspace
+./scripts/cargo.sh build --locked --offline --workspace --all-features
 ./scripts/pnpm.sh build
-./scripts/uv-research.sh run --locked --offline hatchling build
+./scripts/uv.sh sync --all-packages --all-groups --locked --offline
+./scripts/verify-python-environment.sh
+./scripts/uv-research.sh run --locked --offline --no-sync hatchling build
+./scripts/uv-protocol.sh run --locked --offline --no-sync hatchling build
