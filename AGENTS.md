@@ -11,6 +11,12 @@ just build
 just doctor
 ```
 
+## Commit messages
+
+- Write all new Git commit subjects and bodies in Simplified Chinese.
+- Preserve code identifiers, commands, paths, and version strings as written.
+- Do not rewrite published commits solely to change their message language.
+
 ## Architecture boundaries
 
 - `crates/loopd` owns persistent orchestration; it must not implement provider
