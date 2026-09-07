@@ -2,7 +2,7 @@
 
 - Date: 2026-09-07 (Asia/Shanghai)
 - Branch: `refactor/us-equities-loop-runtime`
-- Status: implementation complete; full gates, commit, push, and remote CI pending
+- Status: checkpoint pushed; final workspace, container, and remote CI gates pending
 - Decision: `docs/adr/0005-python-314-uv-workspace.md`
 
 ## Scope
@@ -76,6 +76,15 @@ The Protobuf current and baseline descriptor SHA-256 remains
 the interpreter migration did not advance the wire compatibility baseline.
 
 ## Pending exit evidence
+
+The implementation checkpoint `ed85d2d` and contributor-rule follow-up
+`9ba4a36` were pushed to the refactor branch. GitHub Actions run
+`34101082316` passed the Rust and TypeScript jobs and all three Python test
+steps (including 236 protocol tests), but the Python jobs failed in the
+setup-uv post-job cache step. The action's default temporary cache path did
+not match `scripts/uv.sh`, which writes to `.tools/uv-cache`. All four
+setup-uv callers now explicitly select that workspace cache path. No test or
+cache-failure check is suppressed; a new remote run must verify the correction.
 
 The amended development image builds successfully with DaoCloud base images.
 Its Rust component archives are individually SHA-256 pinned and rechecked in

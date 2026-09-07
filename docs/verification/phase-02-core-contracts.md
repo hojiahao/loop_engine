@@ -127,8 +127,8 @@ and remote delivery have succeeded.
 | cross-language wire and canonical fixtures | pending final run |
 | `just check` / `test` / `build` / `doctor` | pending final run |
 | clean DaoCloud development-container gate | pending |
-| commit and remote branch push | pending |
-| GitHub Actions for pushed commit | pending |
+| commit and remote branch push | checkpoint `ed85d2d` and follow-up `9ba4a36` pushed |
+| GitHub Actions for pushed commit | run `34101082316`: Python tests passed; cache post-step failed; correction pending verification |
 
 ## Explicitly deferred runtime work
 

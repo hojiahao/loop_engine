@@ -68,6 +68,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          cache-local-path: ${{ github.workspace }}/.tools/uv-cache
       - run: ../../scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: ../../scripts/verify-python-environment.sh
       - run: ../../scripts/uv-research.sh run --locked --offline --no-sync ruff check src tests
@@ -91,6 +92,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          cache-local-path: ${{ github.workspace }}/.tools/uv-cache
       - run: ../../scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: ../../scripts/verify-python-environment.sh
       - run: ../../scripts/uv-protocol.sh run --locked --offline --no-sync ruff check src tests
@@ -111,6 +113,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          cache-local-path: ${{ github.workspace }}/.tools/uv-cache
       - run: ./scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: ./scripts/verify-python-environment.sh
       - name: Test declared legacy dependencies in isolation
@@ -135,6 +138,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          cache-local-path: ${{ github.workspace }}/.tools/uv-cache
       - name: Expose user-local tools
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Bootstrap from locks
