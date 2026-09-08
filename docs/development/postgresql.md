@@ -108,6 +108,23 @@ acquisition at ten seconds. Additional throughput claims require measurements.
 
 The production schema is infrastructure, not a completed research engine.
 Default policies deny commands, mutating transport RPCs remain unavailable,
-and no holdout has been registered or unlocked in production. Holdout approval,
-grant issuance, batch consumption, data adapters, providers, and research
+and no holdout has been registered or unlocked in production. Production approval
+authorization, grant issuance, batch consumption, data adapters, providers, and research
 execution retain their documented later gates in `IMPLEMENTATION_TODO.md`.
+
+## Why migrations are SQL files
+
+SQLx is the selected Rust database access and migration framework; Axum is the
+HTTP framework. Versioned SQL files are inputs to SQLx's migration system, not
+an alternative to using a framework. The database independently enforces
+foreign keys, immutable-history triggers, and lifecycle constraints, while Rust
+enforces authorization, semantic validation, transaction boundaries, and replay.
+
+New schema changes append a numbered migration. For example,
+`0003_holdout_approvals.sql` adds human approval records without modifying the
+already deployed job and period migrations. A fresh database runs all versions;
+an existing database runs only pending versions after verifying checksums. Test
+migrations run only against the disposable fixture database. Production upgrades
+use the administrator bundle above, not the restricted runtime account and not
+a destructive schema rebuild. Migration presence in Git does not itself prove
+that a production upgrade has been applied; see the verification record.

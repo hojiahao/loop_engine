@@ -90,7 +90,11 @@ No Phase 3 completion is claimed by a storage checkpoint.
       protocol availability, immutable receipts, and atomic audit append.
 - [x] Verify atomic sealed-period registration, immutable replay, default-deny
       access, canonical identity, and monotonic lifecycle constraints.
-- [ ] Implement holdout approval, grant, and all-or-nothing batch consumption.
+- [x] Implement immutable human approvals with authenticated attribution,
+      bounded validity, canonical records, replay, and transactional audit.
+- [ ] Implement single-use grants, distinct-human policy resolution, expiry,
+      revocation, and immutable approval attachment.
+- [ ] Implement all-or-nothing frozen-plan batch consumption and job insertion.
 - [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
 
 The storage/lifecycle checkpoint covers 2/4/8 independent OS writers and real
@@ -106,6 +110,13 @@ process/fault cases, unified workspace commands, and the clean DaoCloud containe
 The production Rust executable verified TLS/session settings and both installed
 migration checksums. These results close this backend checkpoint, not Phase 3;
 approval, grant issuance, and atomic batch consumption are the next work items.
+
+The subsequent human-approval storage checkpoint adds 19 PostgreSQL tests plus
+approval cases in the 2/4/8-process and kill/restart matrices. Local targeted
+tests and `just check` pass; checkpoint remote verification remains pending.
+ADR 0008 records the authority and identity boundaries. Production approval
+policies still deny, migration 3 is not yet deployed to production, and grant
+issuance and atomic batch consumption remain open. Phase 3 is not complete.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

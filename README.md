@@ -114,6 +114,23 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 锁定区间注册使用独立的默认拒绝策略；规范区间、不可变回执和区间审计同事务提交。
 重试返回首次注册结果，不能用新的幂等键重置区间。该注册接口不解锁数据，也不签发 capability。
 
+人工审批存储检查点已加入：单条记录绑定独立认证的人类主体、区间、冻结清单、完整评估计划、
+证据和有效期，与审计、幂等回执同事务提交；重试不延长有效期。实现边界见
+[`ADR 0008`](docs/adr/0008-immutable-human-approvals.md)。生产引用解析器仍默认拒绝，
+这不是可使用的留出集解锁入口；grant 和整批作业的原子消费仍待实现。
+本地 19 项审批测试、进程竞争和强杀恢复测试已通过；新检查点远程 CI 尚待核验，
+迁移 `0003` 尚未部署到生产库，不将此检查点表述为 Phase 3 完成。
+
+数据库框架是 SQLx，HTTP 框架是 Axum。`migrations/postgres/*.sql` 是 SQLx 管理的版本化
+数据库变更，不是另一套数据库实现。已部署迁移不可修改，新增审批表使用新版本 `0003`；
+应用运行账号不执行 DDL。Rust 负责权限和事务，SQL 负责数据库约束，两者共同维护状态完整性。
+
+工程仍遵循 [`ADR 0003`](docs/adr/0003-repository-layout-and-ownership.md) 的目录所有权：
+`crates/` 为 Rust 控制平面和客户端，`apps/` 为 TypeScript Provider 与 React Web，
+`python/` 为 Python 协议与研究，`proto/` 为跨服务协议，`migrations/postgres/` 为数据库迁移。
+目录骨架不等于业务已实现；旧 `code/`、`output/` 等路径按计划保留到 Phase 13 校验归档，
+不能提前删除回归基线。已确认的技术调整为 PostgreSQL 主存储和 Python 3.14.4。
+
 生产数据库名为 `loop_engine`，应用账号为 `loop_engine_app`；无登录权限的
 `loop_engine_owner` 持有 schema。运行时读取权限受限的连接文件，强制 `sslmode=require`
 或更强模式，仅核验 schema，不自动执行 DDL。远程开发通过 SSH 隧道访问，不新增公网端口。
@@ -128,7 +145,7 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 连接配置、管理员迁移、权限和本机测试库操作见
 [`PostgreSQL 部署说明`](docs/development/postgresql.md)。`/readyz` 检查存储状态。
 默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
-已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout 审批与批量原子
+已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发与批量原子
 消费以及阶段最终 CI 仍待完成。
 进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
 

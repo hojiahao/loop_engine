@@ -1,6 +1,7 @@
 //! Internal durable commands. Transport authorization is not delegated to DTOs.
 #![deny(missing_docs)]
 
+mod approval;
 mod audit;
 #[cfg(test)]
 mod crash_tests;
@@ -15,6 +16,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
+pub use approval::ApprovalResult;
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
 };

@@ -5,8 +5,10 @@ use loop_core::audit::{
 };
 use loop_core::holdout::CanonicalHoldoutPeriod;
 use loop_protocol::holdout::validate_holdout_period;
+use loop_protocol::wire::holdout::v1::RecordHoldoutApprovalRequest;
 use loop_protocol::wire::v1::{
-    Actor, CommandContext, HoldoutPeriod, HoldoutPeriodRecord, HoldoutPeriodState,
+    Actor, CommandContext, HoldoutApprovalRecord, HoldoutPeriod, HoldoutPeriodRecord,
+    HoldoutPeriodState,
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -15,7 +17,7 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::lifecycle::validate_context;
 use super::postgres::{audit_timestamp, encode_message, timestamp_millis, verified_blob};
-use super::{PgJobStore, StoreError, StoreResult, audit, validate_id};
+use super::{ApprovalResult, PgJobStore, StoreError, StoreResult, approval, audit, validate_id};
 
 const REGISTER: &str = "loop.holdout.register-period";
 const READ: &str = "loop.holdout.read-period";
@@ -36,6 +38,29 @@ pub trait HoldoutPolicy: Send + Sync {
     /// Verify immutable manifest membership, coverage, and locked sample roles
     /// against server-owned references. Canonical syntax alone is not this proof.
     fn validate_registration(&self, period: &CanonicalHoldoutPeriod) -> StoreResult<()>;
+
+    /// Resolve the exact freeze, complete canonical plan, its backtest artifacts,
+    /// and every evidence artifact from a trusted immutable registry. Verify all
+    /// request bindings and the pinned approval policy, then return its absolute
+    /// expiry in server milliseconds. This hook must not perform I/O inside the
+    /// transaction. The store independently bounds validity to seven days and
+    /// rejects non-human principals. Replays recheck references and authority but
+    /// retain their original expiry; an old receipt never renews approval.
+    fn approval_expiry(
+        &self,
+        _request: &RecordHoldoutApprovalRequest,
+        _period: &CanonicalHoldoutPeriod,
+        _now_millis: i64,
+    ) -> StoreResult<i64> {
+        Err(StoreError::AdmissionDenied)
+    }
+
+    /// Authorize lookup before reading an approval identity. A successful lookup
+    /// additionally requires authorization for the resolved exact period. This
+    /// avoids using a caller-supplied actor label as protected-store authority.
+    fn authorize_approval_read(&self, _principal: &Actor, _approval_id: &str) -> StoreResult<()> {
+        Err(StoreError::AdmissionDenied)
+    }
 }
 
 /// Default policy until protected authorization and snapshot registries exist.
@@ -88,6 +113,30 @@ pub struct PeriodRegistration {
 
 /// Backend-independent protected period commands. SQL handles remain private.
 pub trait HoldoutRepository: Send + Sync {
+    /// Record one authenticated human approval with its original immutable
+    /// response and audit event in one transaction. The server-owned holdout
+    /// policy must verify the freeze, plan, evidence, and bounded validity. An
+    /// identical scoped retry returns the original record, including after its
+    /// expiry, without renewing it or granting data access. Changed input
+    /// conflicts. Cancellation before commit rolls back; retry resolves an
+    /// uncertain commit. Validation, authority, lifecycle, clock, corruption,
+    /// and storage failures never admit a factor or unlock a holdout.
+    fn record_approval(
+        &self,
+        principal: &Actor,
+        command: RecordHoldoutApprovalRequest,
+    ) -> impl Future<Output = StoreResult<ApprovalResult>> + Send;
+
+    /// Read and integrity-check an immutable approval after lookup and exact
+    /// period authorization. An authorized absent ID returns `None`; corrupt or
+    /// unauthorized state fails closed. Cancellation makes no change. This
+    /// historical response conveys neither a grant nor a data capability.
+    fn get_approval(
+        &self,
+        principal: &Actor,
+        approval_id: &str,
+    ) -> impl Future<Output = StoreResult<Option<HoldoutApprovalRecord>>> + Send;
+
     /// Register a validated period at sealed revision one with an immutable
     /// receipt and audit event in one transaction. Principal comes from transport
     /// authentication; the independent holdout policy must resolve all references.
@@ -113,6 +162,22 @@ pub trait HoldoutRepository: Send + Sync {
 }
 
 impl HoldoutRepository for PgJobStore {
+    async fn record_approval(
+        &self,
+        principal: &Actor,
+        command: RecordHoldoutApprovalRequest,
+    ) -> StoreResult<ApprovalResult> {
+        approval::record(self, principal, command).await
+    }
+
+    async fn get_approval(
+        &self,
+        principal: &Actor,
+        approval_id: &str,
+    ) -> StoreResult<Option<HoldoutApprovalRecord>> {
+        approval::get(self, principal, approval_id).await
+    }
+
     async fn register_period(
         &self,
         principal: &Actor,
@@ -273,6 +338,7 @@ async fn register(
     save_receipt(
         &mut transaction,
         context,
+        REGISTER,
         period_id,
         &request_blob,
         &response_blob,
@@ -290,9 +356,10 @@ async fn register(
     })
 }
 
-async fn save_receipt(
+pub(super) async fn save_receipt(
     transaction: &mut Transaction<'_, Postgres>,
     context: &CommandContext,
+    operation: &str,
     period_id: &str,
     request: &[u8],
     response: &[u8],
@@ -314,7 +381,7 @@ async fn save_receipt(
             .expect("validated id")
             .value,
     )
-    .bind(REGISTER)
+    .bind(operation)
     .bind(
         &context
             .idempotency_key
@@ -404,7 +471,7 @@ fn record_time(value: Option<&prost_types::Timestamp>) -> StoreResult<Option<i64
         .transpose()
 }
 
-fn record_from_row(row: &PgRow) -> StoreResult<HoldoutPeriodRecord> {
+pub(super) fn record_from_row(row: &PgRow) -> StoreResult<HoldoutPeriodRecord> {
     let bytes = verified_blob(row, "record_blob", "record_sha256")?;
     let canonical: Vec<u8> = row.try_get("canonical_blob")?;
     let record = decode_record(&bytes, &canonical)?;

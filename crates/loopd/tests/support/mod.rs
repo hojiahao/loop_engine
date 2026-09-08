@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod approval;
 pub mod holdout;
 pub mod research;
 

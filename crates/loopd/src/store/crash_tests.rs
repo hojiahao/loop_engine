@@ -55,7 +55,24 @@ fn crash_worker() {
             if mode.starts_with("period_") {
                 options.holdout_policy = Arc::new(holdout::Policy);
             }
+            if mode.starts_with("approval_") {
+                options.holdout_policy = Arc::new(approval::Policy::default());
+            }
             let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("approval_") {
+                store
+                    .register_period(&actor(), holdout::command(0, "period.0"))
+                    .await
+                    .unwrap();
+                store
+                    .record_approval(
+                        &approval::human(1),
+                        approval::command(0, "approval.retry", &approval::human(1)),
+                    )
+                    .await
+                    .unwrap();
+                panic!("approval fault point not reached");
+            }
             if mode.starts_with("period_") {
                 store
                     .register_period(&actor(), holdout::command(0, "period.retry"))
@@ -109,6 +126,8 @@ async fn killed_writer_preserves_atomicity() {
         "role_after_commit",
         "period_before_commit",
         "period_after_commit",
+        "approval_before_commit",
+        "approval_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
@@ -148,8 +167,31 @@ async fn killed_writer_preserves_atomicity() {
         if point.starts_with("period_") {
             options.holdout_policy = Arc::new(holdout::Policy);
         }
+        if point.starts_with("approval_") {
+            options.holdout_policy = Arc::new(approval::Policy::default());
+        }
         let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("approval_") {
+            let committed = point == "approval_after_commit";
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                1 + usize::from(committed)
+            );
+            let replay = store
+                .record_approval(
+                    &approval::human(1),
+                    approval::command(0, "approval.retry", &approval::human(1)),
+                )
+                .await
+                .unwrap();
+            assert_eq!(replay.replayed, committed);
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 2);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("period_") {
             let committed = point == "period_after_commit";
             assert_eq!(

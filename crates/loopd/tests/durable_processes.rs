@@ -51,11 +51,29 @@ fn process_worker() {
         if mode == "period" {
             options.holdout_policy = Arc::new(holdout::Policy);
         }
+        if mode.starts_with("approval") {
+            options.holdout_policy = Arc::new(approval::Policy::default());
+        }
         let store = PgJobStore::open(options).await.unwrap();
         let directory = path.parent().unwrap();
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "approval" | "approval-distinct" => store
+                .record_approval(
+                    &approval::human(1),
+                    approval::command(
+                        0,
+                        &if mode == "approval" {
+                            "approval.retry".to_owned()
+                        } else {
+                            format!("approval.{index}")
+                        },
+                        &approval::human(1),
+                    ),
+                )
+                .await
+                .map(|value| value.replayed),
             "period" => store
                 .register_period(&actor(), holdout::command(0, "period.retry"))
                 .await
@@ -106,9 +124,27 @@ fn process_worker() {
 #[tokio::test]
 async fn process_writers_preserve_fencing() {
     for count in [2, 4, 8] {
-        for mode in ["submit", "distinct", "acquire", "role", "period"] {
+        for mode in [
+            "submit",
+            "distinct",
+            "acquire",
+            "role",
+            "period",
+            "approval",
+            "approval-distinct",
+        ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
+            if mode.starts_with("approval") {
+                let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+                config.holdout_policy = Arc::new(approval::Policy::default());
+                let store = PgJobStore::open(config).await.unwrap();
+                store
+                    .register_period(&actor(), holdout::command(0, "period.0"))
+                    .await
+                    .unwrap();
+                store.close().await;
+            }
             if mode == "acquire" {
                 let store =
                     PgJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
@@ -157,13 +193,17 @@ async fn process_writers_preserve_fencing() {
                 ));
                 committed += usize::from(result == "committed");
             }
-            assert_eq!(committed, if mode == "distinct" { count } else { 1 });
+            assert_eq!(
+                committed,
+                if mode.ends_with("distinct") { count } else { 1 }
+            );
             let store =
                 PgJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
                     .await
                     .unwrap();
             let events = store.audit_events(0, 500).await.unwrap();
-            assert_eq!(events.len(), if mode == "acquire" { 2 } else { committed });
+            let baseline = usize::from(mode == "acquire" || mode.starts_with("approval"));
+            assert_eq!(events.len(), baseline + committed);
             verify_audit_chain(&events).unwrap();
             store.verify_configuration().await.unwrap();
             store.close().await;

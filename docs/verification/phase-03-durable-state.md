@@ -154,6 +154,44 @@ and its percent-encoded form across all 58 changed files before the SSH push.
 Docker excludes host runtime secrets from both build context and development
 container mounts. The checkpoint is verified; the Phase 3 exit remains open.
 
+## Human approval storage checkpoint (2026-09-08)
+
+ADR 0008 adds immutable human approvals under the existing SQLx framework and
+forward-only PostgreSQL migration 3. The record, original retry receipt, audit
+append, and clock watermark commit atomically. The default resolver denies;
+no protected RPC, real approval, grant, data unlock, or production schema change
+was performed by this checkpoint. Migration 3 remains a pending administrative
+deployment, not a runtime startup operation.
+
+The initial sandboxed test execution failed because network socket creation was
+denied, before it could connect to PostgreSQL. The authorized rerun used only
+the disposable `loop_engine_test` database and passed. Local evidence:
+
+- `durable_approval`: 19 passed, including canonical byte/digest golden, full
+  persisted attribution, original-expiry replay after restart, semantic
+  conflicts, independent human receipts, default denial, spoofed/non-human
+  principals, unresolved references, bounds, clock regression, expiry bounds,
+  audit/receipt rollback, immutability, rehashed tampering, lifecycle gating,
+  authorized reads, and cancellation while waiting for the ledger lock.
+- `durable_holdout`: 15 passed, preserving existing period behavior.
+- `postgres_configuration`: 7 passed.
+- Library tests: 2 passed, including real kill/restart before and after approval
+  commit; its ignored helper is explicitly invoked by the parent test.
+- `durable_processes`: parent matrix passed for 2/4/8 independent writers,
+  including same-key approval replay and distinct-key approval commits. Its
+  ignored worker is explicitly invoked, not omitted concurrency coverage.
+- `just check`: passed protocol/producer conformance, formatting, Clippy with
+  warnings denied, TypeScript checks, and Python Ruff/mypy checks.
+
+The approval golden was independently calculated with Node's JSON serializer
+and SHA-256 implementation; the Rust database test verifies every canonical
+byte, with only the generated approval ID substituted, and the raw digest.
+This is not a claim that TypeScript/Python approval hash APIs or production
+freeze/BacktestSpec registries have been implemented.
+
+Remote CI for this new checkpoint and full Phase 3 closure remain pending.
+Existing earlier CI runs do not validate these unpushed changes.
+
 ## Quality rules
 
 `AGENTS.md` now makes the user's quality requirements persistent. Handwritten
@@ -167,7 +205,7 @@ tests. It deliberately does not invent a universal name-length limit.
 
 ## Remaining Phase 3 gates
 
-- Persist holdout approvals and monotonic period/grant records; atomically
+- Persist monotonic grant records and one-use approval attachments; atomically
   consume one grant and create every frozen-plan batch job, receipt, and event.
 - Complete the backend-independent interface for those remaining aggregates.
 - Pass final host, clean-container, and remote CI on the entire Phase 3 code;
