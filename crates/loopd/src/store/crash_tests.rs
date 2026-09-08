@@ -45,12 +45,25 @@ fn crash_worker() {
         .build()
         .unwrap()
         .block_on(async {
-            let store = SqliteJobStore::open(options(
+            let mut options = options(
                 Path::new(&path),
                 Arc::new(FixtureClock(AtomicI64::new(NOW))),
-            ))
-            .await
-            .unwrap();
+            );
+            if mode.starts_with("role_") {
+                options.admission = Arc::new(research::Admission);
+            }
+            let store = SqliteJobStore::open(options).await.unwrap();
+            if mode.starts_with("role_") {
+                store
+                    .submit_role(
+                        &actor(),
+                        research::command("role.retry"),
+                        research::metadata(),
+                    )
+                    .await
+                    .unwrap();
+                panic!("role fault point not reached");
+            }
             store.submit(command(1)).await.unwrap();
             if mode == "active_lease" {
                 store
@@ -77,8 +90,14 @@ fn crash_worker() {
 }
 
 #[tokio::test]
-async fn killed_writer_preserves_atomicity_before_after_commit_and_during_lease() {
-    for point in ["before_commit", "after_commit", "active_lease"] {
+async fn killed_writer_preserves_atomicity() {
+    for point in [
+        "before_commit",
+        "after_commit",
+        "active_lease",
+        "role_before_commit",
+        "role_after_commit",
+    ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state.sqlite3");
         let ready = directory.path().join("ready");
@@ -110,10 +129,30 @@ async fn killed_writer_preserves_atomicity_before_after_commit_and_during_lease(
         worker.0.kill().unwrap();
         assert!(!worker.0.wait().unwrap().success());
         let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
-        let store = SqliteJobStore::open(options(&path, clock.clone()))
-            .await
-            .unwrap();
+        let mut options = options(&path, clock.clone());
+        if point.starts_with("role_") {
+            options.admission = Arc::new(research::Admission);
+        }
+        let store = SqliteJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("role_") {
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), usize::from(point == "role_after_commit"));
+            let replay = store
+                .submit_role(
+                    &actor(),
+                    research::command("role.retry"),
+                    research::metadata(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(replay.replayed, point == "role_after_commit");
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 1);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point == "before_commit" {
             assert!(store.get("job.1").await.unwrap().is_none());
             assert!(store.audit_events(0, 500).await.unwrap().is_empty());

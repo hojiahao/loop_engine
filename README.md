@@ -96,14 +96,21 @@ Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试
 终止。迁移锁等待有超时并支持取消。未执行便被取消或耗尽预算的作业保留 `attempt = 0`，
 三语言共享向量覆盖此语义，并要求协商 `jobs.prelease-terminal.v1`。
 
+角色提交模块将 Discovery、Factor Evaluation、Backtest 和 Reconciliation 的窄请求
+转换为内部作业，原子写入作业、回执与审计。作业 ID 和提交时间由服务端在事务内分配；
+重试保留首次接受的 ID、时间和协议快照，不触发重复执行。测试覆盖字段映射、未知引用、
+协议不可用、身份不匹配、事务回滚，以及独立进程竞争与强杀后的重放。
+
 `loopd --database var/loopd/state.sqlite3` 启动时迁移并验证数据库，`/readyz` 检查存储状态。
 默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
-已完成的美股研究服务。角色提交集成、holdout 审批与批量原子消费以及阶段最终 CI 仍待完成。
+已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout 审批与批量原子
+消费以及阶段最终 CI 仍待完成。
 进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
 
 新增 `loopd` 手写代码禁止 `unsafe`，存储公开接口强制文档；Rust 格式和 Clippy、跨语言
 协议测试、旧数值回归仍为强制门禁。项目执行可公开核验的工程规则，不宣称符合任何公司
 未公开的内部规范。持续要求见 [`贡献规则`](AGENTS.md)。
+命名和测试拆分要求见 [`Rust 开发规范`](docs/development/rust-style.md)。
 
 ## 旧研究引擎基线
 

@@ -78,14 +78,17 @@ gates are implemented. No Phase 3 completion is claimed by a storage checkpoint.
 - [x] Implement revisions, leases, heartbeats, idempotency, and state transitions.
 - [x] Add crash, cancellation, concurrent writer, and restart recovery tests.
 - [ ] Define a future-compatible storage interface for PostgreSQL/object stores.
-- [ ] Verify role-owned job submission, protocol availability, immutable command
-      receipts, atomic audit append, and batch holdout consumption.
+- [x] Map four role-owned submission requests into transactional jobs, with
+      protocol availability, immutable receipts, and atomic audit append.
+- [ ] Implement holdout approval, grant, and all-or-nothing batch consumption.
 - [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
 
 The storage/lifecycle checkpoint covers 2/4/8 independent OS writers and real
 kill/restart at transaction and lease boundaries. These checked items do not
-close the phase: role-handler integration and holdout batch transactions are
-still required. Evidence: `docs/verification/phase-03-durable-state.md`.
+close the phase: holdout batch transactions and final gates are still required.
+Production transport authentication and reference registries remain unavailable,
+and fixture admission policies exist only in tests.
+Evidence: `docs/verification/phase-03-durable-state.md`.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

@@ -13,20 +13,57 @@ pub(super) async fn append_submission(
     command: &SubmitJob,
     now: i64,
 ) -> StoreResult<()> {
+    append_command(transaction, ledger_id, command, "loop.jobs.submit", now).await
+}
+
+pub(super) async fn append_command(
+    transaction: &mut Transaction<'_, Sqlite>,
+    ledger_id: &str,
+    command: &SubmitJob,
+    operation: &str,
+    now: i64,
+) -> StoreResult<()> {
     let specification = &command.specification;
-    append(transaction, ledger_id, now, EventInput {
-        actor: specification.submitted_by.as_ref().expect("validated actor"),
-        correlation_id: &specification.correlation_id.as_ref().expect("validated correlation").value,
-        causation_id: &specification.causation_id.as_ref().expect("validated causation").value,
-        action: AuditAction::CommandAccepted,
-        target: AuditTarget {
-            kind: AuditTargetKind::JobId,
-            value: specification.job_id.as_ref().expect("validated job id").value.clone(),
+    append(
+        transaction,
+        ledger_id,
+        now,
+        EventInput {
+            actor: specification
+                .submitted_by
+                .as_ref()
+                .expect("validated actor"),
+            correlation_id: &specification
+                .correlation_id
+                .as_ref()
+                .expect("validated correlation")
+                .value,
+            causation_id: &specification
+                .causation_id
+                .as_ref()
+                .expect("validated causation")
+                .value,
+            action: AuditAction::CommandAccepted,
+            target: AuditTarget {
+                kind: AuditTargetKind::JobId,
+                value: specification
+                    .job_id
+                    .as_ref()
+                    .expect("validated job id")
+                    .value
+                    .clone(),
+            },
+            payload: canonicalize_audit_payload(
+                "loop.audit.command_accepted",
+                1,
+                &serde_json::to_vec(&serde_json::json!({
+                    "command": operation, "request_id": command.request_id, "summary": "job queued"
+                }))
+                .map_err(|_| StoreError::Invalid("audit payload"))?,
+            )?,
         },
-        payload: canonicalize_audit_payload("loop.audit.command_accepted", 1, &serde_json::to_vec(&serde_json::json!({
-            "command": "loop.jobs.submit", "request_id": command.request_id, "summary": "job queued"
-        })).map_err(|_| StoreError::Invalid("audit payload"))?)?,
-    }).await
+    )
+    .await
 }
 
 pub(super) struct EventInput<'a> {

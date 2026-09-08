@@ -472,7 +472,7 @@ pub(super) async fn write_record(
     Ok(())
 }
 
-async fn save_receipt(
+pub(super) async fn save_receipt(
     transaction: &mut Transaction<'_, Sqlite>,
     context: &CommandContext,
     operation: &str,

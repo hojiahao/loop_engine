@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub mod research;
+
 use std::path::Path;
 use std::sync::{
     Arc,

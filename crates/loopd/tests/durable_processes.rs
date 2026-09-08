@@ -44,39 +44,50 @@ fn process_worker() {
         .unwrap();
     runtime.block_on(async {
         let path = Path::new(&path);
-        let store =
-            SqliteJobStore::open(options(path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
-                .await
-                .unwrap();
+        let mut options = options(path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+        if mode == "role" {
+            options.admission = Arc::new(research::Admission);
+        }
+        let store = SqliteJobStore::open(options).await.unwrap();
         let directory = path.parent().unwrap();
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
-            "submit" => store.submit(command(1)).await,
-            "distinct" => store.submit(command(index + 1)).await,
-            "acquire" => {
-                store
-                    .mutate(
-                        &actor(),
-                        JobMutation::Acquire(AcquireJobLeaseRequest {
-                            context: Some(context(&format!("claim.{index}"))),
-                            job_id: Some(JobId {
-                                value: "job.1".to_owned(),
-                            }),
-                            expected_revision: 1,
-                            requested_duration: Some(prost_types::Duration {
-                                seconds: 30,
-                                nanos: 0,
-                            }),
+            "submit" => store.submit(command(1)).await.map(|value| value.replayed),
+            "distinct" => store
+                .submit(command(index + 1))
+                .await
+                .map(|value| value.replayed),
+            "role" => store
+                .submit_role(
+                    &actor(),
+                    research::command("role.retry"),
+                    research::metadata(),
+                )
+                .await
+                .map(|value| value.replayed),
+            "acquire" => store
+                .mutate(
+                    &actor(),
+                    JobMutation::Acquire(AcquireJobLeaseRequest {
+                        context: Some(context(&format!("claim.{index}"))),
+                        job_id: Some(JobId {
+                            value: "job.1".to_owned(),
                         }),
-                    )
-                    .await
-            }
+                        expected_revision: 1,
+                        requested_duration: Some(prost_types::Duration {
+                            seconds: 30,
+                            nanos: 0,
+                        }),
+                    }),
+                )
+                .await
+                .map(|value| value.replayed),
             _ => panic!("unknown worker mode"),
         };
         let outcome = match result {
-            Ok(value) if value.replayed => "replayed",
-            Ok(_) => "committed",
+            Ok(true) => "replayed",
+            Ok(false) => "committed",
             Err(StoreError::RevisionConflict) if mode == "acquire" => "fenced",
             other => panic!("unexpected worker outcome: {other:?}"),
         };
@@ -86,9 +97,9 @@ fn process_worker() {
 }
 
 #[tokio::test]
-async fn independent_processes_preserve_commit_once_and_revision_fencing() {
+async fn process_writers_preserve_fencing() {
     for count in [2, 4, 8] {
-        for mode in ["submit", "distinct", "acquire"] {
+        for mode in ["submit", "distinct", "acquire", "role"] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state.sqlite3");
             if mode == "acquire" {

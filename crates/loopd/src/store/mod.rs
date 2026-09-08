@@ -6,6 +6,7 @@ mod audit;
 mod crash_tests;
 mod lifecycle;
 mod sqlite;
+mod submission;
 
 use std::future::Future;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -15,6 +16,7 @@ use thiserror::Error;
 
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use sqlite::{SqliteJobStore, StoreOptions};
+pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
 /// Fail-closed command errors; none represent rejection of a research factor.
 #[derive(Debug, Error)]
@@ -137,6 +139,20 @@ pub struct CommandResult {
 
 /// Backend-independent command boundary; SQL and pool handles remain private.
 pub trait JobRepository: Send + Sync {
+    /// Validate and atomically queue a narrow role request. `principal` must be
+    /// transport-authenticated by the caller; metadata is server-resolved. The
+    /// admission policy must resolve references and pinned protocol availability.
+    /// No holdout command is representable here. Replays retain the original
+    /// receipt and protocol selection and do not authorize redispatch.
+    /// Cancellation before commit rolls back; retry resolves uncertain commits.
+    /// Returns validation, admission, identity, clock, or storage errors.
+    fn submit_role(
+        &self,
+        principal: &Actor,
+        command: RoleCommand,
+        metadata: SubmissionMetadata,
+    ) -> impl Future<Output = StoreResult<RoleSubmissionResult>> + Send;
+
     /// Queue one authorized job atomically with its receipt and audit event.
     /// Returns validation, admission, identity, clock, or storage errors.
     fn submit(&self, command: SubmitJob)

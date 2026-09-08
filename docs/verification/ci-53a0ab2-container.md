@@ -23,8 +23,12 @@ repository freshness failure, not a failed Rust test or OCI download.
 - Keep Debian signature and Release-file expiration checks enabled.
 - Make every failed index fetch fatal, including when older cached lists exist.
 - Keep bounded APT retries and HTTPS timeouts.
-- Local Compose configuration validation passed. Full clean-container and
-  remote CI evidence must be recorded after the correction is pushed.
+- Local Compose configuration validation passed.
+- Correction commit `cdb1d16` was pushed to the existing refactor branch.
+- All seven jobs in [run 34183705775](https://github.com/hojiahao/loop_engine/actions/runs/34183705775)
+  passed, including clean-container job `101927747701` and the unified host
+  `just check/test/build/doctor` job. The original failure is resolved without
+  skipping the container gate or weakening repository verification.
 
 This correction does not complete Phase 3 or include the unfinished role-owned
 submission and holdout transaction work.

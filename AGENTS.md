@@ -34,6 +34,9 @@ just doctor
 - Follow the official Rust Style Guide and Rust API Guidelines where applicable;
   `cargo fmt --check` and Clippy with `-D warnings` are mandatory, not substitutes
   for behavioral tests. Do not claim compliance with unpublished company rules.
+- Prefer concise names within their module context. Keep each test focused on
+  one behavior; split unrelated scenarios instead of joining them in a sentence.
+  Naming and review guidance: `docs/development/rust-style.md`.
 - Handwritten `loopd` code forbids unsafe code. New storage APIs deny missing
   documentation; document authority boundaries, errors, replay semantics, and
   cancellation behavior. Never use panic for ordinary invalid input or outages.

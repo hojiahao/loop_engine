@@ -212,6 +212,15 @@ impl SqliteJobStore {
 }
 
 impl JobRepository for SqliteJobStore {
+    async fn submit_role(
+        &self,
+        principal: &loop_protocol::wire::v1::Actor,
+        command: super::RoleCommand,
+        metadata: super::SubmissionMetadata,
+    ) -> StoreResult<super::RoleSubmissionResult> {
+        super::submission::submit(self, principal, command, metadata).await
+    }
+
     async fn submit(&self, command: SubmitJob) -> StoreResult<CommandResult> {
         validate_id(&command.request_id)?;
         let specification = &command.specification;
@@ -279,55 +288,9 @@ impl JobRepository for SqliteJobStore {
             });
         }
 
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE job_id = ?)")
-            .bind(job_id)
-            .fetch_one(&mut *transaction)
-            .await?;
-        if exists {
-            return Err(StoreError::DuplicateJob);
-        }
-        let submitted_at = timestamp_millis(
-            specification.submitted_at.as_ref().expect("validated time"),
-            true,
-        )?;
-        let deadline = deadline_millis(specification)?;
-        if submitted_at > now || deadline <= now {
-            return Err(StoreError::Invalid("submission time or elapsed budget"));
-        }
-        let record = JobRecord {
-            specification: Some(specification.clone()),
-            state: JobState::Queued as i32,
-            revision: 1,
-            attempt: 0,
-            active_lease: None,
-            outcome: None,
-            updated_at: Some(timestamp(now)),
-        };
-        validate_job_record(&record)?;
+        let record = insert_job(&mut transaction, specification, now).await?;
         let response_blob = encode_message(&record)?;
         let response_digest = Sha256::digest(&response_blob).to_vec();
-        sqlx::query(
-            "INSERT INTO jobs (job_id, run_id, kind, state, revision, attempt,
-                submitted_at_ms, updated_at_ms, deadline_ms, record_blob, record_sha256)
-             VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)",
-        )
-        .bind(job_id)
-        .bind(
-            &specification
-                .run_id
-                .as_ref()
-                .expect("validated run id")
-                .value,
-        )
-        .bind(specification.kind)
-        .bind(record.state)
-        .bind(submitted_at)
-        .bind(now)
-        .bind(deadline)
-        .bind(&response_blob)
-        .bind(&response_digest)
-        .execute(&mut *transaction)
-        .await?;
         audit::append_submission(&mut transaction, &self.ledger_id, &command, now).await?;
         sqlx::query(
             "INSERT INTO command_receipts (actor_id, operation, idempotency_key,
@@ -379,6 +342,70 @@ impl JobRepository for SqliteJobStore {
     ) -> StoreResult<CommandResult> {
         super::lifecycle::mutate(self, principal, command).await
     }
+}
+
+/// Insert the queued projection; the caller owns authorization, receipt, and audit.
+pub(super) async fn insert_job(
+    transaction: &mut Transaction<'_, Sqlite>,
+    specification: &JobSpecification,
+    now: i64,
+) -> StoreResult<JobRecord> {
+    validate_job_specification(specification)?;
+    let job_id = &specification
+        .job_id
+        .as_ref()
+        .expect("validated job id")
+        .value;
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE job_id = ?)")
+        .bind(job_id)
+        .fetch_one(&mut **transaction)
+        .await?;
+    if exists {
+        return Err(StoreError::DuplicateJob);
+    }
+    let submitted_at = timestamp_millis(
+        specification.submitted_at.as_ref().expect("validated time"),
+        true,
+    )?;
+    let deadline = deadline_millis(specification)?;
+    if submitted_at > now || deadline <= now {
+        return Err(StoreError::Invalid("submission time or elapsed budget"));
+    }
+    let record = JobRecord {
+        specification: Some(specification.clone()),
+        state: JobState::Queued as i32,
+        revision: 1,
+        attempt: 0,
+        active_lease: None,
+        outcome: None,
+        updated_at: Some(timestamp(now)),
+    };
+    validate_job_record(&record)?;
+    let response_blob = encode_message(&record)?;
+    let response_digest = Sha256::digest(&response_blob).to_vec();
+    sqlx::query(
+        "INSERT INTO jobs (job_id, run_id, kind, state, revision, attempt,
+            submitted_at_ms, updated_at_ms, deadline_ms, record_blob, record_sha256)
+         VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)",
+    )
+    .bind(job_id)
+    .bind(
+        &specification
+            .run_id
+            .as_ref()
+            .expect("validated run id")
+            .value,
+    )
+    .bind(specification.kind)
+    .bind(record.state)
+    .bind(submitted_at)
+    .bind(now)
+    .bind(deadline)
+    .bind(&response_blob)
+    .bind(&response_digest)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(record)
 }
 
 pub(super) fn record_from_row(row: &SqliteRow) -> StoreResult<JobRecord> {
