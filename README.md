@@ -90,6 +90,11 @@ Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试
 
 ## Phase 3 持久状态（实施中）
 
+PostgreSQL 与区间注册检查点 `d85ae71` 已推送，
+[CI 7 项全部通过](https://github.com/hojiahao/loop_engine/actions/runs/34200778090)，
+包括 142 项 Rust 测试、独立进程竞争、强杀恢复及 DaoCloud 干净容器门禁。
+这是中间检查点，不是 Phase 3 或整个美股引擎完成。
+
 依据维护者确认的 [`ADR 0007`](docs/adr/0007-postgresql-primary-store.md)，主存储已改为
 PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 `migrations/postgres`
 实现 TLS 连接、迁移校验和、revision CAS、租约、取消、完成和过期恢复。作业变更、幂等回执和

@@ -129,9 +129,30 @@ the terminal-reset fixture is test-only SQL, not an implemented grant API.
 `postgres_configuration` adds seven tests for explicit TLS, closed URL syntax,
 redacted errors, hostile schema names, no implicit runtime DDL, and migration
 checksum tampering, and schema-scoped migration isolation. The audit extension
-is validated in all three languages;
-the original Phase 2 descriptor trust anchor remains unchanged. Full amendment
-host and remote CI results are recorded after their gates finish.
+is validated in all three languages; the original Phase 2 descriptor trust anchor
+remains unchanged.
+
+Implementation commit `d85ae710cbb9fd8ac9e1fd3ba8e8dc816985fd1f` is pushed.
+[GitHub Actions run 34200778090](https://github.com/hojiahao/loop_engine/actions/runs/34200778090)
+passed all seven jobs: Rust, TypeScript, Python research/protocol/legacy,
+unified workspace gates, and the clean DaoCloud development container. The Rust
+job passed 142 tests plus two helper entry points invoked by parent subprocess
+tests. This includes the new migration-isolation regression, all 18 role tests,
+15 period tests, 2/4/8-process matrices, and kill/restart boundaries.
+
+Local `just check`, final Clippy, TypeScript checks/tests, Python protocol tests
+(240), research tests (1), `just build`, and `just doctor` passed. The final
+production `loopd --check-database` probe also passed. Full local test reruns were
+stopped after successful CI to avoid further low-memory linking/test overhead;
+they are not counted as a completed local full-suite gate. An earlier local
+legacy run lost its temporary directory; a later isolated run reported 216
+passed and 1 skipped but was interrupted during process teardown. The completed
+legacy gate is the successful CI job, not that interrupted local invocation.
+
+No password was committed: the committed-file scan checked the configured secret
+and its percent-encoded form across all 58 changed files before the SSH push.
+Docker excludes host runtime secrets from both build context and development
+container mounts. The checkpoint is verified; the Phase 3 exit remains open.
 
 ## Quality rules
 

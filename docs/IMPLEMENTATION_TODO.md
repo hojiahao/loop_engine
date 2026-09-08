@@ -80,7 +80,7 @@ No Phase 3 completion is claimed by a storage checkpoint.
       identities; verify encrypted application login without opening public ports.
 - [x] Port migrations, transactions, audit, role submissions, and leases to
       PostgreSQL; separate administrative DDL from runtime schema verification.
-- [ ] Pass the PostgreSQL TLS, migration, corruption, rollback, 2/4/8-process,
+- [x] Pass the PostgreSQL TLS, migration, corruption, rollback, 2/4/8-process,
       cancellation, and kill/restart regression gates.
 - [x] Implement revisions, leases, heartbeats, idempotency, and state transitions.
 - [x] Add crash, cancellation, concurrent writer, and restart recovery tests.
@@ -88,7 +88,7 @@ No Phase 3 completion is claimed by a storage checkpoint.
       Immutable market data remains outside the metadata database.
 - [x] Map four role-owned submission requests into transactional jobs, with
       protocol availability, immutable receipts, and atomic audit append.
-- [ ] Verify atomic sealed-period registration, immutable replay, default-deny
+- [x] Verify atomic sealed-period registration, immutable replay, default-deny
       access, canonical identity, and monotonic lifecycle constraints.
 - [ ] Implement holdout approval, grant, and all-or-nothing batch consumption.
 - [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
@@ -99,6 +99,13 @@ close the phase: holdout batch transactions and final gates are still required.
 Production transport authentication and reference registries remain unavailable,
 and fixture admission policies exist only in tests.
 Evidence: `docs/verification/phase-03-durable-state.md`.
+
+PostgreSQL/period-registration checkpoint `d85ae71` is pushed. All seven jobs in
+GitHub Actions run `34200778090` passed, including 142 Rust tests, independent
+process/fault cases, unified workspace commands, and the clean DaoCloud container.
+The production Rust executable verified TLS/session settings and both installed
+migration checksums. These results close this backend checkpoint, not Phase 3;
+approval, grant issuance, and atomic batch consumption are the next work items.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 
