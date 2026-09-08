@@ -29,5 +29,24 @@ just doctor
 - Discovery code must never receive a holdout capability.
 - Infrastructure failures fail closed and remain distinct from factor rejection.
 
+## Engineering quality gates
+
+- Follow the official Rust Style Guide and Rust API Guidelines where applicable;
+  `cargo fmt --check` and Clippy with `-D warnings` are mandatory, not substitutes
+  for behavioral tests. Do not claim compliance with unpublished company rules.
+- Handwritten `loopd` code forbids unsafe code. New storage APIs deny missing
+  documentation; document authority boundaries, errors, replay semantics, and
+  cancellation behavior. Never use panic for ordinary invalid input or outages.
+- Keep transport authentication separate from caller-supplied actor metadata.
+  Default-deny unresolved references and unavailable protocol capabilities.
+- Keep state changes, immutable receipts, and audit appends transactional.
+  Use revisions and lease fencing; all lock waits, retries, and scans are bounded.
+- Concurrency claims require independent OS processes, not only async tasks or
+  two pools. Exercise 2/4/8 writers and kill/restart before and after commit.
+- Test negative paths, rollback, corruption, deadlines, and clock regression.
+  Preserve numerical goldens and cross-language contract tests across phases.
+- Keep commits reviewable and document remaining gates honestly. Formatting,
+  coverage percentages, or passing mocks alone cannot close an implementation phase.
+
 Read `docs/IMPLEMENTATION_TODO.md` and applicable ADRs before changing a phase.
 Do not mark a phase complete until its exit gate, commit, and push succeed.

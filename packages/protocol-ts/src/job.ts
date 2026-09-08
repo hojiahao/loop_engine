@@ -1106,7 +1106,12 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
   if (hasLease !== isActive) fail("state_lease_mismatch", "active_lease");
   if (state === JobState.QUEUED) {
     if (record.attempt !== 0) fail("invalid_attempt", "attempt");
-  } else if ((isActive || isTerminal) && record.attempt === 0) {
+  } else if (
+    (isActive || isTerminal) &&
+    state !== JobState.CANCELLED &&
+    state !== JobState.BUDGET_EXHAUSTED &&
+    record.attempt === 0
+  ) {
     fail("invalid_attempt", "attempt");
   }
 

@@ -30,6 +30,22 @@ struct StateTransitionedPayload {
     reason: String,
 }
 
+/// Build a state transition with the registered field order and string escaping.
+///
+/// # Errors
+/// Returns an audit validation error for invalid states or an oversized reason.
+pub fn state_transition_payload(
+    from: &str,
+    to: &str,
+    reason: &str,
+) -> Result<AuditPayload, AuditError> {
+    canonicalize_audit_payload(
+        "loop.audit.state_transitioned",
+        1,
+        &write_payload_fields(&[("from", from), ("to", to), ("reason", reason)]),
+    )
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FactorAdmittedPayload {

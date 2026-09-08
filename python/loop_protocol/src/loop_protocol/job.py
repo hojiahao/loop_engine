@@ -1346,7 +1346,10 @@ def validate_job_record(record: job_pb2.JobRecord) -> ValidatedJobShape:
     if state == job_pb2.JOB_STATE_QUEUED:
         if record.attempt != 0:
             _fail(JobValidationCode.INVALID_ATTEMPT, "attempt")
-    elif record.attempt == 0:
+    elif record.attempt == 0 and state not in (
+        job_pb2.JOB_STATE_CANCELLED,
+        job_pb2.JOB_STATE_BUDGET_EXHAUSTED,
+    ):
         _fail(JobValidationCode.INVALID_ATTEMPT, "attempt")
 
     outcome_name: str | None = None

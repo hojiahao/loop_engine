@@ -67,12 +67,25 @@ merge to `main`, a production release, or implementation of later phases.
 - [x] Pass final workspace and clean-container gates.
 - [x] Commit, push, and record a successful remote CI run for phase closure.
 
-## Phase 3 - Durable state (`pending`)
+## Phase 3 - Durable state (`in_progress`)
 
-- [ ] Add SQLite migrations, WAL configuration, constraints, and indexes.
-- [ ] Implement revisions, leases, heartbeats, idempotency, and state transitions.
-- [ ] Add crash, cancellation, concurrent writer, and restart recovery tests.
+Implementation follows `docs/adr/0006-durable-state-and-command-transactions.md`.
+The first checkpoint adds the internal SQLite repository; production mutating
+RPCs remain unavailable until their authorization and reference-resolution
+gates are implemented. No Phase 3 completion is claimed by a storage checkpoint.
+
+- [x] Add SQLite migrations, WAL configuration, constraints, and indexes.
+- [x] Implement revisions, leases, heartbeats, idempotency, and state transitions.
+- [x] Add crash, cancellation, concurrent writer, and restart recovery tests.
 - [ ] Define a future-compatible storage interface for PostgreSQL/object stores.
+- [ ] Verify role-owned job submission, protocol availability, immutable command
+      receipts, atomic audit append, and batch holdout consumption.
+- [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
+
+The storage/lifecycle checkpoint covers 2/4/8 independent OS writers and real
+kill/restart at transaction and lease boundaries. These checked items do not
+close the phase: role-handler integration and holdout batch transactions are
+still required. Evidence: `docs/verification/phase-03-durable-state.md`.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

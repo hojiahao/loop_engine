@@ -1736,7 +1736,10 @@ pub fn validate_job_record(record: &JobRecord) -> Result<ValidatedJobShape, JobV
                 "attempt",
             ));
         }
-    } else if (is_active || is_terminal) && record.attempt == 0 {
+    } else if (is_active || is_terminal)
+        && !matches!(state, JobState::Cancelled | JobState::BudgetExhausted)
+        && record.attempt == 0
+    {
         return Err(JobValidationError::new(
             JobValidationCode::InvalidAttempt,
             "attempt",

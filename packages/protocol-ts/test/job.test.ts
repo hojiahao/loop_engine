@@ -162,7 +162,7 @@ interface Vector {
 describe("JobRecord structural validation", () => {
   it("executes every row in the shared fail-closed matrix", () => {
     const shared = vectors();
-    expect(shared).toHaveLength(105);
+    expect(shared).toHaveLength(109);
     for (const vector of shared) {
       const value = record(vector);
       if (vector.expected === "accept") {

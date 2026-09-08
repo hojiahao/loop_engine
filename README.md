@@ -50,7 +50,8 @@ capability 均不进入构建上下文。
 当前重构分支已加入共享 `loop.v1` DTO，以及按角色隔离的
 `loop.{protocol,discovery,provider,research,jobs,audit,holdout}.v1` gRPC 服务入口。
 协议规定长耗时的发现、因子评测、回测和对账只通过提交 RPC 返回窄作业句柄，不在请求
-线程内执行；SQLite 持久化、原子入队、lease 和崩溃恢复属于 Phase 3，当前尚未实现。
+线程内执行。Phase 3 正在实现 SQLite 持久化和作业生命周期，当前进展见下节；
+角色 RPC 尚未对外开放。
 Discovery、Research 和 Provider 三项 role RPC 的请求/响应消息图均不能到达 holdout
 输入；Discovery 与 Research 还通过独立的 `development_data.proto` 叶子依赖避免加载
 锁定样本窗口和完整数据快照。这只是类型可达性隔离；opaque snapshot ID 的角色必须在
@@ -75,15 +76,36 @@ Phase 2 已建立 Rust、TypeScript 和 Python 共用的规范因子身份。表
 
 协议生成将当前源码描述符写入 `schema.current.binpb`，兼容性检查则针对不可由普通生成
 流程覆盖的 `schema.baseline.binpb`。协议规定作业绑定协议选择、VCS/tree、数据和回测
-provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；相应持久化
-及 capability 强制执行分别属于 Phase 3 和 Phase 4，当前尚未实现。审计链使用
+provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；holdout
+批量事务和 capability 强制执行分别属于 Phase 3 后续工作和 Phase 4，当前尚未实现。审计链使用
 独立规范文档计算 payload/event SHA-256，不对 Protobuf 字节做哈希。相关约束见
 [`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
 [`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
 
-跨语言向量、兼容性、边界和生成确定性测试均已通过；Python 协议测试为 236 项，
-旧系统回归为 216 passed / 1 skipped。下一阶段为 Phase 3 的 SQLite 事务、作业状态、
-revision、lease、幂等入队及崩溃恢复，当前尚未实现。
+Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试均已通过；Python 协议测试
+为 236 项，旧系统回归为 216 passed / 1 skipped。这是已封存阶段的历史测试基线。
+
+## Phase 3 持久状态（实施中）
+
+已加入 `crates/loopd/src/store` 和 `migrations/sqlite`：SQLite WAL、FULL 同步、严格表、
+迁移校验和、revision CAS、租约获取与心跳、取消、完成和过期恢复。作业变更、幂等回执和
+规范审计事件在同一个 `BEGIN IMMEDIATE` 事务提交。租约过期不会自动重跑外部操作，
+恢复结果明确区分基础设施失败与预算耗尽。
+
+并发验收使用 2、4、8 个独立 OS 进程；故障验收覆盖提交前、提交后以及租约期间强制
+终止。迁移锁等待有超时并支持取消。未执行便被取消或耗尽预算的作业保留 `attempt = 0`，
+三语言共享向量覆盖此语义，并要求协商 `jobs.prelease-terminal.v1`。
+
+`loopd --database var/loopd/state.sqlite3` 启动时迁移并验证数据库，`/readyz` 检查存储状态。
+默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
+已完成的美股研究服务。角色提交集成、holdout 审批与批量原子消费以及阶段最终 CI 仍待完成。
+进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
+
+新增 `loopd` 手写代码禁止 `unsafe`，存储公开接口强制文档；Rust 格式和 Clippy、跨语言
+协议测试、旧数值回归仍为强制门禁。项目执行可公开核验的工程规则，不宣称符合任何公司
+未公开的内部规范。持续要求见 [`贡献规则`](AGENTS.md)。
+
+## 旧研究引擎基线
 
 Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
 量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与

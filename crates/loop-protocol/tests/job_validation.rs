@@ -55,7 +55,7 @@ struct Vector<'a> {
 #[test]
 fn shared_job_record_matrix_fails_closed() {
     let vectors = vectors().collect::<Vec<_>>();
-    assert_eq!(vectors.len(), 105, "all shared rows must execute");
+    assert_eq!(vectors.len(), 109, "all shared rows must execute");
     for vector in vectors {
         let record = record(&vector);
         match validate_job_record(&record) {

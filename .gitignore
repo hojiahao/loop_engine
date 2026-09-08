@@ -34,6 +34,7 @@ test-results/
 cache/
 
 # 运行时状态与产出(迭代产生/可重建,不提交;output 下的 .md 文档仍提交)
+var/
 output/checkpoint.json
 output/*.tmp
 output/*.lock

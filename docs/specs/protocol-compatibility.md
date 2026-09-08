@@ -158,9 +158,14 @@ mismatched known variant fails before handler selection. Phase 2 intentionally
 provides no single API that directly authorizes execution.
 
 `JobRecord` validation is fail closed across state, attempt, lease, and outcome.
-Queued records have attempt zero, active records have one valid lease and a
-positive attempt, and terminal records have no live lease, a positive attempt,
-and exactly the outcome variant named by their state. A lease binds the same
+Queued records have attempt zero, and active records have one valid lease and a
+positive attempt. Terminal records have no live lease and exactly the outcome
+variant named by their state. Cancellation and budget exhaustion may have
+attempt zero when work ends before the first lease; other terminal states
+require a positive attempt. Phase 3 mutation boundaries must require
+`jobs.prelease-terminal.v1` before exposing this behavior to mixed-version
+peers. Administrative cancellation must not fabricate an execution attempt.
+A lease binds the same
 job ID and a non-future revision, identifies its owner, and has ordered issued,
 heartbeat, and expiry timestamps. Terminal payloads validate their required
 identity, enum, reason, timestamp, attempt, and collection limits.

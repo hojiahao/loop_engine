@@ -207,7 +207,7 @@ def test_holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate(
 
 @pytest.mark.parametrize("vector", SHARED_VECTORS, ids=[v["name"] for v in SHARED_VECTORS])
 def test_shared_job_record_matrix_fails_closed(vector: dict[str, str]) -> None:
-    assert len(SHARED_VECTORS) == 105
+    assert len(SHARED_VECTORS) == 109
     record = _record(vector)
     expected = vector["expected"]
     if expected == "accept":
