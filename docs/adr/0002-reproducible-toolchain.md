@@ -38,9 +38,12 @@ operator requires DaoCloud as the image transport.
 9. Treat `uv --locked` as the consistency gate. `--frozen` is not accepted for
    the active research package because it can use an outdated lock without
    reporting project drift.
-10. Use the Tencent Cloud HTTPS Debian mirror with normal Debian signature validation
-    and bounded apt retries in the development image. This is independent of
-    the DaoCloud transport used for OCI images.
+10. Use official `https://deb.debian.org` package and security endpoints with
+    Debian signature and Release-file expiration validation, bounded retries,
+    and fatal index-fetch errors. This is independent of the DaoCloud transport
+    used for OCI images. Amended on 2026-09-08 after the previously selected
+    Tencent Cloud mirror served expired security metadata in CI run
+    `34181369455`; validation must not be disabled to accommodate a stale mirror.
 11. Bake the exact Clippy and rustfmt components into the development image.
     Install Cargo, rustc, rust-std, Clippy, and rustfmt from their individual
     upstream distribution archives. Verify every archive against the SHA-256

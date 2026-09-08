@@ -35,9 +35,10 @@ COPY --from=uv_toolchain /uv /uvx /usr/local/bin/
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    sed -i 's|http://deb.debian.org|https://mirrors.cloud.tencent.com|g' \
+    sed -i 's|http://deb.debian.org|https://deb.debian.org|g' \
         /etc/apt/sources.list.d/debian.sources \
-    && apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=3 -o Acquire::https::Timeout=30 \
+        -o APT::Update::Error-Mode=any -o Acquire::Check-Valid-Until=true update \
     && DEBIAN_FRONTEND=noninteractive apt-get \
         -o Acquire::Retries=3 -o Acquire::https::Timeout=30 \
         install --yes --no-install-recommends \

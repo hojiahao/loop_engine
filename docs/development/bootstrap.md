@@ -25,10 +25,13 @@ This makes the mirror a transport rather than a provenance authority. A clean
 runtime volume does not download a second copy of Rust or pull the large Rust
 OCI image layer.
 
-Debian packages inside the image use the Tencent Cloud HTTPS mirror because direct
-Debian HTTP transport is unreliable in the target network. Debian repository
-signatures remain mandatory; the mirror is transport, not a trust authority.
-Package requests have bounded retries and timeouts.
+Debian packages inside the image use the official `https://deb.debian.org`
+endpoints, including the security repository. This APT transport is independent
+of the DaoCloud OCI transport. Debian signatures and Release-file expiration
+checks remain mandatory. Package requests have bounded retries and timeouts;
+any failed index fetch aborts the build instead of accepting stale cached lists.
+The previous Tencent Cloud mirror served expired security metadata in CI run
+`34181369455`; bypassing expiration checks is not an accepted workaround.
 
 Run the full clean-container gate with:
 
