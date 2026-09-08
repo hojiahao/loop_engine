@@ -22,6 +22,7 @@ dist
 build
 *.egg-info
 cache
+var
 output
 playwright-report
 test-results

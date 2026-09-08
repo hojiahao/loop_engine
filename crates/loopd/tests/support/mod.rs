@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
+pub mod holdout;
 pub mod research;
 
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::{
     Arc,
     atomic::{AtomicI64, Ordering},
@@ -12,10 +14,11 @@ use loop_protocol::job::protocol_selection_sha256;
 use loop_protocol::negotiation::{ProtocolBuildIdentity, validate_protocol_selection_availability};
 use loop_protocol::wire::v1::*;
 use loopd::store::{
-    AdmissionPolicy, Clock, SqliteJobStore, StoreError, StoreOptions, StoreResult, SubmitJob,
+    AdmissionPolicy, Clock, PgJobStore, StoreError, StoreOptions, StoreResult, SubmitJob,
 };
 use prost_types::{Duration, Timestamp};
-use sqlx::{Connection, SqliteConnection, sqlite::SqliteConnectOptions};
+use sha2::{Digest, Sha256};
+use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
 use tempfile::TempDir;
 
 pub const NOW: i64 = 1_788_761_610_000;
@@ -72,30 +75,58 @@ impl AdmissionPolicy for FixtureAdmission {
 }
 
 pub fn options(path: &Path, clock: Arc<FixtureClock>) -> StoreOptions {
-    let mut options = StoreOptions::new(path);
+    let mut options = base_options(path);
     options.clock = clock;
     options.admission = Arc::new(FixtureAdmission);
     options
 }
 
-pub async fn fixture() -> (TempDir, SqliteJobStore, Arc<FixtureClock>) {
+pub fn test_url() -> String {
+    let url = std::env::var("LOOP_TEST_POSTGRES_URL").unwrap_or_else(|_| {
+        "postgresql://loop_engine_test:loop_engine_test_only@127.0.0.1:15433/loop_engine_test?sslmode=require".to_owned()
+    });
+    let parsed = PgConnectOptions::from_str(&url).expect("test PostgreSQL URL");
+    assert_eq!(
+        parsed.get_database(),
+        Some("loop_engine_test"),
+        "refusing a non-test database"
+    );
+    assert_eq!(
+        parsed.get_username(),
+        "loop_engine_test",
+        "refusing a production principal"
+    );
+    url
+}
+
+pub fn schema(path: &Path) -> String {
+    let digest = format!("{:x}", Sha256::digest(path.as_os_str().as_encoded_bytes()));
+    format!("test_{}", &digest[..32])
+}
+
+pub fn base_options(path: &Path) -> StoreOptions {
+    let mut options = StoreOptions::new(&test_url()).unwrap();
+    options.schema = schema(path);
+    options.apply_migrations = true;
+    options
+}
+
+pub async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>) {
     let directory = tempfile::tempdir().unwrap();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
-    let store = SqliteJobStore::open(options(
-        &directory.path().join("state.sqlite3"),
-        clock.clone(),
-    ))
-    .await
-    .unwrap();
+    let store = PgJobStore::open(options(&directory.path().join("state"), clock.clone()))
+        .await
+        .unwrap();
     (directory, store, clock)
 }
 
-pub async fn connection(directory: &TempDir) -> SqliteConnection {
-    SqliteConnection::connect_with(
-        &SqliteConnectOptions::new()
-            .filename(directory.path().join("state.sqlite3"))
-            .foreign_keys(true),
-    )
+pub async fn connection(directory: &TempDir) -> PgConnection {
+    let search_path = schema(&directory.path().join("state"));
+    PgConnection::connect_with(&PgConnectOptions::from_str(&test_url()).unwrap().options([
+        ("search_path", search_path.as_str()),
+        ("lock_timeout", "5000"),
+        ("statement_timeout", "30000"),
+    ]))
     .await
     .unwrap()
 }

@@ -4,8 +4,9 @@
 mod audit;
 #[cfg(test)]
 mod crash_tests;
+mod holdout;
 mod lifecycle;
-mod sqlite;
+mod postgres;
 mod submission;
 
 use std::future::Future;
@@ -14,8 +15,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
+pub use holdout::{
+    DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
+};
 pub use lifecycle::{JobMutation, RecoveryCommand};
-pub use sqlite::{SqliteJobStore, StoreOptions};
+pub use postgres::{PgJobStore, StoreOptions};
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
 /// Fail-closed command errors; none represent rejection of a research factor.
@@ -25,7 +29,7 @@ pub enum StoreError {
     #[error("invalid storage command: {0}")]
     Invalid(&'static str),
     /// Server-owned reference or authority policy denied the command.
-    #[error("job admission is not authorized")]
+    #[error("storage command is not authorized")]
     AdmissionDenied,
     /// One principal reused a command key with different semantic content.
     #[error("idempotency key was already used for a different command")]
@@ -33,6 +37,9 @@ pub enum StoreError {
     /// Another command already registered this job identity.
     #[error("job identity already exists")]
     DuplicateJob,
+    /// The canonical locked period already exists, possibly in a terminal state.
+    #[error("holdout period already exists and cannot be registered again")]
+    DuplicatePeriod,
     /// No job exists for the requested identity.
     #[error("job does not exist")]
     NotFound,
@@ -57,10 +64,13 @@ pub enum StoreError {
     /// The typed job contract rejected an input or outcome.
     #[error("job wire contract is invalid: {0}")]
     Job(#[from] loop_protocol::job::JobValidationError),
+    /// Canonical holdout content or its typed identity is invalid.
+    #[error("holdout contract is invalid: {0}")]
+    Holdout(#[from] loop_core::holdout::HoldoutValidationError),
     /// Canonical audit verification failed.
     #[error("audit contract is invalid: {0}")]
     Audit(#[from] loop_core::audit::AuditError),
-    /// SQLite rejected a statement or could not acquire a connection.
+    /// PostgreSQL rejected a statement or could not acquire a connection.
     #[error("database operation failed: {0}")]
     Database(#[from] sqlx::Error),
     /// A migration failed or a stored migration checksum changed.

@@ -17,6 +17,28 @@
   },
   "accepted": [
     {
+      "name": "holdout_period_registered",
+      "action": "state_transitioned",
+      "payload_schema": "loop.audit.state_transitioned",
+      "canonical_payload": "{\"from\":\"holdout.unregistered\",\"to\":\"holdout.sealed\",\"reason\":\"locked period registered\"}",
+      "target": {
+        "kind": "holdout_period_id",
+        "value": "sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188"
+      },
+      "forbidden_target": {
+        "kind": "artifact_id",
+        "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "invalid_target_values": [
+        "holdout.confirmation",
+        "sha256:99728375",
+        "sha256:99728375849B8E92E1B87B15FA41C9B5391640F3F7FA86E9BF1671030FD50188"
+      ],
+      "payload_sha256": "sha256:d9a19addb6f6e49b923d52a31db30d423c2eb67e94d66f98667a6a7df61d0faf",
+      "canonical_event_utf8": "{\"schema\":\"loop.audit-event/v1\",\"audit_ledger_id\":\"ledger.action-bindings\",\"sequence\":\"1\",\"previous_event_sha256\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"audit_event_id\":\"audit.action-binding.0001\",\"occurred_at\":\"2026-09-05T07:00:00.000000000Z\",\"correlation_id\":\"correlation.action-binding\",\"causation_id\":\"causation.action-binding\",\"actor\":{\"actor_id\":\"actor.contract-test\",\"kind\":\"service\",\"display_name\":\"contract test\",\"authenticated_subject\":\"spiffe://loop/contract-test\"},\"action\":\"state_transitioned\",\"target\":{\"kind\":\"holdout_period_id\",\"value\":\"sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188\"},\"payload\":{\"schema_name\":\"loop.audit.state_transitioned\",\"schema_version\":\"1\",\"payload_sha256\":\"sha256:d9a19addb6f6e49b923d52a31db30d423c2eb67e94d66f98667a6a7df61d0faf\"}}",
+      "event_sha256": "sha256:7fb55c1a382af21f3a6da3ff0598aa04bf625f2b3dd899395ab87a34920bb747"
+    },
+    {
       "name": "command_accepted",
       "action": "command_accepted",
       "payload_schema": "loop.audit.command_accepted",

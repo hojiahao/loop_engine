@@ -12,6 +12,9 @@
 [`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；
 目标目录所有权和迁移顺序见
 [`ADR 0003`](docs/adr/0003-repository-layout-and-ownership.md)。
+架构图保留早期方案，其 SQLite 标注已由
+[`ADR 0007`](docs/adr/0007-postgresql-primary-store.md) 的 PostgreSQL 决策取代；
+当前实现和验收状态以实施清单及下文为准。
 
 ## Phase 1 重构工作区
 
@@ -50,7 +53,7 @@ capability 均不进入构建上下文。
 当前重构分支已加入共享 `loop.v1` DTO，以及按角色隔离的
 `loop.{protocol,discovery,provider,research,jobs,audit,holdout}.v1` gRPC 服务入口。
 协议规定长耗时的发现、因子评测、回测和对账只通过提交 RPC 返回窄作业句柄，不在请求
-线程内执行。Phase 3 正在实现 SQLite 持久化和作业生命周期，当前进展见下节；
+线程内执行。Phase 3 正在实现 PostgreSQL 持久化和作业生命周期，当前进展见下节；
 角色 RPC 尚未对外开放。
 Discovery、Research 和 Provider 三项 role RPC 的请求/响应消息图均不能到达 holdout
 输入；Discovery 与 Research 还通过独立的 `development_data.proto` 叶子依赖避免加载
@@ -87,10 +90,12 @@ Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试
 
 ## Phase 3 持久状态（实施中）
 
-已加入 `crates/loopd/src/store` 和 `migrations/sqlite`：SQLite WAL、FULL 同步、严格表、
-迁移校验和、revision CAS、租约获取与心跳、取消、完成和过期恢复。作业变更、幂等回执和
-规范审计事件在同一个 `BEGIN IMMEDIATE` 事务提交。租约过期不会自动重跑外部操作，
-恢复结果明确区分基础设施失败与预算耗尽。
+依据维护者确认的 [`ADR 0007`](docs/adr/0007-postgresql-primary-store.md)，主存储已改为
+PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 `migrations/postgres`
+实现 TLS 连接、迁移校验和、revision CAS、租约、取消、完成和过期恢复。作业变更、幂等回执和
+规范审计事件在同一个数据库事务提交；锁定 ledger 行保证独立进程之间的审计顺序，锁等待和
+语句执行均有超时。该初版刻意串行化同一 ledger 的写事务，不宣称无限水平写扩展能力。
+租约过期不会自动重跑外部操作，恢复结果明确区分基础设施失败与预算耗尽。
 
 并发验收使用 2、4、8 个独立 OS 进程；故障验收覆盖提交前、提交后以及租约期间强制
 终止。迁移锁等待有超时并支持取消。未执行便被取消或耗尽预算的作业保留 `attempt = 0`，
@@ -101,7 +106,22 @@ Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试
 重试保留首次接受的 ID、时间和协议快照，不触发重复执行。测试覆盖字段映射、未知引用、
 协议不可用、身份不匹配、事务回滚，以及独立进程竞争与强杀后的重放。
 
-`loopd --database var/loopd/state.sqlite3` 启动时迁移并验证数据库，`/readyz` 检查存储状态。
+锁定区间注册使用独立的默认拒绝策略；规范区间、不可变回执和区间审计同事务提交。
+重试返回首次注册结果，不能用新的幂等键重置区间。该注册接口不解锁数据，也不签发 capability。
+
+生产数据库名为 `loop_engine`，应用账号为 `loop_engine_app`；无登录权限的
+`loop_engine_owner` 持有 schema。运行时读取权限受限的连接文件，强制 `sslmode=require`
+或更强模式，仅核验 schema，不自动执行 DDL。远程开发通过 SSH 隧道访问，不新增公网端口。
+`require` 加密流量但不验证自签名证书身份；具备受信 CA 后应升级为 `verify-full`。
+
+```bash
+./scripts/cargo.sh run -p loopd --locked --offline -- --check-database
+./scripts/cargo.sh run -p loopd --locked --offline -- \
+  --database-url-file var/secrets/loopd-database-url
+```
+
+连接配置、管理员迁移、权限和本机测试库操作见
+[`PostgreSQL 部署说明`](docs/development/postgresql.md)。`/readyz` 检查存储状态。
 默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
 已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout 审批与批量原子
 消费以及阶段最终 CI 仍待完成。

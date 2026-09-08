@@ -69,17 +69,27 @@ merge to `main`, a production release, or implementation of later phases.
 
 ## Phase 3 - Durable state (`in_progress`)
 
-Implementation follows `docs/adr/0006-durable-state-and-command-transactions.md`.
-The first checkpoint adds the internal SQLite repository; production mutating
-RPCs remain unavailable until their authorization and reference-resolution
-gates are implemented. No Phase 3 completion is claimed by a storage checkpoint.
+Implementation follows ADR 0006's transactional invariants and the owner's
+2026-09-08 PostgreSQL amendment in ADR 0007. The published SQLite checkpoint is
+historical evidence, not the current runtime backend. Production mutating RPCs
+remain unavailable until authorization and reference resolution are implemented.
+No Phase 3 completion is claimed by a storage checkpoint.
 
-- [x] Add SQLite migrations, WAL configuration, constraints, and indexes.
+- [x] Add the original SQLite migrations, constraints, and indexes (historical).
+- [x] Provision the isolated production PostgreSQL database and least-privilege
+      identities; verify encrypted application login without opening public ports.
+- [x] Port migrations, transactions, audit, role submissions, and leases to
+      PostgreSQL; separate administrative DDL from runtime schema verification.
+- [ ] Pass the PostgreSQL TLS, migration, corruption, rollback, 2/4/8-process,
+      cancellation, and kill/restart regression gates.
 - [x] Implement revisions, leases, heartbeats, idempotency, and state transitions.
 - [x] Add crash, cancellation, concurrent writer, and restart recovery tests.
-- [ ] Define a future-compatible storage interface for PostgreSQL/object stores.
+- [x] Retain domain command interfaces independent of PostgreSQL SQL and pools.
+      Immutable market data remains outside the metadata database.
 - [x] Map four role-owned submission requests into transactional jobs, with
       protocol availability, immutable receipts, and atomic audit append.
+- [ ] Verify atomic sealed-period registration, immutable replay, default-deny
+      access, canonical identity, and monotonic lifecycle constraints.
 - [ ] Implement holdout approval, grant, and all-or-nothing batch consumption.
 - [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
 
@@ -146,6 +156,7 @@ Evidence: `docs/verification/phase-03-durable-state.md`.
 
 ## Phase 12 - Web and TUI (`pending`)
 
+- [ ] Refresh the early architecture diagram for the accepted PostgreSQL backend.
 - [ ] Implement the operational React application and Ratatui interface.
 - [ ] Verify desktop/mobile layout, keyboard access, screenshots, and TUI flows.
 

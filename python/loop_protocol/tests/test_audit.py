@@ -64,7 +64,7 @@ def test_every_action_and_typed_target_enum_spelling_is_closed() -> None:
 def test_shared_action_registry_binds_schema_target_and_subject_before_hashing() -> None:
     fixture = _action_binding_fixture()
     assert fixture["schema"] == "loop.audit-action-binding/v1"
-    assert len(fixture["accepted"]) == 11
+    assert len(fixture["accepted"]) == 12
     malformed_names = {vector["name"] for vector in fixture["malformed_payloads"]}
     assert {
         "holdout_approval_records_unsorted",
@@ -84,6 +84,12 @@ def test_shared_action_registry_binds_schema_target_and_subject_before_hashing()
         )
         assert audit_event_sha256(event) == vector["event_sha256"], vector["name"]
         verify_audit_event(replace(event, event_sha256=vector["event_sha256"]))
+
+        for value in vector.get("invalid_target_values", []):
+            invalid = replace(event, target=replace(event.target, value=value))
+            with pytest.raises(AuditValidationError) as captured:
+                audit_event_sha256(invalid)
+            assert captured.value.code is AuditErrorCode.INVALID_TARGET, vector["name"]
 
         wrong_action = fixture["accepted"][(index + 1) % len(fixture["accepted"])]
         wrong_schema = replace(

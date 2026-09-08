@@ -107,6 +107,8 @@ struct ActionBindingVector {
     target: TargetVector,
     forbidden_target: TargetVector,
     mismatched_target_value: Option<String>,
+    #[serde(default)]
+    invalid_target_values: Vec<String>,
     payload_sha256: String,
     canonical_event_utf8: String,
     event_sha256: String,
@@ -183,7 +185,7 @@ fn every_action_and_typed_target_enum_spelling_is_closed() {
 fn shared_action_registry_binds_schema_target_and_subject_before_hashing() {
     let fixture = action_binding_fixture();
     assert_eq!(fixture.schema, "loop.audit-action-binding/v1");
-    assert_eq!(fixture.accepted.len(), 11);
+    assert_eq!(fixture.accepted.len(), 12);
     let malformed_names = fixture
         .malformed_payloads
         .iter()
@@ -227,6 +229,17 @@ fn shared_action_registry_binds_schema_target_and_subject_before_hashing() {
         let mut sealed = event.clone();
         sealed.event_sha256 = Sha256Digest::parse(&vector.event_sha256).unwrap();
         verify_audit_event(&sealed).unwrap();
+
+        for value in &vector.invalid_target_values {
+            let mut invalid = event.clone();
+            invalid.target.value = value.clone();
+            assert_eq!(
+                audit_event_sha256(&invalid).unwrap_err().code(),
+                AuditErrorCode::InvalidTarget,
+                "{} invalid target {value}",
+                vector.name
+            );
+        }
 
         let wrong_action = &fixture.accepted[(index + 1) % fixture.accepted.len()];
         let mut wrong_schema = event.clone();

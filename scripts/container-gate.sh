@@ -15,7 +15,8 @@ export LOOP_ENGINE_GID="${LOOP_ENGINE_GID:-$(id -g)}"
 
 cd "${loop_repo_dir}"
 cleanup
-docker compose --project-name "${loop_gate_project}" build development
+docker compose --project-name "${loop_gate_project}" build development postgres
+docker compose --project-name "${loop_gate_project}" up --detach --wait --wait-timeout 90 postgres
 docker compose --project-name "${loop_gate_project}" run --rm development ./scripts/bootstrap.sh
 docker compose --project-name "${loop_gate_project}" run --rm development just check
 docker compose --project-name "${loop_gate_project}" run --rm development just test

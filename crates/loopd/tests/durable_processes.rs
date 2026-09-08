@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::jobs::v1::AcquireJobLeaseRequest;
 use loop_protocol::wire::v1::JobId;
-use loopd::store::{JobMutation, JobRepository, SqliteJobStore, StoreError};
+use loopd::store::{HoldoutRepository, JobMutation, JobRepository, PgJobStore, StoreError};
 use support::*;
 
 struct Worker(Child);
@@ -48,11 +48,18 @@ fn process_worker() {
         if mode == "role" {
             options.admission = Arc::new(research::Admission);
         }
-        let store = SqliteJobStore::open(options).await.unwrap();
+        if mode == "period" {
+            options.holdout_policy = Arc::new(holdout::Policy);
+        }
+        let store = PgJobStore::open(options).await.unwrap();
         let directory = path.parent().unwrap();
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "period" => store
+                .register_period(&actor(), holdout::command(0, "period.retry"))
+                .await
+                .map(|value| value.replayed),
             "submit" => store.submit(command(1)).await.map(|value| value.replayed),
             "distinct" => store
                 .submit(command(index + 1))
@@ -99,16 +106,14 @@ fn process_worker() {
 #[tokio::test]
 async fn process_writers_preserve_fencing() {
     for count in [2, 4, 8] {
-        for mode in ["submit", "distinct", "acquire", "role"] {
+        for mode in ["submit", "distinct", "acquire", "role", "period"] {
             let directory = tempfile::tempdir().unwrap();
-            let path = directory.path().join("state.sqlite3");
+            let path = directory.path().join("state");
             if mode == "acquire" {
-                let store = SqliteJobStore::open(options(
-                    &path,
-                    Arc::new(FixtureClock(AtomicI64::new(NOW))),
-                ))
-                .await
-                .unwrap();
+                let store =
+                    PgJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
+                        .await
+                        .unwrap();
                 store.submit(command(1)).await.unwrap();
                 store.close().await;
             }
@@ -154,7 +159,7 @@ async fn process_writers_preserve_fencing() {
             }
             assert_eq!(committed, if mode == "distinct" { count } else { 1 });
             let store =
-                SqliteJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
+                PgJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
                     .await
                     .unwrap();
             let events = store.audit_events(0, 500).await.unwrap();

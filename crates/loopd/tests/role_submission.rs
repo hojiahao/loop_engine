@@ -8,8 +8,8 @@ use std::sync::{
 use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::{discovery::v1 as discovery, research::v1 as research, v1::*};
 use loopd::store::{
-    Clock, JobRepository, RoleCommand, RoleJobHandle, SqliteJobStore, StoreError, StoreOptions,
-    StoreResult, SubmissionMetadata,
+    Clock, JobRepository, PgJobStore, RoleCommand, RoleJobHandle, StoreError, StoreResult,
+    SubmissionMetadata,
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -37,13 +37,13 @@ fn metadata() -> SubmissionMetadata {
     }
 }
 
-async fn setup() -> (tempfile::TempDir, SqliteJobStore, Arc<TickClock>) {
+async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<TickClock>) {
     let directory = tempfile::tempdir().unwrap();
     let clock = Arc::new(TickClock(AtomicI64::new(NOW)));
-    let mut options = StoreOptions::new(directory.path().join("state.sqlite3"));
+    let mut options = base_options(&directory.path().join("state"));
     options.clock = clock.clone();
     options.admission = Arc::new(fixtures::Admission);
-    let store = SqliteJobStore::open(options).await.unwrap();
+    let store = PgJobStore::open(options).await.unwrap();
     (directory, store, clock)
 }
 
@@ -218,10 +218,10 @@ async fn replay_preserves_receipt() {
     );
     assert_eq!(handle.submitted_at, Some(timestamp(NOW)));
     store.close().await;
-    let mut options = StoreOptions::new(directory.path().join("state.sqlite3"));
+    let mut options = base_options(&directory.path().join("state"));
     options.clock = clock;
     options.admission = Arc::new(fixtures::Admission);
-    let reopened = SqliteJobStore::open(options).await.unwrap();
+    let reopened = PgJobStore::open(options).await.unwrap();
     let mut retry = request("reconcile");
     let RoleCommand::Reconciliation(request) = &mut retry else {
         unreachable!()
@@ -250,10 +250,10 @@ async fn replay_preserves_receipt() {
 #[tokio::test]
 async fn concurrent_retries_commit_once() {
     let (directory, first, clock) = setup().await;
-    let mut options = StoreOptions::new(directory.path().join("state.sqlite3"));
+    let mut options = base_options(&directory.path().join("state"));
     options.clock = clock;
     options.admission = Arc::new(fixtures::Admission);
-    let second = SqliteJobStore::open(options).await.unwrap();
+    let second = PgJobStore::open(options).await.unwrap();
     let mut tasks = vec![];
     for index in 0..20 {
         let store = if index % 2 == 0 {
@@ -386,7 +386,7 @@ async fn operations_scope_idempotency_keys() {
 async fn audit_failure_rolls_back_submission() {
     let (directory, store, _) = setup().await;
     let mut database = connection(&directory).await;
-    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END")
+    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
         .execute(&mut database).await.unwrap();
     assert!(matches!(
         store
@@ -444,9 +444,9 @@ async fn rejects_missing_inputs() {
 #[tokio::test]
 async fn default_policy_denies_submission() {
     let directory = tempfile::tempdir().unwrap();
-    let mut options = StoreOptions::new(directory.path().join("state.sqlite3"));
+    let mut options = base_options(&directory.path().join("state"));
     options.clock = Arc::new(TickClock(AtomicI64::new(NOW)));
-    let denied = SqliteJobStore::open(options).await.unwrap();
+    let denied = PgJobStore::open(options).await.unwrap();
     for (_, input) in fixtures::inputs() {
         assert!(matches!(
             denied
@@ -530,11 +530,11 @@ async fn rejects_rehashed_receipt_state() {
     loop_protocol::job::validate_job_record(&record).unwrap();
     let blob = record.encode_to_vec();
     let mut database = connection(&directory).await;
-    sqlx::query("DROP TRIGGER command_receipts_no_update")
+    sqlx::query("DROP TRIGGER command_receipts_no_update ON command_receipts")
         .execute(&mut database)
         .await
         .unwrap();
-    sqlx::query("UPDATE command_receipts SET response_blob = ?, response_sha256 = ?")
+    sqlx::query("UPDATE command_receipts SET response_blob = $1, response_sha256 = $2")
         .bind(&blob)
         .bind(Sha256::digest(&blob).to_vec())
         .execute(&mut database)
@@ -560,7 +560,7 @@ async fn rejects_crosslinked_receipt() {
         .await
         .unwrap();
     let mut database = connection(&directory).await;
-    sqlx::query("DROP TRIGGER command_receipts_no_update")
+    sqlx::query("DROP TRIGGER command_receipts_no_update ON command_receipts")
         .execute(&mut database)
         .await
         .unwrap();

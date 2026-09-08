@@ -7,7 +7,7 @@ pub mod store;
 
 use axum::{Json, Router, routing::get};
 use loop_core::ComponentHealth;
-use store::SqliteJobStore;
+use store::PgJobStore;
 
 pub fn app() -> Router {
     Router::new().route("/healthz", get(health))
@@ -15,7 +15,7 @@ pub fn app() -> Router {
 
 /// Readiness-only storage integration. Mutating RPCs remain unregistered until
 /// transport authentication and reference authorization are available.
-pub fn app_with_store(store: SqliteJobStore) -> Router {
+pub fn app_with_store(store: PgJobStore) -> Router {
     app().route(
         "/readyz",
         get(move || {

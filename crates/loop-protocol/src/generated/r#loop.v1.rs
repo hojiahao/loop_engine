@@ -448,7 +448,7 @@ pub struct ArtifactRef {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AuditTarget {
-    #[prost(oneof = "audit_target::Target", tags = "1, 2, 3, 4, 5, 6, 7, 8")]
+    #[prost(oneof = "audit_target::Target", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub target: ::core::option::Option<audit_target::Target>,
 }
 /// Nested message and enum types in `AuditTarget`.
@@ -471,6 +471,8 @@ pub mod audit_target {
         ArtifactId(super::ArtifactId),
         #[prost(message, tag = "8")]
         HoldoutApprovalRecordId(super::HoldoutApprovalRecordId),
+        #[prost(message, tag = "9")]
+        HoldoutPeriodId(super::HoldoutPeriodId),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

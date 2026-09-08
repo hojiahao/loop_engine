@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::jobs::v1::*;
 use loop_protocol::wire::v1::*;
-use loopd::store::{JobMutation, JobRepository, RecoveryCommand, SqliteJobStore, StoreError};
+use loopd::store::{JobMutation, JobRepository, PgJobStore, RecoveryCommand, StoreError};
 use prost_types::Duration;
 use sqlx::Connection;
 use support::*;
@@ -95,7 +95,7 @@ async fn lease_heartbeat_completion_and_replay_survive_restart() {
     );
     assert!(result.job.active_lease.is_none());
     store.close().await;
-    let reopened = SqliteJobStore::open(options(&directory.path().join("state.sqlite3"), clock))
+    let reopened = PgJobStore::open(options(&directory.path().join("state"), clock))
         .await
         .unwrap();
     let replay = reopened.mutate(&actor(), finish).await.unwrap();
@@ -115,7 +115,7 @@ async fn lease_heartbeat_completion_and_replay_survive_restart() {
 async fn concurrent_revision_race_has_exactly_one_winner() {
     let (directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
-    let second = SqliteJobStore::open(options(&directory.path().join("state.sqlite3"), clock))
+    let second = PgJobStore::open(options(&directory.path().join("state"), clock))
         .await
         .unwrap();
     let mut tasks = vec![];
@@ -288,7 +288,7 @@ async fn malformed_outcome_and_audit_failure_leave_revision_unchanged() {
         Err(StoreError::Job(_))
     ));
     let mut database = connection(&directory).await;
-    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON command_receipts BEGIN SELECT RAISE(ABORT, 'injected receipt failure'); END")
+    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON command_receipts FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
         .execute(&mut database).await.unwrap();
     assert!(matches!(
         store.mutate(&actor(), complete(&leased, "finish")).await,

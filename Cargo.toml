@@ -27,7 +27,7 @@ ratatui = "0.29.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 sha2 = "0.10.9"
-sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "tls-rustls-ring", "migrate", "macros"] }
 thiserror = "2.0.16"
 tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
 tonic = { version = "0.14.6", features = ["transport"] }
@@ -35,4 +35,5 @@ tonic-prost = "0.14.6"
 tonic-prost-build = "0.14.6"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json"] }
+url = "2.5.8"
 uuid = { version = "1.18.1", features = ["v4"] }

@@ -9,13 +9,13 @@ use loop_protocol::wire::v1::{
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
-use sqlx::{Sqlite, Transaction};
+use sqlx::{Postgres, Transaction};
 
-use super::sqlite::{
+use super::postgres::{
     budget, deadline_millis, decode_record, encode_message, record_from_row, timestamp,
     timestamp_millis, verified_blob,
 };
-use super::{CommandResult, SqliteJobStore, StoreError, StoreResult, audit, validate_id};
+use super::{CommandResult, PgJobStore, StoreError, StoreResult, audit, validate_id};
 
 /// Scheduler-only request to terminalize an expired lease or absolute budget.
 /// This is an internal storage envelope, not a remotely exposed RPC.
@@ -150,7 +150,7 @@ pub(super) fn validate_context<'a>(
 }
 
 pub(super) async fn mutate(
-    store: &SqliteJobStore,
+    store: &PgJobStore,
     principal: &Actor,
     command: JobMutation,
 ) -> StoreResult<CommandResult> {
@@ -170,12 +170,12 @@ pub(super) async fn mutate(
     let operation = command.operation();
     let normalized = command.normalized();
     let request_blob = normalized.encode()?;
-    let mut transaction = store.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let mut transaction = store.pool.begin().await?;
     let now = store.observe_clock(&mut transaction).await?;
     if timestamp_millis(context.requested_at.as_ref().expect("validated time"), true)? > now {
         return Err(StoreError::Invalid("future command time"));
     }
-    let row = sqlx::query("SELECT * FROM jobs WHERE job_id = ?")
+    let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
         .bind(job_id)
         .fetch_optional(&mut *transaction)
         .await?
@@ -195,7 +195,7 @@ pub(super) async fn mutate(
 
     let receipt = sqlx::query(
         "SELECT * FROM command_receipts
-         WHERE actor_id = ? AND operation = ? AND idempotency_key = ?",
+         WHERE actor_id = $1 AND operation = $2 AND idempotency_key = $3",
     )
     .bind(actor_id)
     .bind(operation)
@@ -448,16 +448,16 @@ fn fence(
 }
 
 pub(super) async fn write_record(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     record: &JobRecord,
     previous: u64,
 ) -> StoreResult<()> {
     let blob = encode_message(record)?;
     let lease = record.active_lease.as_ref();
     let result = sqlx::query(
-        "UPDATE jobs SET state = ?, revision = ?, attempt = ?, updated_at_ms = ?,
-            lease_id = ?, lease_owner_id = ?, lease_expires_at_ms = ?, record_blob = ?, record_sha256 = ?
-         WHERE job_id = ? AND revision = ?",
+        "UPDATE jobs SET state = $1, revision = $2, attempt = $3, updated_at_ms = $4,
+            lease_id = $5, lease_owner_id = $6, lease_expires_at_ms = $7, record_blob = $8, record_sha256 = $9
+         WHERE job_id = $10 AND revision = $11",
     ).bind(record.state).bind(record.revision as i64).bind(i64::from(record.attempt))
         .bind(timestamp_millis(record.updated_at.as_ref().expect("validated time"), false)?)
         .bind(lease.and_then(|value| value.lease_id.as_ref()).map(|id| &id.value))
@@ -473,7 +473,7 @@ pub(super) async fn write_record(
 }
 
 pub(super) async fn save_receipt(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     context: &CommandContext,
     operation: &str,
     job_id: &str,
@@ -485,7 +485,7 @@ pub(super) async fn save_receipt(
     sqlx::query(
         "INSERT INTO command_receipts (actor_id, operation, idempotency_key, request_id, job_id,
             request_blob, request_sha256, response_blob, response_sha256, committed_at_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
     )
     .bind(
         &context
@@ -520,7 +520,7 @@ pub(super) async fn save_receipt(
     .bind(now)
     .execute(&mut **transaction)
     .await?;
-    sqlx::query("UPDATE store_metadata SET last_observed_at_ms = ? WHERE singleton = 1")
+    sqlx::query("UPDATE store_metadata SET last_observed_at_ms = $1 WHERE singleton = 1")
         .bind(now)
         .execute(&mut **transaction)
         .await?;

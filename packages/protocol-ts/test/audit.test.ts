@@ -103,6 +103,7 @@ interface ActionBindingVector {
   readonly target: { readonly kind: string; readonly value: string };
   readonly forbidden_target: { readonly kind: string; readonly value: string };
   readonly mismatched_target_value?: string;
+  readonly invalid_target_values?: readonly string[];
   readonly payload_sha256: string;
   readonly canonical_event_utf8: string;
   readonly event_sha256: string;
@@ -158,7 +159,7 @@ describe("audit canonicalization v1", () => {
 
   it("binds all 11 actions to exact schemas, targets, and payload subjects before hashing", () => {
     expect(actionBindingFixture.schema).toBe("loop.audit-action-binding/v1");
-    expect(actionBindingFixture.accepted).toHaveLength(11);
+    expect(actionBindingFixture.accepted).toHaveLength(12);
     const malformedNames = new Set(
       actionBindingFixture.malformed_payloads.map((vector) => vector.name),
     );
@@ -185,6 +186,14 @@ describe("audit canonicalization v1", () => {
       expect(auditEventSha256(event), `${vector.name} event digest`).toBe(vector.event_sha256);
       const sealed = { ...event, eventSha256: vector.event_sha256 };
       expect(() => verifyAuditEvent(sealed), vector.name).not.toThrow();
+
+      for (const value of vector.invalid_target_values ?? []) {
+        expectAuditError(
+          () => auditEventSha256({ ...event, target: { ...event.target, value } }),
+          "invalid_target",
+          `${vector.name} invalid target ${value}`,
+        );
+      }
 
       const wrongAction =
         actionBindingFixture.accepted[(index + 1) % actionBindingFixture.accepted.length];

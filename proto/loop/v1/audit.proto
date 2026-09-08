@@ -45,6 +45,8 @@ message AuditTarget {
     HoldoutGrantId holdout_grant_id = 6;
     ArtifactId artifact_id = 7;
     HoldoutApprovalRecordId holdout_approval_record_id = 8;
+    // Requires audit.holdout-period.v1 in mixed-version audit deployments.
+    HoldoutPeriodId holdout_period_id = 9;
   }
 }
 

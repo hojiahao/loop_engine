@@ -3,7 +3,7 @@ mod support;
 use loop_core::audit::verify_audit_chain;
 use loop_protocol::job::protocol_selection_sha256;
 use loop_protocol::wire::v1::*;
-use loopd::store::{JobRepository, SqliteJobStore, StoreError, StoreOptions};
+use loopd::store::{JobRepository, PgJobStore, StoreError};
 use sqlx::Connection;
 use std::sync::{
     Arc,
@@ -17,7 +17,7 @@ async fn migration_configures_durable_storage_and_reopens() {
     store.verify_configuration().await.unwrap();
     store.submit(command(1)).await.unwrap();
     store.close().await;
-    let store = SqliteJobStore::open(options(&directory.path().join("state.sqlite3"), clock))
+    let store = PgJobStore::open(options(&directory.path().join("state"), clock))
         .await
         .unwrap();
     store.verify_configuration().await.unwrap();
@@ -31,10 +31,10 @@ async fn migration_configures_durable_storage_and_reopens() {
 async fn concurrent_startup_serializes_migrations() {
     let directory = tempfile::tempdir().unwrap();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
-    let path = directory.path().join("state.sqlite3");
+    let path = directory.path().join("state");
     let (first, second) = tokio::join!(
-        SqliteJobStore::open(options(&path, clock.clone())),
-        SqliteJobStore::open(options(&path, clock)),
+        PgJobStore::open(options(&path, clock.clone())),
+        PgJobStore::open(options(&path, clock)),
     );
     let first = first.unwrap();
     let second = second.unwrap();
@@ -47,7 +47,7 @@ async fn concurrent_startup_serializes_migrations() {
 #[tokio::test]
 async fn default_policy_denies_submission_without_creating_state() {
     let directory = tempfile::tempdir().unwrap();
-    let store = SqliteJobStore::open(StoreOptions::new(directory.path().join("state.sqlite3")))
+    let store = PgJobStore::open(base_options(&directory.path().join("state")))
         .await
         .unwrap();
     assert!(matches!(
@@ -105,7 +105,7 @@ async fn changed_semantics_under_the_same_key_fail_closed() {
 #[tokio::test]
 async fn concurrent_writers_commit_one_job_receipt_and_event() {
     let (directory, first, clock) = fixture().await;
-    let second = SqliteJobStore::open(options(&directory.path().join("state.sqlite3"), clock))
+    let second = PgJobStore::open(options(&directory.path().join("state"), clock))
         .await
         .unwrap();
     let mut tasks = Vec::new();
@@ -140,7 +140,7 @@ async fn concurrent_writers_commit_one_job_receipt_and_event() {
 async fn audit_failure_rolls_back_job_receipt_and_clock_watermark() {
     let (directory, store, _) = fixture().await;
     let mut database = connection(&directory).await;
-    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'injected audit failure'); END")
+    sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
         .execute(&mut database).await.unwrap();
     assert!(matches!(
         store.submit(command(1)).await,
@@ -232,10 +232,12 @@ async fn envelope_checksum_and_projection_corruption_are_rejected() {
     store.submit(command(1)).await.unwrap();
     store.submit(command(2)).await.unwrap();
     let mut database = connection(&directory).await;
-    sqlx::query("UPDATE jobs SET record_sha256 = zeroblob(32) WHERE job_id = 'job.1'")
-        .execute(&mut database)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE jobs SET record_sha256 = decode(repeat('00', 32), 'hex') WHERE job_id = 'job.1'",
+    )
+    .execute(&mut database)
+    .await
+    .unwrap();
     sqlx::query("UPDATE jobs SET kind = 1 WHERE job_id = 'job.2'")
         .execute(&mut database)
         .await
@@ -256,10 +258,10 @@ async fn envelope_checksum_and_projection_corruption_are_rejected() {
 async fn changing_the_audit_ledger_identity_on_reopen_is_rejected() {
     let (directory, store, clock) = fixture().await;
     store.close().await;
-    let mut changed = options(&directory.path().join("state.sqlite3"), clock);
+    let mut changed = options(&directory.path().join("state"), clock);
     changed.audit_ledger_id = "ledger.other".to_owned();
     assert!(matches!(
-        SqliteJobStore::open(changed).await,
+        PgJobStore::open(changed).await,
         Err(StoreError::Corrupt(_))
     ));
 }
@@ -268,28 +270,32 @@ async fn changing_the_audit_ledger_identity_on_reopen_is_rejected() {
 async fn migration_lock_wait_is_bounded_and_cancellable() {
     use std::time::Duration;
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("state.sqlite3");
-    let lock = std::fs::File::create(directory.path().join("state.sqlite3.migrate.lock")).unwrap();
-    lock.lock().unwrap();
+    let path = directory.path().join("state");
+    let mut lock = connection(&directory).await;
+    sqlx::query("SELECT pg_advisory_lock(hashtextextended($1, 0))")
+        .bind(format!("loop.migrations.{}", schema(&path)))
+        .execute(&mut lock)
+        .await
+        .unwrap();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut configuration = options(&path, clock.clone());
     configuration.migration_lock_timeout = Duration::from_millis(25);
     assert!(matches!(
-        SqliteJobStore::open(configuration).await,
-        Err(StoreError::Unavailable("migration lock timeout"))
+        PgJobStore::open(configuration).await,
+        Err(StoreError::Unavailable("migration timeout"))
     ));
     assert!(
         tokio::time::timeout(
             Duration::from_millis(25),
-            SqliteJobStore::open(options(&path, clock.clone()))
+            PgJobStore::open(options(&path, clock.clone()))
         )
         .await
         .is_err()
     );
-    drop(lock);
+    lock.close().await.unwrap();
     let store = tokio::time::timeout(
-        Duration::from_secs(2),
-        SqliteJobStore::open(options(&path, clock)),
+        Duration::from_secs(5),
+        PgJobStore::open(options(&path, clock)),
     )
     .await
     .unwrap()
@@ -302,14 +308,16 @@ async fn migration_lock_wait_is_bounded_and_cancellable() {
 async fn modified_migration_checksum_is_rejected_on_reopen() {
     let (directory, store, clock) = fixture().await;
     let mut database = connection(&directory).await;
-    sqlx::query("UPDATE _sqlx_migrations SET checksum = zeroblob(48) WHERE version = 1")
-        .execute(&mut database)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE _sqlx_migrations SET checksum = decode(repeat('00', 48), 'hex') WHERE version = 1",
+    )
+    .execute(&mut database)
+    .await
+    .unwrap();
     database.close().await.unwrap();
     store.close().await;
     assert!(matches!(
-        SqliteJobStore::open(options(&directory.path().join("state.sqlite3"), clock)).await,
+        PgJobStore::open(options(&directory.path().join("state"), clock)).await,
         Err(StoreError::Migration(_))
     ));
 }

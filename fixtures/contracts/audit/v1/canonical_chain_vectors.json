@@ -91,7 +91,11 @@
       "kind": "artifact_id",
       "value": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     },
-    { "kind": "holdout_approval_record_id", "value": "holdout_approval.01" }
+    { "kind": "holdout_approval_record_id", "value": "holdout_approval.01" },
+    {
+      "kind": "holdout_period_id",
+      "value": "sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188"
+    }
   ],
   "boundary_vectors": {
     "max_domain_id_bytes": "128",

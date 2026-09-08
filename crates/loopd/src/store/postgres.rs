@@ -1,6 +1,5 @@
-use std::fs::{OpenOptions, TryLockError};
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use chrono::{DateTime, SecondsFormat};
@@ -9,145 +8,187 @@ use loop_protocol::wire::v1::{JobKind, JobRecord, JobSpecification, JobState, jo
 use prost::Message;
 use prost_types::Timestamp;
 use sha2::{Digest, Sha256};
-use sqlx::sqlite::{
-    SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteRow, SqliteSynchronous,
-};
-use sqlx::{Row, Sqlite, SqlitePool, Transaction};
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgRow, PgSslMode};
+use sqlx::{ConnectOptions, Connection, PgConnection, PgPool, Postgres, Row, Transaction};
 
 use super::{
-    AdmissionPolicy, Clock, CommandResult, DenySubmission, JobRepository, StoreError, StoreResult,
-    SubmitJob, SystemClock, audit, validate_id,
+    AdmissionPolicy, Clock, CommandResult, DenyHoldout, DenySubmission, HoldoutPolicy,
+    JobRepository, StoreError, StoreResult, SubmitJob, SystemClock, audit, validate_id,
 };
 
-static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("../../migrations/sqlite");
+static MIGRATOR: LazyLock<sqlx::migrate::Migrator> = LazyLock::new(|| {
+    let mut migrator = sqlx::migrate!("../../migrations/postgres");
+    // Our schema-scoped lock covers both namespace creation and every migration.
+    migrator.set_locking(false);
+    migrator
+});
 const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 
-/// Local-disk database configuration. Network filesystems are unsupported.
+/// PostgreSQL configuration. Credentials are private and never implement Debug.
 pub struct StoreOptions {
-    /// Persistent SQLite file; in-memory databases are rejected.
-    pub path: PathBuf,
+    connect: PgConnectOptions,
+    /// Trusted metadata namespace, never caller supplied.
+    pub schema: String,
+    /// Explicit deployment-only migration mode; requires schema-owner privileges.
+    /// Runtime defaults to read/verify and never silently applies DDL.
+    pub apply_migrations: bool,
     /// Immutable ledger identity verified on every open.
     pub audit_ledger_id: String,
     /// Server-owned time source, replaceable for deterministic testing.
     pub clock: Arc<dyn Clock>,
     /// Server-owned authorization and frozen-reference resolver.
     pub admission: Arc<dyn AdmissionPolicy>,
-    /// Maximum time spent waiting for another process's startup migration.
+    /// Independent protected-store policy; ordinary job admission grants no access.
+    pub holdout_policy: Arc<dyn HoldoutPolicy>,
+    /// Total migration deadline, including waiting for the database advisory lock.
     pub migration_lock_timeout: Duration,
 }
 
 impl StoreOptions {
-    /// Configure a local file with real time and default-deny command policy.
-    pub fn new(path: impl Into<PathBuf>) -> Self {
-        Self {
-            path: path.into(),
+    /// Parse a URL requiring TLS, with real time and default-deny command policy.
+    /// Invalid URLs and SSL downgrade modes return redacted validation errors.
+    pub fn new(url: &str) -> StoreResult<Self> {
+        let parsed =
+            url::Url::parse(url).map_err(|_| StoreError::Invalid("PostgreSQL connection URL"))?;
+        let mut parameters = HashSet::new();
+        if !matches!(parsed.scheme(), "postgres" | "postgresql")
+            || parsed.host_str().is_none()
+            || parsed.username().is_empty()
+            || parsed.path().len() <= 1
+            || parsed.fragment().is_some()
+            || parsed.query_pairs().any(|(key, _)| {
+                !matches!(
+                    key.as_ref(),
+                    "sslmode" | "sslrootcert" | "sslcert" | "sslkey"
+                ) || !parameters.insert(key.into_owned())
+            })
+            || !parameters.contains("sslmode")
+        {
+            return Err(StoreError::Invalid("PostgreSQL connection URL"));
+        }
+        // SQLx logs unknown query parameters, so reject them before parsing secrets.
+        let connect = PgConnectOptions::from_url(&parsed)
+            .map_err(|_| StoreError::Invalid("PostgreSQL connection URL"))?;
+        if !matches!(
+            connect.get_ssl_mode(),
+            PgSslMode::Require | PgSslMode::VerifyCa | PgSslMode::VerifyFull
+        ) || connect.get_database().is_none_or(str::is_empty)
+            || connect.get_socket().is_some()
+            || connect.get_host().starts_with('/')
+        {
+            return Err(StoreError::Invalid("explicit database and required TLS"));
+        }
+        Ok(Self {
+            connect: connect
+                .application_name("loopd")
+                .disable_statement_logging(),
+            schema: "public".to_owned(),
+            apply_migrations: false,
             audit_ledger_id: "ledger.loopd".to_owned(),
             clock: Arc::new(SystemClock),
             admission: Arc::new(DenySubmission),
+            holdout_policy: Arc::new(DenyHoldout),
             migration_lock_timeout: Duration::from_secs(10),
-        }
+        })
     }
 }
 
-/// Transactional job repository with private connection pooling and WAL storage.
-/// Clones share a pool; separately opened instances coordinate through SQLite.
+/// Transactional PostgreSQL repository. A locked ledger row serializes each
+/// state/receipt/audit commit across independent connections and OS processes.
 #[derive(Clone)]
-pub struct SqliteJobStore {
-    pub(super) pool: SqlitePool,
+pub struct PgJobStore {
+    pub(super) pool: PgPool,
     pub(super) ledger_id: String,
     pub(super) clock: Arc<dyn Clock>,
     pub(super) admission: Arc<dyn AdmissionPolicy>,
+    pub(super) holdout_policy: Arc<dyn HoldoutPolicy>,
 }
 
-impl SqliteJobStore {
-    /// Open and migrate a local database with FULL synchronization and foreign keys.
+impl PgJobStore {
+    /// Connect over TLS, optionally migrate with deployment authority, and verify.
     ///
     /// # Errors
-    /// Rejects invalid paths, migration contention past the timeout, changed
-    /// migration checksums, ledger mismatches, and filesystem/database failures.
+    /// Rejects invalid settings, bounded migration contention, changed checksums,
+    /// unsafe sessions, and storage failures. Cancellation closes the dedicated
+    /// migration connection; advisory locks never return to the runtime pool.
     pub async fn open(options: StoreOptions) -> StoreResult<Self> {
         validate_id(&options.audit_ledger_id)?;
-        let name = options
-            .path
-            .file_name()
-            .ok_or(StoreError::Invalid("database path"))?;
-        if name == ":memory:" {
-            return Err(StoreError::Invalid("persistent file required"));
+        if options.schema.is_empty()
+            || options.schema.len() > 63
+            || !options
+                .schema
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+            || options.schema.as_bytes()[0].is_ascii_digit()
+            || options.migration_lock_timeout.is_zero()
+            || options.migration_lock_timeout > Duration::from_secs(60)
+        {
+            return Err(StoreError::Invalid(
+                "database namespace or migration timeout",
+            ));
         }
-        let absolute = if options.path.is_absolute() {
-            options.path.clone()
-        } else {
-            std::env::current_dir()?.join(&options.path)
-        };
-        let parent = absolute
-            .parent()
-            .ok_or(StoreError::Invalid("database parent"))?;
-        std::fs::create_dir_all(parent)?;
-        let path = parent.canonicalize()?.join(name);
-        let migration_path =
-            path.with_file_name(format!("{}.migrate.lock", name.to_string_lossy()));
-        let migration_lock = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(migration_path)?;
-        let deadline = tokio::time::Instant::now()
-            .checked_add(options.migration_lock_timeout)
-            .ok_or(StoreError::Invalid("migration lock timeout"))?;
-        loop {
-            match migration_lock.try_lock() {
-                Ok(()) => break,
-                Err(TryLockError::Error(error)) => return Err(error.into()),
-                Err(TryLockError::WouldBlock) => {
-                    if tokio::time::Instant::now() >= deadline {
-                        return Err(StoreError::Unavailable("migration lock timeout"));
-                    }
-                    // Cancellation drops this file; no blocking lock worker survives.
-                    tokio::time::sleep_until(
-                        deadline.min(tokio::time::Instant::now() + Duration::from_millis(10)),
-                    )
-                    .await;
-                }
-            }
+        let search_path = format!("\"{}\",pg_catalog", options.schema);
+        let connect = options.connect.options([
+            ("search_path", search_path.as_str()),
+            ("timezone", "UTC"),
+            ("statement_timeout", "30000"),
+            ("lock_timeout", "5000"),
+            ("idle_in_transaction_session_timeout", "15000"),
+            ("synchronous_commit", "on"),
+        ]);
+        if options.apply_migrations {
+            let mut connection = tokio::time::timeout(
+                Duration::from_secs(10),
+                PgConnection::connect_with(&connect),
+            )
+            .await
+            .map_err(|_| StoreError::Unavailable("migration connection timeout"))??;
+            let migration = async {
+                sqlx::query("SELECT pg_advisory_lock(hashtextextended($1, 0))")
+                    .bind(format!("loop.migrations.{}", options.schema))
+                    .execute(&mut connection)
+                    .await?;
+                sqlx::query(&format!(
+                    "CREATE SCHEMA IF NOT EXISTS \"{}\"",
+                    options.schema
+                ))
+                .execute(&mut connection)
+                .await?;
+                MIGRATOR.run(&mut connection).await?;
+                sqlx::query(
+                    "INSERT INTO store_metadata (singleton, audit_ledger_id, last_observed_at_ms)
+                     VALUES (1, $1, 0) ON CONFLICT (singleton) DO NOTHING",
+                )
+                .bind(&options.audit_ledger_id)
+                .execute(&mut connection)
+                .await?;
+                Ok::<_, StoreError>(())
+            };
+            let result = tokio::time::timeout(options.migration_lock_timeout, migration).await;
+            let closed = tokio::time::timeout(Duration::from_secs(2), connection.close()).await;
+            result.map_err(|_| StoreError::Unavailable("migration timeout"))??;
+            closed.map_err(|_| StoreError::Unavailable("migration close timeout"))??;
         }
-
-        let connect = SqliteConnectOptions::new()
-            .filename(&path)
-            .create_if_missing(true)
-            .journal_mode(SqliteJournalMode::Wal)
-            .synchronous(SqliteSynchronous::Full)
-            .foreign_keys(true)
-            .busy_timeout(Duration::from_secs(5))
-            .pragma("trusted_schema", "OFF");
-        let pool = SqlitePoolOptions::new()
+        let pool = PgPoolOptions::new()
             .max_connections(4)
             .acquire_timeout(Duration::from_secs(10))
+            .after_connect(|connection, _| Box::pin(verify_session(connection)))
             .connect_with(connect)
             .await?;
-        MIGRATOR.run(&pool).await?;
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-        sqlx::query(
-            "INSERT INTO store_metadata (singleton, audit_ledger_id, last_observed_at_ms)
-             VALUES (1, ?, 0) ON CONFLICT(singleton) DO NOTHING",
-        )
-        .bind(&options.audit_ledger_id)
-        .execute(&mut *transaction)
-        .await?;
+        verify_migrations(&pool).await?;
         let ledger: String =
             sqlx::query_scalar("SELECT audit_ledger_id FROM store_metadata WHERE singleton = 1")
-                .fetch_one(&mut *transaction)
+                .fetch_one(&pool)
                 .await?;
         if ledger != options.audit_ledger_id {
             return Err(StoreError::Corrupt("audit ledger identity"));
         }
-        transaction.commit().await?;
-        drop(migration_lock);
         Ok(Self {
             pool,
             ledger_id: ledger,
             clock: options.clock,
             admission: options.admission,
+            holdout_policy: options.holdout_policy,
         })
     }
 
@@ -156,27 +197,22 @@ impl SqliteJobStore {
         self.pool.close().await;
     }
 
-    /// Check SQLite durability settings and `quick_check`.
+    /// Verify TLS/session settings, migration checksums, and the ledger identity.
     ///
     /// # Errors
-    /// Returns corruption for unsafe settings or failed integrity checks.
+    /// Returns errors for unsafe sessions, missing schemas, and corrupt identity.
     pub async fn verify_configuration(&self) -> StoreResult<()> {
         let mut connection = self.pool.acquire().await?;
-        let journal: String = sqlx::query_scalar("PRAGMA journal_mode")
-            .fetch_one(&mut *connection)
-            .await?;
-        let synchronous: i32 = sqlx::query_scalar("PRAGMA synchronous")
-            .fetch_one(&mut *connection)
-            .await?;
-        let foreign_keys: i32 = sqlx::query_scalar("PRAGMA foreign_keys")
-            .fetch_one(&mut *connection)
-            .await?;
-        let check: String = sqlx::query_scalar("PRAGMA quick_check")
-            .fetch_one(&mut *connection)
-            .await?;
-        if journal != "wal" || synchronous != 2 || foreign_keys != 1 || check != "ok" {
-            return Err(StoreError::Corrupt("SQLite durability configuration"));
+        verify_session(&mut connection).await?;
+        let ledger: String =
+            sqlx::query_scalar("SELECT audit_ledger_id FROM store_metadata WHERE singleton = 1")
+                .fetch_one(&mut *connection)
+                .await?;
+        if ledger != self.ledger_id {
+            return Err(StoreError::Corrupt("audit ledger identity"));
         }
+        drop(connection);
+        verify_migrations(&self.pool).await?;
         Ok(())
     }
 
@@ -195,15 +231,15 @@ impl SqliteJobStore {
 
     pub(super) async fn observe_clock(
         &self,
-        transaction: &mut Transaction<'_, Sqlite>,
+        transaction: &mut Transaction<'_, Postgres>,
     ) -> StoreResult<i64> {
-        let now = self.clock.now_millis()?;
-        audit_timestamp(now)?;
         let previous: i64 = sqlx::query_scalar(
-            "SELECT last_observed_at_ms FROM store_metadata WHERE singleton = 1",
+            "SELECT last_observed_at_ms FROM store_metadata WHERE singleton = 1 FOR UPDATE",
         )
         .fetch_one(&mut **transaction)
         .await?;
+        let now = self.clock.now_millis()?;
+        audit_timestamp(now)?;
         if now < previous {
             return Err(StoreError::ClockRegression);
         }
@@ -211,7 +247,49 @@ impl SqliteJobStore {
     }
 }
 
-impl JobRepository for SqliteJobStore {
+async fn verify_session(connection: &mut PgConnection) -> Result<(), sqlx::Error> {
+    let valid: bool = sqlx::query_scalar(
+        "SELECT COALESCE((SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()), false)
+         AND current_setting('synchronous_commit') = 'on'
+         AND current_setting('fsync') = 'on'
+         AND current_setting('full_page_writes') = 'on'
+         AND current_setting('transaction_isolation') = 'read committed'
+         AND current_setting('statement_timeout') = '30s'
+         AND current_setting('lock_timeout') = '5s'
+         AND current_setting('idle_in_transaction_session_timeout') = '15s'
+         AND current_setting('TimeZone') = 'UTC'",
+    )
+    .fetch_one(connection)
+    .await?;
+    if !valid {
+        return Err(sqlx::Error::Protocol(
+            "unsafe PostgreSQL session".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+async fn verify_migrations(pool: &PgPool) -> StoreResult<()> {
+    let rows = sqlx::query(
+        "SELECT version, checksum, success FROM _sqlx_migrations ORDER BY version LIMIT 1025",
+    )
+    .fetch_all(pool)
+    .await?;
+    if rows.len() != MIGRATOR.iter().count() {
+        return Err(StoreError::Corrupt("database migration count"));
+    }
+    for (row, migration) in rows.iter().zip(MIGRATOR.iter()) {
+        if row.try_get::<i64, _>("version")? != migration.version
+            || row.try_get::<Vec<u8>, _>("checksum")? != migration.checksum.as_ref()
+            || !row.try_get::<bool, _>("success")?
+        {
+            return Err(StoreError::Corrupt("database migration checksum"));
+        }
+    }
+    Ok(())
+}
+
+impl JobRepository for PgJobStore {
     async fn submit_role(
         &self,
         principal: &loop_protocol::wire::v1::Actor,
@@ -259,11 +337,11 @@ impl JobRepository for SqliteJobStore {
             .expect("validated key")
             .value;
 
-        let mut transaction = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+        let mut transaction = self.pool.begin().await?;
         let now = self.observe_clock(&mut transaction).await?;
         let receipt = sqlx::query(
             "SELECT * FROM command_receipts
-             WHERE actor_id = ? AND operation = 'loop.jobs.submit' AND idempotency_key = ?",
+             WHERE actor_id = $1 AND operation = 'loop.jobs.submit' AND idempotency_key = $2",
         )
         .bind(actor_id)
         .bind(key)
@@ -296,7 +374,7 @@ impl JobRepository for SqliteJobStore {
             "INSERT INTO command_receipts (actor_id, operation, idempotency_key,
                 request_id, job_id, request_blob, request_sha256, response_blob,
                 response_sha256, committed_at_ms)
-             VALUES (?, 'loop.jobs.submit', ?, ?, ?, ?, ?, ?, ?, ?)",
+             VALUES ($1, 'loop.jobs.submit', $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(actor_id)
         .bind(key)
@@ -309,7 +387,7 @@ impl JobRepository for SqliteJobStore {
         .bind(now)
         .execute(&mut *transaction)
         .await?;
-        sqlx::query("UPDATE store_metadata SET last_observed_at_ms = ? WHERE singleton = 1")
+        sqlx::query("UPDATE store_metadata SET last_observed_at_ms = $1 WHERE singleton = 1")
             .bind(now)
             .execute(&mut *transaction)
             .await?;
@@ -326,7 +404,7 @@ impl JobRepository for SqliteJobStore {
 
     async fn get(&self, job_id: &str) -> StoreResult<Option<JobRecord>> {
         validate_id(job_id)?;
-        sqlx::query("SELECT * FROM jobs WHERE job_id = ?")
+        sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
             .bind(job_id)
             .fetch_optional(&self.pool)
             .await?
@@ -346,7 +424,7 @@ impl JobRepository for SqliteJobStore {
 
 /// Insert the queued projection; the caller owns authorization, receipt, and audit.
 pub(super) async fn insert_job(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     specification: &JobSpecification,
     now: i64,
 ) -> StoreResult<JobRecord> {
@@ -356,7 +434,7 @@ pub(super) async fn insert_job(
         .as_ref()
         .expect("validated job id")
         .value;
-    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE job_id = ?)")
+    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE job_id = $1)")
         .bind(job_id)
         .fetch_one(&mut **transaction)
         .await?;
@@ -386,7 +464,7 @@ pub(super) async fn insert_job(
     sqlx::query(
         "INSERT INTO jobs (job_id, run_id, kind, state, revision, attempt,
             submitted_at_ms, updated_at_ms, deadline_ms, record_blob, record_sha256)
-         VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)",
+         VALUES ($1, $2, $3, $4, 1, 0, $5, $6, $7, $8, $9)",
     )
     .bind(job_id)
     .bind(
@@ -408,7 +486,7 @@ pub(super) async fn insert_job(
     Ok(record)
 }
 
-pub(super) fn record_from_row(row: &SqliteRow) -> StoreResult<JobRecord> {
+pub(super) fn record_from_row(row: &PgRow) -> StoreResult<JobRecord> {
     let blob = verified_blob(row, "record_blob", "record_sha256")?;
     let record = decode_record(&blob)?;
     let specification = record
@@ -474,7 +552,7 @@ pub(super) fn decode_record(bytes: &[u8]) -> StoreResult<JobRecord> {
 }
 
 pub(super) fn verified_blob(
-    row: &SqliteRow,
+    row: &PgRow,
     blob_column: &str,
     digest_column: &str,
 ) -> StoreResult<Vec<u8>> {

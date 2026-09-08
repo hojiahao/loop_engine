@@ -6,12 +6,15 @@
 
 ## Implemented behavior
 
-- SQLx checksum migrations; SQLite WAL, FULL sync, foreign keys, strict tables,
-  indexed job projections, bounded busy/acquire/migration waits.
+- SQLx checksum migrations; PostgreSQL TLS, synchronous commits, foreign keys,
+  checked/indexed job projections, bounded lock/acquire/migration waits. The
+  original SQLite backend is superseded by ADR 0007 and retained only as history.
 - A private pool behind `JobRepository`; database handles never enter provider
-  or numerical worker code. SQLite is supported only on local filesystems.
+  or numerical worker code. Administrative migrations use a separate connection
+  and authority; normal startup verifies schema without DDL.
 - Atomic job mutation, revision CAS, immutable receipt, canonical audit append,
-  and persisted server-clock watermark in `BEGIN IMMEDIATE`.
+  and persisted server-clock watermark in a PostgreSQL transaction. The ledger
+  row is locked before sampling time, serializing accepted ledger mutations.
 - Scoped semantic idempotency. Replays return the original record; they do not
   increment revisions, extend leases, or authorize another dispatch.
 - Acquire, heartbeat, complete, cancel, and scheduler-only expired-job recovery.
@@ -28,6 +31,10 @@
   map into the same transactional store. IDs and acceptance times are assigned
   after receipt lookup inside the write transaction. Retries retain the original
   role-specific handle and pinned protocol, even after a new negotiation.
+- Canonical sealed-period registration behind independent protected-state
+  authorization. Period, immutable replay receipt, clock watermark, and the new
+  typed period audit target commit atomically. Registration does not issue an
+  approval, grant, data capability, or research job.
 
 ## Behavioral evidence
 
@@ -43,7 +50,9 @@ The role-submission checkpoint passes the same host commands, followed by final
 workspace-wide Rust tests and Clippy after the receipt integrity checks were
 added. Rust: 120 passed plus the two exercised subprocess entry points; Python
 protocol: 240 passed; research: 1 passed; legacy: 216 passed, 1 skipped, with
-existing NumPy warnings. The role checkpoint requires its own pushed CI result.
+existing NumPy warnings. Commit `b8b63d7` passed all seven jobs in GitHub Actions
+run `34185934175`. These are historical SQLite checkpoint results, not evidence
+for the PostgreSQL port.
 
 `role_submission` has 18 focused tests covering all four input mappings and
 safe projections, restart replay, server-assigned identity/time, frozen protocol
@@ -75,6 +84,54 @@ replay, configuration, and explicitly failed abandoned work. Fault hooks exist
 only under `cfg(test)`, never in a production executable. Two ignored helper
 tests are invoked explicitly as child processes by these parent tests; they are
 not omitted behavioral scenarios.
+
+## PostgreSQL amendment
+
+On 2026-09-08 the owner authorized a PostgreSQL-only runtime and provisioning on
+the designated production host. Read-only preflight found PostgreSQL 17.11
+already installed with TLS and SCRAM authentication. No server upgrade, restart,
+public listener, firewall change, or unrelated database mutation was performed.
+
+Provisioned database `loop_engine`, non-login schema owner `loop_engine_owner`,
+and restricted runtime login `loop_engine_app`. Migration versions 1 and 2 were
+applied using the administrative bundle. Application login negotiated TLSv1.3.
+Read-only privilege checks confirmed no superuser, database/role creation,
+replication, bypass-RLS, schema CREATE, migration INSERT, or audit DELETE rights.
+The actual Rust `loopd --check-database` executable passed schema checksums,
+ledger identity, and TLS/session verification through the SSH tunnel. The
+connection file is Git-ignored and mode 0600; its value is not published.
+
+The application requires `sslmode=require` or stronger. This is encryption, not
+a claim of certificate-name validation for the current self-signed certificate.
+The SSH host key authenticates the remote hop. Shared server HBA policy remains
+unchanged. Runtime command policies still default deny.
+
+All destructive tests target a separate DaoCloud PostgreSQL 17.11 test container
+with ephemeral TLS and per-fixture schemas, never production. The fixture
+rejects non-test database/login names. A first host attempt under compilation
+load hit the migration deadline while the test server was restarting; the gate
+remained failed until rerun. Container memory counters showed no OOM events.
+This observation is not represented as a production fault or a proven cause.
+A later two-schema test exposed SQLx's redundant database-wide migration lock.
+The wrapper now uses only its schema-scoped lock, including namespace creation,
+to avoid serializing unrelated schemas. A dedicated regression holds SQLx's
+database-wide lock while opening an independent schema. Runtime ledger-row
+locking and query deadlines are unchanged.
+
+`durable_holdout` adds 15 tests: both period roles, authorized reads, canonical
+identity, actor spoofing, default denial, future/retrograde time, immutable
+history, receipt and audit rollback, correctly rehashed corrupt receipts,
+restart replay, semantic conflict, duplicate keys, and terminal reset denial.
+The process and crash matrices also include period registration, with real
+clients killed immediately before and after commit. Lifecycle advancement in
+the terminal-reset fixture is test-only SQL, not an implemented grant API.
+
+`postgres_configuration` adds seven tests for explicit TLS, closed URL syntax,
+redacted errors, hostile schema names, no implicit runtime DDL, and migration
+checksum tampering, and schema-scoped migration isolation. The audit extension
+is validated in all three languages;
+the original Phase 2 descriptor trust anchor remains unchanged. Full amendment
+host and remote CI results are recorded after their gates finish.
 
 ## Quality rules
 

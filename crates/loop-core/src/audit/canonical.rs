@@ -699,6 +699,7 @@ fn validate_action_binding(event: &AuditEvent) -> Result<(), AuditError> {
                 | AuditTargetKind::JobId
                 | AuditTargetKind::BacktestId
                 | AuditTargetKind::SnapshotId
+                | AuditTargetKind::HoldoutPeriodId
         ),
         AuditAction::FactorAdmitted
         | AuditAction::FactorRejected

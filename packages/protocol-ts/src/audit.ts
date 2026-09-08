@@ -72,7 +72,8 @@ export type AuditTargetKind =
   | "snapshot_id"
   | "holdout_grant_id"
   | "artifact_id"
-  | "holdout_approval_record_id";
+  | "holdout_approval_record_id"
+  | "holdout_period_id";
 
 export interface AuditActor {
   readonly actorId: string;
@@ -294,7 +295,8 @@ export function assertAuditTargetKind(value: string): AuditTargetKind {
     value === "snapshot_id" ||
     value === "holdout_grant_id" ||
     value === "artifact_id" ||
-    value === "holdout_approval_record_id"
+    value === "holdout_approval_record_id" ||
+    value === "holdout_period_id"
   ) {
     return value;
   }
@@ -707,7 +709,11 @@ function validateEvent(event: AuditEvent): void {
   validateText(event.actor.authenticatedSubject, "actor.authenticated_subject", true);
   assertAuditAction(event.action);
   assertAuditTargetKind(event.target.kind);
-  if (event.target.kind === "factor_spec_id" || event.target.kind === "artifact_id") {
+  if (
+    event.target.kind === "factor_spec_id" ||
+    event.target.kind === "artifact_id" ||
+    event.target.kind === "holdout_period_id"
+  ) {
     if (!SHA256_PATTERN.test(event.target.value)) {
       fail(
         "invalid_target",
@@ -746,7 +752,7 @@ function validateActionBinding(event: AuditEvent): void {
       case "state_transitioned":
         return {
           schemaName: "loop.audit.state_transitioned",
-          allowedTargets: ["run_id", "job_id", "backtest_id", "snapshot_id"],
+          allowedTargets: ["run_id", "job_id", "backtest_id", "snapshot_id", "holdout_period_id"],
         };
       case "factor_admitted":
         return { schemaName: "loop.audit.factor_admitted", allowedTargets: ["factor_spec_id"] };

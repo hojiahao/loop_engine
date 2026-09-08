@@ -62,7 +62,7 @@ READMISSION_DISPOSITION_REJECTED: ReadmissionDisposition
 READMISSION_DISPOSITION_QUARANTINED: ReadmissionDisposition
 
 class AuditTarget(_message.Message):
-    __slots__ = ("run_id", "job_id", "factor_spec_id", "backtest_id", "snapshot_id", "holdout_grant_id", "artifact_id", "holdout_approval_record_id")
+    __slots__ = ("run_id", "job_id", "factor_spec_id", "backtest_id", "snapshot_id", "holdout_grant_id", "artifact_id", "holdout_approval_record_id", "holdout_period_id")
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     FACTOR_SPEC_ID_FIELD_NUMBER: _ClassVar[int]
@@ -71,6 +71,7 @@ class AuditTarget(_message.Message):
     HOLDOUT_GRANT_ID_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     HOLDOUT_APPROVAL_RECORD_ID_FIELD_NUMBER: _ClassVar[int]
+    HOLDOUT_PERIOD_ID_FIELD_NUMBER: _ClassVar[int]
     run_id: _common_pb2.RunId
     job_id: _common_pb2.JobId
     factor_spec_id: _common_pb2.FactorSpecId
@@ -79,7 +80,8 @@ class AuditTarget(_message.Message):
     holdout_grant_id: _common_pb2.HoldoutGrantId
     artifact_id: _common_pb2.ArtifactId
     holdout_approval_record_id: _common_pb2.HoldoutApprovalRecordId
-    def __init__(self, run_id: _Optional[_Union[_common_pb2.RunId, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., factor_spec_id: _Optional[_Union[_common_pb2.FactorSpecId, _Mapping]] = ..., backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., snapshot_id: _Optional[_Union[_common_pb2.SnapshotId, _Mapping]] = ..., holdout_grant_id: _Optional[_Union[_common_pb2.HoldoutGrantId, _Mapping]] = ..., artifact_id: _Optional[_Union[_common_pb2.ArtifactId, _Mapping]] = ..., holdout_approval_record_id: _Optional[_Union[_common_pb2.HoldoutApprovalRecordId, _Mapping]] = ...) -> None: ...
+    holdout_period_id: _common_pb2.HoldoutPeriodId
+    def __init__(self, run_id: _Optional[_Union[_common_pb2.RunId, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., factor_spec_id: _Optional[_Union[_common_pb2.FactorSpecId, _Mapping]] = ..., backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., snapshot_id: _Optional[_Union[_common_pb2.SnapshotId, _Mapping]] = ..., holdout_grant_id: _Optional[_Union[_common_pb2.HoldoutGrantId, _Mapping]] = ..., artifact_id: _Optional[_Union[_common_pb2.ArtifactId, _Mapping]] = ..., holdout_approval_record_id: _Optional[_Union[_common_pb2.HoldoutApprovalRecordId, _Mapping]] = ..., holdout_period_id: _Optional[_Union[_common_pb2.HoldoutPeriodId, _Mapping]] = ...) -> None: ...
 
 class AuditPayload(_message.Message):
     __slots__ = ("schema_name", "schema_version", "canonical_json", "payload_sha256")

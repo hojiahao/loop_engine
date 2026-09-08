@@ -39,7 +39,8 @@ catalog/models/                model capability records
 config/research/               universe, samples, costs, and research policy
 config/data/                   data sources and entitlements
 config/policy/                 capabilities, budgets, and approvals
-migrations/sqlite/             forward-only metadata migrations
+migrations/postgres/           primary forward-only metadata migrations (ADR 0007)
+migrations/sqlite/             historical migration evidence; no runtime backend
 fixtures/contracts/            offline provider and protocol fixtures
 fixtures/market/               synthetic and public numerical fixtures
 tests/contracts/               cross-language compatibility tests

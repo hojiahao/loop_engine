@@ -2,13 +2,13 @@ use loop_core::audit::{
     ActorKind, AuditAction, AuditActor, AuditEvent, AuditPayload, AuditTarget, AuditTargetKind,
     Sha256Digest, audit_event_sha256, canonicalize_audit_payload, verify_audit_event,
 };
-use sqlx::sqlite::SqliteRow;
-use sqlx::{Row, Sqlite, SqlitePool, Transaction};
+use sqlx::postgres::PgRow;
+use sqlx::{PgPool, Postgres, Row, Transaction};
 
-use super::{StoreError, StoreResult, SubmitJob, sqlite::audit_timestamp};
+use super::{StoreError, StoreResult, SubmitJob, postgres::audit_timestamp};
 
 pub(super) async fn append_submission(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     ledger_id: &str,
     command: &SubmitJob,
     now: i64,
@@ -17,7 +17,7 @@ pub(super) async fn append_submission(
 }
 
 pub(super) async fn append_command(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     ledger_id: &str,
     command: &SubmitJob,
     operation: &str,
@@ -76,7 +76,7 @@ pub(super) struct EventInput<'a> {
 }
 
 pub(super) async fn append(
-    transaction: &mut Transaction<'_, Sqlite>,
+    transaction: &mut Transaction<'_, Postgres>,
     ledger_id: &str,
     now: i64,
     input: EventInput<'_>,
@@ -137,7 +137,7 @@ pub(super) async fn append(
             causation_id, actor_id, actor_kind, actor_display_name, actor_subject,
             action, job_id, target_kind, target_id, payload_schema, payload_blob,
             payload_sha256, event_sha256
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
     )
     .bind(sequence)
     .bind(&event.audit_event_id)
@@ -163,7 +163,7 @@ pub(super) async fn append(
 }
 
 pub(super) async fn read_page(
-    pool: &SqlitePool,
+    pool: &PgPool,
     ledger_id: &str,
     after: u64,
     limit: u32,
@@ -176,7 +176,7 @@ pub(super) async fn read_page(
     let mut previous = if after == 0 {
         Sha256Digest::ZERO
     } else {
-        let row = sqlx::query("SELECT * FROM audit_events WHERE sequence = ?")
+        let row = sqlx::query("SELECT * FROM audit_events WHERE sequence = $1")
             .bind(after)
             .fetch_optional(&mut *transaction)
             .await?
@@ -184,7 +184,7 @@ pub(super) async fn read_page(
         event_from_row(&row, ledger_id)?.event_sha256
     };
     let rows =
-        sqlx::query("SELECT * FROM audit_events WHERE sequence > ? ORDER BY sequence LIMIT ?")
+        sqlx::query("SELECT * FROM audit_events WHERE sequence > $1 ORDER BY sequence LIMIT $2")
             .bind(after)
             .bind(i64::from(limit))
             .fetch_all(&mut *transaction)
@@ -204,7 +204,7 @@ pub(super) async fn read_page(
     Ok(events)
 }
 
-fn event_from_row(row: &SqliteRow, ledger_id: &str) -> StoreResult<AuditEvent> {
+fn event_from_row(row: &PgRow, ledger_id: &str) -> StoreResult<AuditEvent> {
     let event = AuditEvent {
         audit_ledger_id: ledger_id.to_owned(),
         sequence: u64::try_from(row.try_get::<i64, _>("sequence")?)
@@ -237,7 +237,7 @@ fn event_from_row(row: &SqliteRow, ledger_id: &str) -> StoreResult<AuditEvent> {
     Ok(event)
 }
 
-fn row_digest(row: &SqliteRow, name: &str) -> StoreResult<Sha256Digest> {
+fn row_digest(row: &PgRow, name: &str) -> StoreResult<Sha256Digest> {
     let bytes: Vec<u8> = row.try_get(name)?;
     Ok(Sha256Digest::from_bytes(
         bytes

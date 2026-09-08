@@ -10,11 +10,11 @@ use prost::Message;
 use sqlx::Row;
 
 use super::lifecycle::{save_receipt, validate_context};
-use super::sqlite::{
+use super::postgres::{
     decode_record, encode_message, insert_job, record_from_row, timestamp, timestamp_millis,
     verified_blob,
 };
-use super::{SqliteJobStore, StoreError, StoreResult, SubmitJob, audit, validate_id};
+use super::{PgJobStore, StoreError, StoreResult, SubmitJob, audit, validate_id};
 
 /// Narrow role-owned requests. No generic job input or holdout variant is accepted.
 #[derive(Clone, Debug, PartialEq)]
@@ -221,7 +221,7 @@ fn research_budget(budget: Option<&research::ResearchJobBudget>) -> Option<JobBu
 }
 
 pub(super) async fn submit(
-    store: &SqliteJobStore,
+    store: &PgJobStore,
     principal: &Actor,
     command: RoleCommand,
     metadata: SubmissionMetadata,
@@ -231,14 +231,14 @@ pub(super) async fn submit(
     let (kind, input) = command.input()?;
     let normalized = command.normalized();
     let request_blob = normalized.encode()?;
-    let mut transaction = store.pool.begin_with("BEGIN IMMEDIATE").await?;
+    let mut transaction = store.pool.begin().await?;
     let now = store.observe_clock(&mut transaction).await?;
     if timestamp_millis(context.requested_at.as_ref().expect("validated time"), true)? > now {
         return Err(StoreError::Invalid("future command time"));
     }
     let operation = command.operation();
     let receipt = sqlx::query(
-        "SELECT * FROM command_receipts WHERE actor_id = ? AND operation = ? AND idempotency_key = ?",
+        "SELECT * FROM command_receipts WHERE actor_id = $1 AND operation = $2 AND idempotency_key = $3",
     ).bind(&principal.actor_id.as_ref().expect("validated actor id").value)
         .bind(operation).bind(&context.idempotency_key.as_ref().expect("validated key").value)
         .fetch_optional(&mut *transaction).await?;
@@ -274,7 +274,7 @@ pub(super) async fn submit(
         {
             return Err(StoreError::Corrupt("role receipt binding"));
         }
-        let row = sqlx::query("SELECT * FROM jobs WHERE job_id = ?")
+        let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
             .bind(
                 &specification
                     .job_id

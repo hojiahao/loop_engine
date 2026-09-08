@@ -1,10 +1,15 @@
 # ADR 0006: Durable state and command transactions
 
-- Status: Accepted
+- Status: Accepted; backend choice superseded by ADR 0007 on 2026-09-08
 - Date: 2026-09-07
 - Owner: hojiahao
 
 ## Decision
+
+The SQLite-specific paragraphs below document the original checkpoint.
+[ADR 0007](0007-postgresql-primary-store.md) replaces the runtime backend with
+PostgreSQL, including its lock and deployment mechanisms. Authority, atomicity,
+idempotency, fencing, audit, and holdout requirements remain in force.
 
 `loopd` owns a SQLite-backed repository behind a storage-independent Rust
 interface. Provider and research processes never receive database handles.

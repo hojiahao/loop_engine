@@ -70,7 +70,7 @@ typed event target value.
 | Action | Required payload schema/version | Required target |
 | --- | --- | --- |
 | `command_accepted` | `loop.audit.command_accepted`/1 | run, job, factor, backtest, snapshot, or artifact |
-| `state_transitioned` | `loop.audit.state_transitioned`/1 | run, job, backtest, or snapshot |
+| `state_transitioned` | `loop.audit.state_transitioned`/1 | run, job, backtest, snapshot, or holdout period |
 | `factor_admitted` | `loop.audit.factor_admitted`/1 | matching factor spec |
 | `factor_rejected` | `loop.audit.factor_rejected`/1 | matching factor spec |
 | `override_authorized` | `loop.audit.override_authorized`/1 | matching factor spec |
@@ -202,8 +202,18 @@ Actor `kind` is exactly one of `human`, `service`, `agent`, or `scheduler`.
 
 The target object is a closed variant. `kind` is exactly one of `run_id`,
 `job_id`, `factor_spec_id`, `backtest_id`, `snapshot_id`, `holdout_grant_id`,
-`artifact_id`, or `holdout_approval_record_id`; `value` must validate as the
-corresponding typed ID. `FactorSpecId` values retain their full `sha256:` form.
+`artifact_id`, `holdout_approval_record_id`, or `holdout_period_id`; `value` must
+validate as the corresponding typed ID. Factor, artifact, and holdout-period
+targets require the full lowercase `sha256:` form, never an alias or abbreviation.
+
+The additive `holdout_period_id` wire variant (field 9) requires the negotiated
+feature `audit.holdout-period.v1` before exposing period events to mixed-version
+audit peers. Older readers may skip that unknown field but cannot interpret its
+target, verify the event, or acknowledge it as accepted. They must fail closed;
+lossless forwarders retain the original envelope. Existing target encodings and
+hashes are unchanged. Local persistence uses the matching in-process canonical
+writer/verifier; production audit RPCs remain unavailable until negotiation and
+authorization are enforced.
 
 The payload object commits to `schema_name`, `schema_version`, and the verified
 payload digest. It intentionally does not inline `canonical_payload_bytes`:

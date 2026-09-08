@@ -1,0 +1,20 @@
+name: loop-engine-postgres-test
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: infra/containers/postgres-test.Dockerfile
+    environment:
+      POSTGRES_DB: loop_engine_test
+      POSTGRES_USER: loop_engine_test
+      POSTGRES_PASSWORD: loop_engine_test_only
+    ports:
+      - "127.0.0.1:15433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data:size=256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loop_engine_test -d loop_engine_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    mem_limit: 384m

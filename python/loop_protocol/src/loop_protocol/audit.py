@@ -88,6 +88,7 @@ class AuditTargetKind(StrEnum):
     HOLDOUT_GRANT_ID = "holdout_grant_id"
     ARTIFACT_ID = "artifact_id"
     HOLDOUT_APPROVAL_RECORD_ID = "holdout_approval_record_id"
+    HOLDOUT_PERIOD_ID = "holdout_period_id"
 
 
 @dataclass(frozen=True, slots=True)
@@ -647,7 +648,11 @@ def _validate_event(event: AuditEvent) -> None:
         _fail(AuditErrorCode.INVALID_ENUM, "action", "unknown audit action")
     if not isinstance(event.target.kind, AuditTargetKind):
         _fail(AuditErrorCode.INVALID_TARGET, "target.kind", "unknown audit target kind")
-    if event.target.kind in (AuditTargetKind.FACTOR_SPEC_ID, AuditTargetKind.ARTIFACT_ID):
+    if event.target.kind in (
+        AuditTargetKind.FACTOR_SPEC_ID,
+        AuditTargetKind.ARTIFACT_ID,
+        AuditTargetKind.HOLDOUT_PERIOD_ID,
+    ):
         if not _SHA256_RE.fullmatch(event.target.value):
             _fail(
                 AuditErrorCode.INVALID_TARGET,
@@ -686,6 +691,7 @@ def _validate_action_binding(event: AuditEvent) -> None:
                 AuditTargetKind.JOB_ID,
                 AuditTargetKind.BACKTEST_ID,
                 AuditTargetKind.SNAPSHOT_ID,
+                AuditTargetKind.HOLDOUT_PERIOD_ID,
             ),
         ),
         AuditAction.FACTOR_ADMITTED: (

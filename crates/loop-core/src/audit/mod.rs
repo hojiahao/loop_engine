@@ -183,6 +183,7 @@ pub enum AuditTargetKind {
     HoldoutGrantId,
     ArtifactId,
     HoldoutApprovalRecordId,
+    HoldoutPeriodId,
 }
 
 impl AuditTargetKind {
@@ -196,6 +197,7 @@ impl AuditTargetKind {
             Self::HoldoutGrantId => "holdout_grant_id",
             Self::ArtifactId => "artifact_id",
             Self::HoldoutApprovalRecordId => "holdout_approval_record_id",
+            Self::HoldoutPeriodId => "holdout_period_id",
         }
     }
 }
@@ -213,6 +215,7 @@ impl TryFrom<&str> for AuditTargetKind {
             "holdout_grant_id" => Ok(Self::HoldoutGrantId),
             "artifact_id" => Ok(Self::ArtifactId),
             "holdout_approval_record_id" => Ok(Self::HoldoutApprovalRecordId),
+            "holdout_period_id" => Ok(Self::HoldoutPeriodId),
             _ => Err(AuditError::new(
                 AuditErrorCode::InvalidTarget,
                 "target.kind",
@@ -456,7 +459,9 @@ fn invalid_timestamp() -> AuditError {
 
 pub(crate) fn validate_target(target: &AuditTarget) -> Result<(), AuditError> {
     match target.kind {
-        AuditTargetKind::FactorSpecId | AuditTargetKind::ArtifactId => {
+        AuditTargetKind::FactorSpecId
+        | AuditTargetKind::ArtifactId
+        | AuditTargetKind::HoldoutPeriodId => {
             Sha256Digest::parse(&target.value).map(|_| ()).map_err(|_| {
                 AuditError::new(
                     AuditErrorCode::InvalidTarget,

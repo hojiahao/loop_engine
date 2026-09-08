@@ -33,7 +33,8 @@ jobs:
       - run: cargo fetch --locked
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
-      - run: cargo test --workspace --all-features --locked --offline
+      - run: bash scripts/postgres-test.sh start
+      - run: cargo test --workspace --all-features --locked --offline -- --test-threads=2
 
   typescript:
     name: TypeScript

@@ -15,7 +15,7 @@ use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::jobs::v1::AcquireJobLeaseRequest;
 use loop_protocol::wire::v1::{JobId, JobState};
 
-use super::{JobMutation, JobRepository, RecoveryCommand, SqliteJobStore};
+use super::{HoldoutRepository, JobMutation, JobRepository, PgJobStore, RecoveryCommand};
 use support::*;
 
 pub(super) async fn fault_point(point: &str) {
@@ -52,7 +52,17 @@ fn crash_worker() {
             if mode.starts_with("role_") {
                 options.admission = Arc::new(research::Admission);
             }
-            let store = SqliteJobStore::open(options).await.unwrap();
+            if mode.starts_with("period_") {
+                options.holdout_policy = Arc::new(holdout::Policy);
+            }
+            let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("period_") {
+                store
+                    .register_period(&actor(), holdout::command(0, "period.retry"))
+                    .await
+                    .unwrap();
+                panic!("period fault point not reached");
+            }
             if mode.starts_with("role_") {
                 store
                     .submit_role(
@@ -97,9 +107,11 @@ async fn killed_writer_preserves_atomicity() {
         "active_lease",
         "role_before_commit",
         "role_after_commit",
+        "period_before_commit",
+        "period_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("state.sqlite3");
+        let path = directory.path().join("state");
         let ready = directory.path().join("ready");
         let mut worker = Worker(
             Command::new(std::env::current_exe().unwrap())
@@ -133,8 +145,28 @@ async fn killed_writer_preserves_atomicity() {
         if point.starts_with("role_") {
             options.admission = Arc::new(research::Admission);
         }
-        let store = SqliteJobStore::open(options).await.unwrap();
+        if point.starts_with("period_") {
+            options.holdout_policy = Arc::new(holdout::Policy);
+        }
+        let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("period_") {
+            let committed = point == "period_after_commit";
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                usize::from(committed)
+            );
+            let replay = store
+                .register_period(&actor(), holdout::command(0, "period.retry"))
+                .await
+                .unwrap();
+            assert_eq!(replay.replayed, committed);
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 1);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("role_") {
             let events = store.audit_events(0, 500).await.unwrap();
             assert_eq!(events.len(), usize::from(point == "role_after_commit"));
