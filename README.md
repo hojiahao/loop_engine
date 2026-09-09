@@ -53,7 +53,7 @@ capability 均不进入构建上下文。
 当前重构分支已加入共享 `loop.v1` DTO，以及按角色隔离的
 `loop.{protocol,discovery,provider,research,jobs,audit,holdout}.v1` gRPC 服务入口。
 协议规定长耗时的发现、因子评测、回测和对账只通过提交 RPC 返回窄作业句柄，不在请求
-线程内执行。Phase 3 正在实现 PostgreSQL 持久化和作业生命周期，当前进展见下节；
+线程内执行。Phase 3 已完成 PostgreSQL 持久化和作业生命周期的阶段验收，见下节；
 角色 RPC 尚未对外开放。
 Discovery、Research 和 Provider 三项 role RPC 的请求/响应消息图均不能到达 holdout
 输入；Discovery 与 Research 还通过独立的 `development_data.proto` 叶子依赖避免加载
@@ -80,7 +80,7 @@ Phase 2 已建立 Rust、TypeScript 和 Python 共用的规范因子身份。表
 协议生成将当前源码描述符写入 `schema.current.binpb`，兼容性检查则针对不可由普通生成
 流程覆盖的 `schema.baseline.binpb`。协议规定作业绑定协议选择、VCS/tree、数据和回测
 provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；holdout
-批量事务正在 Phase 3 进行实现和验收；capability 强制执行属于 Phase 4，尚未实现。审计链使用
+批量事务已通过 Phase 3 验收；capability 强制执行属于 Phase 4，尚未实现。审计链使用
 独立规范文档计算 payload/event SHA-256，不对 Protobuf 字节做哈希。相关约束见
 [`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
 [`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
@@ -88,12 +88,15 @@ provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 
 Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试均已通过；Python 协议测试
 为 236 项，旧系统回归为 216 passed / 1 skipped。这是已封存阶段的历史测试基线。
 
-## Phase 3 持久状态（实施中）
+## Phase 3 持久状态（已验收）
 
-PostgreSQL 与区间注册检查点 `d85ae71` 已推送，
-[CI 7 项全部通过](https://github.com/hojiahao/loop_engine/actions/runs/34200778090)，
-包括 142 项 Rust 测试、独立进程竞争、强杀恢复及 DaoCloud 干净容器门禁。
-这是中间检查点，不是 Phase 3 或整个美股引擎完成。
+完整批次实现 `e8572cf` 和测试环境修正 `aa3bd2b` 已推送，
+[CI 7 项全部通过](https://github.com/hojiahao/loop_engine/actions/runs/34311911291)，
+包括统一工作区和 DaoCloud 干净容器门禁。本地 `just check/test/build/doctor` 全部通过：
+207 项 Rust 测试、60 项 TypeScript 测试、240 项 Python 协议测试、1 项研究骨架测试和
+216 项旧系统回归通过；旧系统仍有 1 项 skip 和 12 条 NumPy 警告。
+两个标记 ignored 的 Rust 子进程入口由父测试明确调用，不是遗漏并发或强杀场景。
+这是持久状态阶段验收，不代表美股引擎已经能够开展真实因子研究。
 
 依据维护者确认的 [`ADR 0007`](docs/adr/0007-postgresql-primary-store.md)，主存储已改为
 PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 `migrations/postgres`
@@ -129,8 +132,9 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 整批回测作业的原子消费已实现，见 [`ADR 0010`](docs/adr/0010-atomic-holdout-batches.md)：
 只从冻结计划生成完整任务批次，授权消费、作业、回执和审计同事务提交；不接受调用者替换
 因子、预算或回测参数。重复请求验证原批次并返回原结果，不会重复建任务。
-本地 20 项批次测试和扩展的强杀恢复测试通过，全项目及独立进程验收仍在进行。
-迁移 `0003` 至 `0005` 尚未部署到生产库，Phase 3 尚未完成。
+20 项批次测试、扩展的强杀恢复及 2/4/8 独立进程测试均已通过。
+生产库已应用迁移 `0001` 至 `0005`；实际 `loopd --check-database` 已核验 TLS、会话约束和
+迁移校验和。库内没有研究任务、锁定区间、授权或回测批次，未解锁真实数据。
 
 数据库框架是 SQLx，HTTP 框架是 Axum。`migrations/postgres/*.sql` 是 SQLx 管理的版本化
 数据库变更，不是另一套数据库实现。已部署迁移不可修改，新增审批表使用新版本 `0003`；
@@ -156,8 +160,8 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 连接配置、管理员迁移、权限和本机测试库操作见
 [`PostgreSQL 部署说明`](docs/development/postgresql.md)。`/readyz` 检查存储状态。
 默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
-已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发、过期和
-撤销的检查点已通过 CI，批量原子消费与阶段最终验收仍在进行。
+已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发、过期、
+撤销及整批原子消费已通过存储层验收，worker capability、数据解析和真实执行尚未实现。
 进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
 
 新增 `loopd` 手写代码禁止 `unsafe`，存储公开接口强制文档；Rust 格式和 Clippy、跨语言

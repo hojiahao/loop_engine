@@ -67,13 +67,14 @@ merge to `main`, a production release, or implementation of later phases.
 - [x] Pass final workspace and clean-container gates.
 - [x] Commit, push, and record a successful remote CI run for phase closure.
 
-## Phase 3 - Durable state (`in_progress`)
+## Phase 3 - Durable state (`complete`)
 
 Implementation follows ADR 0006's transactional invariants and the owner's
 2026-09-08 PostgreSQL amendment in ADR 0007. The published SQLite checkpoint is
 historical evidence, not the current runtime backend. Production mutating RPCs
-remain unavailable until authorization and reference resolution are implemented.
-No Phase 3 completion is claimed by a storage checkpoint.
+remain unavailable until authorization and reference resolution are implemented
+in the later capability/data/runtime phases. Individual historical checkpoints
+did not close Phase 3; the combined final evidence below does.
 
 - [x] Add the original SQLite migrations, constraints, and indexes (historical).
 - [x] Provision the isolated production PostgreSQL database and least-privilege
@@ -94,12 +95,12 @@ No Phase 3 completion is claimed by a storage checkpoint.
       bounded validity, canonical records, replay, and transactional audit.
 - [x] Implement single-use grants, distinct-human policy resolution, expiry,
       revocation, and immutable approval attachment.
-- [ ] Implement all-or-nothing frozen-plan batch consumption and job insertion.
-- [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
+- [x] Implement all-or-nothing frozen-plan batch consumption and job insertion.
+- [x] Pass host, clean-container, and remote CI gates; commit and push evidence.
 
-The storage/lifecycle checkpoint covers 2/4/8 independent OS writers and real
-kill/restart at transaction and lease boundaries. These checked items do not
-close the phase: holdout batch transactions and final gates are still required.
+The final storage/lifecycle implementation covers 2/4/8 independent OS writers,
+real kill/restart at transaction and lease boundaries, and atomic full-plan
+batch consumption. All Phase 3 exit gates have passed.
 Production transport authentication and reference registries remain unavailable,
 and fixture admission policies exist only in tests.
 Evidence: `docs/verification/phase-03-durable-state.md`.
@@ -125,10 +126,17 @@ revocation, immutable replay, and deferred aggregate constraints. The 26 grant
 tests, 19 approval tests, 15 period tests, library fault tests, and expanded
 2/4/8-process matrix pass. Full `just check` also passes. All seven jobs in GitHub
 Actions run `34303072037` pass, including unified workspace and clean-container
-gates. No production grant is issued. Atomic plan-derived batch consumption is
-implemented locally under ADR 0010 with migration 5. Its 20 targeted tests and
-library kill/restart tests pass; full workspace, independent-process, commit,
-push, and remote CI gates remain open.
+gates. No production grant is issued.
+
+Phase 3 closure: atomic batch implementation `e8572cf` and fixture lifecycle fix
+`aa3bd2b` are pushed. GitHub Actions run `34311911291` passed all seven jobs,
+including unified workspace and clean DaoCloud container gates. Final host
+`just check/test/build/doctor` passed: Rust 207 plus two explicitly exercised
+subprocess helpers, TypeScript 60, Python protocol 240, research 1, and legacy
+216 passed / 1 skipped. Production migrations 1 through 5 are installed; the
+actual Rust executable verified TLS, session settings and every checksum.
+Production jobs, periods, grants and batches are empty. Fixture materializers
+are not production research parsers, and no holdout capability was issued.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

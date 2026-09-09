@@ -116,11 +116,14 @@ acquisition at ten seconds. Additional throughput claims require measurements.
 
 ## Current scope
 
-The production schema is infrastructure, not a completed research engine.
-Default policies deny commands, mutating transport RPCs remain unavailable,
-and no holdout has been registered or unlocked in production. Production approval
-authorization, grant issuance, batch consumption, data adapters, providers, and research
-execution retain their documented later gates in `IMPLEMENTATION_TODO.md`.
+Production migrations 1 through 5 are installed and verified as recorded in
+`docs/verification/phase-03-durable-state.md`. The storage APIs support approvals,
+single-use grants and complete atomic batches, but the schema is infrastructure,
+not a completed research engine. Default policies deny commands, mutating
+transport RPCs remain unavailable, and no holdout has been registered or
+unlocked in production. Transport identity, protected capabilities and reference
+resolution, data adapters, providers and numerical execution retain their later
+gates in `IMPLEMENTATION_TODO.md`.
 
 ## Why migrations are SQL files
 

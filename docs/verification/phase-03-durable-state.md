@@ -1,8 +1,8 @@
-# Phase 3: Durable state checkpoint
+# Phase 3: Durable state verification
 
 - Date: 2026-09-09
 - Owner: hojiahao
-- Phase status: `in_progress`, not a completed Phase 3 exit gate.
+- Phase status: `complete`; implementation and closure evidence are below.
 
 ## Implemented behavior
 
@@ -302,12 +302,39 @@ institutions' private standards.
 The repository naming guide favors concise domain verbs and focused behavioral
 tests. It deliberately does not invent a universal name-length limit.
 
-## Remaining Phase 3 gates
+## Phase 3 closure (2026-09-09)
 
-- Complete the expanded 2/4/8-process batch matrix and full workspace regression
-  gate for atomic grant consumption, job insertion, receipts and audit.
-- Pass final host, clean-container, and remote CI on the entire Phase 3 code;
-  commit, push, and record closure evidence before marking Phase 3 complete.
+Implementation `e8572cf4716652b2541089834429036f600ebc58` and fixture fix
+`aa3bd2b2153232a2b34a9d41b2723e2bf9c10776` are pushed. All seven jobs in
+[GitHub Actions run 34311911291](https://github.com/hojiahao/loop_engine/actions/runs/34311911291)
+passed: Rust, TypeScript, Python protocol/research/legacy, unified workspace,
+and the clean DaoCloud development container. Earlier failed attempts above
+remain part of the record, not substitutes for this successful gate.
+
+The final host `just check`, `just test`, `just build`, and `just doctor` all
+completed successfully. Host tests ran without simultaneous dependency restore:
+
+- Rust: 207 passed; two ignored helper entry points were explicitly invoked by
+  subprocess parents. The 2/4/8-process matrix passed in 87.88 seconds, and all
+  seven PostgreSQL configuration tests passed, including schema-lock isolation.
+- TypeScript: 59 protocol and 1 provider-skeleton tests passed.
+- Python 3.14.4: protocol 240, research skeleton 1, legacy 216 passed / 1 skipped.
+  The legacy suite reported 12 NumPy warnings; they are not hidden or promoted
+  to evidence that the new numerical research implementation exists.
+- The host fixture container and tmpfs were automatically removed on completion.
+
+The administrative bundle applied forward-only production migrations 3, 4 and 5
+in one transaction after CI passed. Read-only inspection confirms successful
+versions 1 through 5 and zero jobs, periods, grants and batches. The restricted
+runtime login can SELECT but not UPDATE batch records, UPDATE grant lifecycle
+state, and cannot INSERT migration metadata. The just-built `loopd` executable
+passed `--check-database`, verifying TLS/session policy and SQLx checksums using
+the private mode-0600 connection reference. No credential appeared in output.
+
+Phase 3 is complete at its storage boundary. Production transport identity,
+holdout worker capabilities, trusted research/data registries, numerical
+execution and model providers remain later-phase work. No production research
+outcome, factor admission or sample-unlock claim follows from these tests.
 
 No paid data, LLM call, research freeze, holdout unlock, production run, or
 performance conclusion is authorized or performed by this checkpoint.
