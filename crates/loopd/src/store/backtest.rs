@@ -305,15 +305,14 @@ fn validate_result(result: &BacktestResult, record: &JobRecord) -> StoreResult<(
     {
         return Err(StoreError::Invalid("backtest engine or metrics"));
     }
-    if let Some(job_specification::Input::HoldoutBacktest(input)) = &job.input {
-        if input
+    if let Some(job_specification::Input::HoldoutBacktest(input)) = &job.input
+        && input
             .frozen_backtest_spec
             .as_ref()
             .and_then(|spec| spec.backtest_id.as_ref())
             != result.backtest_id.as_ref()
-        {
-            return Err(StoreError::Invalid("frozen backtest identity"));
-        }
+    {
+        return Err(StoreError::Invalid("frozen backtest identity"));
     }
     let frozen = frozen_provenance(job)?;
     assess_provenance(&snapshot(result.provenance.as_ref())?, &frozen, None)?;

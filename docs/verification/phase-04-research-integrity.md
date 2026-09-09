@@ -70,9 +70,15 @@ revision races with 2/4/8 OS writers. The crash matrix adds stops after result
 insertion, immediately before commit, and immediately after commit. All fault
 hooks are compiled only into the library test binary.
 
-The initial targeted test build succeeded. The final complete Rust suite is
-still under local validation at this checkpoint; this is not a recorded pass.
-Remote acceptance must include all seven CI jobs on this implementation commit,
+The initial targeted test build succeeded. The subsequent full local build was
+interrupted to prioritize the CI correction; it is not a recorded test pass.
+Implementation `3e91027` is pushed. GitHub Actions run `34328644893` failed in
+Rust, unified workspace and clean DaoCloud container checks. All three stopped
+at the same `clippy::collapsible_if` in `store/backtest.rs`; TypeScript and all
+three Python jobs passed. The follow-up collapses the nested condition into a
+let-chain without changing the rejection rule or adding a lint exemption.
+
+Remote acceptance must include all seven CI jobs on the corrected commit,
 including Clippy with warnings denied, full Rust regressions, the unified
 workspace and the clean DaoCloud container. Until those gates pass, this
 checkpoint remains unaccepted and Phase 4 remains in progress.
