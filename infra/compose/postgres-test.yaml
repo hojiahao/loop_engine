@@ -11,10 +11,10 @@ services:
     ports:
       - "127.0.0.1:15433:5432"
     tmpfs:
-      - /var/lib/postgresql/data:size=256m
+      - /var/lib/postgresql/data:size=512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U loop_engine_test -d loop_engine_test"]
       interval: 2s
       timeout: 2s
       retries: 30
-    mem_limit: 384m
+    mem_limit: 640m

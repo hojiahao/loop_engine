@@ -5,6 +5,14 @@ loop_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${loop_repo_dir}"
 
 if [[ -z "${LOOP_TEST_POSTGRES_URL:-}" ]]; then
+  mkdir -p .tools
+  exec 9>.tools/postgres-test.lock
+  if ! flock --nonblock 9; then
+    echo "Another managed test suite owns the PostgreSQL fixture." >&2
+    exit 1
+  fi
+  trap 'bash ./scripts/postgres-test.sh stop' EXIT
+  bash ./scripts/postgres-test.sh stop
   bash ./scripts/postgres-test.sh start
 fi
 export RUST_TEST_THREADS="${RUST_TEST_THREADS:-2}"

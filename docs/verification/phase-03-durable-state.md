@@ -269,6 +269,28 @@ CARGO_BUILD_JOBS=1 ./scripts/cargo.sh test -p loopd --all-features --locked \
   passed before the identifier-only correction. Final workspace gates remain
   required for phase closure; no remote CI evidence covers these edits yet.
 
+Implementation checkpoint `e8572cf` is pushed. The next full host attempt passed
+the batch, approval, grant, period, and lifecycle cases, then failed in the
+process matrix because the reused 256 MiB fixture tmpfs was full. Read-only
+inspection found 183 test schemas, a 154 MB test database, and no free volume
+space. This was not production or cloud-disk exhaustion. Managed full suites now
+take a local fixture lock, recreate the dedicated test service, and remove it on
+exit. Host and clean-container fixture limits are 512 MiB tmpfs / 640 MiB memory.
+Explicit test URLs remain caller-owned. The failed run is not a passing gate.
+GitHub Actions run `34309854814` passed TypeScript and all three Python jobs;
+Rust, unified workspace and clean-container tests failed on the same fixture
+`pg_wal` volume exhaustion, followed by connection/recovery errors. This confirms
+the original fixture was too small even for a fresh expanded suite.
+
+The first host run with the larger, fresh fixture passed the complete 2/4/8
+process matrix and submission tests, but an independent-schema migration test
+timed out. It ran while the cleaned Python dependency cache was being restored;
+that overlap is recorded, not asserted to be the cause. Production deadlines
+and tests were not relaxed. The isolated Python rerun completed with 216 passed,
+1 skipped and 12 NumPy warnings. A second managed test invocation correctly
+rejected the held fixture lock without disturbing the active suite; cleanup
+removed the fixture even after the failed gate.
+
 ## Quality rules
 
 `AGENTS.md` now makes the user's quality requirements persistent. Handwritten

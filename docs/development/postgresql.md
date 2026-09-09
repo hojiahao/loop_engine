@@ -78,16 +78,26 @@ in this repository or its documentation.
 ## Isolated integration tests
 
 ```bash
-bash scripts/postgres-test.sh start
 just test
+
+# Targeted cargo invocations manage their fixture explicitly.
+bash scripts/postgres-test.sh start
+./scripts/cargo.sh test --locked --offline -p loopd --test durable_batch
 bash scripts/postgres-test.sh stop
 ```
 
 The test service uses a pinned DaoCloud PostgreSQL 17.11 image, a generated
-ephemeral TLS certificate, and a disposable tmpfs volume. It binds only
+ephemeral TLS certificate, a 512 MiB disposable tmpfs volume and a 640 MiB
+container memory limit. It binds only
 `127.0.0.1:15433`. Its public fixture login/database `loop_engine_test` and
 password `loop_engine_test_only` are intentionally non-production credentials.
 Stopping the service discards only this project's disposable test database.
+Without `LOOP_TEST_POSTGRES_URL`, `just test` obtains a nonblocking local fixture
+lock, recreates this dedicated service before testing, and removes it on exit,
+including test failure. This prevents repeated suites accumulating schemas.
+Do not run targeted cargo tests against that managed service concurrently with
+`just test`. Use an explicit separate test URL for independently managed runs;
+the test command never starts or stops an explicitly supplied database.
 
 Every fixture creates a unique, strictly validated schema. Worker subprocesses
 share only the intended fixture schema. Tests reject a connection unless both
@@ -95,7 +105,7 @@ the database and login are exactly `loop_engine_test`, preventing accidental use
 of the production `loop_engine` database. `LOOP_TEST_POSTGRES_URL` may redirect
 these fixtures to a separately provisioned TLS test service; it is never read
 by the production executable. Compose/container CI uses the isolated service
-name rather than a host port. Host `just test` starts the service automatically.
+name rather than a host port. Their enclosing container gate owns cleanup.
 
 Concurrency tests use independent OS processes. Kill/restart tests terminate
 clients around transaction boundaries; they are not a claim of storage-device
