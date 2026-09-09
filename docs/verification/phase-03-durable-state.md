@@ -189,8 +189,55 @@ byte, with only the generated approval ID substituted, and the raw digest.
 This is not a claim that TypeScript/Python approval hash APIs or production
 freeze/BacktestSpec registries have been implemented.
 
-Remote CI for this new checkpoint and full Phase 3 closure remain pending.
-Existing earlier CI runs do not validate these unpushed changes.
+Approval checkpoint `47e8128` is pushed. All seven jobs in GitHub Actions run
+`34209334491` passed, including the unified workspace and clean DaoCloud container
+gates. This evidence validates that checkpoint, not later working-tree changes
+or full Phase 3 closure.
+
+## Grant lifecycle checkpoint (2026-09-08)
+
+ADR 0009 and forward-only migration 4 add one grant per period, immutable human
+approval attachments, issued/terminal revisions, authorized reads, expiry, and
+revocation. The independent production policy remains default-deny. No protected
+transport endpoint is exposed and migrations 3/4 are not deployed to production.
+Frozen-plan batch consumption is still pending.
+
+Local command:
+
+```bash
+CARGO_BUILD_JOBS=1 ./scripts/cargo.sh test -p loopd --locked \
+  --test durable_grant --test durable_approval --test durable_holdout \
+  --test durable_processes --lib -- --test-threads=1
+```
+
+Result: 63 passed. The two ignored subprocess entry points are explicitly run by
+their parent process/fault tests, not skipped behavior. Breakdown:
+
+- 26 grant tests: exact frozen bindings, one-person policy, independent subjects,
+  duplicate actors, required count, expiry boundaries, immutable replay after
+  restart or terminal closure, default denial, spoofing, clock regression,
+  unresolved/corrupt plan bytes, audit/receipt rollback, cancellation, rehashed
+  receipt tampering, and deferred database aggregate constraints.
+- 19 approval and 15 period tests pass. The two tests formerly advancing a
+  simulated grant with direct SQL now use real issue/revoke repository commands.
+- Two library tests pass, including grant and close kill/restart before and
+  after commit, alongside the existing job/role/period/approval crash cases.
+- One process-matrix parent passes 2/4/8 independent writers for same-key grant
+  and close retries, and different-key races with one commit and fenced losers,
+  alongside all previous process modes. Audit chains remain valid.
+
+Full `just check` passed: cross-language protocol checks, rustfmt, workspace
+Clippy with warnings denied, TypeScript format/lint/typechecks, Python 3.14.4
+environment verification, Ruff, and mypy. Remote CI for this checkpoint remains
+pending; earlier CI results must not be attributed to this implementation.
+
+After tests, the disposable PostgreSQL container and its tmpfs test database
+were removed. At the owner's request, stale root `target/`, unused uv and Docker
+build caches, protocol-generation staging directories, checker caches, and Rust
+incremental caches were cleaned. Source, Git history, research records, secrets,
+installed toolchains, the root `.venv`, and reusable compiled dependencies remain.
+These are reconstructible artifacts, not research-data deletion. Docker-reported
+active build-cache leases were not forcibly removed.
 
 ## Quality rules
 
@@ -205,8 +252,9 @@ tests. It deliberately does not invent a universal name-length limit.
 
 ## Remaining Phase 3 gates
 
-- Persist monotonic grant records and one-use approval attachments; atomically
-  consume one grant and create every frozen-plan batch job, receipt, and event.
+- Finish checkpoint verification for grant records and approval attachments;
+  atomically consume one grant and create every frozen-plan batch job, receipt,
+  and event.
 - Complete the backend-independent interface for those remaining aggregates.
 - Pass final host, clean-container, and remote CI on the entire Phase 3 code;
   commit, push, and record closure evidence before marking Phase 3 complete.

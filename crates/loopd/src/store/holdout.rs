@@ -1,14 +1,15 @@
 use std::future::Future;
 
 use loop_core::audit::{
-    AuditAction, AuditTarget, AuditTargetKind, Sha256Digest, state_transition_payload,
+    AuditAction, AuditTarget, AuditTargetKind, Sha256Digest as CanonicalDigest,
+    state_transition_payload,
 };
 use loop_core::holdout::CanonicalHoldoutPeriod;
 use loop_protocol::holdout::validate_holdout_period;
-use loop_protocol::wire::holdout::v1::RecordHoldoutApprovalRequest;
+use loop_protocol::wire::holdout::v1::{RecordHoldoutApprovalRequest, RequestHoldoutGrantRequest};
 use loop_protocol::wire::v1::{
-    Actor, CommandContext, HoldoutApprovalRecord, HoldoutPeriod, HoldoutPeriodRecord,
-    HoldoutPeriodState,
+    Actor, CommandContext, FreezeManifestReference, HoldoutApprovalRecord, HoldoutGrantRecord,
+    HoldoutPeriod, HoldoutPeriodRecord, HoldoutPeriodState, Sha256Digest,
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -18,6 +19,7 @@ use sqlx::{Postgres, Row, Transaction};
 use super::lifecycle::validate_context;
 use super::postgres::{audit_timestamp, encode_message, timestamp_millis, verified_blob};
 use super::{ApprovalResult, PgJobStore, StoreError, StoreResult, approval, audit, validate_id};
+use super::{CloseGrant, GrantResult, ResolvedFreeze, grant};
 
 const REGISTER: &str = "loop.holdout.register-period";
 const READ: &str = "loop.holdout.read-period";
@@ -26,6 +28,34 @@ const READ: &str = "loop.holdout.read-period";
 /// Hooks must be bounded, side-effect-free checks against already resolved state;
 /// network or artifact retrieval must complete before entering the repository.
 pub trait HoldoutPolicy: Send + Sync {
+    /// Resolve a freeze and its complete immutable plan from a bounded, trusted
+    /// cache. The resolver verifies the freeze document and owning BacktestSpec
+    /// parser; matching digests alone are not semantic validation. The store
+    /// reparses period/plan identities. No request-supplied wrapper grants trust,
+    /// and no network retrieval may occur under the ledger lock.
+    fn resolve_freeze(&self, _digest: &Sha256Digest) -> StoreResult<ResolvedFreeze> {
+        Err(StoreError::AdmissionDenied)
+    }
+
+    /// Verify the pinned policy's approver count and roles against current human
+    /// identities and return a bounded grant expiry. The store additionally
+    /// enforces distinct actor IDs and authenticated subjects, exact frozen
+    /// bindings, and unexpired approvals. Replays do not renew expired grants.
+    fn grant_expiry(
+        &self,
+        _freeze: &FreezeManifestReference,
+        _approvals: &[HoldoutApprovalRecord],
+        _now_millis: i64,
+    ) -> StoreResult<i64> {
+        Err(StoreError::AdmissionDenied)
+    }
+
+    /// Authorize an opaque grant lookup before its period is resolved. The exact
+    /// period must also pass `authorize_period`; IDs are never bearer secrets.
+    fn authorize_grant_read(&self, _principal: &Actor, _grant_id: &str) -> StoreResult<()> {
+        Err(StoreError::AdmissionDenied)
+    }
+
     /// Authorize the authenticated principal for one operation and exact period.
     /// A matching actor label or an ordinary job policy is not sufficient authority.
     fn authorize_period(
@@ -113,6 +143,40 @@ pub struct PeriodRegistration {
 
 /// Backend-independent protected period commands. SQL handles remain private.
 pub trait HoldoutRepository: Send + Sync {
+    /// Atomically issue the first and only grant, attach immutable approvals,
+    /// advance the expected sealed period revision, and append receipt/audit.
+    /// Authority comes from the independent protected policy and authenticated
+    /// principal. Identical retries return the original issued response, even
+    /// after later terminal transitions, without renewing or authorizing access.
+    /// Invalid, unresolved, expired, conflicting or corrupt inputs fail closed.
+    /// Cancellation before commit rolls back; retry resolves an uncertain commit.
+    fn issue_grant(
+        &self,
+        principal: &Actor,
+        command: RequestHoldoutGrantRequest,
+    ) -> impl Future<Output = StoreResult<GrantResult>> + Send;
+
+    /// Read and verify a grant, its immutable approvals and current period after
+    /// protected lookup authorization. `None` means authorized absence only.
+    /// Returns authority, validation, corruption or bounded database failures;
+    /// cancellation has no side effects and a read grants no data capability.
+    fn get_grant(
+        &self,
+        principal: &Actor,
+        grant_id: &str,
+    ) -> impl Future<Output = StoreResult<Option<HoldoutGrantRecord>>> + Send;
+
+    /// Permanently close an issued grant by expiry or explicit revocation with
+    /// reason, expected grant/period revisions and separate protected authority.
+    /// The original grant identity remains attached; no replacement is possible.
+    /// Replay returns the original receipt, never a fresh grant. Cancellation and
+    /// storage failure roll back grant, period, receipt and audit together.
+    fn close_grant(
+        &self,
+        principal: &Actor,
+        command: CloseGrant,
+    ) -> impl Future<Output = StoreResult<GrantResult>> + Send;
+
     /// Record one authenticated human approval with its original immutable
     /// response and audit event in one transaction. The server-owned holdout
     /// policy must verify the freeze, plan, evidence, and bounded validity. An
@@ -162,6 +226,29 @@ pub trait HoldoutRepository: Send + Sync {
 }
 
 impl HoldoutRepository for PgJobStore {
+    async fn issue_grant(
+        &self,
+        principal: &Actor,
+        command: RequestHoldoutGrantRequest,
+    ) -> StoreResult<GrantResult> {
+        grant::issue(self, principal, command).await
+    }
+
+    async fn get_grant(
+        &self,
+        principal: &Actor,
+        grant_id: &str,
+    ) -> StoreResult<Option<HoldoutGrantRecord>> {
+        grant::get(self, principal, grant_id).await
+    }
+
+    async fn close_grant(
+        &self,
+        principal: &Actor,
+        command: CloseGrant,
+    ) -> StoreResult<GrantResult> {
+        grant::close(self, principal, command).await
+    }
     async fn record_approval(
         &self,
         principal: &Actor,
@@ -191,7 +278,7 @@ impl HoldoutRepository for PgJobStore {
         principal: &Actor,
         period_id: &str,
     ) -> StoreResult<Option<HoldoutPeriodRecord>> {
-        Sha256Digest::parse(period_id).map_err(|_| StoreError::Invalid("period identity"))?;
+        CanonicalDigest::parse(period_id).map_err(|_| StoreError::Invalid("period identity"))?;
         self.holdout_policy
             .authorize_period(READ, principal, period_id)?;
         sqlx::query("SELECT * FROM holdout_periods WHERE period_id = $1")
@@ -411,7 +498,10 @@ pub(super) async fn save_receipt(
     Ok(())
 }
 
-fn decode_record(bytes: &[u8], canonical_bytes: &[u8]) -> StoreResult<HoldoutPeriodRecord> {
+pub(super) fn decode_record(
+    bytes: &[u8],
+    canonical_bytes: &[u8],
+) -> StoreResult<HoldoutPeriodRecord> {
     let record = HoldoutPeriodRecord::decode(bytes)
         .map_err(|_| StoreError::Corrupt("holdout period envelope"))?;
     validate_holdout_period(

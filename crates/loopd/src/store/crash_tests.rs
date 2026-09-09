@@ -15,7 +15,9 @@ use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::jobs::v1::AcquireJobLeaseRequest;
 use loop_protocol::wire::v1::{JobId, JobState};
 
-use super::{HoldoutRepository, JobMutation, JobRepository, PgJobStore, RecoveryCommand};
+use super::{
+    GrantClosure, HoldoutRepository, JobMutation, JobRepository, PgJobStore, RecoveryCommand,
+};
 use support::*;
 
 pub(super) async fn fault_point(point: &str) {
@@ -58,7 +60,24 @@ fn crash_worker() {
             if mode.starts_with("approval_") {
                 options.holdout_policy = Arc::new(approval::Policy::default());
             }
+            if mode.starts_with("grant_") || mode.starts_with("close_") {
+                options.holdout_policy = Arc::new(grant::Policy::default());
+            }
             let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("grant_") || mode.starts_with("close_") {
+                let request = grant::seed(&store, 2, false).await;
+                let issued = store.issue_grant(&actor(), request).await.unwrap();
+                if mode.starts_with("close_") {
+                    store
+                        .close_grant(
+                            &actor(),
+                            grant::close(&issued, GrantClosure::Revoke, "close.retry"),
+                        )
+                        .await
+                        .unwrap();
+                }
+                panic!("grant fault point not reached");
+            }
             if mode.starts_with("approval_") {
                 store
                     .register_period(&actor(), holdout::command(0, "period.0"))
@@ -128,6 +147,10 @@ async fn killed_writer_preserves_atomicity() {
         "period_after_commit",
         "approval_before_commit",
         "approval_after_commit",
+        "grant_before_commit",
+        "grant_after_commit",
+        "close_before_commit",
+        "close_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
@@ -170,8 +193,40 @@ async fn killed_writer_preserves_atomicity() {
         if point.starts_with("approval_") {
             options.holdout_policy = Arc::new(approval::Policy::default());
         }
+        if point.starts_with("grant_") || point.starts_with("close_") {
+            options.holdout_policy = Arc::new(grant::Policy::default());
+        }
         let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("grant_") || point.starts_with("close_") {
+            let committed = point.ends_with("after_commit");
+            let closing = point.starts_with("close_");
+            let baseline = if closing { 4 } else { 3 };
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                baseline + usize::from(committed)
+            );
+            let request = grant::seed(&store, 2, false).await;
+            let issued = store.issue_grant(&actor(), request).await.unwrap();
+            if closing {
+                assert!(issued.replayed);
+                let closed = store
+                    .close_grant(
+                        &actor(),
+                        grant::close(&issued, GrantClosure::Revoke, "close.retry"),
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(closed.replayed, committed);
+            } else {
+                assert_eq!(issued.replayed, committed);
+            }
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), baseline + 1);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("approval_") {
             let committed = point == "approval_after_commit";
             assert_eq!(

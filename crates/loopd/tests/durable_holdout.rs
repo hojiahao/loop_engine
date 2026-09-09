@@ -6,8 +6,8 @@ use std::sync::{
 };
 
 use loop_core::audit::{AuditAction, AuditTargetKind, verify_audit_chain};
-use loop_protocol::wire::v1::{HoldoutGrantId, HoldoutPeriodRecord, HoldoutPeriodState, RequestId};
-use loopd::store::{HoldoutRepository, PgJobStore, StoreError};
+use loop_protocol::wire::v1::{HoldoutPeriodRecord, HoldoutPeriodState, RequestId};
+use loopd::store::{GrantClosure, HoldoutRepository, PgJobStore, StoreError};
 use prost::Message;
 use sha2::{Digest, Sha256};
 use sqlx::Connection;
@@ -311,32 +311,22 @@ async fn period_and_receipt_history_is_immutable() {
 
 #[tokio::test]
 async fn terminal_period_cannot_be_reset() {
-    let (directory, store, _) = setup().await;
+    let (directory, store, _, request) = grant::setup().await;
     let original = store
-        .register_period(&actor(), holdout::command(0, "original"))
+        .register_period(&actor(), holdout::command(0, "period.0"))
         .await
         .unwrap()
         .record;
-    let mut advanced = original.clone();
-    advanced.state = HoldoutPeriodState::GrantIssued as i32;
-    advanced.revision = 2;
-    advanced.issued_grant_id = Some(HoldoutGrantId {
-        value: "grant.fixture".to_owned(),
-    });
-    advanced.grant_issued_at = Some(timestamp(NOW));
+    let issued = store.issue_grant(&actor(), request).await.unwrap();
+    let advanced = store
+        .close_grant(
+            &actor(),
+            grant::close(&issued, GrantClosure::Revoke, "revoke"),
+        )
+        .await
+        .unwrap()
+        .period;
     let mut database = connection(&directory).await;
-    // Simulate later lifecycle writers in this isolated schema; no grant API exists yet.
-    let bytes = advanced.encode_to_vec();
-    sqlx::query("UPDATE holdout_periods SET state = 2, revision = 2, issued_grant_id = 'grant.fixture', grant_issued_at_ms = $1, record_blob = $2, record_sha256 = $3")
-        .bind(NOW).bind(&bytes).bind(Sha256::digest(&bytes).to_vec())
-        .execute(&mut database).await.unwrap();
-    advanced.state = HoldoutPeriodState::Closed as i32;
-    advanced.revision = 3;
-    advanced.terminal_at = Some(timestamp(NOW));
-    let bytes = advanced.encode_to_vec();
-    sqlx::query("UPDATE holdout_periods SET state = 4, revision = 3, terminal_at_ms = $1, record_blob = $2, record_sha256 = $3")
-        .bind(NOW).bind(&bytes).bind(Sha256::digest(&bytes).to_vec())
-        .execute(&mut database).await.unwrap();
     assert!(matches!(
         store
             .register_period(&actor(), holdout::command(0, "new-key"))
@@ -344,7 +334,7 @@ async fn terminal_period_cannot_be_reset() {
         Err(StoreError::DuplicatePeriod)
     ));
     let replay = store
-        .register_period(&actor(), holdout::command(0, "original"))
+        .register_period(&actor(), holdout::command(0, "period.0"))
         .await
         .unwrap();
     assert!(replay.replayed);

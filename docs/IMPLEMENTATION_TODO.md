@@ -109,14 +109,23 @@ GitHub Actions run `34200778090` passed, including 142 Rust tests, independent
 process/fault cases, unified workspace commands, and the clean DaoCloud container.
 The production Rust executable verified TLS/session settings and both installed
 migration checksums. These results close this backend checkpoint, not Phase 3;
-approval, grant issuance, and atomic batch consumption are the next work items.
+the later approval, grant issuance, and atomic batch checkpoints are separate.
 
 The subsequent human-approval storage checkpoint adds 19 PostgreSQL tests plus
 approval cases in the 2/4/8-process and kill/restart matrices. Local targeted
-tests and `just check` pass; checkpoint remote verification remains pending.
+tests and `just check` pass. Commit `47e8128` is pushed and all seven jobs in
+GitHub Actions run `34209334491` passed, including the clean-container gate.
 ADR 0008 records the authority and identity boundaries. Production approval
 policies still deny, migration 3 is not yet deployed to production, and grant
 issuance and atomic batch consumption remain open. Phase 3 is not complete.
+
+Grant lifecycle implementation is now in the working tree under ADR 0009:
+single-use issuance, independent approval attachment, verified reads, expiry,
+revocation, immutable replay, and deferred aggregate constraints. The 26 grant
+tests, 19 approval tests, 15 period tests, library fault tests, and expanded
+2/4/8-process matrix pass. Full `just check` also passes. Commit, push, and remote
+verification remain pending in this pre-commit record; no production grant is
+issued. Atomic plan-derived batch consumption is next.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

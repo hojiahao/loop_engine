@@ -5,6 +5,7 @@ mod approval;
 mod audit;
 #[cfg(test)]
 mod crash_tests;
+mod grant;
 mod holdout;
 mod lifecycle;
 mod postgres;
@@ -17,6 +18,7 @@ use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
 pub use approval::ApprovalResult;
+pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
 };
@@ -42,14 +44,14 @@ pub enum StoreError {
     /// The canonical locked period already exists, possibly in a terminal state.
     #[error("holdout period already exists and cannot be registered again")]
     DuplicatePeriod,
-    /// No job exists for the requested identity.
-    #[error("job does not exist")]
+    /// No persistent aggregate exists for the requested identity.
+    #[error("persistent aggregate does not exist")]
     NotFound,
     /// Another accepted command advanced the aggregate.
     #[error("expected revision does not match persistent state")]
     RevisionConflict,
     /// The lifecycle does not permit this operation at the current state.
-    #[error("command is not valid in the current job state")]
+    #[error("command is not valid in the current aggregate state")]
     InvalidTransition,
     /// The worker no longer owns a valid lease.
     #[error("lease is absent, expired, or owned by another principal")]

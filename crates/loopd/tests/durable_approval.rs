@@ -4,9 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 use loop_core::audit::{AuditAction, verify_audit_chain};
-use loop_protocol::wire::v1::{
-    ActorKind, HoldoutApprovalRecord, HoldoutGrantId, HoldoutPeriodState, RequestId,
-};
+use loop_protocol::wire::v1::{ActorKind, HoldoutApprovalRecord, RequestId};
 use loopd::store::{HoldoutRepository, PgJobStore, StoreError};
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -434,26 +432,14 @@ async fn rehashed_receipt_cannot_change_actor() {
 
 #[tokio::test]
 async fn issued_period_rejects_new_approval() {
-    let (directory, store, _) = setup().await;
-    let request = approval::command(0, "original", &human(1));
+    let (_directory, store, _, grant_request) = grant::setup().await;
+    let request = approval::command(0, "approval.1", &human(1));
     let original = store
         .record_approval(&human(1), request.clone())
         .await
         .unwrap()
         .record;
-    let id = &request.holdout_period_id.as_ref().unwrap().value;
-    let mut period = store.get_period(&actor(), id).await.unwrap().unwrap();
-    period.state = HoldoutPeriodState::GrantIssued as i32;
-    period.revision = 2;
-    period.issued_grant_id = Some(HoldoutGrantId {
-        value: "grant.fixture".to_owned(),
-    });
-    period.grant_issued_at = Some(timestamp(NOW));
-    let bytes = period.encode_to_vec();
-    let mut database = connection(&directory).await;
-    // The grant writer is still pending; only this isolated test schema advances.
-    sqlx::query("UPDATE holdout_periods SET state = 2, revision = 2, issued_grant_id = 'grant.fixture', grant_issued_at_ms = $1, record_blob = $2, record_sha256 = $3")
-        .bind(NOW).bind(&bytes).bind(Sha256::digest(&bytes).as_slice()).execute(&mut database).await.unwrap();
+    store.issue_grant(&actor(), grant_request).await.unwrap();
     let retry = store.record_approval(&human(1), request).await.unwrap();
     assert!(retry.replayed);
     assert_eq!(retry.record, original);
@@ -463,7 +449,6 @@ async fn issued_period_rejects_new_approval() {
             .await,
         Err(StoreError::InvalidTransition)
     ));
-    database.close().await.unwrap();
     store.close().await;
 }
 

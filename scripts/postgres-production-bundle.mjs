@@ -48,7 +48,7 @@ for (const name of migrations) {
 statements.push(
   "INSERT INTO store_metadata VALUES (1, 'ledger.loopd', 0) ON CONFLICT(singleton) DO NOTHING;",
   "GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO loop_engine_app;",
-  "GRANT UPDATE ON store_metadata, jobs, holdout_periods TO loop_engine_app;",
+  "GRANT UPDATE ON store_metadata, jobs, holdout_periods, holdout_grants TO loop_engine_app;",
   "REVOKE INSERT, UPDATE, DELETE ON _sqlx_migrations FROM loop_engine_app;",
   "COMMIT;",
   "\\else",
