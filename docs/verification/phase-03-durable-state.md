@@ -338,3 +338,33 @@ outcome, factor admission or sample-unlock claim follows from these tests.
 
 No paid data, LLM call, research freeze, holdout unlock, production run, or
 performance conclusion is authorized or performed by this checkpoint.
+
+## Post-closure migration regression (2026-09-09)
+
+After numerical checkpoint `7e6352a`, a full host regression failed during the
+independent-process startup matrix. PostgreSQL rejected creation of
+`pg_catalog._sqlx_migrations` with SQLSTATE `42501`. The intended target schema
+did not exist when the migration session connected. PostgreSQL ignores missing
+search-path entries and uses the first existing schema as the creation target
+([PostgreSQL search-path rules](https://www.postgresql.org/docs/17/ddl-schemas.html#DDL-SCHEMAS-PATH));
+the exact internal cache/snapshot timing of the observed race is not established.
+The contemporaneous seven-job CI run `34315225076` passed, but does not invalidate
+this local failure. No production data or published migration was changed.
+
+Migration bootstrap now connects with only `pg_catalog`, acquires the existing
+namespace lock, creates the target, explicitly changes the search path and
+checks `current_schema()` before any SQLx migration metadata DDL. The regression
+test waits for an actual advisory-lock blocker before creating the namespace
+from another connection, then checks the migration table's real namespace and
+the complete store configuration. Deadlines and migration checksums are unchanged.
+
+The targeted 2/4/8-process matrix passed in 94.06 seconds, followed by all eight
+PostgreSQL configuration tests. Full `just check` passed, including rustfmt,
+Clippy with warnings denied, protocol boundaries and all language type checks.
+The rebuilt `loopd --check-database` also passed against the production database
+without DDL or research writes. The subsequent full host `just test` passed:
+all Rust suites including kill/restart and the process matrix (86.66 seconds),
+TypeScript 60, Python research 46, protocol 240, and legacy 216 passed / 1 skipped.
+The legacy suite still reports 12 NumPy warnings. Managed fixture cleanup ran
+successfully. Remote workspace and clean-container acceptance must use the CI
+checks attached to this fix's commit, not the older green run.

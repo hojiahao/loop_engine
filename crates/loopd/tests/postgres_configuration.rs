@@ -1,5 +1,7 @@
 mod support;
 
+use std::time::Duration;
+
 use loopd::store::{PgJobStore, StoreError, StoreOptions};
 use sqlx::Connection;
 use sqlx::migrate::Migrate;
@@ -130,5 +132,73 @@ async fn independent_schema_has_its_own_migration_lock() {
         .unwrap();
     store.verify_configuration().await.unwrap();
     other_migrator.close().await.unwrap();
+    store.close().await;
+}
+
+#[tokio::test]
+async fn migration_resolves_schema_after_lock_wait() {
+    let directory = tempfile::tempdir().unwrap();
+    let config = base_options(&directory.path().join("state"));
+    let namespace = config.schema.clone();
+    let lock_key = format!("loop.migrations.{namespace}");
+    let mut blocker = connection(&directory).await;
+    sqlx::query("SELECT pg_advisory_lock(hashtextextended($1, 0))")
+        .bind(&lock_key)
+        .execute(&mut blocker)
+        .await
+        .unwrap();
+    let blocker_pid: i32 = sqlx::query_scalar("SELECT pg_backend_pid()")
+        .fetch_one(&mut blocker)
+        .await
+        .unwrap();
+
+    let opening = PgJobStore::open(config);
+    tokio::pin!(opening);
+    let waiting = async {
+        loop {
+            let blocked: bool = sqlx::query_scalar(
+                "SELECT EXISTS(SELECT FROM pg_stat_activity
+                 WHERE $1 = ANY(pg_blocking_pids(pid)))",
+            )
+            .bind(blocker_pid)
+            .fetch_one(&mut blocker)
+            .await
+            .unwrap();
+            if blocked {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    };
+    tokio::select! {
+        _ = &mut opening => panic!("migration bypassed its namespace lock"),
+        result = tokio::time::timeout(Duration::from_secs(3), waiting) => {
+            result.expect("migration did not reach namespace lock");
+        }
+    }
+
+    sqlx::query(&format!("CREATE SCHEMA \"{namespace}\""))
+        .execute(&mut blocker)
+        .await
+        .unwrap();
+    let released: bool = sqlx::query_scalar("SELECT pg_advisory_unlock(hashtextextended($1, 0))")
+        .bind(&lock_key)
+        .fetch_one(&mut blocker)
+        .await
+        .unwrap();
+    assert!(released);
+    let store = opening.await.unwrap();
+    let migration_table: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT FROM pg_class AS c
+         JOIN pg_namespace AS n ON n.oid = c.relnamespace
+         WHERE n.nspname = $1 AND c.relname = '_sqlx_migrations' AND c.relkind = 'r')",
+    )
+    .bind(namespace)
+    .fetch_one(&mut blocker)
+    .await
+    .unwrap();
+    assert!(migration_table);
+    store.verify_configuration().await.unwrap();
+    blocker.close().await.unwrap();
     store.close().await;
 }

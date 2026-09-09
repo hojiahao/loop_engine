@@ -26,6 +26,13 @@ development therefore uses an authenticated SSH tunnel; a deployment with a
 trusted CA should use `verify-full`. Secrets are file references or injected
 environment values, never command-line passwords, source files, logs, or receipts.
 
+Deployment migration connections initially resolve only `pg_catalog`. After
+acquiring the schema-scoped advisory lock and creating the target namespace,
+they set the target search path and verify `current_schema()` before SQLx can
+create migration metadata. A nonexistent search-path entry must not silently
+redirect unqualified DDL to another schema. Runtime connections receive the
+target path separately and never create missing schemas.
+
 Domain models, canonical identities, and role-owned command APIs remain stable.
 SQL, migrations, locks, receipt races, schema verification, and backend-specific
 tests must be ported and rerun. Updating only a connection URL cannot close this

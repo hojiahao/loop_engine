@@ -156,6 +156,10 @@ return-derived correlation. Research-package isolation tests pass: 45 numerical
 cases plus one health test. Full `just check` passes; SciPy 1.18.1 and Hypothesis
 6.167.1 are installed under the root Python 3.14.4 workspace and pinned in
 `uv.lock`. This checkpoint does not close Phase 4 or enable production evaluation.
+Checkpoint `7e6352a` is pushed; all seven jobs in GitHub Actions run `34315225076`
+passed, including the clean-container gate. A subsequent local full-suite run
+exposed a migration namespace race; its follow-up is recorded in the Phase 3
+verification document and is not counted as a passing local gate.
 
 ## Phase 5 - US-equities data plane (`pending`)
 
@@ -219,5 +223,12 @@ cases plus one health test. Full `just check` passes; SciPy 1.18.1 and Hypothesi
 
 ## Phase 14 - Release (`pending`)
 
+- [ ] Rewrite the final README as product documentation: purpose, requirements,
+      installation/deployment, configuration, workflows and examples, interfaces,
+      operations, security, and data/provider limitations. Keep phase progress,
+      commit histories, and troubleshooting investigations in `docs/`, not the
+      product README. Document only verified release behavior and runnable
+      commands, with explicit credentials, licensing and cost prerequisites.
+      This is a release gate, not a claim that the product is already complete.
 - [ ] Complete branding, operations documentation, SBOM, security scans,
       migration notes, release verification, pull request, and release tag.

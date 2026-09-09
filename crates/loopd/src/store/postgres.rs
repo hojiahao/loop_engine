@@ -109,8 +109,9 @@ impl PgJobStore {
     ///
     /// # Errors
     /// Rejects invalid settings, bounded migration contention, changed checksums,
-    /// unsafe sessions, and storage failures. Cancellation closes the dedicated
-    /// migration connection; advisory locks never return to the runtime pool.
+    /// unsafe sessions, unresolved migration namespaces, and storage failures.
+    /// Cancellation closes the dedicated migration connection; advisory locks
+    /// never return to the runtime pool.
     pub async fn open(options: StoreOptions) -> StoreResult<Self> {
         validate_id(&options.audit_ledger_id)?;
         if options.schema.is_empty()
@@ -129,7 +130,6 @@ impl PgJobStore {
         }
         let search_path = format!("\"{}\",pg_catalog", options.schema);
         let connect = options.connect.options([
-            ("search_path", search_path.as_str()),
             ("timezone", "UTC"),
             ("statement_timeout", "30000"),
             ("lock_timeout", "5000"),
@@ -137,9 +137,11 @@ impl PgJobStore {
             ("synchronous_commit", "on"),
         ]);
         if options.apply_migrations {
+            // Resolve the target only after its creation under the namespace lock.
+            let migration_connect = connect.clone().options([("search_path", "pg_catalog")]);
             let mut connection = tokio::time::timeout(
                 Duration::from_secs(10),
-                PgConnection::connect_with(&connect),
+                PgConnection::connect_with(&migration_connect),
             )
             .await
             .map_err(|_| StoreError::Unavailable("migration connection timeout"))??;
@@ -154,6 +156,17 @@ impl PgJobStore {
                 ))
                 .execute(&mut connection)
                 .await?;
+                sqlx::query("SELECT pg_catalog.set_config('search_path', $1, false)")
+                    .bind(&search_path)
+                    .execute(&mut connection)
+                    .await?;
+                let resolved: Option<String> =
+                    sqlx::query_scalar("SELECT pg_catalog.current_schema()::text")
+                        .fetch_one(&mut connection)
+                        .await?;
+                if resolved.as_deref() != Some(options.schema.as_str()) {
+                    return Err(StoreError::Corrupt("migration namespace resolution"));
+                }
                 MIGRATOR.run(&mut connection).await?;
                 sqlx::query(
                     "INSERT INTO store_metadata (singleton, audit_ledger_id, last_observed_at_ms)
@@ -173,7 +186,7 @@ impl PgJobStore {
             .max_connections(4)
             .acquire_timeout(Duration::from_secs(10))
             .after_connect(|connection, _| Box::pin(verify_session(connection)))
-            .connect_with(connect)
+            .connect_with(connect.options([("search_path", search_path.as_str())]))
             .await?;
         verify_migrations(&pool).await?;
         let ledger: String =
