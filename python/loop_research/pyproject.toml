@@ -5,6 +5,7 @@ description = "US-equities research worker for Loop Engine"
 authors = [{ name = "hojiahao", email = "hojiahao@outlook.com" }]
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "numpy>=2.5,<3",
     "pydantic>=2.11,<3",
 ]
 
@@ -18,9 +19,11 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "hatchling==1.32.0",
+    "hypothesis>=6,<7",
     "mypy>=1.17",
     "pytest>=8.4",
     "ruff>=0.12",
+    "scipy>=1.18,<2",
 ]
 
 [tool.pytest.ini_options]

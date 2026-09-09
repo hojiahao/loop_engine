@@ -138,12 +138,24 @@ actual Rust executable verified TLS, session settings and every checksum.
 Production jobs, periods, grants and batches are empty. Fixture materializers
 are not production research parsers, and no holdout capability was issued.
 
-## Phase 4 - Research-integrity invariants (`pending`)
+## Phase 4 - Research-integrity invariants (`in_progress`)
 
 - [ ] Port all eight existing fixes into shared contracts and regression tests.
 - [ ] Add holdout capabilities, provenance invalidation, canonical SHA-256 IDs,
       missing-window skew tests, durable perturbation state, unified readmission,
       failed-hash filtering, and return-based PnL correlation.
+- [x] Implement numerical reference primitives for actual-count skew, causal
+      windows, valid NAV returns and return-derived correlation; verify against
+      independent SciPy goldens and bounded Hypothesis properties.
+- [ ] Bind the numerical primitives to authorized factor/backtest execution;
+      resolve session alignment, coverage and versioned operator semantics.
+
+ADR 0011 starts the numerical portion in the Python research package: actual
+sample-count skew, stable central moments, causal windows, valid NAV returns and
+return-derived correlation. Research-package isolation tests pass: 45 numerical
+cases plus one health test. Full `just check` passes; SciPy 1.18.1 and Hypothesis
+6.167.1 are installed under the root Python 3.14.4 workspace and pinned in
+`uv.lock`. This checkpoint does not close Phase 4 or enable production evaluation.
 
 ## Phase 5 - US-equities data plane (`pending`)
 

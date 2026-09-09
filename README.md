@@ -169,6 +169,16 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 未公开的内部规范。持续要求见 [`贡献规则`](AGENTS.md)。
 命名和测试拆分要求见 [`Rust 开发规范`](docs/development/rust-style.md)。
 
+## Phase 4 研究完整性（实施中）
+
+新 Python 研究包已加入缺失样本偏度、因果滚动窗口、NAV 收益率及收益率相关性数值原语，
+语义和集成边界见 [`ADR 0011`](docs/adr/0011-research-numerical-integrity.md)。
+偏度使用实际有效样本数，常数窗口保留缺失状态；收益率相关性不使用 NAV 差分，也不静默截齐
+不同长度的序列。SciPy 1.18.1 和 Hypothesis 6.167.1 用于独立金标与性质验证。
+研究包隔离测试为 46 passed，包含 45 项数值用例和 1 项健康检查；完整 `just check` 通过。
+这只是 Phase 4 的数值部分：权限隔离、指标失效、扰动与失败记忆、统一重准入，以及与因子
+求值和回测器的连接仍未完成。尚未产生真实美股回测结果。
+
 ## 旧研究引擎基线
 
 Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化

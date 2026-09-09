@@ -13,6 +13,7 @@
 .venv-*
 **/.mypy_cache
 **/.pytest_cache
+**/.hypothesis
 **/.ruff_cache
 **/__pycache__
 node_modules
