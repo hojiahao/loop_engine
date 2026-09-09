@@ -4,6 +4,7 @@ ARG UV_IMAGE="m.daocloud.io/ghcr.io/astral-sh/uv:0.11.29@sha256:eb2843a1e56fd9e3
 ARG RUST_VERSION="1.93.1"
 ARG RUST_RELEASE_DATE="2026-02-12"
 ARG RUST_TARGET="x86_64-unknown-linux-gnu"
+ARG RUST_DIST_MIRROR="sjtug"
 ARG JUST_VERSION="1.45.0"
 ARG JUST_SHA256="dc3f958aaf8c6506dd90426e9b03f86dd15e74a6467ee0e54929f750af3d9e49"
 
@@ -14,6 +15,7 @@ FROM ${PYTHON_IMAGE} AS development
 ARG RUST_VERSION
 ARG RUST_RELEASE_DATE
 ARG RUST_TARGET
+ARG RUST_DIST_MIRROR
 ARG JUST_VERSION
 ARG JUST_SHA256
 
@@ -54,6 +56,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         xz-utils
 
 COPY config/toolchains/rust-1.93.1-x86_64-unknown-linux-gnu.sha256 /tmp/rust-components.sha256
+COPY scripts/download-rust-component.sh /tmp/download-rust-component.sh
 
 RUN --mount=type=cache,id=loop-engine-rust-1.93.1,target=/var/cache/loop-rust,sharing=locked \
     set -eu; \
@@ -68,17 +71,8 @@ RUN --mount=type=cache,id=loop-engine-rust-1.93.1,target=/var/cache/loop-rust,sh
             *) echo "unexpected Rust component archive: ${archive}" >&2; exit 2 ;; \
         esac; \
         archive_path="/var/cache/loop-rust/${archive}"; \
-        if [ ! -f "${archive_path}" ] || \
-            ! echo "${digest}  ${archive_path}" | sha256sum --check --status; then \
-            rm -f -- "${archive_path}.part"; \
-            curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-                --fail --silent --show-error --location --retry 3 \
-                --connect-timeout 15 --max-time 600 \
-                "https://mirrors.sjtug.sjtu.edu.cn/rust-static/dist/${RUST_RELEASE_DATE}/${archive}" \
-                --output "${archive_path}.part"; \
-            echo "${digest}  ${archive_path}.part" | sha256sum --check; \
-            mv "${archive_path}.part" "${archive_path}"; \
-        fi; \
+        bash /tmp/download-rust-component.sh "${RUST_DIST_MIRROR}" \
+            "dist/${RUST_RELEASE_DATE}/${archive}" "${digest}" "${archive_path}"; \
         echo "${digest}  ${archive_path}" | sha256sum --check; \
     done < /tmp/rust-components.sha256
 
@@ -95,7 +89,7 @@ RUN --network=none \
     done < /tmp/rust-components.sha256; \
     rmdir "${install_root}"; \
     cp /tmp/rust-components.sha256 "${RUST_PREFIX}/.loop-engine-components.sha256"; \
-    rm /tmp/rust-components.sha256; \
+    rm /tmp/rust-components.sha256 /tmp/download-rust-component.sh; \
     test "$(rustc --version)" = "rustc 1.93.1 (01f6ddf75 2026-02-11)"; \
     test "$(cargo --version)" = "cargo 1.93.1 (083ac5135 2025-12-15)"; \
     test "$(cargo-clippy --version)" = "clippy 0.1.93 (01f6ddf758 2026-02-11)"; \

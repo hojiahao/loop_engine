@@ -5,11 +5,14 @@ services:
     build:
       context: .
       dockerfile: .devcontainer/Dockerfile
+      args:
+        RUST_DIST_MIRROR: "${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
     command: ["sleep", "infinity"]
     init: true
     user: "${LOOP_ENGINE_UID:-1000}:${LOOP_ENGINE_GID:-1000}"
     environment:
       LOOP_ENGINE_RUNTIME_ROOT: /var/lib/loop-engine-dev
+      LOOP_ENGINE_RUST_DIST_MIRROR: "${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
       COREPACK_HOME: /usr/local/share/corepack
       LOOP_TEST_POSTGRES_URL: postgresql://loop_engine_test:loop_engine_test_only@postgres:5432/loop_engine_test?sslmode=require
     volumes:

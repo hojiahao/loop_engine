@@ -4,6 +4,7 @@ set -euo pipefail
 loop_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${loop_repo_dir}"
 
+node --test --test-isolation=none tests/toolchains/rust-download.test.mjs
 if [[ -z "${LOOP_TEST_POSTGRES_URL:-}" ]]; then
   mkdir -p .tools
   exec 9>.tools/postgres-test.lock

@@ -78,6 +78,22 @@ at the same `clippy::collapsible_if` in `store/backtest.rs`; TypeScript and all
 three Python jobs passed. The follow-up collapses the nested condition into a
 let-chain without changing the rejection rule or adding a lint exemption.
 
+Correction `275e190` is pushed. Host workspace/all-target/all-feature Clippy
+with `-D warnings` and rustfmt passed. In run `34330440769`, the Rust job passed
+both lint and its complete regression suite; TypeScript and all three Python
+jobs also passed. The other two jobs failed earlier during Rust component
+downloads: unified bootstrap reported SJTUG connection timeouts and curl 56,
+and the clean-container build reported SJTUG timeouts. DaoCloud OCI pulls
+succeeded; these are transport failures, not evidence of a passing clean gate.
+
+The follow-up uses one content-pinned downloader for host and container,
+selects the official Rust endpoint on GitHub-hosted CI, and adds bounded fallback
+without relaxing digest verification or changing DaoCloud images. Ten offline
+fault tests pass locally and are now mandatory in `just check` and `just test`.
+Host `just check`, shell syntax checks and both default/CI Compose transport
+configuration checks pass. ADR 0002 records the transport policy. Full remote
+acceptance of this follow-up is pending at commit time.
+
 Remote acceptance must include all seven CI jobs on the corrected commit,
 including Clippy with warnings denied, full Rust regressions, the unified
 workspace and the clean DaoCloud container. Until those gates pass, this

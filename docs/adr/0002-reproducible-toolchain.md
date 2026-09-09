@@ -60,6 +60,16 @@ operator requires DaoCloud as the image transport.
     install those content-pinned Rust components directly. This avoids both the
     unusually large Rust OCI layer and rustup's second, separately fetched
     manifest while retaining pinned compiler, Cargo, Clippy, and rustfmt bytes.
+14. Share the Rust component downloader between host bootstrap and the image
+    build. After a transport failure, try the official endpoint and then RSProxy,
+    skipping any already attempted source. Each source has a 10-second connection
+    timeout and a 300-second total timeout, with no unbounded retry. A checksum
+    mismatch is fatal, not a reason to try another source. Verified bytes replace
+    a cache entry atomically; failed and interrupted downloads remove their
+    uniquely named temporary files. GitHub-hosted CI selects the official source
+    first; local development retains the SJTUG default. This amendment follows
+    SJTUG connection failures in run `34330440769` and does not change OCI sources,
+    component versions, digests, or verification gates.
 
 ## Consequences
 

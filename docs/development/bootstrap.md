@@ -19,8 +19,10 @@ upstream `docker.io/library/python` image is referenced as
 also pinned to a full OCI index digest.
 
 The development image installs Cargo, rustc, rust-std, Clippy, and rustfmt from
-the SJTUG copies of the official component archives. Before extraction, every
-archive must match the SHA-256 manifest committed under `config/toolchains`.
+the official component archives using the same downloader as host bootstrap.
+The default transport is SJTUG; GitHub-hosted CI selects the official endpoint.
+Before extraction, every archive must match the SHA-256 manifest committed under
+`config/toolchains`.
 This makes the mirror a transport rather than a provenance authority. A clean
 runtime volume does not download a second copy of Rust or pull the large Rust
 OCI image layer.
@@ -89,7 +91,17 @@ them atomically under the ignored runtime `.tools` directory.
 Unknown values fail closed instead of turning bootstrap into an arbitrary
 downloader. All redirects must remain HTTPS and all endpoints are subject to
 the same pinned digests. This selection affects Rust archives only, not OCI
-image pulls.
+image pulls. Compose passes it to both the image build and runtime bootstrap.
+
+After a transport failure, the shared downloader tries `official` and then
+`rsproxy`, without repeating a source already attempted. Each attempt has a
+10-second connection timeout and a 300-second total timeout. A checksum mismatch
+aborts immediately without falling back, extracting or replacing cached bytes.
+An already verified cache avoids network access; a successful download replaces
+the cache atomically. Failure and cancellation clean up the unique partial file.
+GitHub-hosted CI explicitly selects `official` because SJTUG connection failures
+blocked both clean gates in run `34330440769`. The DaoCloud image policy is
+unchanged.
 The root
 `pyproject.toml` defines one uv workspace for the legacy regression dependencies,
 `loop_research`, and `loop_protocol`. Bootstrap creates one Git-ignored `.venv`
@@ -127,6 +139,9 @@ gate rejects stale `.venv-*` directories, package-local virtual environments,
 non-CPython interpreters, and free-threaded CPython builds.
 
 Every repository Shell entry point is parsed by `bash -n` during `just check`.
+Both `just check` and `just test` run offline Rust-download fault tests for
+fallback, cache verification, corrupt bytes, bounded source exhaustion,
+cancellation, invalid arguments and symlink rejection.
 
 Reviewed Rust distribution mirror configuration references:
 

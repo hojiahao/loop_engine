@@ -18,18 +18,7 @@ loop_just_sha256="dc3f958aaf8c6506dd90426e9b03f86dd15e74a6467ee0e54929f750af3d9e
 loop_python_identity_code='import platform, sysconfig; print("|".join((platform.python_implementation(), platform.python_version(), str(int(sysconfig.get_config_var("Py_GIL_DISABLED") or 0)))))'
 
 case "${loop_rust_dist_mirror}" in
-  rsproxy)
-    loop_rust_dist_server="https://rsproxy.cn"
-    ;;
-  ustc)
-    loop_rust_dist_server="https://mirrors.ustc.edu.cn/rust-static"
-    ;;
-  sjtug)
-    loop_rust_dist_server="https://mirrors.sjtug.sjtu.edu.cn/rust-static"
-    ;;
-  official)
-    loop_rust_dist_server="https://static.rust-lang.org"
-    ;;
+  rsproxy|ustc|sjtug|official) ;;
   *)
     echo "unsupported LOOP_ENGINE_RUST_DIST_MIRROR: ${loop_rust_dist_mirror}" >&2
     echo "expected one of: rsproxy, ustc, sjtug, official" >&2
@@ -99,11 +88,9 @@ else
         exit 2
         ;;
     esac
-    curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
-      --fail --silent --show-error --location --retry 3 \
-      --connect-timeout 15 --max-time 600 \
-      "${loop_rust_dist_server}/dist/${loop_rust_release_date}/${loop_archive}" \
-      --output "${loop_download_dir}/${loop_archive}"
+    bash "${loop_repo_dir}/scripts/download-rust-component.sh" \
+      "${loop_rust_dist_mirror}" "dist/${loop_rust_release_date}/${loop_archive}" \
+      "${loop_digest}" "${loop_download_dir}/${loop_archive}"
     echo "${loop_digest}  ${loop_download_dir}/${loop_archive}" | sha256sum --check
   done < "${loop_rust_checksums}"
 
