@@ -5,4 +5,5 @@ export * from "./domain.js";
 export * from "./holdout-identity.js";
 export * from "./job.js";
 export * from "./negotiation.js";
+export * from "./provenance.js";
 export * from "./runtime-validation.js";

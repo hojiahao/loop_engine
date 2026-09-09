@@ -8,6 +8,7 @@ pub mod artifact;
 pub mod holdout;
 pub mod job;
 pub mod negotiation;
+pub mod provenance;
 pub mod runtime_validation;
 
 pub const PROTOCOL_VERSION: &str = "loop-engine.v1alpha1";

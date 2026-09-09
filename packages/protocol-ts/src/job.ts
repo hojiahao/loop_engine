@@ -39,6 +39,7 @@ import {
   parseCanonicalHoldoutEvaluationPlan,
   verifyHoldoutPeriodIdentity,
 } from "./holdout-identity.js";
+import { ProvenanceError, ProvenanceSnapshot } from "./provenance.js";
 
 const MAX_ID_BYTES = 128;
 const MAX_REASON_BYTES = 2_048;
@@ -736,16 +737,11 @@ function validateProvenance(
   field: string,
 ): void {
   if (provenance === undefined) fail("missing_field", field);
-  const digests = [
-    provenance.sourceCodeSha256,
-    provenance.operatorRegistrySha256,
-    provenance.configurationSha256,
-    provenance.dataManifestSha256,
-    provenance.tradingCalendarSha256,
-    provenance.environmentSha256,
-  ];
-  if (digests.some((digest) => digest?.value.byteLength !== 32)) {
-    fail("invalid_provenance", field);
+  try {
+    ProvenanceSnapshot.fromWire(provenance);
+  } catch (error) {
+    if (error instanceof ProvenanceError) fail("invalid_provenance", field);
+    throw error;
   }
 }
 

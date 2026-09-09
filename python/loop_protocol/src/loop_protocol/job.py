@@ -31,6 +31,7 @@ from .holdout import (
     parse_canonical_holdout_evaluation_plan,
     verify_holdout_period_identity,
 )
+from .provenance import ProvenanceError, ProvenanceSnapshot
 
 _MAX_ID_BYTES = 128
 _MAX_REASON_BYTES = 2_048
@@ -907,19 +908,10 @@ def _validate_provenance(
 ) -> None:
     if provenance is None:
         _fail(JobValidationCode.MISSING_FIELD, field)
-    for digest_name in (
-        "source_code_sha256",
-        "operator_registry_sha256",
-        "configuration_sha256",
-        "data_manifest_sha256",
-        "trading_calendar_sha256",
-        "environment_sha256",
-    ):
-        if (
-            not provenance.HasField(digest_name)
-            or len(getattr(provenance, digest_name).value) != 32
-        ):
-            _fail(JobValidationCode.INVALID_PROVENANCE, field)
+    try:
+        ProvenanceSnapshot.from_wire(provenance)
+    except ProvenanceError:
+        _fail(JobValidationCode.INVALID_PROVENANCE, field)
 
 
 def _validate_holdout_backtest_input(

@@ -121,6 +121,13 @@ from .negotiation import (
     validate_protocol_info,
     validate_protocol_selection_availability,
 )
+from .provenance import (
+    PROVENANCE_COMPONENTS,
+    ProvenanceAssessment,
+    ProvenanceError,
+    ProvenanceSnapshot,
+    assess_provenance,
+)
 from .runtime_validation import (
     SERVICE_ERROR_TYPE_URL,
     RichStatusDetail,
@@ -146,6 +153,7 @@ __all__ = [
     "MAX_HOLDOUT_TOKENS",
     "MAX_HOLDOUT_WALL_TIME_NS",
     "PROTOCOL_VERSION",
+    "PROVENANCE_COMPONENTS",
     "SERVICE_ERROR_TYPE_URL",
     "ActorKind",
     "AlignmentPolicy",
@@ -201,6 +209,9 @@ __all__ = [
     "ProtocolBuildIdentity",
     "ProtocolNegotiationCode",
     "ProtocolNegotiationError",
+    "ProvenanceAssessment",
+    "ProvenanceError",
+    "ProvenanceSnapshot",
     "RichStatusDetail",
     "RuntimeValidationCode",
     "RuntimeValidationError",
@@ -210,6 +221,7 @@ __all__ = [
     "ValidatedJobShape",
     "ValidatedJobSpecificationShape",
     "WindowPolicy",
+    "assess_provenance",
     "audit_event_sha256",
     "audit_payload_sha256",
     "bind_factor_spec",

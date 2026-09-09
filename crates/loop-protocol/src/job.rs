@@ -15,6 +15,7 @@ use loop_core::factor::{CanonicalDecimal, Identifier, PositiveInteger};
 use loop_core::holdout::{parse_canonical_holdout_evaluation_plan, verify_holdout_period_identity};
 
 use crate::artifact::validate_artifact_ref;
+use crate::provenance::ProvenanceSnapshot;
 use crate::wire::v1::{
     Actor, ActorKind, BacktestSpec, DevelopmentDatasetReference, ErrorCategory, FactorAst,
     FactorAstNode, FactorDirection, FactorRejection, FactorRejectionCode, FactorSpec,
@@ -1100,22 +1101,9 @@ fn validate_provenance(
 ) -> Result<(), JobValidationError> {
     let provenance = provenance
         .ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, field))?;
-    for digest in [
-        provenance.source_code_sha256.as_ref(),
-        provenance.operator_registry_sha256.as_ref(),
-        provenance.configuration_sha256.as_ref(),
-        provenance.data_manifest_sha256.as_ref(),
-        provenance.trading_calendar_sha256.as_ref(),
-        provenance.environment_sha256.as_ref(),
-    ] {
-        if digest.is_none_or(|value| value.value.len() != 32) {
-            return Err(JobValidationError::new(
-                JobValidationCode::InvalidProvenance,
-                field,
-            ));
-        }
-    }
-    Ok(())
+    ProvenanceSnapshot::try_from(provenance)
+        .map(|_| ())
+        .map_err(|_| JobValidationError::new(JobValidationCode::InvalidProvenance, field))
 }
 
 fn validate_holdout_backtest_input(

@@ -149,6 +149,10 @@ are not production research parsers, and no holdout capability was issued.
       independent SciPy goldens and bounded Hypothesis properties.
 - [ ] Bind the numerical primitives to authorized factor/backtest execution;
       resolve session alignment, coverage and versioned operator semantics.
+- [ ] Share original-run integrity and current-context freshness assessment
+      across Rust, TypeScript and Python; reject unresolved and stale metrics.
+- [ ] Enforce provenance checks in durable result registration and current-result
+      read/export paths, with trusted manifest resolution and restart coverage.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and
@@ -160,6 +164,12 @@ Checkpoint `7e6352a` is pushed; all seven jobs in GitHub Actions run `3431522507
 passed, including the clean-container gate. A subsequent local full-suite run
 exposed a migration namespace race; its follow-up is recorded in the Phase 3
 verification document and is not counted as a passing local gate.
+
+ADR 0012 defines immutable six-component provenance snapshots and distinguishes
+recorded-run inconsistency from stale or unresolved current metrics. Shared
+cross-language vectors and snapshot validation are implemented; trusted result
+registration, current-result reads/exports and restart invalidation remain open.
+Checkpoint evidence: `docs/verification/phase-04-research-integrity.md`.
 
 ## Phase 5 - US-equities data plane (`pending`)
 
