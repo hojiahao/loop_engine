@@ -1,6 +1,6 @@
 # Phase 3: Durable state checkpoint
 
-- Date: 2026-09-08
+- Date: 2026-09-09
 - Owner: hojiahao
 - Phase status: `in_progress`, not a completed Phase 3 exit gate.
 
@@ -228,8 +228,9 @@ their parent process/fault tests, not skipped behavior. Breakdown:
 
 Full `just check` passed: cross-language protocol checks, rustfmt, workspace
 Clippy with warnings denied, TypeScript format/lint/typechecks, Python 3.14.4
-environment verification, Ruff, and mypy. Remote CI for this checkpoint remains
-pending; earlier CI results must not be attributed to this implementation.
+environment verification, Ruff, and mypy. Commit `eb95170` is pushed; all seven
+jobs in GitHub Actions run `34303072037` pass, including the unified workspace
+and clean DaoCloud container. This evidence does not cover the later batch work.
 
 After tests, the disposable PostgreSQL container and its tmpfs test database
 were removed. At the owner's request, stale root `target/`, unused uv and Docker
@@ -238,6 +239,35 @@ incremental caches were cleaned. Source, Git history, research records, secrets,
 installed toolchains, the root `.venv`, and reusable compiled dependencies remain.
 These are reconstructible artifacts, not research-data deletion. Docker-reported
 active build-cache leases were not forcibly removed.
+
+## Atomic batch implementation (2026-09-09)
+
+ADR 0010 and forward-only migration 5 implement complete frozen-plan consumption
+behind `HoldoutRepository`. The narrow request cannot supply research inputs or
+budgets. The protected schema resolver and separate job admission policy default
+deny. No production jobs or data capabilities are created by this implementation.
+
+The first full local test attempt found an invalid audit command identifier:
+`loop.holdout.consume-grant` did not satisfy the canonical audit schema. The
+unpublished operation was corrected to `loop.holdout.consume_grant`; the failed
+attempt is not counted as a passing gate. The subsequent targeted command passed:
+
+```bash
+CARGO_BUILD_JOBS=1 ./scripts/cargo.sh test -p loopd --all-features --locked \
+  --test durable_batch --lib -- --test-threads=1
+```
+
+- 20 batch tests passed: exact plan/budget mapping, immutable replay after
+  expiry/restart, independent admission, actor and reference binding, terminal
+  denial, rehashed receipt corruption, lifecycle-compatible replay, database
+  membership constraints, parser outages, partial insertion and receipt rollback,
+  cancellation, and clock/expiry changes during materialization.
+- Two library tests passed. The crash parent explicitly invokes its ignored
+  child entry point and kills clients mid-batch and before/after commit, in
+  addition to the previous job, lease, period, approval and grant boundaries.
+- `cargo clippy -p loopd --all-targets --all-features --locked -- -D warnings`
+  passed before the identifier-only correction. Final workspace gates remain
+  required for phase closure; no remote CI evidence covers these edits yet.
 
 ## Quality rules
 
@@ -252,10 +282,8 @@ tests. It deliberately does not invent a universal name-length limit.
 
 ## Remaining Phase 3 gates
 
-- Finish checkpoint verification for grant records and approval attachments;
-  atomically consume one grant and create every frozen-plan batch job, receipt,
-  and event.
-- Complete the backend-independent interface for those remaining aggregates.
+- Complete the expanded 2/4/8-process batch matrix and full workspace regression
+  gate for atomic grant consumption, job insertion, receipts and audit.
 - Pass final host, clean-container, and remote CI on the entire Phase 3 code;
   commit, push, and record closure evidence before marking Phase 3 complete.
 

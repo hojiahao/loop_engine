@@ -1,6 +1,6 @@
 mod closing;
-mod resolve;
-mod state;
+pub(super) mod resolve;
+pub(super) mod state;
 
 use std::collections::BTreeMap;
 

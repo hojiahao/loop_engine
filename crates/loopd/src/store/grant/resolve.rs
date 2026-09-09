@@ -17,7 +17,7 @@ use super::super::{approval, validate_id};
 use super::state::{PersistedPeriod, record_time};
 use super::{PgJobStore, ResolvedFreeze, StoreError, StoreResult};
 
-pub(super) fn digest(value: Option<&Sha256Digest>) -> StoreResult<&[u8]> {
+pub(in crate::store) fn digest(value: Option<&Sha256Digest>) -> StoreResult<&[u8]> {
     let bytes = &value.ok_or(StoreError::Invalid("grant digest"))?.value;
     if bytes.len() != 32 {
         return Err(StoreError::Invalid("grant digest length"));
@@ -34,7 +34,7 @@ fn digest_id(id: &str, bytes: Option<&Sha256Digest>) -> StoreResult<()> {
     Ok(())
 }
 
-pub(super) fn policy(value: Option<&PolicyReference>) -> StoreResult<()> {
+pub(in crate::store) fn policy(value: Option<&PolicyReference>) -> StoreResult<()> {
     let value = value.ok_or(StoreError::Invalid("grant approval policy"))?;
     validate_id(
         &value
@@ -55,7 +55,7 @@ pub(super) fn policy(value: Option<&PolicyReference>) -> StoreResult<()> {
     Ok(())
 }
 
-pub(super) fn freeze_shape(
+pub(in crate::store) fn freeze_shape(
     freeze: &FreezeManifestReference,
 ) -> StoreResult<&HoldoutEvaluationPlanReference> {
     let manifest = validate_artifact_ref(
@@ -135,7 +135,7 @@ pub(super) fn freeze_shape(
     Ok(plan)
 }
 
-pub(super) fn validate_request(
+pub(in crate::store) fn validate_request(
     command: &RequestHoldoutGrantRequest,
 ) -> StoreResult<(&str, &FreezeManifestReference)> {
     let period_id = &command
@@ -173,7 +173,7 @@ pub(super) fn validate_request(
     Ok((period_id, freeze))
 }
 
-pub(super) fn resolve_freeze(
+pub(in crate::store) fn resolve_freeze(
     store: &PgJobStore,
     requested: &FreezeManifestReference,
     period: &PersistedPeriod,
@@ -231,7 +231,7 @@ pub(super) fn resolve_freeze(
     Ok(resolved)
 }
 
-pub(super) fn validate_expiry(start: i64, end: i64) -> StoreResult<()> {
+pub(in crate::store) fn validate_expiry(start: i64, end: i64) -> StoreResult<()> {
     audit_timestamp(start)?;
     audit_timestamp(end)?;
     if !matches!(end.checked_sub(start), Some(1..=604_800_000)) {
@@ -240,7 +240,7 @@ pub(super) fn validate_expiry(start: i64, end: i64) -> StoreResult<()> {
     Ok(())
 }
 
-pub(super) fn bind_approval(
+pub(in crate::store) fn bind_approval(
     record: &HoldoutApprovalRecord,
     freeze: &FreezeManifestReference,
     at: i64,
@@ -267,7 +267,7 @@ pub(super) fn bind_approval(
     Ok(())
 }
 
-pub(super) async fn load_approvals(
+pub(in crate::store) async fn load_approvals(
     transaction: &mut Transaction<'_, Postgres>,
     command: &RequestHoldoutGrantRequest,
     freeze: &FreezeManifestReference,
@@ -323,7 +323,9 @@ pub(super) async fn load_approvals(
     Ok(records)
 }
 
-pub(super) fn approval_reference(record: &HoldoutApprovalRecord) -> HoldoutApprovalRecordReference {
+pub(in crate::store) fn approval_reference(
+    record: &HoldoutApprovalRecord,
+) -> HoldoutApprovalRecordReference {
     HoldoutApprovalRecordReference {
         holdout_approval_record_id: record.holdout_approval_record_id.clone(),
         holdout_period_id: record.holdout_period_id.clone(),
@@ -342,7 +344,7 @@ pub(super) fn approval_reference(record: &HoldoutApprovalRecord) -> HoldoutAppro
     }
 }
 
-pub(super) fn issued_payload(grant: &HoldoutGrantRecord) -> StoreResult<AuditPayload> {
+pub(in crate::store) fn issued_payload(grant: &HoldoutGrantRecord) -> StoreResult<AuditPayload> {
     #[derive(Serialize)]
     struct Approval<'a> {
         holdout_approval_record_id: &'a str,

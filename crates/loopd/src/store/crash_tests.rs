@@ -63,7 +63,19 @@ fn crash_worker() {
             if mode.starts_with("grant_") || mode.starts_with("close_") {
                 options.holdout_policy = Arc::new(grant::Policy::default());
             }
+            if mode.starts_with("batch_") {
+                options.holdout_policy = Arc::new(batch::Policy::default());
+                options.admission = Arc::new(batch::Admission);
+            }
             let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("batch_") {
+                let (_, request) = batch::seed(&store).await;
+                store
+                    .consume_grant(&actor(), request, research::metadata())
+                    .await
+                    .unwrap();
+                panic!("batch fault point not reached");
+            }
             if mode.starts_with("grant_") || mode.starts_with("close_") {
                 let request = grant::seed(&store, 2, false).await;
                 let issued = store.issue_grant(&actor(), request).await.unwrap();
@@ -151,6 +163,9 @@ async fn killed_writer_preserves_atomicity() {
         "grant_after_commit",
         "close_before_commit",
         "close_after_commit",
+        "batch_mid_insert",
+        "batch_before_commit",
+        "batch_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
@@ -196,8 +211,35 @@ async fn killed_writer_preserves_atomicity() {
         if point.starts_with("grant_") || point.starts_with("close_") {
             options.holdout_policy = Arc::new(grant::Policy::default());
         }
+        if point.starts_with("batch_") {
+            options.holdout_policy = Arc::new(batch::Policy::default());
+            options.admission = Arc::new(batch::Admission);
+        }
         let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("batch_") {
+            let committed = point == "batch_after_commit";
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                if committed { 7 } else { 4 }
+            );
+            let (_, request) = batch::seed(&store).await;
+            let result = store
+                .consume_grant(&actor(), request, research::metadata())
+                .await
+                .unwrap();
+            assert_eq!(result.replayed, committed);
+            let jobs = result.response.job_batch.unwrap().job_ids;
+            assert_eq!(jobs.len(), 2);
+            for id in jobs {
+                assert!(store.get(&id.value).await.unwrap().is_some());
+            }
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 7);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("grant_") || point.starts_with("close_") {
             let committed = point.ends_with("after_commit");
             let closing = point.starts_with("close_");

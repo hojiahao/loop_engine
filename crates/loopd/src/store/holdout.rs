@@ -4,12 +4,14 @@ use loop_core::audit::{
     AuditAction, AuditTarget, AuditTargetKind, Sha256Digest as CanonicalDigest,
     state_transition_payload,
 };
-use loop_core::holdout::CanonicalHoldoutPeriod;
+use loop_core::holdout::{CanonicalHoldoutPeriod, HoldoutEvaluationPlanEntry};
 use loop_protocol::holdout::validate_holdout_period;
-use loop_protocol::wire::holdout::v1::{RecordHoldoutApprovalRequest, RequestHoldoutGrantRequest};
+use loop_protocol::wire::holdout::v1::{
+    ConsumeGrantAndEnqueueBacktestRequest, RecordHoldoutApprovalRequest, RequestHoldoutGrantRequest,
+};
 use loop_protocol::wire::v1::{
-    Actor, CommandContext, FreezeManifestReference, HoldoutApprovalRecord, HoldoutGrantRecord,
-    HoldoutPeriod, HoldoutPeriodRecord, HoldoutPeriodState, Sha256Digest,
+    Actor, BacktestSpec, CommandContext, FreezeManifestReference, HoldoutApprovalRecord,
+    HoldoutGrantRecord, HoldoutPeriod, HoldoutPeriodRecord, HoldoutPeriodState, Sha256Digest,
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -19,7 +21,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::lifecycle::validate_context;
 use super::postgres::{audit_timestamp, encode_message, timestamp_millis, verified_blob};
 use super::{ApprovalResult, PgJobStore, StoreError, StoreResult, approval, audit, validate_id};
-use super::{CloseGrant, GrantResult, ResolvedFreeze, grant};
+use super::{
+    BatchResult, CloseGrant, GrantResult, ResolvedFreeze, SubmissionMetadata, batch, grant,
+};
 
 const REGISTER: &str = "loop.holdout.register-period";
 const READ: &str = "loop.holdout.read-period";
@@ -28,6 +32,20 @@ const READ: &str = "loop.holdout.read-period";
 /// Hooks must be bounded, side-effect-free checks against already resolved state;
 /// network or artifact retrieval must complete before entering the repository.
 pub trait HoldoutPolicy: Send + Sync {
+    /// Deterministically parse the exact frozen BacktestSpec bytes through their
+    /// owning schema and resolve policy, provenance and seed semantics. The store
+    /// supplies an independently parsed plan entry, never a caller-supplied spec.
+    /// This bounded, side-effect-free hook must not perform network I/O. Its
+    /// default denies until the research-owned parser and registry are available.
+    fn materialize_backtest(
+        &self,
+        _freeze: &FreezeManifestReference,
+        _entry: &HoldoutEvaluationPlanEntry,
+        _bytes: &[u8],
+    ) -> StoreResult<BacktestSpec> {
+        Err(StoreError::AdmissionDenied)
+    }
+
     /// Resolve a freeze and its complete immutable plan from a bounded, trusted
     /// cache. The resolver verifies the freeze document and owning BacktestSpec
     /// parser; matching digests alone are not semantic validation. The store
@@ -143,6 +161,22 @@ pub struct PeriodRegistration {
 
 /// Backend-independent protected period commands. SQL handles remain private.
 pub trait HoldoutRepository: Send + Sync {
+    /// Consume one current grant and enqueue every entry of its frozen plan in
+    /// one transaction with the terminal period, immutable batch, receipt and
+    /// audit. The caller supplies neither jobs nor budget; metadata is resolved
+    /// by the authenticated role handler and independently checked by admission.
+    /// Replays return the original batch, retain its protocol selection, and do
+    /// not dispatch again. Bounds are 4,096 jobs, 64 MiB total job envelopes and
+    /// 30 seconds for the command. Cancellation or failure rolls back; retry the
+    /// same key after uncertain commit. Invalid, unauthorized, expired, corrupt,
+    /// unavailable or conflicting inputs fail closed, never as factor rejection.
+    fn consume_grant(
+        &self,
+        principal: &Actor,
+        command: ConsumeGrantAndEnqueueBacktestRequest,
+        metadata: SubmissionMetadata,
+    ) -> impl Future<Output = StoreResult<BatchResult>> + Send;
+
     /// Atomically issue the first and only grant, attach immutable approvals,
     /// advance the expected sealed period revision, and append receipt/audit.
     /// Authority comes from the independent protected policy and authenticated
@@ -226,6 +260,15 @@ pub trait HoldoutRepository: Send + Sync {
 }
 
 impl HoldoutRepository for PgJobStore {
+    async fn consume_grant(
+        &self,
+        principal: &Actor,
+        command: ConsumeGrantAndEnqueueBacktestRequest,
+        metadata: SubmissionMetadata,
+    ) -> StoreResult<BatchResult> {
+        batch::consume(self, principal, command, metadata).await
+    }
+
     async fn issue_grant(
         &self,
         principal: &Actor,

@@ -3,6 +3,7 @@
 
 mod approval;
 mod audit;
+mod batch;
 #[cfg(test)]
 mod crash_tests;
 mod grant;
@@ -18,6 +19,7 @@ use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
 pub use approval::ApprovalResult;
+pub use batch::BatchResult;
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,

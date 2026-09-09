@@ -80,7 +80,7 @@ Phase 2 已建立 Rust、TypeScript 和 Python 共用的规范因子身份。表
 协议生成将当前源码描述符写入 `schema.current.binpb`，兼容性检查则针对不可由普通生成
 流程覆盖的 `schema.baseline.binpb`。协议规定作业绑定协议选择、VCS/tree、数据和回测
 provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；holdout
-批量事务和 capability 强制执行分别属于 Phase 3 后续工作和 Phase 4，当前尚未实现。审计链使用
+批量事务正在 Phase 3 进行实现和验收；capability 强制执行属于 Phase 4，尚未实现。审计链使用
 独立规范文档计算 payload/event SHA-256，不对 Protobuf 字节做哈希。相关约束见
 [`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
 [`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
@@ -124,9 +124,13 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 具有不同认证主体；个人策略可只要求一人确认。区间与授权、审批关联、回执和审计同事务提交，
 到期或撤销后不能再次签发，重试也不会续期。实现边界见
 [`ADR 0009`](docs/adr/0009-single-use-holdout-grants.md)。本地 26 项专项测试以及扩展的
-2/4/8 进程竞争和提交前后强杀测试通过，完整 `just check` 通过；该新检查点的远程 CI
-尚待核验，不能沿用上一提交的 CI 结果。
-迁移 `0003`、`0004` 尚未部署到生产库，整批回测作业的原子消费仍待实现，Phase 3 尚未完成。
+2/4/8 进程竞争和提交前后强杀测试通过，完整 `just check` 通过；提交 `eb95170` 已推送，
+远程 CI `34303072037` 七项任务全部通过。
+整批回测作业的原子消费已实现，见 [`ADR 0010`](docs/adr/0010-atomic-holdout-batches.md)：
+只从冻结计划生成完整任务批次，授权消费、作业、回执和审计同事务提交；不接受调用者替换
+因子、预算或回测参数。重复请求验证原批次并返回原结果，不会重复建任务。
+本地 20 项批次测试和扩展的强杀恢复测试通过，全项目及独立进程验收仍在进行。
+迁移 `0003` 至 `0005` 尚未部署到生产库，Phase 3 尚未完成。
 
 数据库框架是 SQLx，HTTP 框架是 Axum。`migrations/postgres/*.sql` 是 SQLx 管理的版本化
 数据库变更，不是另一套数据库实现。已部署迁移不可修改，新增审批表使用新版本 `0003`；
@@ -152,8 +156,8 @@ PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 
 连接配置、管理员迁移、权限和本机测试库操作见
 [`PostgreSQL 部署说明`](docs/development/postgresql.md)。`/readyz` 检查存储状态。
 默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
-已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发与批量原子
-消费以及阶段最终 CI 仍待完成。
+已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发、过期和
+撤销的检查点已通过 CI，批量原子消费与阶段最终验收仍在进行。
 进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
 
 新增 `loopd` 手写代码禁止 `unsafe`，存储公开接口强制文档；Rust 格式和 Clippy、跨语言

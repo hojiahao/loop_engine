@@ -13,25 +13,27 @@ use super::super::postgres::{audit_timestamp, encode_message, timestamp_millis, 
 use super::super::{approval, holdout, validate_id};
 use super::{GrantResult, StoreError, StoreResult, resolve};
 
-pub(super) struct PersistedPeriod {
-    pub(super) record: HoldoutPeriodRecord,
-    pub(super) canonical_bytes: Vec<u8>,
+pub(in crate::store) struct PersistedPeriod {
+    pub(in crate::store) record: HoldoutPeriodRecord,
+    pub(in crate::store) canonical_bytes: Vec<u8>,
 }
 
-pub(super) struct PersistedGrant {
-    pub(super) grant: HoldoutGrantRecord,
-    pub(super) period: PersistedPeriod,
-    pub(super) freeze: FreezeManifestReference,
+pub(in crate::store) struct PersistedGrant {
+    pub(in crate::store) grant: HoldoutGrantRecord,
+    pub(in crate::store) period: PersistedPeriod,
+    pub(in crate::store) freeze: FreezeManifestReference,
 }
 
-pub(super) fn reference(grant: &HoldoutGrantRecord) -> StoreResult<&HoldoutGrantReference> {
+pub(in crate::store) fn reference(
+    grant: &HoldoutGrantRecord,
+) -> StoreResult<&HoldoutGrantReference> {
     grant
         .reference
         .as_ref()
         .ok_or(StoreError::Corrupt("grant reference absent"))
 }
 
-pub(super) fn grant_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
+pub(in crate::store) fn grant_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
     Ok(&reference(grant)?
         .holdout_grant_id
         .as_ref()
@@ -39,7 +41,7 @@ pub(super) fn grant_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
         .value)
 }
 
-pub(super) fn period_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
+pub(in crate::store) fn period_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
     Ok(&reference(grant)?
         .holdout_period_id
         .as_ref()
@@ -47,7 +49,7 @@ pub(super) fn period_id(grant: &HoldoutGrantRecord) -> StoreResult<&str> {
         .value)
 }
 
-pub(super) fn record_time(value: Option<&prost_types::Timestamp>) -> StoreResult<i64> {
+pub(in crate::store) fn record_time(value: Option<&prost_types::Timestamp>) -> StoreResult<i64> {
     let value = value.ok_or(StoreError::Corrupt("grant timestamp absent"))?;
     if value.nanos % 1_000_000 != 0 {
         return Err(StoreError::Corrupt("grant timestamp precision"));
@@ -58,7 +60,7 @@ pub(super) fn record_time(value: Option<&prost_types::Timestamp>) -> StoreResult
     Ok(millis)
 }
 
-pub(super) async fn load_period(
+pub(in crate::store) async fn load_period(
     transaction: &mut Transaction<'_, Postgres>,
     id: &str,
 ) -> StoreResult<PersistedPeriod> {
@@ -182,7 +184,7 @@ fn validate_pair(grant: &HoldoutGrantRecord, period: &HoldoutPeriodRecord) -> St
     Ok(())
 }
 
-pub(super) async fn load_grant(
+pub(in crate::store) async fn load_grant(
     transaction: &mut Transaction<'_, Postgres>,
     id: &str,
 ) -> StoreResult<PersistedGrant> {
@@ -276,7 +278,7 @@ pub(super) async fn load_grant(
     })
 }
 
-pub(super) async fn insert_grant(
+pub(in crate::store) async fn insert_grant(
     transaction: &mut Transaction<'_, Postgres>,
     grant: &HoldoutGrantRecord,
     freeze: &FreezeManifestReference,
@@ -320,7 +322,7 @@ pub(super) async fn insert_grant(
     Ok(())
 }
 
-pub(super) async fn update_period(
+pub(in crate::store) async fn update_period(
     transaction: &mut Transaction<'_, Postgres>,
     record: &HoldoutPeriodRecord,
     expected: u64,
@@ -365,7 +367,7 @@ pub(super) async fn update_period(
     Ok(())
 }
 
-pub(super) async fn update_grant(
+pub(in crate::store) async fn update_grant(
     transaction: &mut Transaction<'_, Postgres>,
     grant: &HoldoutGrantRecord,
     expected: u64,
@@ -391,7 +393,10 @@ pub(super) async fn update_grant(
     Ok(())
 }
 
-pub(super) fn decode_response(bytes: &[u8], canonical: &[u8]) -> StoreResult<GrantResult> {
+pub(in crate::store) fn decode_response(
+    bytes: &[u8],
+    canonical: &[u8],
+) -> StoreResult<GrantResult> {
     let response = RequestHoldoutGrantResponse::decode(bytes)
         .map_err(|_| StoreError::Corrupt("grant response receipt"))?;
     let grant = response
@@ -409,7 +414,7 @@ pub(super) fn decode_response(bytes: &[u8], canonical: &[u8]) -> StoreResult<Gra
     })
 }
 
-pub(super) fn verify_issued_receipt(
+pub(in crate::store) fn verify_issued_receipt(
     original: &GrantResult,
     current: &PersistedGrant,
     command: &RequestHoldoutGrantRequest,

@@ -60,11 +60,21 @@ fn process_worker() {
         if mode.starts_with("grant") || mode.starts_with("close") {
             options.holdout_policy = Arc::new(grant::Policy::default());
         }
+        if mode.starts_with("batch") {
+            options.holdout_policy = Arc::new(batch::Policy::default());
+            options.admission = Arc::new(batch::Admission);
+        }
         let store = PgJobStore::open(options).await.unwrap();
         let directory = path.parent().unwrap();
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "batch" | "batch-race" => {
+                let bytes = std::fs::read(directory.join("input")).unwrap();
+                let mut request = loop_protocol::wire::holdout::v1::ConsumeGrantAndEnqueueBacktestRequest::decode(bytes.as_slice()).unwrap();
+                if mode.ends_with("race") { request.context = Some(context(&format!("batch.{index}"))); }
+                store.consume_grant(&actor(), request, research::metadata()).await.map(|value| value.replayed)
+            }
             "grant" | "grant-race" => {
                 let bytes = std::fs::read(directory.join("input")).unwrap();
                 let mut request =
@@ -170,9 +180,20 @@ async fn process_writers_preserve_fencing() {
             "grant-race",
             "close",
             "close-race",
+            "batch",
+            "batch-race",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
+            if mode.starts_with("batch") {
+                let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+                config.holdout_policy = Arc::new(batch::Policy::default());
+                config.admission = Arc::new(batch::Admission);
+                let store = PgJobStore::open(config).await.unwrap();
+                let (_, request) = batch::seed(&store).await;
+                std::fs::write(directory.path().join("input"), request.encode_to_vec()).unwrap();
+                store.close().await;
+            }
             if mode.starts_with("grant") || mode.starts_with("close") {
                 let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
                 config.holdout_policy = Arc::new(grant::Policy::default());
@@ -254,14 +275,17 @@ async fn process_writers_preserve_fencing() {
                     .await
                     .unwrap();
             let events = store.audit_events(0, 500).await.unwrap();
-            let baseline = if mode.starts_with("grant") {
+            let baseline = if mode.starts_with("batch") {
+                4
+            } else if mode.starts_with("grant") {
                 3
             } else if mode.starts_with("close") {
                 4
             } else {
                 usize::from(mode == "acquire" || mode.starts_with("approval"))
             };
-            assert_eq!(events.len(), baseline + committed);
+            let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
+            assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
             store.verify_configuration().await.unwrap();
             store.close().await;

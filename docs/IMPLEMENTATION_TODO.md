@@ -92,7 +92,7 @@ No Phase 3 completion is claimed by a storage checkpoint.
       access, canonical identity, and monotonic lifecycle constraints.
 - [x] Implement immutable human approvals with authenticated attribution,
       bounded validity, canonical records, replay, and transactional audit.
-- [ ] Implement single-use grants, distinct-human policy resolution, expiry,
+- [x] Implement single-use grants, distinct-human policy resolution, expiry,
       revocation, and immutable approval attachment.
 - [ ] Implement all-or-nothing frozen-plan batch consumption and job insertion.
 - [ ] Pass host, clean-container, and remote CI gates; commit and push evidence.
@@ -119,13 +119,16 @@ ADR 0008 records the authority and identity boundaries. Production approval
 policies still deny, migration 3 is not yet deployed to production, and grant
 issuance and atomic batch consumption remain open. Phase 3 is not complete.
 
-Grant lifecycle implementation is now in the working tree under ADR 0009:
+Grant lifecycle checkpoint `eb95170` is pushed under ADR 0009:
 single-use issuance, independent approval attachment, verified reads, expiry,
 revocation, immutable replay, and deferred aggregate constraints. The 26 grant
 tests, 19 approval tests, 15 period tests, library fault tests, and expanded
-2/4/8-process matrix pass. Full `just check` also passes. Commit, push, and remote
-verification remain pending in this pre-commit record; no production grant is
-issued. Atomic plan-derived batch consumption is next.
+2/4/8-process matrix pass. Full `just check` also passes. All seven jobs in GitHub
+Actions run `34303072037` pass, including unified workspace and clean-container
+gates. No production grant is issued. Atomic plan-derived batch consumption is
+implemented locally under ADR 0010 with migration 5. Its 20 targeted tests and
+library kill/restart tests pass; full workspace, independent-process, commit,
+push, and remote CI gates remain open.
 
 ## Phase 4 - Research-integrity invariants (`pending`)
 

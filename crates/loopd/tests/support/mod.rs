@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod approval;
+pub mod batch;
 pub mod grant;
 pub mod holdout;
 pub mod research;
