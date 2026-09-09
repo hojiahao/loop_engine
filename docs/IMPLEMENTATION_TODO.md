@@ -149,10 +149,13 @@ are not production research parsers, and no holdout capability was issued.
       independent SciPy goldens and bounded Hypothesis properties.
 - [ ] Bind the numerical primitives to authorized factor/backtest execution;
       resolve session alignment, coverage and versioned operator semantics.
-- [ ] Share original-run integrity and current-context freshness assessment
+- [x] Share original-run integrity and current-context freshness assessment
       across Rust, TypeScript and Python; reject unresolved and stale metrics.
 - [ ] Enforce provenance checks in durable result registration and current-result
       read/export paths, with trusted manifest resolution and restart coverage.
+- [ ] Commit and verify transactional backtest result registration and the
+      current-result repository gate under ADR 0013. Production resolvers and
+      audited exports remain separate required integrations.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and
@@ -169,6 +172,8 @@ ADR 0012 defines immutable six-component provenance snapshots and distinguishes
 recorded-run inconsistency from stale or unresolved current metrics. Shared
 cross-language vectors and snapshot validation are implemented; trusted result
 registration, current-result reads/exports and restart invalidation remain open.
+Checkpoint `13aebad` is pushed. All seven jobs in GitHub Actions run `34324674436`
+passed, including unified workspace and clean DaoCloud container gates.
 Checkpoint evidence: `docs/verification/phase-04-research-integrity.md`.
 
 ## Phase 5 - US-equities data plane (`pending`)

@@ -39,8 +39,9 @@ Targeted local evidence:
   boundaries, rustfmt, workspace Clippy with warnings denied, TypeScript
   format/lint/types, Python 3.14.4 environment checks, Ruff and mypy.
 
-Full workspace/static and clean-container acceptance must refer to the CI checks
-on the provenance implementation commit, not the previous storage commit.
+Commit `13aebad` is pushed. All seven jobs in GitHub Actions run `34324674436`
+passed, including full workspace check/test/build/doctor, complete Rust storage
+regressions and the clean DaoCloud container gate.
 
 ## Remaining gates
 
@@ -54,3 +55,24 @@ Protected capabilities, perturbation/Sharpe history, failed-hash filtering,
 unified readmission and numerical execution integration remain required by the
 Phase 4 checklist. No paid data, LLM request, factor admission, research freeze,
 holdout unlock or real backtest was performed by these checkpoints.
+
+## Transactional result checkpoint (acceptance pending)
+
+ADR 0013 and PostgreSQL migration 6 add immutable structured result registration
+to the existing lease-fenced completion transaction. Current-result reads verify
+the original job, result envelope and server-resolved current fingerprints.
+Production resolution remains default-deny and migration 6 is not deployed to
+the production database. No successful historical metrics are synthesized.
+
+The new test binary contains 15 focused result-storage cases. The existing
+process matrix additionally covers identical completion retries and distinct-key
+revision races with 2/4/8 OS writers. The crash matrix adds stops after result
+insertion, immediately before commit, and immediately after commit. All fault
+hooks are compiled only into the library test binary.
+
+The initial targeted test build succeeded. The final complete Rust suite is
+still under local validation at this checkpoint; this is not a recorded pass.
+Remote acceptance must include all seven CI jobs on this implementation commit,
+including Clippy with warnings denied, full Rust regressions, the unified
+workspace and the clean DaoCloud container. Until those gates pass, this
+checkpoint remains unaccepted and Phase 4 remains in progress.

@@ -15,7 +15,7 @@ use super::postgres::{
     budget, deadline_millis, decode_record, encode_message, record_from_row, timestamp,
     timestamp_millis, verified_blob,
 };
-use super::{CommandResult, PgJobStore, StoreError, StoreResult, audit, validate_id};
+use super::{CommandResult, PgJobStore, StoreError, StoreResult, audit, backtest, validate_id};
 
 /// Scheduler-only request to terminalize an expired lease or absolute budget.
 /// This is an internal storage envelope, not a remotely exposed RPC.
@@ -215,6 +215,7 @@ pub(super) async fn mutate(
         if job.specification != record.specification || job.revision != expected_revision + 1 {
             return Err(StoreError::Corrupt("lifecycle receipt binding"));
         }
+        backtest::verify_stored(&mut transaction, &job).await?;
         transaction.commit().await?;
         return Ok(CommandResult {
             job,
@@ -230,6 +231,7 @@ pub(super) async fn mutate(
     record.updated_at = Some(timestamp(now));
     validate_job_record(&record)?;
     write_record(&mut transaction, &record, expected_revision).await?;
+    backtest::record_completion(store, &mut transaction, &record, now).await?;
     audit::append(
         &mut transaction,
         &store.ledger_id,
@@ -269,7 +271,15 @@ pub(super) async fn mutate(
         now,
     )
     .await?;
+    #[cfg(test)]
+    if backtest::is_completed_backtest(&record)? {
+        super::crash_tests::fault_point("result_before_commit").await;
+    }
     transaction.commit().await?;
+    #[cfg(test)]
+    if backtest::is_completed_backtest(&record)? {
+        super::crash_tests::fault_point("result_after_commit").await;
+    }
     Ok(CommandResult {
         job: record,
         replayed: false,

@@ -12,8 +12,9 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgRow, PgSslMode};
 use sqlx::{ConnectOptions, Connection, PgConnection, PgPool, Postgres, Row, Transaction};
 
 use super::{
-    AdmissionPolicy, Clock, CommandResult, DenyHoldout, DenySubmission, HoldoutPolicy,
-    JobRepository, StoreError, StoreResult, SubmitJob, SystemClock, audit, validate_id,
+    AdmissionPolicy, BacktestPolicy, Clock, CommandResult, DenyBacktest, DenyHoldout,
+    DenySubmission, HoldoutPolicy, JobRepository, StoreError, StoreResult, SubmitJob, SystemClock,
+    audit, validate_id,
 };
 
 static MIGRATOR: LazyLock<sqlx::migrate::Migrator> = LazyLock::new(|| {
@@ -40,6 +41,8 @@ pub struct StoreOptions {
     pub admission: Arc<dyn AdmissionPolicy>,
     /// Independent protected-store policy; ordinary job admission grants no access.
     pub holdout_policy: Arc<dyn HoldoutPolicy>,
+    /// Independent result-manifest and current-context resolver; defaults to deny.
+    pub backtest_policy: Arc<dyn BacktestPolicy>,
     /// Total migration deadline, including waiting for the database advisory lock.
     pub migration_lock_timeout: Duration,
 }
@@ -88,6 +91,7 @@ impl StoreOptions {
             clock: Arc::new(SystemClock),
             admission: Arc::new(DenySubmission),
             holdout_policy: Arc::new(DenyHoldout),
+            backtest_policy: Arc::new(DenyBacktest),
             migration_lock_timeout: Duration::from_secs(10),
         })
     }
@@ -102,6 +106,7 @@ pub struct PgJobStore {
     pub(super) clock: Arc<dyn Clock>,
     pub(super) admission: Arc<dyn AdmissionPolicy>,
     pub(super) holdout_policy: Arc<dyn HoldoutPolicy>,
+    pub(super) backtest_policy: Arc<dyn BacktestPolicy>,
 }
 
 impl PgJobStore {
@@ -202,6 +207,7 @@ impl PgJobStore {
             clock: options.clock,
             admission: options.admission,
             holdout_policy: options.holdout_policy,
+            backtest_policy: options.backtest_policy,
         })
     }
 

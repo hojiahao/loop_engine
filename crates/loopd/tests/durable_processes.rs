@@ -6,10 +6,11 @@ use std::sync::{Arc, atomic::AtomicI64};
 use std::time::{Duration, Instant};
 
 use loop_core::audit::verify_audit_chain;
-use loop_protocol::wire::jobs::v1::AcquireJobLeaseRequest;
+use loop_protocol::wire::jobs::v1::{AcquireJobLeaseRequest, CompleteJobRequest};
 use loop_protocol::wire::v1::JobId;
 use loopd::store::{
-    CloseGrant, GrantClosure, HoldoutRepository, JobMutation, JobRepository, PgJobStore, StoreError,
+    BacktestRepository, CloseGrant, GrantClosure, HoldoutRepository, JobMutation, JobRepository,
+    PgJobStore, StoreError,
 };
 use prost::Message;
 use support::*;
@@ -51,6 +52,10 @@ fn process_worker() {
         if mode == "role" {
             options.admission = Arc::new(research::Admission);
         }
+        if mode.starts_with("result") {
+            options.admission = Arc::new(backtest::Admission);
+            options.backtest_policy = Arc::new(backtest::Policy::default());
+        }
         if mode == "period" {
             options.holdout_policy = Arc::new(holdout::Policy);
         }
@@ -69,6 +74,14 @@ fn process_worker() {
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "result" | "result-race" => {
+                let bytes = std::fs::read(directory.join("input")).unwrap();
+                let mut request = CompleteJobRequest::decode(bytes.as_slice()).unwrap();
+                if mode.ends_with("race") {
+                    request.context = Some(context(&format!("finish.{index}")));
+                }
+                store.mutate(&actor(), JobMutation::Complete(request)).await.map(|value| value.replayed)
+            }
             "batch" | "batch-race" => {
                 let bytes = std::fs::read(directory.join("input")).unwrap();
                 let mut request = loop_protocol::wire::holdout::v1::ConsumeGrantAndEnqueueBacktestRequest::decode(bytes.as_slice()).unwrap();
@@ -182,9 +195,22 @@ async fn process_writers_preserve_fencing() {
             "close-race",
             "batch",
             "batch-race",
+            "result",
+            "result-race",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
+            if mode.starts_with("result") {
+                let config = backtest::options(
+                    &path,
+                    Arc::new(FixtureClock(AtomicI64::new(NOW))),
+                    Arc::new(backtest::Policy::default()),
+                );
+                let store = PgJobStore::open(config).await.unwrap();
+                let request = backtest::seed(&store).await;
+                std::fs::write(directory.path().join("input"), request.encode_to_vec()).unwrap();
+                store.close().await;
+            }
             if mode.starts_with("batch") {
                 let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
                 config.holdout_policy = Arc::new(batch::Policy::default());
@@ -270,13 +296,17 @@ async fn process_writers_preserve_fencing() {
                 committed,
                 if mode.ends_with("distinct") { count } else { 1 }
             );
-            let store =
-                PgJobStore::open(options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW)))))
-                    .await
-                    .unwrap();
+            let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+            if mode.starts_with("result") {
+                config.admission = Arc::new(backtest::Admission);
+                config.backtest_policy = Arc::new(backtest::Policy::default());
+            }
+            let store = PgJobStore::open(config).await.unwrap();
             let events = store.audit_events(0, 500).await.unwrap();
             let baseline = if mode.starts_with("batch") {
                 4
+            } else if mode.starts_with("result") {
+                2
             } else if mode.starts_with("grant") {
                 3
             } else if mode.starts_with("close") {
@@ -287,6 +317,20 @@ async fn process_writers_preserve_fencing() {
             let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
             assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
+            if mode.starts_with("result") {
+                assert_eq!(
+                    store
+                        .current_backtest(&actor(), "job.1", "context.fixture")
+                        .await
+                        .unwrap(),
+                    backtest::result()
+                );
+                let results: i64 = sqlx::query_scalar("SELECT count(*) FROM backtest_results")
+                    .fetch_one(&mut connection(&directory).await)
+                    .await
+                    .unwrap();
+                assert_eq!(results, 1);
+            }
             store.verify_configuration().await.unwrap();
             store.close().await;
         }

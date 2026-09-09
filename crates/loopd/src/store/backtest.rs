@@ -1,0 +1,397 @@
+use std::future::Future;
+
+use loop_core::factor::{CanonicalDecimal, Identifier};
+use loop_protocol::artifact::validate_artifact_ref;
+use loop_protocol::provenance::{ProvenanceSnapshot, assess_provenance};
+use loop_protocol::wire::v1::{
+    Actor, BacktestEngineKind, BacktestResult, JobKind, JobRecord, JobSpecification, JobState,
+    JobSuccess, ResearchProvenanceFingerprint, job_outcome, job_specification,
+};
+use prost::Message;
+use sha2::{Digest, Sha256};
+use sqlx::{Postgres, Row, Transaction};
+
+use super::postgres::{encode_message, record_from_row, timestamp_millis, verified_blob};
+use super::{PgJobStore, StoreError, StoreResult, validate_id};
+
+/// Server-owned, bounded result resolution. Implementations must verify immutable
+/// manifests, artifact checksums/availability, and the original factor, sample,
+/// seed and engine against independently resolved frozen inputs. A matching DTO
+/// or a caller-supplied hash is not evidence. No network or unbounded I/O is
+/// allowed in these synchronous transaction callbacks; pre-resolve immutable
+/// evidence under the owning service's identity. Defaults deny every operation.
+pub trait BacktestPolicy: Send + Sync {
+    /// Resolve the exact result manifest referenced by a successful job. This
+    /// never grants holdout access, factor admission, or authority to rerun work.
+    fn resolve_result(
+        &self,
+        _job: &JobSpecification,
+        _success: &JobSuccess,
+    ) -> StoreResult<BacktestResult> {
+        Err(StoreError::AdmissionDenied)
+    }
+
+    /// Resolve an explicit immutable current-context reference, after transport
+    /// authorization. Missing context returns `None`, never the recorded values.
+    /// This must revalidate access and reference availability on every read.
+    fn resolve_current(
+        &self,
+        _principal: &Actor,
+        _job: &JobSpecification,
+        _context_id: &str,
+    ) -> StoreResult<Option<ResearchProvenanceFingerprint>> {
+        Err(StoreError::AdmissionDenied)
+    }
+}
+
+/// Safe default until production manifest and data registries are available.
+pub struct DenyBacktest;
+
+impl BacktestPolicy for DenyBacktest {}
+
+/// Backend-independent current-metric consumption boundary. It exposes no SQL,
+/// holdout capability, raw data, or mutable historical metrics.
+pub trait BacktestRepository: Send + Sync {
+    /// Read a successful result only when its evidence is valid and all six
+    /// fingerprints match a server-resolved current context. `principal` must
+    /// originate from transport authentication, not request metadata. Protected
+    /// jobs additionally require the independent holdout policy. Missing jobs,
+    /// unfinished jobs, denied/unresolved references, corruption, stale metrics,
+    /// and storage outages are errors, never empty/current results. This read
+    /// has no state, audit or external export side effects; cancellation rolls
+    /// back the read transaction. Export handlers must use this same gate.
+    fn current_backtest(
+        &self,
+        principal: &Actor,
+        job_id: &str,
+        context_id: &str,
+    ) -> impl Future<Output = StoreResult<BacktestResult>> + Send;
+}
+
+impl BacktestRepository for PgJobStore {
+    async fn current_backtest(
+        &self,
+        principal: &Actor,
+        job_id: &str,
+        context_id: &str,
+    ) -> StoreResult<BacktestResult> {
+        validate_id(job_id)?;
+        validate_id(context_id)?;
+        validate_id(
+            &principal
+                .actor_id
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?
+                .value,
+        )?;
+        if principal.authenticated_subject.is_empty() {
+            return Err(StoreError::AdmissionDenied);
+        }
+        let mut transaction = self.pool.begin().await?;
+        let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
+            .bind(job_id)
+            .fetch_optional(&mut *transaction)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let record = record_from_row(&row)?;
+        self.admission
+            .authorize_job_command("loop.backtests.read_current", principal, &record)?;
+        let specification = specification(&record)?;
+        if let Some(job_specification::Input::HoldoutBacktest(input)) = &specification.input {
+            let period = input
+                .consumed_grant
+                .as_ref()
+                .and_then(|grant| grant.holdout_period_id.as_ref())
+                .ok_or(StoreError::Corrupt("holdout result period"))?;
+            self.holdout_policy.authorize_period(
+                "loop.holdout.read_result",
+                principal,
+                &period.value,
+            )?;
+        }
+        let result = verify_stored(&mut transaction, &record)
+            .await?
+            .ok_or(StoreError::InvalidTransition)?;
+        let success = success(&record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
+        if self
+            .backtest_policy
+            .resolve_result(specification, success)?
+            != result
+        {
+            return Err(StoreError::Corrupt(
+                "resolved result differs from registered evidence",
+            ));
+        }
+        let current = self
+            .backtest_policy
+            .resolve_current(principal, specification, context_id)?;
+        let current = current
+            .as_ref()
+            .map(ProvenanceSnapshot::try_from)
+            .transpose()?;
+        let recorded = snapshot(result.provenance.as_ref())?;
+        let frozen = frozen_provenance(specification)?;
+        assess_provenance(&recorded, &frozen, current.as_ref())?.require_current()?;
+        transaction.commit().await?;
+        Ok(result)
+    }
+}
+
+pub(super) async fn record_completion(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &JobRecord,
+    now: i64,
+) -> StoreResult<()> {
+    if !is_completed_backtest(record)? {
+        return Ok(());
+    }
+    let job = specification(record)?;
+    let success = success(record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
+    let result = store.backtest_policy.resolve_result(job, success)?;
+    validate_result(&result, record)?;
+    let blob = encode_message(&result)?;
+    sqlx::query(
+        "INSERT INTO backtest_results (job_id, job_revision, backtest_id, engine,
+         manifest_sha256, result_blob, result_sha256, committed_at_ms)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(
+        &job.job_id
+            .as_ref()
+            .ok_or(StoreError::Corrupt("job identity"))?
+            .value,
+    )
+    .bind(record.revision as i64)
+    .bind(
+        &result
+            .backtest_id
+            .as_ref()
+            .ok_or(StoreError::Invalid("backtest identity"))?
+            .value,
+    )
+    .bind(result.engine)
+    .bind(
+        &result
+            .result_manifest_sha256
+            .as_ref()
+            .ok_or(StoreError::Invalid("result manifest"))?
+            .value,
+    )
+    .bind(&blob)
+    .bind(Sha256::digest(&blob).to_vec())
+    .bind(now)
+    .execute(&mut **transaction)
+    .await?;
+    #[cfg(test)]
+    super::crash_tests::fault_point("result_after_insert").await;
+    Ok(())
+}
+
+pub(super) async fn verify_stored(
+    transaction: &mut Transaction<'_, Postgres>,
+    record: &JobRecord,
+) -> StoreResult<Option<BacktestResult>> {
+    if !is_completed_backtest(record)? {
+        return Ok(None);
+    }
+    let job = specification(record)?;
+    let job_id = &job
+        .job_id
+        .as_ref()
+        .ok_or(StoreError::Corrupt("job identity"))?
+        .value;
+    let row = sqlx::query("SELECT * FROM backtest_results WHERE job_id = $1")
+        .bind(job_id)
+        .fetch_optional(&mut **transaction)
+        .await?
+        .ok_or(StoreError::Corrupt("backtest result missing"))?;
+    let result =
+        BacktestResult::decode(verified_blob(&row, "result_blob", "result_sha256")?.as_slice())
+            .map_err(|_| StoreError::Corrupt("backtest result encoding"))?;
+    validate_result(&result, record).map_err(|_| StoreError::Corrupt("backtest result binding"))?;
+    if row.try_get::<i64, _>("job_revision")? != record.revision as i64
+        || row.try_get::<String, _>("backtest_id")?
+            != result
+                .backtest_id
+                .as_ref()
+                .ok_or(StoreError::Corrupt("backtest identity"))?
+                .value
+        || row.try_get::<i32, _>("engine")? != result.engine
+        || row.try_get::<Vec<u8>, _>("manifest_sha256")?
+            != result
+                .result_manifest_sha256
+                .as_ref()
+                .ok_or(StoreError::Corrupt("result manifest"))?
+                .value
+        || row.try_get::<i64, _>("committed_at_ms")?
+            != timestamp_millis(
+                record
+                    .updated_at
+                    .as_ref()
+                    .ok_or(StoreError::Corrupt("job update time"))?,
+                false,
+            )?
+    {
+        return Err(StoreError::Corrupt("backtest result projection"));
+    }
+    Ok(Some(result))
+}
+
+fn specification(record: &JobRecord) -> StoreResult<&JobSpecification> {
+    record
+        .specification
+        .as_ref()
+        .ok_or(StoreError::Corrupt("job specification"))
+}
+
+pub(super) fn is_completed_backtest(record: &JobRecord) -> StoreResult<bool> {
+    Ok(matches!(
+        JobKind::try_from(specification(record)?.kind),
+        Ok(JobKind::Backtest | JobKind::HoldoutBacktest)
+    ) && record.state == JobState::Succeeded as i32)
+}
+
+fn success(record: &JobRecord) -> Option<&JobSuccess> {
+    match record.outcome.as_ref()?.outcome.as_ref()? {
+        job_outcome::Outcome::Success(value) => Some(value),
+        _ => None,
+    }
+}
+
+fn snapshot(value: Option<&ResearchProvenanceFingerprint>) -> StoreResult<ProvenanceSnapshot> {
+    Ok(ProvenanceSnapshot::try_from(
+        value.ok_or(StoreError::Invalid("research provenance"))?,
+    )?)
+}
+
+fn frozen_provenance(job: &JobSpecification) -> StoreResult<ProvenanceSnapshot> {
+    match job.input.as_ref() {
+        Some(job_specification::Input::Backtest(input)) => snapshot(input.provenance.as_ref()),
+        Some(job_specification::Input::HoldoutBacktest(input)) => snapshot(
+            input
+                .frozen_backtest_spec
+                .as_ref()
+                .ok_or(StoreError::Corrupt("frozen backtest spec"))?
+                .provenance
+                .as_ref(),
+        ),
+        _ => Err(StoreError::Invalid("backtest job required")),
+    }
+}
+
+fn validate_result(result: &BacktestResult, record: &JobRecord) -> StoreResult<()> {
+    let job = specification(record)?;
+    validate_id(
+        &result
+            .backtest_id
+            .as_ref()
+            .ok_or(StoreError::Invalid("backtest identity"))?
+            .value,
+    )?;
+    if !matches!(
+        BacktestEngineKind::try_from(result.engine),
+        Ok(BacktestEngineKind::PrimaryCrossSectional
+            | BacktestEngineKind::AlphalensValidation
+            | BacktestEngineKind::ZiplineValidation)
+    ) || result.engine_version.is_empty()
+        || result.engine_version.len() > 128
+        || !result
+            .engine_version
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic())
+        || result.metrics.is_empty()
+        || result.metrics.len() > 256
+    {
+        return Err(StoreError::Invalid("backtest engine or metrics"));
+    }
+    if let Some(job_specification::Input::HoldoutBacktest(input)) = &job.input {
+        if input
+            .frozen_backtest_spec
+            .as_ref()
+            .and_then(|spec| spec.backtest_id.as_ref())
+            != result.backtest_id.as_ref()
+        {
+            return Err(StoreError::Invalid("frozen backtest identity"));
+        }
+    }
+    let frozen = frozen_provenance(job)?;
+    assess_provenance(&snapshot(result.provenance.as_ref())?, &frozen, None)?;
+    let completed = result
+        .completed_at
+        .as_ref()
+        .ok_or(StoreError::Invalid("result completion time"))?;
+    timestamp_millis(completed, true)?;
+    let submitted = job
+        .submitted_at
+        .as_ref()
+        .ok_or(StoreError::Corrupt("job submission time"))?;
+    let committed = record
+        .updated_at
+        .as_ref()
+        .ok_or(StoreError::Corrupt("job update time"))?;
+    if (completed.seconds, completed.nanos) < (submitted.seconds, submitted.nanos)
+        || (completed.seconds, completed.nanos) > (committed.seconds, committed.nanos)
+    {
+        return Err(StoreError::Invalid("result completion time binding"));
+    }
+    let mut previous: Option<&str> = None;
+    for metric in &result.metrics {
+        Identifier::new(&metric.name).map_err(|_| StoreError::Invalid("metric name"))?;
+        for label in [&metric.unit, &metric.estimator] {
+            if label.trim().is_empty() || label.len() > 256 || label.chars().any(char::is_control) {
+                return Err(StoreError::Invalid("metric unit or estimator"));
+            }
+        }
+        let value = &metric
+            .value
+            .as_ref()
+            .ok_or(StoreError::Invalid("metric value"))?
+            .value;
+        if value.len() > 1_024 || previous.is_some_and(|name| name >= metric.name.as_str()) {
+            return Err(StoreError::Invalid("metric size or order"));
+        }
+        CanonicalDecimal::new(value).map_err(|_| StoreError::Invalid("metric decimal"))?;
+        previous = Some(&metric.name);
+    }
+    let success = success(record).ok_or(StoreError::Corrupt("backtest outcome"))?;
+    let manifest = &result
+        .result_manifest_sha256
+        .as_ref()
+        .ok_or(StoreError::Invalid("result manifest"))?
+        .value;
+    if manifest.len() != 32
+        || !success.outputs.iter().any(|artifact| {
+            artifact
+                .sha256
+                .as_ref()
+                .is_some_and(|digest| digest.value == *manifest)
+        })
+    {
+        return Err(StoreError::Invalid("result manifest output binding"));
+    }
+    let artifacts = result
+        .artifacts
+        .as_ref()
+        .ok_or(StoreError::Invalid("backtest artifacts"))?;
+    for artifact in [
+        &artifacts.factor_values,
+        &artifacts.target_positions,
+        &artifacts.orders,
+        &artifacts.fills,
+        &artifacts.nav,
+        &artifacts.simple_returns,
+        &artifacts.risk_exposures,
+        &artifacts.cost_ledger,
+    ] {
+        let artifact = artifact
+            .as_ref()
+            .ok_or(StoreError::Invalid("backtest artifact"))?;
+        validate_artifact_ref(artifact)
+            .map_err(|_| StoreError::Invalid("backtest artifact reference"))?;
+        if !success.outputs.contains(artifact) {
+            return Err(StoreError::Invalid("backtest artifact output binding"));
+        }
+    }
+    Ok(())
+}

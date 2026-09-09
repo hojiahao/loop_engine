@@ -3,6 +3,7 @@
 
 mod approval;
 mod audit;
+mod backtest;
 mod batch;
 #[cfg(test)]
 mod crash_tests;
@@ -19,6 +20,7 @@ use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
 pub use approval::ApprovalResult;
+pub use backtest::{BacktestPolicy, BacktestRepository, DenyBacktest};
 pub use batch::BatchResult;
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
@@ -70,6 +72,9 @@ pub enum StoreError {
     /// The typed job contract rejected an input or outcome.
     #[error("job wire contract is invalid: {0}")]
     Job(#[from] loop_protocol::job::JobValidationError),
+    /// Research evidence is inconsistent, stale, or unresolved; never rejection.
+    #[error("research provenance validation failed: {0}")]
+    Provenance(#[from] loop_protocol::provenance::ProvenanceError),
     /// Canonical holdout content or its typed identity is invalid.
     #[error("holdout contract is invalid: {0}")]
     Holdout(#[from] loop_core::holdout::HoldoutValidationError),
