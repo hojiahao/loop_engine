@@ -1,6 +1,6 @@
 # ADR 0014: Audited current-result metadata exports
 
-- Status: Accepted for implementation; remote acceptance pending
+- Status: Accepted for the internal metadata boundary; production integration is pending
 - Date: 2026-09-09
 - Owner: hojiahao
 
@@ -45,6 +45,11 @@ regression, corrupt receipts/results and audit rollback. Exercise 2/4/8
 independent OS writers for same-key retries and distinct exports. Kill writers
 after receipt insertion, before commit and after commit, then verify one
 receipt/audit pair, unchanged source metrics and authorized recovery.
+
+Implementation `214e170` passed all seven jobs in GitHub Actions run
+`34431407693`, including the complete process/crash matrices, unified workspace
+and clean DaoCloud container gates. Detailed local and remote evidence is in
+`docs/verification/phase-04-research-integrity.md`.
 
 ## Scope And Rollback
 

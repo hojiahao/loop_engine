@@ -99,7 +99,7 @@ completed in 3m41s, unified workspace in 6m03s and the clean DaoCloud container
 in 5m55s. This accepts the internal transactional result checkpoint. Production
 resolvers, audited exports and the other Phase 4 integrations remain open.
 
-## Audited metadata exports (remote acceptance pending)
+## Audited metadata export checkpoint
 
 ADR 0014 adds a separate metadata export command sharing the current-result
 gate. It uses the existing immutable receipt table and one transactional audit
@@ -129,3 +129,9 @@ No database table, service, dependency or production endpoint was added. Disable
 a future export handler or restore the prior binary to roll back while retaining
 all immutable receipts and audit events. Migration 6 remains undeployed to
 production. ADR 0014 records the authority boundary, scope and recovery limits.
+
+Implementation `214e170` is pushed and GitHub Actions run `34431407693` passed
+all seven jobs. Rust completed in 4m06s, unified workspace in 6m19s and the clean
+DaoCloud container in 6m37s. The full Rust suites exercise the added 2/4/8-process
+export modes and receipt/commit kill points. This accepts the internal metadata
+export checkpoint, not a complete Phase 4 or a production research workflow.

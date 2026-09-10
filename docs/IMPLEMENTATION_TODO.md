@@ -156,7 +156,7 @@ are not production research parsers, and no holdout capability was issued.
 - [x] Commit and verify transactional backtest result registration and the
       current-result repository gate under ADR 0013. Production resolvers and
       audited exports remain separate required integrations.
-- [ ] Add audited current-metadata exports with fresh checks on every retry,
+- [x] Add audited current-metadata exports with fresh checks on every retry,
       transactional receipts, bounded deadlines and process/crash tests.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
@@ -183,6 +183,12 @@ bounded Rust-download correction `4581c53` are pushed. Run `34333550936` passed
 all seven jobs, including unified and clean DaoCloud container gates. This
 accepts ADR 0013's internal storage checkpoint, not production manifest resolution
 or Phase 4 completion. The next checkpoint is the audited export gate in ADR 0014.
+
+Audited metadata export checkpoint `214e170` is pushed. Run `34431407693`
+passed all seven jobs, including complete Rust regressions, unified workspace
+commands and the clean DaoCloud container. ADR 0014's internal repository gate
+is accepted; it does not provide a user-facing file exporter or enable production
+reference resolution. The remaining Phase 4 items above are unchanged.
 
 ## Phase 5 - US-equities data plane (`pending`)
 
