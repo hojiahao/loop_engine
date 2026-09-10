@@ -135,3 +135,28 @@ all seven jobs. Rust completed in 4m06s, unified workspace in 6m19s and the clea
 DaoCloud container in 6m37s. The full Rust suites exercise the added 2/4/8-process
 export modes and receipt/commit kill points. This accepts the internal metadata
 export checkpoint, not a complete Phase 4 or a production research workflow.
+
+## Local NAV diagnostic checkpoint
+
+The additive CLI consumes the existing NAV-return correlation kernel under
+ADR 0011. Exact matching of full date sequences prevents comparing different
+observation intervals, even when the arrays have equal lengths. Matching gaps
+are not relabeled as daily returns. Raw file digests identify the bytes actually
+parsed, not trusted market data or a six-component execution attestation.
+
+Local evidence on 2026-09-10:
+
+- Research package: 95 tests pass, including 49 new input, interval-alignment,
+  undefined-result and actual-subprocess CLI cases. An independent SciPy golden
+  verifies return correlation differs from delta-NAV correlation.
+- The synthetic documented command executes successfully, reports seven return
+  pairs and correlation `-0.7988091579053072`, and changes neither input file.
+  This is test data, not US market performance.
+- `just check` passes. Additional strict mypy checks of the source and new test
+  module pass; only the test oracle's untyped SciPy import is explicitly exempt,
+  with no production type-check exemption or new dependency.
+
+No production data, holdout, database, artifact registry, factor admission or
+backtest is accessed. There is no schema migration. Reverting this additive
+command preserves existing `doctor` behavior and all historical state. Remote
+acceptance remains pending at commit time; Phase 4 remains in progress.

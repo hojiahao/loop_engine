@@ -158,6 +158,9 @@ are not production research parsers, and no holdout capability was issued.
       audited exports remain separate required integrations.
 - [x] Add audited current-metadata exports with fresh checks on every retry,
       transactional receipts, bounded deadlines and process/crash tests.
+- [x] Implement the read-only NAV correlation CLI with strict observation-interval
+      alignment, explicit cash-flow basis, byte provenance and subprocess tests.
+      This diagnostic does not close authorized backtest execution integration.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and
@@ -189,6 +192,13 @@ passed all seven jobs, including complete Rust regressions, unified workspace
 commands and the clean DaoCloud container. ADR 0014's internal repository gate
 is accepted; it does not provide a user-facing file exporter or enable production
 reference resolution. The remaining Phase 4 items above are unchanged.
+
+The additive NAV diagnostic reuses ADR 0011's return kernel without changing
+numerical semantics, protocol IDs or database state. The actual CLI consumes
+bounded local CSV files, rejects shifted dates and emits explicit diagnostic
+limitations. Local research tests are 95 passed (49 new), and `just check`
+passes. Publication and remote acceptance are pending at this checkpoint's
+commit time. Usage and rollback: `docs/development/nav-correlation.md`.
 
 ## Phase 5 - US-equities data plane (`pending`)
 

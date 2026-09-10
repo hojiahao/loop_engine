@@ -49,6 +49,14 @@ aligned NAV paths and cash-flow accounting before calling the return primitive.
 Legacy code and all stale A-share metrics remain untouched; no historical
 performance, direction or admission is inherited by US candidates.
 
+The additive local `nav-correlation` diagnostic is a first consumer of the
+return kernel. It requires identical complete date sequences and explicit
+cash-flow-adjustment confirmation, uses bounded CSV inputs, and emits no
+admission decision. Matching observation intervals are not proof of exchange
+calendar completeness or daily frequency. Its limits and rollback are documented
+in `docs/development/nav-correlation.md`; it does not close the authorized
+execution integration gate above.
+
 ## References
 
 - [SciPy adjusted Fisher-Pearson skew](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.skew.html)
