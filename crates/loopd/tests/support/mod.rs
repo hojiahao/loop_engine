@@ -5,6 +5,7 @@ pub mod backtest;
 pub mod batch;
 pub mod grant;
 pub mod holdout;
+pub mod rejection;
 pub mod research;
 
 use std::path::Path;

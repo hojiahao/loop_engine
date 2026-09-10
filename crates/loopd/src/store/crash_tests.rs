@@ -55,7 +55,10 @@ fn crash_worker() {
             if mode.starts_with("role_") {
                 options.admission = Arc::new(research::Admission);
             }
-            if mode.starts_with("result_") || mode.starts_with("export_") {
+            if mode.starts_with("result_")
+                || mode.starts_with("export_")
+                || mode.starts_with("rejection_")
+            {
                 options.admission = Arc::new(backtest::Admission);
                 options.backtest_policy = Arc::new(backtest::Policy::default());
             }
@@ -73,6 +76,14 @@ fn crash_worker() {
                 options.admission = Arc::new(batch::Admission);
             }
             let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("rejection_") {
+                let request = rejection::seed(&store).await;
+                store
+                    .mutate(&actor(), JobMutation::Complete(request))
+                    .await
+                    .unwrap();
+                panic!("rejection fault point not reached");
+            }
             if mode.starts_with("export_") {
                 let request = backtest::seed(&store).await;
                 store
@@ -197,6 +208,9 @@ async fn killed_writer_preserves_atomicity() {
         "export_after_receipt",
         "export_before_commit",
         "export_after_commit",
+        "rejection_after_insert",
+        "rejection_before_commit",
+        "rejection_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
@@ -233,7 +247,10 @@ async fn killed_writer_preserves_atomicity() {
         if point.starts_with("role_") {
             options.admission = Arc::new(research::Admission);
         }
-        if point.starts_with("result_") || point.starts_with("export_") {
+        if point.starts_with("result_")
+            || point.starts_with("export_")
+            || point.starts_with("rejection_")
+        {
             options.admission = Arc::new(backtest::Admission);
             options.backtest_policy = Arc::new(backtest::Policy::default());
         }
@@ -252,6 +269,33 @@ async fn killed_writer_preserves_atomicity() {
         }
         let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("rejection_") {
+            let committed = point == "rejection_after_commit";
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                2 + usize::from(committed)
+            );
+            let count: i64 = sqlx::query_scalar("SELECT count(*) FROM backtest_rejections")
+                .fetch_one(&mut connection(&directory).await)
+                .await
+                .unwrap();
+            assert_eq!(count, i64::from(committed));
+            let request = rejection::seed(&store).await;
+            let result = store
+                .mutate(&actor(), JobMutation::Complete(request))
+                .await
+                .unwrap();
+            assert_eq!(result.replayed, committed);
+            assert!(matches!(
+                store.submit(rejection::command(2)).await,
+                Err(super::StoreError::PreviouslyRejected)
+            ));
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 3);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("export_") {
             let committed = point == "export_after_commit";
             assert_eq!(

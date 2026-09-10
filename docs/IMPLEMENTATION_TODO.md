@@ -161,6 +161,12 @@ are not production research parsers, and no holdout capability was issued.
 - [x] Implement the read-only NAV correlation CLI with strict observation-interval
       alignment, explicit cash-flow basis, byte provenance and subprocess tests.
       This diagnostic does not close authorized backtest execution integration.
+- [x] Implement transactional development-backtest rejection memory in submission
+      and acquisition, with exact frozen-context matching and 19 PostgreSQL
+      regression tests. This is an internal command-path integration, not enabled
+      production execution; remote acceptance is pending at commit time.
+      Perturbation and generalized factor-evaluation/readmission remain open
+      (ADR 0015).
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and

@@ -52,7 +52,7 @@ fn process_worker() {
         if mode == "role" {
             options.admission = Arc::new(research::Admission);
         }
-        if mode.starts_with("result") || mode.starts_with("export") {
+        if mode.starts_with("result") || mode.starts_with("export") || mode.starts_with("rejection") {
             options.admission = Arc::new(backtest::Admission);
             options.backtest_policy = Arc::new(backtest::Policy::default());
         }
@@ -78,7 +78,8 @@ fn process_worker() {
                 let key = if mode.ends_with("distinct") { format!("export.{index}") } else { "export.retry".to_owned() };
                 store.export_current(&actor(), backtest::export(&key)).await.map(|value| value.replayed)
             }
-            "result" | "result-race" => {
+            "rejection-filter" => store.submit(rejection::command(index + 2)).await.map(|value| value.replayed),
+            "result" | "result-race" | "rejection" | "rejection-race" => {
                 let bytes = std::fs::read(directory.join("input")).unwrap();
                 let mut request = CompleteJobRequest::decode(bytes.as_slice()).unwrap();
                 if mode.ends_with("race") {
@@ -175,6 +176,7 @@ fn process_worker() {
             Err(StoreError::RevisionConflict) if mode == "acquire" || mode.ends_with("race") => {
                 "fenced"
             }
+            Err(StoreError::PreviouslyRejected) if mode == "rejection-filter" => "blocked",
             other => panic!("unexpected worker outcome: {other:?}"),
         };
         std::fs::write(directory.join(format!("result.{index}")), outcome).unwrap();
@@ -203,18 +205,28 @@ async fn process_writers_preserve_fencing() {
             "result-race",
             "export",
             "export-distinct",
+            "rejection",
+            "rejection-race",
+            "rejection-filter",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
-            if mode.starts_with("result") || mode.starts_with("export") {
+            if mode.starts_with("result")
+                || mode.starts_with("export")
+                || mode.starts_with("rejection")
+            {
                 let config = backtest::options(
                     &path,
                     Arc::new(FixtureClock(AtomicI64::new(NOW))),
                     Arc::new(backtest::Policy::default()),
                 );
                 let store = PgJobStore::open(config).await.unwrap();
-                let request = backtest::seed(&store).await;
-                if mode.starts_with("export") {
+                let request = if mode.starts_with("rejection") {
+                    rejection::seed(&store).await
+                } else {
+                    backtest::seed(&store).await
+                };
+                if mode.starts_with("export") || mode == "rejection-filter" {
                     store
                         .mutate(&actor(), JobMutation::Complete(request))
                         .await
@@ -302,16 +314,28 @@ async fn process_writers_preserve_fencing() {
                         .unwrap();
                 assert!(matches!(
                     result.as_str(),
-                    "committed" | "replayed" | "fenced"
+                    "committed" | "replayed" | "fenced" | "blocked"
                 ));
+                if mode == "rejection-filter" {
+                    assert_eq!(result, "blocked");
+                }
                 committed += usize::from(result == "committed");
             }
             assert_eq!(
                 committed,
-                if mode.ends_with("distinct") { count } else { 1 }
+                if mode == "rejection-filter" {
+                    0
+                } else if mode.ends_with("distinct") {
+                    count
+                } else {
+                    1
+                }
             );
             let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
-            if mode.starts_with("result") || mode.starts_with("export") {
+            if mode.starts_with("result")
+                || mode.starts_with("export")
+                || mode.starts_with("rejection")
+            {
                 config.admission = Arc::new(backtest::Admission);
                 config.backtest_policy = Arc::new(backtest::Policy::default());
             }
@@ -319,9 +343,9 @@ async fn process_writers_preserve_fencing() {
             let events = store.audit_events(0, 500).await.unwrap();
             let baseline = if mode.starts_with("batch") {
                 4
-            } else if mode.starts_with("export") {
+            } else if mode.starts_with("export") || mode == "rejection-filter" {
                 3
-            } else if mode.starts_with("result") {
+            } else if mode.starts_with("result") || mode.starts_with("rejection") {
                 2
             } else if mode.starts_with("grant") {
                 3
@@ -333,6 +357,21 @@ async fn process_writers_preserve_fencing() {
             let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
             assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
+            if mode.starts_with("rejection") {
+                let rejected: i64 = sqlx::query_scalar("SELECT count(*) FROM backtest_rejections")
+                    .fetch_one(&mut connection(&directory).await)
+                    .await
+                    .unwrap();
+                assert_eq!(rejected, 1);
+                assert_eq!(
+                    store.get("job.1").await.unwrap().unwrap().state,
+                    loop_protocol::wire::v1::JobState::FactorRejected as i32
+                );
+                assert!(matches!(
+                    store.submit(rejection::command(2)).await,
+                    Err(StoreError::PreviouslyRejected)
+                ));
+            }
             if mode.starts_with("result") || mode.starts_with("export") {
                 assert_eq!(
                     store

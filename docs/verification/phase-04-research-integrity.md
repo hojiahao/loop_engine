@@ -165,3 +165,49 @@ NAV diagnostic implementation `8a39cdc` is pushed. Run `34434276768` passed
 all seven jobs, including unified workspace commands and the clean DaoCloud
 container gate. A local isolated environment also passed all 95 research tests,
 proving the CLI does not depend on undeclared workspace packages.
+
+## Development rejection memory checkpoint
+
+ADR 0015 and migration 7 add an immutable, indexed projection of terminal
+development backtest rejections. The existing direct/role submission and lease
+acquisition paths consume deterministic failure memory under the ledger lock.
+Completion commits projection, job, receipt and audit atomically. Holdout and
+factor-evaluation jobs do not enter this memory; infrastructure failures are
+never converted to factor rejection.
+
+Local evidence on 2026-09-10:
+
+- All 19 new PostgreSQL tests pass (21.94 seconds after compilation), covering
+  both submission paths, queued work, restart/replay, all six fingerprints,
+  factor/seed/snapshot changes, non-bypass via run/budget changes, rejection-code
+  selection, infrastructure failure/cancellation, lease/clock failure, audit
+  rollback, corruption, immutability and the pre-existing-history migration guard.
+- An independent Node.js JSON/crypto calculation pins the v1 context-key golden
+  to `ef69eb561404de69fe9e95e330e8b9f81982b9dc53736fabb9160035f16a9ffa`.
+- `just check` passes, including workspace/all-target/all-feature Clippy with
+  `-D warnings`, rustfmt, protocol and cross-language compatibility, TypeScript,
+  Python and downloader checks. After the final golden case was added, the
+  affected Rust test target passed Clippy again and was formatted with rustfmt.
+- The first sandboxed database test attempt could not open a localhost socket
+  (`Operation not permitted`); the authorized local-only rerun passed. This was
+  not recorded as a database or research-behavior regression.
+- The process matrix adds 2/4/8 OS writers for rejection completion/replay,
+  completion revision races and rejected resubmissions. The kill matrix adds
+  projection-insert, pre-commit and post-commit stops. These cases compile under
+  the local gates; their execution and the full workspace/container gates are
+  pending remote CI at this checkpoint's commit time, not claimed as local passes.
+
+Manual review checked the filter is after authority resolution, new submission
+and acquisition cannot bypass it, completion replay preserves immutable receipts,
+and no source-job identity or holdout result is returned by the skip error.
+The scope deliberately excludes in-flight deduplication and dynamic semantic/
+correlation/policy evidence. Details and limitations:
+`docs/development/failure-memory.md`.
+
+No production database migration, credential use, paid data, model call, factor
+admission or numerical backtest occurred. Migration 7 has not been deployed;
+production remains at migrations 1-5. Before deployment the change can be
+reverted normally. After deployment, retain immutable history and use a
+schema-aware recovery build with writers disabled, not a destructive downgrade.
+Phase 4 remains in progress; perturbation/Sharpe state, broader failed-hash
+integration, unified readmission and authorized execution remain required.

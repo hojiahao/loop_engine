@@ -15,7 +15,9 @@ use super::postgres::{
     budget, deadline_millis, decode_record, encode_message, record_from_row, timestamp,
     timestamp_millis, verified_blob,
 };
-use super::{CommandResult, PgJobStore, StoreError, StoreResult, audit, backtest, validate_id};
+use super::{
+    CommandResult, PgJobStore, StoreError, StoreResult, audit, backtest, rejection, validate_id,
+};
 
 /// Scheduler-only request to terminalize an expired lease or absolute budget.
 /// This is an internal storage envelope, not a remotely exposed RPC.
@@ -216,6 +218,7 @@ pub(super) async fn mutate(
             return Err(StoreError::Corrupt("lifecycle receipt binding"));
         }
         backtest::verify_stored(&mut transaction, &job).await?;
+        rejection::verify_stored(&mut transaction, &job).await?;
         transaction.commit().await?;
         return Ok(CommandResult {
             job,
@@ -225,6 +228,16 @@ pub(super) async fn mutate(
     if record.revision != expected_revision {
         return Err(StoreError::RevisionConflict);
     }
+    if matches!(command, JobMutation::Acquire(_)) && record.state == JobState::Queued as i32 {
+        rejection::check_previous(
+            &mut transaction,
+            record
+                .specification
+                .as_ref()
+                .expect("validated specification"),
+        )
+        .await?;
+    }
     let previous_state = state_name(record.state)?;
     apply(&mut record, &command, principal, now)?;
     record.revision += 1;
@@ -232,6 +245,7 @@ pub(super) async fn mutate(
     validate_job_record(&record)?;
     write_record(&mut transaction, &record, expected_revision).await?;
     backtest::record_completion(store, &mut transaction, &record, now).await?;
+    rejection::record_completion(&mut transaction, &record, now).await?;
     audit::append(
         &mut transaction,
         &store.ledger_id,
@@ -275,7 +289,15 @@ pub(super) async fn mutate(
     if backtest::is_completed_backtest(&record)? {
         super::crash_tests::fault_point("result_before_commit").await;
     }
+    #[cfg(test)]
+    if rejection::is_rejected_backtest(&record) {
+        super::crash_tests::fault_point("rejection_before_commit").await;
+    }
     transaction.commit().await?;
+    #[cfg(test)]
+    if rejection::is_rejected_backtest(&record) {
+        super::crash_tests::fault_point("rejection_after_commit").await;
+    }
     #[cfg(test)]
     if backtest::is_completed_backtest(&record)? {
         super::crash_tests::fault_point("result_after_commit").await;

@@ -12,6 +12,7 @@ mod grant;
 mod holdout;
 mod lifecycle;
 mod postgres;
+mod rejection;
 mod submission;
 
 use std::future::Future;
@@ -32,7 +33,8 @@ pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use postgres::{PgJobStore, StoreOptions};
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
-/// Fail-closed command errors; none represent rejection of a research factor.
+/// Fail-closed command errors. `PreviouslyRejected` identifies existing domain
+/// evidence; no error creates a new factor rejection or an execution result.
 #[derive(Debug, Error)]
 pub enum StoreError {
     /// The caller supplied an invalid command envelope.
@@ -47,6 +49,11 @@ pub enum StoreError {
     /// Another command already registered this job identity.
     #[error("job identity already exists")]
     DuplicateJob,
+    /// A committed deterministic rejection already covers the frozen development
+    /// backtest context. Do not retry as an infrastructure failure or dispatch.
+    /// No historical evidence or source-job identity is exposed by this error.
+    #[error("development backtest was already rejected in this frozen context")]
+    PreviouslyRejected,
     /// The canonical locked period already exists, possibly in a terminal state.
     #[error("holdout period already exists and cannot be registered again")]
     DuplicatePeriod,
@@ -167,8 +174,11 @@ pub trait JobRepository: Send + Sync {
     /// admission policy must resolve references and pinned protocol availability.
     /// No holdout command is representable here. Replays retain the original
     /// receipt and protocol selection and do not authorize redispatch.
+    /// New development backtests are checked against committed deterministic
+    /// rejections in the same frozen context after reference authorization.
     /// Cancellation before commit rolls back; retry resolves uncertain commits.
-    /// Returns validation, admission, identity, clock, or storage errors.
+    /// Returns validation, admission, previous-rejection, identity, clock, or
+    /// storage errors. `PreviouslyRejected` is not an infrastructure retry.
     fn submit_role(
         &self,
         principal: &Actor,
@@ -177,7 +187,9 @@ pub trait JobRepository: Send + Sync {
     ) -> impl Future<Output = StoreResult<RoleSubmissionResult>> + Send;
 
     /// Queue one authorized job atomically with its receipt and audit event.
-    /// Returns validation, admission, identity, clock, or storage errors.
+    /// New development backtests cannot bypass prior frozen-context rejection.
+    /// Replays return the original receipt without redispatch. Returns validation,
+    /// admission, previous-rejection, identity, clock, or storage errors.
     fn submit(&self, command: SubmitJob)
     -> impl Future<Output = StoreResult<CommandResult>> + Send;
 
@@ -186,6 +198,9 @@ pub trait JobRepository: Send + Sync {
 
     /// Apply a revision-fenced command. `principal` must come from transport
     /// authentication, never from the request body. Unmatched actors are denied.
+    /// Lease acquisition rechecks development rejection memory; already queued
+    /// work cannot bypass a later committed rejection. A denial leaves it queued
+    /// for explicit cancellation; it does not invent a new trial or outcome.
     fn mutate(
         &self,
         principal: &Actor,
