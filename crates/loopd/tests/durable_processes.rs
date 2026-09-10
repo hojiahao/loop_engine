@@ -10,7 +10,7 @@ use loop_protocol::wire::jobs::v1::{AcquireJobLeaseRequest, CompleteJobRequest};
 use loop_protocol::wire::v1::JobId;
 use loopd::store::{
     BacktestRepository, CloseGrant, GrantClosure, HoldoutRepository, JobMutation, JobRepository,
-    PgJobStore, StoreError,
+    PerturbationRepository, PgJobStore, StoreError,
 };
 use prost::Message;
 use support::*;
@@ -56,6 +56,10 @@ fn process_worker() {
             options.admission = Arc::new(backtest::Admission);
             options.backtest_policy = Arc::new(backtest::Policy::default());
         }
+        if mode.starts_with("perturbation") {
+            options.admission = Arc::new(perturbation::Admission);
+            options.backtest_policy = Arc::new(perturbation::Policy::default());
+        }
         if mode == "period" {
             options.holdout_policy = Arc::new(holdout::Policy);
         }
@@ -74,6 +78,10 @@ fn process_worker() {
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "perturbation" | "perturbation-race" => {
+                let key = if mode.ends_with("race") { format!("perturbation.{index}") } else { "perturbation.retry".to_owned() };
+                store.advance_perturbation(&actor(), perturbation::command(1, 0, &key), &perturbation::worker()).await.map(|value| value.replayed)
+            }
             "export" | "export-distinct" => {
                 let key = if mode.ends_with("distinct") { format!("export.{index}") } else { "export.retry".to_owned() };
                 store.export_current(&actor(), backtest::export(&key)).await.map(|value| value.replayed)
@@ -208,9 +216,21 @@ async fn process_writers_preserve_fencing() {
             "rejection",
             "rejection-race",
             "rejection-filter",
+            "perturbation",
+            "perturbation-race",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
+            if mode.starts_with("perturbation") {
+                let config = perturbation::options(
+                    &path,
+                    Arc::new(FixtureClock(AtomicI64::new(NOW))),
+                    Arc::new(perturbation::Policy::default()),
+                );
+                let store = PgJobStore::open(config).await.unwrap();
+                perturbation::seed(&store, 1, 15, false).await;
+                store.close().await;
+            }
             if mode.starts_with("result")
                 || mode.starts_with("export")
                 || mode.starts_with("rejection")
@@ -332,6 +352,10 @@ async fn process_writers_preserve_fencing() {
                 }
             );
             let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+            if mode.starts_with("perturbation") {
+                config.admission = Arc::new(perturbation::Admission);
+                config.backtest_policy = Arc::new(perturbation::Policy::default());
+            }
             if mode.starts_with("result")
                 || mode.starts_with("export")
                 || mode.starts_with("rejection")
@@ -343,7 +367,10 @@ async fn process_writers_preserve_fencing() {
             let events = store.audit_events(0, 500).await.unwrap();
             let baseline = if mode.starts_with("batch") {
                 4
-            } else if mode.starts_with("export") || mode == "rejection-filter" {
+            } else if mode.starts_with("export")
+                || mode == "rejection-filter"
+                || mode.starts_with("perturbation")
+            {
                 3
             } else if mode.starts_with("result") || mode.starts_with("rejection") {
                 2
@@ -357,6 +384,18 @@ async fn process_writers_preserve_fencing() {
             let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
             assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
+            if mode.starts_with("perturbation") {
+                let (revision, blob, receipts): (i64, Vec<u8>, i64) = sqlx::query_as(
+                    "SELECT revision, state_blob, (SELECT count(*) FROM command_receipts WHERE operation = 'loop.perturbation.advance') FROM perturbation_states",
+                ).fetch_one(&mut connection(&directory).await).await.unwrap();
+                let state =
+                    loop_protocol::wire::v1::PerturbationState::decode(blob.as_slice()).unwrap();
+                assert_eq!(
+                    (revision, receipts, state.history.len(), state.random_draws),
+                    (1, 1, 1, 1)
+                );
+                assert_eq!(state.proposed_factor_ids.len(), 1);
+            }
             if mode.starts_with("rejection") {
                 let rejected: i64 = sqlx::query_scalar("SELECT count(*) FROM backtest_rejections")
                     .fetch_one(&mut connection(&directory).await)

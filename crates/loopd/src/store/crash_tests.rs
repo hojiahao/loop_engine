@@ -16,8 +16,8 @@ use loop_protocol::wire::jobs::v1::AcquireJobLeaseRequest;
 use loop_protocol::wire::v1::{JobId, JobState};
 
 use super::{
-    BacktestRepository, GrantClosure, HoldoutRepository, JobMutation, JobRepository, PgJobStore,
-    RecoveryCommand,
+    BacktestRepository, GrantClosure, HoldoutRepository, JobMutation, JobRepository,
+    PerturbationRepository, PgJobStore, RecoveryCommand,
 };
 use support::*;
 
@@ -55,6 +55,10 @@ fn crash_worker() {
             if mode.starts_with("role_") {
                 options.admission = Arc::new(research::Admission);
             }
+            if mode.starts_with("perturbation_") {
+                options.admission = Arc::new(perturbation::Admission);
+                options.backtest_policy = Arc::new(perturbation::Policy::default());
+            }
             if mode.starts_with("result_")
                 || mode.starts_with("export_")
                 || mode.starts_with("rejection_")
@@ -76,6 +80,18 @@ fn crash_worker() {
                 options.admission = Arc::new(batch::Admission);
             }
             let store = PgJobStore::open(options).await.unwrap();
+            if mode.starts_with("perturbation_") {
+                perturbation::seed(&store, 1, 15, false).await;
+                store
+                    .advance_perturbation(
+                        &actor(),
+                        perturbation::command(1, 0, "perturbation.retry"),
+                        &perturbation::worker(),
+                    )
+                    .await
+                    .unwrap();
+                panic!("perturbation fault point not reached");
+            }
             if mode.starts_with("rejection_") {
                 let request = rejection::seed(&store).await;
                 store
@@ -211,6 +227,9 @@ async fn killed_writer_preserves_atomicity() {
         "rejection_after_insert",
         "rejection_before_commit",
         "rejection_after_commit",
+        "perturbation_after_state",
+        "perturbation_before_commit",
+        "perturbation_after_commit",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("state");
@@ -244,6 +263,10 @@ async fn killed_writer_preserves_atomicity() {
         assert!(!worker.0.wait().unwrap().success());
         let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
         let mut options = options(&path, clock.clone());
+        if point.starts_with("perturbation_") {
+            options.admission = Arc::new(perturbation::Admission);
+            options.backtest_policy = Arc::new(perturbation::Policy::default());
+        }
         if point.starts_with("role_") {
             options.admission = Arc::new(research::Admission);
         }
@@ -269,6 +292,42 @@ async fn killed_writer_preserves_atomicity() {
         }
         let store = PgJobStore::open(options).await.unwrap();
         store.verify_configuration().await.unwrap();
+        if point.starts_with("perturbation_") {
+            let committed = point == "perturbation_after_commit";
+            assert_eq!(
+                store.audit_events(0, 500).await.unwrap().len(),
+                3 + usize::from(committed)
+            );
+            let states: i64 = sqlx::query_scalar("SELECT count(*) FROM perturbation_states")
+                .fetch_one(&mut connection(&directory).await)
+                .await
+                .unwrap();
+            assert_eq!(states, i64::from(committed));
+            let result = store
+                .advance_perturbation(
+                    &actor(),
+                    perturbation::command(1, 0, "perturbation.retry"),
+                    &perturbation::worker(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(result.replayed, committed);
+            assert_eq!(result.revision, 1);
+            let state = result.step.state.unwrap();
+            assert_eq!(
+                (
+                    state.history.len(),
+                    state.random_draws,
+                    state.proposed_factor_ids.len()
+                ),
+                (1, 1, 1)
+            );
+            let events = store.audit_events(0, 500).await.unwrap();
+            assert_eq!(events.len(), 4);
+            verify_audit_chain(&events).unwrap();
+            store.close().await;
+            continue;
+        }
         if point.starts_with("rejection_") {
             let committed = point == "rejection_after_commit";
             assert_eq!(

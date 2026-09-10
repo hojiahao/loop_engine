@@ -140,6 +140,18 @@ are not production research parsers, and no holdout capability was issued.
 
 ## Phase 4 - Research-integrity invariants (`in_progress`)
 
+The remaining owner-approved delivery units are executed in this order, one
+complete task per implementation commit. Tests and documentation are part of
+that task, not additional delivery units. The same rule applies to later phases.
+
+1. Durable Sharpe/perturbation/random state, recovery and failed-candidate wiring
+   (`implemented`: ADR 0016; local numerical, PostgreSQL, process/crash and
+   workspace gates pass; publication acceptance requires this commit's remote CI).
+2. Shared admission/readmission, coverage, trial/retirement accounting and overrides.
+3. Trusted manifest resolution for calculation, result reads and exports.
+4. Runtime identity, holdout capability and actual data-access isolation.
+5. Canonical AST/operator/numerical integration into authorized execution.
+
 - [ ] Port all eight existing fixes into shared contracts and regression tests.
 - [ ] Add holdout capabilities, provenance invalidation, canonical SHA-256 IDs,
       missing-window skew tests, durable perturbation state, unified readmission,
@@ -164,9 +176,9 @@ are not production research parsers, and no holdout capability was issued.
 - [x] Implement transactional development-backtest rejection memory in submission
       and acquisition, with exact frozen-context matching and 19 PostgreSQL
       regression tests. This is an internal command-path integration, not enabled
-      production execution; remote acceptance is pending at commit time.
-      Perturbation and generalized factor-evaluation/readmission remain open
-      (ADR 0015).
+      production execution. Commit `70b44c5` is pushed and all seven jobs in
+      run `34441752040` passed. Generalized factor-evaluation/readmission remains
+      open (ADR 0015); perturbation integration is delivery unit 1 above.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and

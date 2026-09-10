@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "loop/v1/common.proto";
+import "loop/v1/development_data.proto";
+import "loop/v1/research_common.proto";
+
+// A server-resolved single-parameter family. All other semantics are frozen.
+// The resolver must prove IS-only data and canonical candidate equivalence except
+// for the one window argument. These DTOs do not grant data access.
+message PerturbationSpace {
+  string algorithm = 1;
+  DevelopmentDatasetReference dataset = 2;
+  ResearchProvenanceFingerprint provenance = 3;
+  Sha256Digest backtest_seed = 4;
+  Sha256Digest random_seed = 5;
+  // Between 2 and 64 strictly increasing windows, with unique FactorSpec IDs.
+  repeated WindowCandidate candidates = 6;
+}
+
+message WindowCandidate {
+  uint32 window = 1;
+  FactorSpecId factor_spec_id = 2;
+}
+
+// Numeric input is resolved from an immutable registered primary IS result,
+// never a model-supplied score or an infrastructure failure.
+message WindowObservation {
+  JobId source_job_id = 1;
+  WindowCandidate candidate = 2;
+  double net_sharpe = 3;
+}
+
+message PerturbationState {
+  uint32 version = 1;
+  Sha256Digest random_seed = 2;
+  uint64 random_draws = 3;
+  // Bounded to 1,024 unique source jobs, in observation order; never truncated.
+  repeated WindowObservation history = 4;
+  double momentum = 5;
+  double second_moment = 6;
+  // Proposed once per frozen search, including work still awaiting a result.
+  repeated FactorSpecId proposed_factor_ids = 7;
+}
+
+// Local worker invocation uses bounded Protobuf bytes, not arbitrary code or SQL.
+message PerturbationWork {
+  PerturbationState state = 1;
+  repeated WindowCandidate candidates = 2;
+  repeated FactorSpecId failed_factor_ids = 3;
+  WindowObservation observation = 4;
+  uint32 current_window = 5;
+}
+
+enum PerturbationReason {
+  PERTURBATION_REASON_UNSPECIFIED = 0;
+  PERTURBATION_REASON_EXPLORATION = 1;
+  PERTURBATION_REASON_GRADIENT = 2;
+  PERTURBATION_REASON_EXHAUSTED = 3;
+}
+
+message PerturbationStep {
+  PerturbationState state = 1;
+  // Absent when every candidate is observed, proposed or deterministically rejected.
+  WindowCandidate candidate = 2;
+  PerturbationReason reason = 3;
+}

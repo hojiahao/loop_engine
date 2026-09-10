@@ -21,6 +21,20 @@ use super::{BacktestExport, ExportBacktest, PgJobStore, StoreError, StoreResult,
 /// allowed in these synchronous transaction callbacks; pre-resolve immutable
 /// evidence under the owning service's identity. Defaults deny every operation.
 pub trait BacktestPolicy: Send + Sync {
+    /// Resolve a frozen single-window family and prove IS-only data, canonical
+    /// candidate identities, fixed direction/policies and worker build provenance.
+    /// Authorize the principal to the entire family and its shared score history,
+    /// not only the source job. Candidate IDs alone do not establish membership.
+    /// No network is permitted under the transaction lock. Default denial also
+    /// excludes development-validation and holdout scores from optimization.
+    fn resolve_perturbation_space(
+        &self,
+        _principal: &Actor,
+        _job: &JobSpecification,
+        _context_id: &str,
+    ) -> StoreResult<loop_protocol::wire::v1::PerturbationSpace> {
+        Err(StoreError::AdmissionDenied)
+    }
     /// Resolve the exact result manifest referenced by a successful job. This
     /// never grants holdout access, factor admission, or authority to rerun work.
     fn resolve_result(

@@ -3,6 +3,7 @@
 #[cfg(test)]
 extern crate self as loopd;
 
+pub mod research_worker;
 pub mod store;
 
 use axum::{Json, Router, routing::get};

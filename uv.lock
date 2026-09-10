@@ -425,6 +425,7 @@ version = "0.2.0a1"
 source = { editable = "python/loop_research" }
 dependencies = [
     { name = "exchange-calendars" },
+    { name = "loop-engine-protocol" },
     { name = "numpy" },
     { name = "pydantic" },
 ]
@@ -442,6 +443,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "exchange-calendars", specifier = "==4.13.2" },
+    { name = "loop-engine-protocol", editable = "python/loop_protocol" },
     { name = "numpy", specifier = ">=2.5,<3" },
     { name = "pydantic", specifier = ">=2.11,<3" },
 ]

@@ -31,6 +31,10 @@ just doctor
 
 ## Delivery discipline
 
+- Use the agreed phase task as the delivery/commit unit: implementation, tests,
+  documentation and acceptance evidence belong together. Complete and push one
+  task before beginning the next. Do not create extra task commits for individual
+  files or unused interfaces, and do not rewrite previously published history.
 - Tie each change to a concrete requirement and an executable acceptance case.
   State the problem, design tradeoffs, verification evidence, and rollback path.
 - Prefer the smallest useful end-to-end behavior. Reuse existing components;

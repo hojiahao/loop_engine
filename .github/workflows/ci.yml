@@ -34,6 +34,12 @@ jobs:
       - run: cargo fetch --locked
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
+      - uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install the real research worker for Rust integration tests
+        run: bash scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: bash scripts/postgres-test.sh start
       - run: cargo test --workspace --all-features --locked --offline -- --test-threads=2
 

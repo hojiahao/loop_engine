@@ -2380,3 +2380,105 @@ pub mod model_stream_event {
         Completed(super::StreamCompleted),
     }
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PerturbationSpace {
+    #[prost(string, tag = "1")]
+    pub algorithm: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "2")]
+    pub dataset: ::core::option::Option<DevelopmentDatasetReference>,
+    #[prost(message, optional, tag = "3")]
+    pub provenance: ::core::option::Option<ResearchProvenanceFingerprint>,
+    #[prost(message, optional, tag = "4")]
+    pub backtest_seed: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "5")]
+    pub random_seed: ::core::option::Option<Sha256Digest>,
+    #[prost(message, repeated, tag = "6")]
+    pub candidates: ::prost::alloc::vec::Vec<WindowCandidate>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WindowCandidate {
+    #[prost(uint32, tag = "1")]
+    pub window: u32,
+    #[prost(message, optional, tag = "2")]
+    pub factor_spec_id: ::core::option::Option<FactorSpecId>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WindowObservation {
+    #[prost(message, optional, tag = "1")]
+    pub source_job_id: ::core::option::Option<JobId>,
+    #[prost(message, optional, tag = "2")]
+    pub candidate: ::core::option::Option<WindowCandidate>,
+    #[prost(double, tag = "3")]
+    pub net_sharpe: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PerturbationState {
+    #[prost(uint32, tag = "1")]
+    pub version: u32,
+    #[prost(message, optional, tag = "2")]
+    pub random_seed: ::core::option::Option<Sha256Digest>,
+    #[prost(uint64, tag = "3")]
+    pub random_draws: u64,
+    #[prost(message, repeated, tag = "4")]
+    pub history: ::prost::alloc::vec::Vec<WindowObservation>,
+    #[prost(double, tag = "5")]
+    pub momentum: f64,
+    #[prost(double, tag = "6")]
+    pub second_moment: f64,
+    #[prost(message, repeated, tag = "7")]
+    pub proposed_factor_ids: ::prost::alloc::vec::Vec<FactorSpecId>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PerturbationWork {
+    #[prost(message, optional, tag = "1")]
+    pub state: ::core::option::Option<PerturbationState>,
+    #[prost(message, repeated, tag = "2")]
+    pub candidates: ::prost::alloc::vec::Vec<WindowCandidate>,
+    #[prost(message, repeated, tag = "3")]
+    pub failed_factor_ids: ::prost::alloc::vec::Vec<FactorSpecId>,
+    #[prost(message, optional, tag = "4")]
+    pub observation: ::core::option::Option<WindowObservation>,
+    #[prost(uint32, tag = "5")]
+    pub current_window: u32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PerturbationStep {
+    #[prost(message, optional, tag = "1")]
+    pub state: ::core::option::Option<PerturbationState>,
+    #[prost(message, optional, tag = "2")]
+    pub candidate: ::core::option::Option<WindowCandidate>,
+    #[prost(enumeration = "PerturbationReason", tag = "3")]
+    pub reason: i32,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PerturbationReason {
+    Unspecified = 0,
+    Exploration = 1,
+    Gradient = 2,
+    Exhausted = 3,
+}
+impl PerturbationReason {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "PERTURBATION_REASON_UNSPECIFIED",
+            Self::Exploration => "PERTURBATION_REASON_EXPLORATION",
+            Self::Gradient => "PERTURBATION_REASON_GRADIENT",
+            Self::Exhausted => "PERTURBATION_REASON_EXHAUSTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PERTURBATION_REASON_UNSPECIFIED" => Some(Self::Unspecified),
+            "PERTURBATION_REASON_EXPLORATION" => Some(Self::Exploration),
+            "PERTURBATION_REASON_GRADIENT" => Some(Self::Gradient),
+            "PERTURBATION_REASON_EXHAUSTED" => Some(Self::Exhausted),
+            _ => None,
+        }
+    }
+}

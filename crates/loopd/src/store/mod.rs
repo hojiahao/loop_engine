@@ -11,6 +11,7 @@ mod export;
 mod grant;
 mod holdout;
 mod lifecycle;
+mod perturbation;
 mod postgres;
 mod rejection;
 mod submission;
@@ -30,6 +31,7 @@ pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
 };
 pub use lifecycle::{JobMutation, RecoveryCommand};
+pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
 pub use postgres::{PgJobStore, StoreOptions};
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 

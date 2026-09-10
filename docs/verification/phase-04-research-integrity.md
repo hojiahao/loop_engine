@@ -211,3 +211,55 @@ reverted normally. After deployment, retain immutable history and use a
 schema-aware recovery build with writers disabled, not a destructive downgrade.
 Phase 4 remains in progress; perturbation/Sharpe state, broader failed-hash
 integration, unified readmission and authorized execution remain required.
+
+Rejection-memory implementation `70b44c5` is pushed. Run `34441752040` passed
+all seven jobs, including the complete 2/4/8-process and kill/restart matrices,
+unified workspace commands and the clean DaoCloud container.
+
+## Delivery Unit 1: Durable Perturbation
+
+ADR 0016 adds an installed Python numerical worker and a Rust durable command.
+The command resolves Sharpe from registered primary IS results, consumes the
+existing indexed rejection memory, calculates outside the database lock and
+commits RNG/history, receipt and audit together. Migration 8 is local-only;
+the production database remains untouched. There is no real market backtest,
+external model request, factor admission or holdout unlock in this delivery.
+
+Local evidence on 2026-09-10:
+
+- The 28 new Python cases pass, including real Protobuf subprocess round trips,
+  a fixed cold-start RNG golden, analytical Sharpe-gradient values, restart
+  equivalence, bounded Hypothesis proposals and malformed-envelope rejection.
+- The 21 PostgreSQL integration cases pass in 32.07 seconds, including the real
+  Python worker, durable history/RNG, retry/CAS conflicts, current provenance,
+  cancellation/deadline/clock failures, audit rollback, SQL guards, corruption,
+  holdout-source denial and a rejection committed during numerical computation.
+- The library suite passes (4 tests plus the explicitly invoked crash helper),
+  including worker error classification and the kill/restart matrix. The new
+  fault points are after state/receipt insertion, before commit and after commit.
+- The full independent-process matrix passes in 181.93 seconds. The two new
+  modes cover same-key replay and distinct-key CAS races at 2/4/8 writers. Every
+  case commits one history observation, one proposal, one raw RNG draw and one
+  receipt, with a verified audit chain after all processes exit.
+- A first 17-case database run passed 16 cases but one real worker hit its
+  10-second limit while an overlapping Clippy compilation competed for resources.
+  This is retained as failed evidence, not silently relabeled as a pass. A
+  serialized rerun passed all 21 current cases without relaxing the deadline.
+- An offline isolated Python run could not fetch the newly declared protocol
+  dependency's uncached grpcio wheel. The locked online rerun was interrupted,
+  and was not counted as a pass. After the locked wheel was cached, the final
+  offline isolated research run passed all 151 cases in 29.51 seconds.
+- The first final workspace check correctly refused the old wire-fixture
+  descriptor digest after the additive protocol extension. Regeneration changes
+  only that digest in `wire_fixtures.json`; the binary fixtures and compatibility
+  baseline remain unchanged. The subsequent complete `just check` passed:
+  protocol boundaries/compatibility, cross-language fixtures, rustfmt, workspace
+  Clippy with warnings denied, TypeScript checks, Ruff, mypy and Python 3.14.4
+  single-root-environment verification.
+
+The local test container and its disposable database were removed after tests.
+Commit publication and remote CI are pending at this record's commit time;
+acceptance requires all seven jobs on this delivery commit, not an earlier run.
+Commands and rollback: `docs/development/perturbation.md`. Trusted production
+family/result manifests and actual authenticated data isolation remain required
+by delivery units 3 and 4; numerical execution integration is unit 5.
