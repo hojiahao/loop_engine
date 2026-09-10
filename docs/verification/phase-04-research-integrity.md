@@ -289,3 +289,32 @@ was interrupted by the conversation restart and is not recorded as a pass. The
 process was confirmed stopped before restarting `just test` against a fresh
 fixture. That full rerun and the corrected commit's CI are still pending at
 publication; the correction does not itself close Phase 4 or delivery unit 1.
+
+### Rust Job Cache Correction
+
+Capacity correction `5dabadd` is pushed. In run `34463208111`, the Rust
+format/Clippy/test steps and database cleanup all passed. The measured database
+usage was 548596 KiB (53% of the new 1 GiB bound), exceeding the old 512 MiB
+bound. The unified workspace job also passed. The Rust job nevertheless failed
+in setup-uv's post-job hook: it looked for its default temporary cache, while
+`scripts/uv.sh` had populated `.tools/uv-cache`. This is a cache-path integration
+error, not a passing CI job or a numerical-test failure.
+
+The Rust setup-uv step now explicitly selects the same workspace cache path as
+the other Python-enabled jobs. Caching and all verification steps remain enabled;
+no empty placeholder directory or ignored post-job failure hides the mismatch.
+This workflow-only correction leaves runtime code and database history unchanged.
+
+The completed run has six successful jobs, including the clean DaoCloud container;
+only Rust's cache post-hook failed. A structured YAML check verifies all five
+setup-uv jobs enable caching at the same explicit workspace path, and
+`bash scripts/uv.sh cache dir` confirms that actual location. `git diff --check`
+also passes. Remote acceptance of this correction is pending at commit time.
+
+The local capacity rerun completed compilation and several PostgreSQL suites,
+then was interrupted again. After confirming no test process remained, its
+273596 KiB partial-use reading was recorded and the disposable service removed.
+That partial run is not a full-suite pass. The completed remote Rust test step,
+unified workspace gate and clean-container gate above provide the full-suite
+capacity evidence; no further local recompilation is required for two YAML
+cache inputs and their documentation.

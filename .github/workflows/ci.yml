@@ -38,6 +38,8 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+          cache-local-path: ${{ github.workspace }}/.tools/uv-cache
       - name: Install the real research worker for Rust integration tests
         run: bash scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: bash scripts/postgres-test.sh start
