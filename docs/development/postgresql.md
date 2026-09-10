@@ -87,14 +87,21 @@ bash scripts/postgres-test.sh stop
 ```
 
 The test service uses a pinned DaoCloud PostgreSQL 17.11 image, a generated
-ephemeral TLS certificate, a 512 MiB disposable tmpfs volume and a 640 MiB
-container memory limit. It binds only
+ephemeral TLS certificate, a 1 GiB disposable tmpfs volume and a 1280 MiB
+container memory limit. The memory limit also includes PostgreSQL processes;
+tmpfs capacity is an upper bound, not an upfront allocation. It binds only
 `127.0.0.1:15433`. Its public fixture login/database `loop_engine_test` and
 password `loop_engine_test_only` are intentionally non-production credentials.
 Stopping the service discards only this project's disposable test database.
 Without `LOOP_TEST_POSTGRES_URL`, `just test` obtains a nonblocking local fixture
 lock, recreates this dedicated service before testing, and removes it on exit,
 including test failure. This prevents repeated suites accumulating schemas.
+The full suite retains its independent schemas until teardown; its Phase 4
+process/crash matrix exceeds the former 512 MiB capacity even on a fresh service.
+All managed gates print `df -k` usage before disposal, including on test failure,
+so the bounded per-run storage budget can be measured rather than inferred from
+the host disk. Targeted runs can inspect it with
+`bash scripts/postgres-test.sh usage`. No production resource limit is changed.
 Do not run targeted cargo tests against that managed service concurrently with
 `just test`. Use an explicit separate test URL for independently managed runs;
 the test command never starts or stops an explicitly supplied database.

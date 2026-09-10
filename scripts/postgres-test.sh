@@ -10,5 +10,9 @@ case "${1:-start}" in
   stop)
     docker compose -f "${loop_repo_dir}/infra/compose/postgres-test.yaml" down
     ;;
-  *) echo "usage: $0 [start|stop]" >&2; exit 2 ;;
+  usage)
+    docker compose -f "${loop_repo_dir}/infra/compose/postgres-test.yaml" \
+      exec -T postgres df -k /var/lib/postgresql/data
+    ;;
+  *) echo "usage: $0 [start|stop|usage]" >&2; exit 2 ;;
 esac

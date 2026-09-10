@@ -8,7 +8,13 @@ cleanup() {
   docker compose --project-name "${loop_gate_project}" down \
     --volumes --remove-orphans >/dev/null 2>&1 || true
 }
-trap cleanup EXIT
+
+report_and_cleanup() {
+  docker compose --project-name "${loop_gate_project}" exec -T postgres \
+    df -k /var/lib/postgresql/data || true
+  cleanup
+}
+trap report_and_cleanup EXIT
 
 export LOOP_ENGINE_UID="${LOOP_ENGINE_UID:-$(id -u)}"
 export LOOP_ENGINE_GID="${LOOP_ENGINE_GID:-$(id -g)}"

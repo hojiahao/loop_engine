@@ -4,6 +4,11 @@ set -euo pipefail
 loop_repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${loop_repo_dir}"
 
+cleanup_postgres() {
+  bash ./scripts/postgres-test.sh usage || true
+  bash ./scripts/postgres-test.sh stop
+}
+
 node --test --test-isolation=none tests/toolchains/rust-download.test.mjs
 if [[ -z "${LOOP_TEST_POSTGRES_URL:-}" ]]; then
   mkdir -p .tools
@@ -12,7 +17,7 @@ if [[ -z "${LOOP_TEST_POSTGRES_URL:-}" ]]; then
     echo "Another managed test suite owns the PostgreSQL fixture." >&2
     exit 1
   fi
-  trap 'bash ./scripts/postgres-test.sh stop' EXIT
+  trap cleanup_postgres EXIT
   bash ./scripts/postgres-test.sh stop
   bash ./scripts/postgres-test.sh start
 fi

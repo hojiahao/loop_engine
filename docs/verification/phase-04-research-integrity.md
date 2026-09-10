@@ -263,3 +263,29 @@ acceptance requires all seven jobs on this delivery commit, not an earlier run.
 Commands and rollback: `docs/development/perturbation.md`. Trusted production
 family/result manifests and actual authenticated data isolation remain required
 by delivery units 3 and 4; numerical execution integration is unit 5.
+
+### Remote Fixture Capacity Correction
+
+Implementation `8095a9a` was pushed. Run `34458505546` failed three of seven
+jobs: Rust, unified workspace and the DaoCloud container. Each failed with
+PostgreSQL SQLSTATE `53100`, `No space left on device`, in the disposable
+database. Four language jobs passed. The 512 MiB tmpfs filled within one fresh
+full-suite run, not because of production data or a missing between-run cleanup.
+This failed run does not accept delivery unit 1.
+
+Both test-only Compose definitions now cap PGDATA at 1 GiB and container memory
+at 1280 MiB. The existing per-run schema isolation and teardown remain intact;
+managed gates report filesystem usage before disposal, including on failure.
+The Rust CI job now explicitly tears down its fixture as well. No runtime
+algorithm, worker deadline, test assertion, migration or production setting is
+relaxed. Reverting the correction restores the previous test-only resource
+budget and commands, without affecting immutable research history. Verification
+and a new remote run are required before accepting the delivery.
+
+Both definitions pass `docker compose config --format json` checks of the tmpfs
+mount and the normalized 1342177280-byte memory limit. All three changed shell
+scripts pass `bash -n`; `git diff --check` passes. A local full-suite compilation
+was interrupted by the conversation restart and is not recorded as a pass. The
+process was confirmed stopped before restarting `just test` against a fresh
+fixture. That full rerun and the corrected commit's CI are still pending at
+publication; the correction does not itself close Phase 4 or delivery unit 1.
