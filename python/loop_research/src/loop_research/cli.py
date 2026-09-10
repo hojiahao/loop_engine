@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
     correlation.add_argument("--min-observations", type=int, default=5)
+    correlation.add_argument("--calendar", choices=["XNYS"], default=None)
     correlation.add_argument(
         "--cash-flow-adjusted",
         action="store_true",
@@ -38,6 +39,7 @@ def main() -> None:
                 args.right,
                 min_observations=args.min_observations,
                 cash_flow_adjusted=args.cash_flow_adjusted,
+                calendar=args.calendar,
             )
         except (OSError, ValueError) as error:
             parser.error(str(error))

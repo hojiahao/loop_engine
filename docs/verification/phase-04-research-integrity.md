@@ -160,3 +160,8 @@ No production data, holdout, database, artifact registry, factor admission or
 backtest is accessed. There is no schema migration. Reverting this additive
 command preserves existing `doctor` behavior and all historical state. Remote
 acceptance remains pending at commit time; Phase 4 remains in progress.
+
+NAV diagnostic implementation `8a39cdc` is pushed. Run `34434276768` passed
+all seven jobs, including unified workspace commands and the clean DaoCloud
+container gate. A local isolated environment also passed all 95 research tests,
+proving the CLI does not depend on undeclared workspace packages.

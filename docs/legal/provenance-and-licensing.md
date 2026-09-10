@@ -30,6 +30,16 @@ Credentials grant access but do not grant redistribution rights. Raw licensed
 data, derived rows that violate vendor terms, and credentials must remain out of
 Git and public release artifacts.
 
+## Calendar Dependency
+
+The initial date-only NYSE adapter uses `exchange-calendars==4.13.2` through its
+public Python API; it does not copy or relabel upstream implementation code.
+The [published package metadata](https://pypi.org/project/exchange-calendars/4.13.2/)
+declares Apache-2.0. Installed copyright/license notices are preserved. Its
+transitive dependencies remain pinned in `uv.lock` and subject to the complete
+release SBOM/license gate. Calendar rules do not grant rights to market data or
+prove point-in-time knowledge of exceptional future closures.
+
 ## Release gates
 
 - A report states its exact data source, snapshot, entitlement class, and known

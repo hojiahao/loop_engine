@@ -13,6 +13,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Literal
 
+from loop_research.calendar import CalendarEvidence, require_xnys_sessions
 from loop_research.numerics import aligned_nav_correlation, nav_to_returns
 
 MAX_INPUT_BYTES = 10 * 1024 * 1024
@@ -38,6 +39,7 @@ class NavCorrelationReport:
     calendar_validation: str = "not_performed"
     cash_flow_adjustment: str = "caller_asserted"
     return_definition: str = "nav_simple_between_matching_observation_dates"
+    calendar: CalendarEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,12 +114,14 @@ def correlate_nav_files(
     *,
     min_observations: int = 5,
     cash_flow_adjusted: bool = False,
+    calendar: Literal["XNYS"] | None = None,
 ) -> NavCorrelationReport:
     """Compare returns on exactly matching consecutive observation intervals.
 
     Require the caller to assert external cash flows were already removed.
-    Dates prove matching interval endpoints, not exchange-calendar completeness,
-    daily frequency, PIT quality, holdout access, or trustworthy accounting.
+    Dates prove matching interval endpoints. Optional XNYS validation additionally
+    requires the complete session sequence, but cannot prove valuation times,
+    PIT quality, holdout access, or trustworthy accounting.
     Inputs are bounded regular ASCII CSV files; neither file is modified.
     Invalid NAV, shifted/missing dates and implicit alignment raise ValueError;
     file access raises OSError. Undefined correlations stay null with a reason.
@@ -126,10 +130,13 @@ def correlate_nav_files(
         raise ValueError("Confirm that both NAV inputs already adjust for external cash flows")
     if type(min_observations) is not int or not 2 <= min_observations < MAX_OBSERVATIONS:
         raise ValueError("Minimum return pairs must be an integer from 2 to 99999")
+    if calendar not in (None, "XNYS"):
+        raise ValueError("The only supported diagnostic calendar is XNYS")
     left_data = _load(left)
     right_data = _load(right)
     if left_data.sessions != right_data.sessions:
         raise ValueError("NAV inputs must have identical observation dates; alignment is explicit")
+    evidence = require_xnys_sessions(left_data.sessions) if calendar == "XNYS" else None
     correlation = aligned_nav_correlation(
         left_data.values, right_data.values, min_observations=min_observations
     )
@@ -149,4 +156,6 @@ def correlate_nav_files(
         minimum_return_pairs=min_observations,
         correlation=correlation if status == "ok" else None,
         status=status,
+        calendar=evidence,
+        calendar_validation="complete_observation_dates" if evidence else "not_performed",
     )

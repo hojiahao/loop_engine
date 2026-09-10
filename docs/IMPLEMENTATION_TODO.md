@@ -200,13 +200,30 @@ limitations. Local research tests are 95 passed (49 new), and `just check`
 passes. Publication and remote acceptance are pending at this checkpoint's
 commit time. Usage and rollback: `docs/development/nav-correlation.md`.
 
-## Phase 5 - US-equities data plane (`pending`)
+NAV diagnostic implementation `8a39cdc` is pushed. Run `34434276768` passed
+all seven jobs, including the isolated research environment, unified workspace
+and DaoCloud container gates. This accepts the read-only diagnostic step, not
+authorized result export or production research execution.
 
+## Phase 5 - US-equities data plane (`in_progress`)
+
+- [x] Implement the bounded, offline XNYS session-date gate, pinned calendar
+      dependency and actual NAV CLI integration. This is a Phase 4 alignment
+      dependency, not completion of the data plane or a full calendar manifest.
 - [ ] Implement security master and bitemporal market/fundamental schemas.
 - [ ] Implement SEC plus Alpaca development adapters.
 - [ ] Implement Sharadar production adapter and optional WRDS/Databento adapters.
 - [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.
+
+The first data-plane step pins and installs `exchange-calendars==4.13.2` in
+the existing Python 3.14.4 uv workspace. It adds explicit XNYS validation to the
+read-only NAV diagnostic, with date-sequence digests and offline 2005-2026
+generation. Research tests pass in ordinary and isolated environments: 123
+passed, including 28 new calendar cases. `just check` passes. Remote acceptance
+is pending at commit time. This advances a Phase 4 dependency without closing
+Phase 4 or claiming licensed/PIT market data. Evidence and rollback:
+`docs/verification/phase-05-us-data.md`.
 
 ## Phase 6 - Factor engine (`pending`)
 

@@ -25,8 +25,9 @@ From the repository root, run the deliberately synthetic examples:
   --cash-flow-adjusted
 ```
 
-Use Python 3.14.4 and the existing root uv workspace. No additional dependency
-or virtual environment is required. `loop-research doctor` remains unchanged.
+Use Python 3.14.4 and the existing root uv workspace. Bootstrap installs the
+locked dependencies; no secondary environment is required. The existing
+`loop-research doctor` command remains unchanged.
 
 Each input must be a regular, non-symlink ASCII CSV file with exactly this
 header and two fields per row:
@@ -41,8 +42,9 @@ session,nav
 Dates must be canonical `YYYY-MM-DD`, unique and strictly increasing. Both files
 must have identical complete date sequences. The date labels are observations,
 not a verified exchange calendar: shared gaps are allowed but the resulting
-returns are interval returns, not necessarily daily returns. Calendar
-completeness remains a data-plane integration gate.
+returns are interval returns, not necessarily daily returns. The optional
+calendar gate below checks the complete NYSE session-date sequence. Production
+calendar and execution integration remain separate requirements.
 
 NAV must be finite and nonnegative, with positive prior values. A terminal zero
 is a total loss; a later observation after zero is rejected. Non-numeric values,
@@ -62,7 +64,8 @@ return-pair count, requested minimum and Pearson correlation of
 `NAV[t] / NAV[t-1] - 1`. It does not hash or identify a `BacktestResult`.
 
 The report explicitly labels local data as `unverified_local_input`, calendar
-validation as `not_performed`, and cash-flow adjustment as `caller_asserted`.
+validation as `not_performed` by default, and cash-flow adjustment as
+`caller_asserted`.
 These fields must not be interpreted as a production provenance attestation.
 Input-file digests do not replace the six-component execution fingerprint.
 
@@ -72,6 +75,25 @@ An unavailable diagnostic is still a valid report with exit status 0. Invalid
 inputs, inaccessible files or missing arguments produce exit status 2, an
 error on stderr and no partial report on stdout. Reports are not automatically
 stored, exported to a remote destination, or used for an admission decision.
+
+## Optional Calendar Gate
+
+Add `--calendar XNYS` to require every NYSE session date between the two reported
+endpoints. This rejects shared missing sessions, weekends and holidays instead
+of accepting them merely because both files agree. The supported initial
+research window is 2005-01-01 through 2026-12-31 inclusive. Other calendar names
+and out-of-range dates fail closed; no alias or automatic venue fallback is used.
+
+Successful checks set `calendar_validation` to `complete_observation_dates`
+and add `calendar` metadata containing the name, installed library version and
+SHA-256 of the exact LF-terminated ISO date sequence. Without this option,
+`calendar` is null and the original interval-only behavior is preserved.
+
+This does not prove NAV valuation times, intraday trading availability, full
+intended backtest-window coverage, or data quality. The input endpoints define
+the checked range. Future dates are published rule dates, not a guarantee that
+the market will open. See `docs/development/trading-calendar.md` for sources,
+dependency boundaries and rollback.
 
 ## Verification And Rollback
 
