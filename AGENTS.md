@@ -29,6 +29,19 @@ just doctor
 - Discovery code must never receive a holdout capability.
 - Infrastructure failures fail closed and remain distinct from factor rejection.
 
+## Delivery discipline
+
+- Tie each change to a concrete requirement and an executable acceptance case.
+  State the problem, design tradeoffs, verification evidence, and rollback path.
+- Prefer the smallest useful end-to-end behavior. Reuse existing components;
+  do not add a service, table, abstraction, or dependency without a demonstrated
+  ownership or complexity benefit.
+- Keep commits reviewable. Review correctness and negative paths before adding
+  scope; a passing mock or an unused interface is not a delivered workflow.
+- Preserve immutable research and audit history during rollback. New writers
+  must be disableable; schema changes need an explicit compatibility and
+  recovery plan, not destructive down-migrations by default.
+
 ## Engineering quality gates
 
 - Follow the official Rust Style Guide and Rust API Guidelines where applicable;

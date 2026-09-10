@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::postgres::{encode_message, record_from_row, timestamp_millis, verified_blob};
-use super::{PgJobStore, StoreError, StoreResult, validate_id};
+use super::{BacktestExport, ExportBacktest, PgJobStore, StoreError, StoreResult, validate_id};
 
 /// Server-owned, bounded result resolution. Implementations must verify immutable
 /// manifests, artifact checksums/availability, and the original factor, sample,
@@ -66,6 +66,21 @@ pub trait BacktestRepository: Send + Sync {
         job_id: &str,
         context_id: &str,
     ) -> impl Future<Output = StoreResult<BacktestResult>> + Send;
+
+    /// Release current result metadata only after an immutable receipt and audit
+    /// commit. Both read and export permission are required; protected results
+    /// also retain the holdout read gate. Every retry revalidates current access,
+    /// evidence and provenance, so an old receipt cannot bypass revocation or
+    /// stale inputs. The receipt is not a capability or proof of file delivery.
+    /// No dataset, file or remote destination is written by this internal API.
+    /// Invalid input, deadlines, clock regression, conflicts, denied/stale data
+    /// and storage faults fail closed. Cancellation before commit rolls back;
+    /// retry resolves an uncertain commit without a duplicate export audit.
+    fn export_current(
+        &self,
+        principal: &Actor,
+        command: ExportBacktest,
+    ) -> impl Future<Output = StoreResult<BacktestExport>> + Send;
 }
 
 impl BacktestRepository for PgJobStore {
@@ -75,66 +90,111 @@ impl BacktestRepository for PgJobStore {
         job_id: &str,
         context_id: &str,
     ) -> StoreResult<BacktestResult> {
-        validate_id(job_id)?;
-        validate_id(context_id)?;
-        validate_id(
-            &principal
-                .actor_id
-                .as_ref()
-                .ok_or(StoreError::AdmissionDenied)?
-                .value,
-        )?;
-        if principal.authenticated_subject.is_empty() {
-            return Err(StoreError::AdmissionDenied);
-        }
+        validate_current_request(principal, job_id, context_id)?;
         let mut transaction = self.pool.begin().await?;
-        let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
-            .bind(job_id)
-            .fetch_optional(&mut *transaction)
-            .await?
-            .ok_or(StoreError::NotFound)?;
-        let record = record_from_row(&row)?;
-        self.admission
-            .authorize_job_command("loop.backtests.read_current", principal, &record)?;
-        let specification = specification(&record)?;
-        if let Some(job_specification::Input::HoldoutBacktest(input)) = &specification.input {
-            let period = input
-                .consumed_grant
-                .as_ref()
-                .and_then(|grant| grant.holdout_period_id.as_ref())
-                .ok_or(StoreError::Corrupt("holdout result period"))?;
-            self.holdout_policy.authorize_period(
-                "loop.holdout.read_result",
-                principal,
-                &period.value,
-            )?;
-        }
-        let result = verify_stored(&mut transaction, &record)
-            .await?
-            .ok_or(StoreError::InvalidTransition)?;
-        let success = success(&record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
-        if self
-            .backtest_policy
-            .resolve_result(specification, success)?
-            != result
-        {
-            return Err(StoreError::Corrupt(
-                "resolved result differs from registered evidence",
-            ));
-        }
-        let current = self
-            .backtest_policy
-            .resolve_current(principal, specification, context_id)?;
-        let current = current
-            .as_ref()
-            .map(ProvenanceSnapshot::try_from)
-            .transpose()?;
-        let recorded = snapshot(result.provenance.as_ref())?;
-        let frozen = frozen_provenance(specification)?;
-        assess_provenance(&recorded, &frozen, current.as_ref())?.require_current()?;
+        let (_, result) = current_in_transaction(
+            self,
+            &mut transaction,
+            principal,
+            job_id,
+            context_id,
+            "loop.backtests.read_current",
+        )
+        .await?;
         transaction.commit().await?;
         Ok(result)
     }
+
+    async fn export_current(
+        &self,
+        principal: &Actor,
+        command: ExportBacktest,
+    ) -> StoreResult<BacktestExport> {
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            super::export::execute(self, principal, command),
+        )
+        .await
+        .map_err(|_| StoreError::Unavailable("export timeout"))?
+    }
+}
+
+pub(super) async fn current_in_transaction(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    job_id: &str,
+    context_id: &str,
+    operation: &'static str,
+) -> StoreResult<(JobRecord, BacktestResult)> {
+    validate_current_request(principal, job_id, context_id)?;
+    let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
+        .bind(job_id)
+        .fetch_optional(&mut **transaction)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+    let record = record_from_row(&row)?;
+    store
+        .admission
+        .authorize_job_command(operation, principal, &record)?;
+    if operation != "loop.backtests.read_current" {
+        store
+            .admission
+            .authorize_job_command("loop.backtests.read_current", principal, &record)?;
+    }
+    let specification = specification(&record)?;
+    if let Some(job_specification::Input::HoldoutBacktest(input)) = &specification.input {
+        let period = input
+            .consumed_grant
+            .as_ref()
+            .and_then(|grant| grant.holdout_period_id.as_ref())
+            .ok_or(StoreError::Corrupt("holdout result period"))?;
+        store.holdout_policy.authorize_period(
+            "loop.holdout.read_result",
+            principal,
+            &period.value,
+        )?;
+    }
+    let result = verify_stored(transaction, &record)
+        .await?
+        .ok_or(StoreError::InvalidTransition)?;
+    let success = success(&record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
+    if store
+        .backtest_policy
+        .resolve_result(specification, success)?
+        != result
+    {
+        return Err(StoreError::Corrupt(
+            "resolved result differs from registered evidence",
+        ));
+    }
+    let current = store
+        .backtest_policy
+        .resolve_current(principal, specification, context_id)?;
+    let current = current
+        .as_ref()
+        .map(ProvenanceSnapshot::try_from)
+        .transpose()?;
+    let recorded = snapshot(result.provenance.as_ref())?;
+    let frozen = frozen_provenance(specification)?;
+    assess_provenance(&recorded, &frozen, current.as_ref())?.require_current()?;
+    Ok((record, result))
+}
+
+fn validate_current_request(principal: &Actor, job_id: &str, context_id: &str) -> StoreResult<()> {
+    validate_id(job_id)?;
+    validate_id(context_id)?;
+    validate_id(
+        &principal
+            .actor_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value,
+    )?;
+    if principal.authenticated_subject.is_empty() {
+        return Err(StoreError::AdmissionDenied);
+    }
+    Ok(())
 }
 
 pub(super) async fn record_completion(

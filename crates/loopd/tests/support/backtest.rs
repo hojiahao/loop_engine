@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use loop_protocol::wire::jobs::v1::{AcquireJobLeaseRequest, CompleteJobRequest};
 use loop_protocol::wire::v1::*;
 use loopd::store::{
-    AdmissionPolicy, BacktestPolicy, JobMutation, JobRepository, PgJobStore, StoreError,
-    StoreOptions, StoreResult,
+    AdmissionPolicy, BacktestPolicy, ExportBacktest, JobMutation, JobRepository, PgJobStore,
+    StoreError, StoreOptions, StoreResult,
 };
 
 use super::{FixtureAdmission, FixtureClock, NOW, actor, context, digest, research, timestamp};
@@ -117,6 +117,17 @@ pub fn result() -> BacktestResult {
         }),
         result_manifest_sha256: Some(digest(39)),
         completed_at: Some(timestamp(NOW)),
+    }
+}
+
+pub fn export(key: &str) -> ExportBacktest {
+    ExportBacktest {
+        context: Some(context(key)),
+        job_id: Some(JobId {
+            value: "job.1".to_owned(),
+        }),
+        context_id: "context.fixture".to_owned(),
+        deadline: Some(timestamp(NOW + 30_000)),
     }
 }
 

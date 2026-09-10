@@ -153,9 +153,11 @@ are not production research parsers, and no holdout capability was issued.
       across Rust, TypeScript and Python; reject unresolved and stale metrics.
 - [ ] Enforce provenance checks in durable result registration and current-result
       read/export paths, with trusted manifest resolution and restart coverage.
-- [ ] Commit and verify transactional backtest result registration and the
+- [x] Commit and verify transactional backtest result registration and the
       current-result repository gate under ADR 0013. Production resolvers and
       audited exports remain separate required integrations.
+- [ ] Add audited current-metadata exports with fresh checks on every retry,
+      transactional receipts, bounded deadlines and process/crash tests.
 
 ADR 0011 starts the numerical portion in the Python research package: actual
 sample-count skew, stable central moments, causal windows, valid NAV returns and
@@ -175,6 +177,12 @@ registration, current-result reads/exports and restart invalidation remain open.
 Checkpoint `13aebad` is pushed. All seven jobs in GitHub Actions run `34324674436`
 passed, including unified workspace and clean DaoCloud container gates.
 Checkpoint evidence: `docs/verification/phase-04-research-integrity.md`.
+
+Transactional result implementation `3e91027`, Clippy correction `275e190` and
+bounded Rust-download correction `4581c53` are pushed. Run `34333550936` passed
+all seven jobs, including unified and clean DaoCloud container gates. This
+accepts ADR 0013's internal storage checkpoint, not production manifest resolution
+or Phase 4 completion. The next checkpoint is the audited export gate in ADR 0014.
 
 ## Phase 5 - US-equities data plane (`pending`)
 

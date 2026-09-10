@@ -52,7 +52,7 @@ fn process_worker() {
         if mode == "role" {
             options.admission = Arc::new(research::Admission);
         }
-        if mode.starts_with("result") {
+        if mode.starts_with("result") || mode.starts_with("export") {
             options.admission = Arc::new(backtest::Admission);
             options.backtest_policy = Arc::new(backtest::Policy::default());
         }
@@ -74,6 +74,10 @@ fn process_worker() {
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "export" | "export-distinct" => {
+                let key = if mode.ends_with("distinct") { format!("export.{index}") } else { "export.retry".to_owned() };
+                store.export_current(&actor(), backtest::export(&key)).await.map(|value| value.replayed)
+            }
             "result" | "result-race" => {
                 let bytes = std::fs::read(directory.join("input")).unwrap();
                 let mut request = CompleteJobRequest::decode(bytes.as_slice()).unwrap();
@@ -197,10 +201,12 @@ async fn process_writers_preserve_fencing() {
             "batch-race",
             "result",
             "result-race",
+            "export",
+            "export-distinct",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
-            if mode.starts_with("result") {
+            if mode.starts_with("result") || mode.starts_with("export") {
                 let config = backtest::options(
                     &path,
                     Arc::new(FixtureClock(AtomicI64::new(NOW))),
@@ -208,7 +214,15 @@ async fn process_writers_preserve_fencing() {
                 );
                 let store = PgJobStore::open(config).await.unwrap();
                 let request = backtest::seed(&store).await;
-                std::fs::write(directory.path().join("input"), request.encode_to_vec()).unwrap();
+                if mode.starts_with("export") {
+                    store
+                        .mutate(&actor(), JobMutation::Complete(request))
+                        .await
+                        .unwrap();
+                } else {
+                    std::fs::write(directory.path().join("input"), request.encode_to_vec())
+                        .unwrap();
+                }
                 store.close().await;
             }
             if mode.starts_with("batch") {
@@ -297,7 +311,7 @@ async fn process_writers_preserve_fencing() {
                 if mode.ends_with("distinct") { count } else { 1 }
             );
             let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
-            if mode.starts_with("result") {
+            if mode.starts_with("result") || mode.starts_with("export") {
                 config.admission = Arc::new(backtest::Admission);
                 config.backtest_policy = Arc::new(backtest::Policy::default());
             }
@@ -305,6 +319,8 @@ async fn process_writers_preserve_fencing() {
             let events = store.audit_events(0, 500).await.unwrap();
             let baseline = if mode.starts_with("batch") {
                 4
+            } else if mode.starts_with("export") {
+                3
             } else if mode.starts_with("result") {
                 2
             } else if mode.starts_with("grant") {
@@ -317,7 +333,7 @@ async fn process_writers_preserve_fencing() {
             let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
             assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
-            if mode.starts_with("result") {
+            if mode.starts_with("result") || mode.starts_with("export") {
                 assert_eq!(
                     store
                         .current_backtest(&actor(), "job.1", "context.fixture")
@@ -330,6 +346,12 @@ async fn process_writers_preserve_fencing() {
                     .await
                     .unwrap();
                 assert_eq!(results, 1);
+            }
+            if mode.starts_with("export") {
+                let receipts: i64 = sqlx::query_scalar("SELECT count(*) FROM command_receipts WHERE operation = 'loop.backtests.export_current'")
+                    .fetch_one(&mut connection(&directory).await).await.unwrap();
+                assert_eq!(receipts, committed as i64);
+                assert_eq!(store.get("job.1").await.unwrap().unwrap().revision, 3);
             }
             store.verify_configuration().await.unwrap();
             store.close().await;

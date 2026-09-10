@@ -56,7 +56,7 @@ unified readmission and numerical execution integration remain required by the
 Phase 4 checklist. No paid data, LLM request, factor admission, research freeze,
 holdout unlock or real backtest was performed by these checkpoints.
 
-## Transactional result checkpoint (acceptance pending)
+## Transactional result checkpoint
 
 ADR 0013 and PostgreSQL migration 6 add immutable structured result registration
 to the existing lease-fenced completion transaction. Current-result reads verify
@@ -94,7 +94,38 @@ Host `just check`, shell syntax checks and both default/CI Compose transport
 configuration checks pass. ADR 0002 records the transport policy. Full remote
 acceptance of this follow-up is pending at commit time.
 
-Remote acceptance must include all seven CI jobs on the corrected commit,
-including Clippy with warnings denied, full Rust regressions, the unified
-workspace and the clean DaoCloud container. Until those gates pass, this
-checkpoint remains unaccepted and Phase 4 remains in progress.
+Commit `4581c53` is pushed and run `34333550936` passed all seven jobs. Rust
+completed in 3m41s, unified workspace in 6m03s and the clean DaoCloud container
+in 5m55s. This accepts the internal transactional result checkpoint. Production
+resolvers, audited exports and the other Phase 4 integrations remain open.
+
+## Audited metadata exports (remote acceptance pending)
+
+ADR 0014 adds a separate metadata export command sharing the current-result
+gate. It uses the existing immutable receipt table and one transactional audit
+append; it does not write external files or grant artifact access. Every retry
+revalidates read/export authority, the independent holdout policy, immutable
+evidence and all six current-context fingerprints. Source results and terminal
+job revisions remain unchanged. Explicit deadlines are bounded to 30 seconds;
+cancellation before commit rolls back the receipt and audit together.
+
+Local evidence on 2026-09-10:
+
+- The 19 export tests pass, including stale-component replay, revoked authority,
+  unavailable references, protected-job denial, actor spoofing, deadline and
+  clock failures, corrupt receipts and audit rollback. The cancellation test
+  waits for an actual PostgreSQL audit-insert barrier after receipt insertion,
+  rather than assuming a sleep reached the transaction boundary.
+- The existing 15 result-storage tests pass after sharing the current-result
+  gate. Full `just check` passes, including workspace/all-target/all-feature
+  Clippy with warnings denied, rustfmt, protocol compatibility, TypeScript and
+  Python checks, and the ten downloader fault tests.
+- The 2/4/8 OS-process matrix now includes same-key and distinct-key exports;
+  the kill/restart matrix includes after-receipt, before-commit and after-commit
+  stops. Their full execution and clean-container acceptance remain pending
+  remote CI at this checkpoint; source coverage is not a passing test result.
+
+No database table, service, dependency or production endpoint was added. Disable
+a future export handler or restore the prior binary to roll back while retaining
+all immutable receipts and audit events. Migration 6 remains undeployed to
+production. ADR 0014 records the authority boundary, scope and recovery limits.

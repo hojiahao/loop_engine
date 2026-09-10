@@ -7,6 +7,7 @@ mod backtest;
 mod batch;
 #[cfg(test)]
 mod crash_tests;
+mod export;
 mod grant;
 mod holdout;
 mod lifecycle;
@@ -22,6 +23,7 @@ use thiserror::Error;
 pub use approval::ApprovalResult;
 pub use backtest::{BacktestPolicy, BacktestRepository, DenyBacktest};
 pub use batch::BatchResult;
+pub use export::{BacktestExport, ExportBacktest};
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
