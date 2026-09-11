@@ -10,6 +10,7 @@ mod crash_tests;
 mod export;
 mod grant;
 mod holdout;
+mod library;
 mod lifecycle;
 mod perturbation;
 mod postgres;
@@ -29,6 +30,9 @@ pub use export::{BacktestExport, ExportBacktest};
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
+};
+pub use library::{
+    AdmissionEvidence, DecideFactor, FactorDecision, FactorRepository, FactorState, FactorTrial,
 };
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};

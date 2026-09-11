@@ -9,8 +9,8 @@ use loop_core::audit::verify_audit_chain;
 use loop_protocol::wire::jobs::v1::{AcquireJobLeaseRequest, CompleteJobRequest};
 use loop_protocol::wire::v1::JobId;
 use loopd::store::{
-    BacktestRepository, CloseGrant, GrantClosure, HoldoutRepository, JobMutation, JobRepository,
-    PerturbationRepository, PgJobStore, StoreError,
+    BacktestRepository, CloseGrant, FactorRepository, GrantClosure, HoldoutRepository, JobMutation,
+    JobRepository, PerturbationRepository, PgJobStore, StoreError,
 };
 use prost::Message;
 use support::*;
@@ -60,6 +60,10 @@ fn process_worker() {
             options.admission = Arc::new(perturbation::Admission);
             options.backtest_policy = Arc::new(perturbation::Policy::default());
         }
+        if mode.starts_with("factor") {
+            options.admission = Arc::new(library::Admission);
+            options.backtest_policy = Arc::new(library::Policy::default());
+        }
         if mode == "period" {
             options.holdout_policy = Arc::new(holdout::Policy);
         }
@@ -78,6 +82,10 @@ fn process_worker() {
         std::fs::write(directory.join(format!("ready.{index}")), b"ready").unwrap();
         wait_for(&directory.join("start")).await;
         let result = match mode.as_str() {
+            "factor" | "factor-race" => {
+                let key = if mode.ends_with("race") { format!("factor.{index}") } else { "factor.retry".to_owned() };
+                store.decide_factor(&actor(), library::command(1, 0, &key)).await.map(|value| value.replayed)
+            }
             "perturbation" | "perturbation-race" => {
                 let key = if mode.ends_with("race") { format!("perturbation.{index}") } else { "perturbation.retry".to_owned() };
                 store.advance_perturbation(&actor(), perturbation::command(1, 0, &key), &perturbation::worker()).await.map(|value| value.replayed)
@@ -218,9 +226,22 @@ async fn process_writers_preserve_fencing() {
             "rejection-filter",
             "perturbation",
             "perturbation-race",
+            "factor",
+            "factor-race",
         ] {
             let directory = tempfile::tempdir().unwrap();
             let path = directory.path().join("state");
+            if mode.starts_with("factor") {
+                let store = PgJobStore::open(library::options(
+                    &path,
+                    Arc::new(FixtureClock(AtomicI64::new(NOW))),
+                    Arc::new(library::Policy::default()),
+                ))
+                .await
+                .unwrap();
+                library::seed(&store, 1, 15).await;
+                store.close().await;
+            }
             if mode.starts_with("perturbation") {
                 let config = perturbation::options(
                     &path,
@@ -352,6 +373,10 @@ async fn process_writers_preserve_fencing() {
                 }
             );
             let mut config = options(&path, Arc::new(FixtureClock(AtomicI64::new(NOW))));
+            if mode.starts_with("factor") {
+                config.admission = Arc::new(library::Admission);
+                config.backtest_policy = Arc::new(library::Policy::default());
+            }
             if mode.starts_with("perturbation") {
                 config.admission = Arc::new(perturbation::Admission);
                 config.backtest_policy = Arc::new(perturbation::Policy::default());
@@ -370,6 +395,7 @@ async fn process_writers_preserve_fencing() {
             } else if mode.starts_with("export")
                 || mode == "rejection-filter"
                 || mode.starts_with("perturbation")
+                || mode.starts_with("factor")
             {
                 3
             } else if mode.starts_with("result") || mode.starts_with("rejection") {
@@ -381,9 +407,20 @@ async fn process_writers_preserve_fencing() {
             } else {
                 usize::from(mode == "acquire" || mode.starts_with("approval"))
             };
-            let events_per_commit = if mode.starts_with("batch") { 3 } else { 1 };
+            let events_per_commit = if mode.starts_with("batch") {
+                3
+            } else if mode.starts_with("factor") {
+                2
+            } else {
+                1
+            };
             assert_eq!(events.len(), baseline + committed * events_per_commit);
             verify_audit_chain(&events).unwrap();
+            if mode.starts_with("factor") {
+                let totals: (i64, i64, i64, i64) = sqlx::query_as("SELECT revision, admissions, retirements, (SELECT count(*) FROM command_receipts WHERE operation = 'loop.factors.decide') FROM factor_states")
+                    .fetch_one(&mut connection(&directory).await).await.unwrap();
+                assert_eq!(totals, (1, 1, 0, 1));
+            }
             if mode.starts_with("perturbation") {
                 let (revision, blob, receipts): (i64, Vec<u8>, i64) = sqlx::query_as(
                     "SELECT revision, state_blob, (SELECT count(*) FROM command_receipts WHERE operation = 'loop.perturbation.advance') FROM perturbation_states",

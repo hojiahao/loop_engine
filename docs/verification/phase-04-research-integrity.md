@@ -318,3 +318,103 @@ That partial run is not a full-suite pass. The completed remote Rust test step,
 unified workspace gate and clean-container gate above provide the full-suite
 capacity evidence; no further local recompilation is required for two YAML
 cache inputs and their documentation.
+
+Correction `62dbcb5` is pushed. Run `34465141418` passed all seven jobs,
+including the Rust cache post-hook, full workspace commands and clean DaoCloud
+container. This accepts delivery unit 1, not Phase 4 as a whole. Production
+reference resolution and authenticated research execution remain denied.
+
+## Delivery Unit 2: Unified Factor Admission
+
+ADR 0017 implements one admission/readmission command over registered primary
+IS results. Both paths check current provenance, coverage, deterministic gates,
+completed semantic review and the reviewed active library. A human exception
+can waive only an actual semantic rejection, with independent authorization and
+explicit audit. Replacement retirements retain lifetime counters and commit in
+the same transaction as admission, immutable receipt and audit.
+
+Migration 9 adds the immutable trial index and revision-fenced factor projection.
+The existing shared job insertion path registers factor-evaluation/development
+backtest trials atomically, including jobs that later fail or are cancelled.
+Trials retain actual execution attempts, not just successful admission votes.
+Protected jobs are excluded. Existing research jobs require a separately verified
+import; the migration refuses to invent trial history from opaque Protobuf.
+
+Local evidence on 2026-09-11:
+
+- The final 25 PostgreSQL integration cases pass in 27.06 seconds. They cover
+  restart/replay, exact coverage boundaries, repeated rejection/readmission,
+  explicit semantic override and revocation, non-overridable machine gates,
+  missing evidence, replacement and lifetime retirement accounting, stale
+  library and all six provenance components, authority/default denial,
+  revision/key conflicts, deadlines/clock regression, cancellation, corruption,
+  immutable SQL guards, audit rollback, trial pagination, executed rejection,
+  infrastructure failure, migration refusal and protected-source exclusion.
+- The library gate passes six tests in 40.64 seconds, including the two new
+  digest/integer goldens and the kill/restart matrix. Its subprocess helper is
+  explicitly invoked by that matrix, not silently omitted. New fault points
+  stop after state/receipt insertion, before commit and after commit; recovery
+  preserves a single revision, admission and receipt with a valid audit chain.
+- The independent-process matrix passes in 189.32 seconds. New same-key replay
+  and distinct-key CAS races run at 2/4/8 OS writers; every case retains exactly
+  one admission, no spurious retirement and one immutable decision receipt.
+- Final `just check` passes: shell/downloader checks, protocol compatibility
+  and boundaries, cross-language fixtures, workspace rustfmt/Clippy with
+  `-D warnings`, TypeScript formatting/lint/types, Python Ruff/mypy and single
+  root Python 3.14.4 environment verification. This covers the final test code.
+- Independent Node.js crypto pins the empty active-library digest to
+  `1519092edd04a3f68553510913c546c1c557c7e3f0e1bff681f1694275b0a25a`.
+  A separate integer test exercises coverage at u64::MAX without overflow or
+  floating-point rounding. Execution is recorded with the library gate below.
+- Earlier 15-case runs exposed a PL/pgSQL CASE-parenthesization error, then nine
+  strict audit-payload ordering failures. Both were fixed in this unreleased
+  delivery. The ordered serializer uses the existing canonical audit validator;
+  no assertion or canonical format was relaxed. Those runs are failures, not
+  acceptance evidence; the final 25-case run above is the passing result.
+
+Compilation completed before PostgreSQL tests to avoid memory contention on the
+small development host. After confirming the compiler had exited, 1.1 GiB of
+rebuildable Rust incremental cache was removed. Source, installed dependencies,
+test executables and research/audit history were retained. The first passing
+25-case run used 90340 KiB of its disposable 1 GiB PostgreSQL filesystem.
+The subsequent process/fault run used 280740 KiB before its container was
+removed. The full workspace gate enables additional protocol features; thirteen
+redundant single-package test executables (1.2 GiB) were removed after verifying
+the active workspace compilation used different cache identities. No active
+compiler inputs or workspace test executables were deleted. Targeted commands
+now retain the workspace feature selection to avoid recreating both caches.
+
+Final `just test` passes: Rust 315 tests plus two explicitly exercised subprocess
+helpers, TypeScript 114, Python research 151, Python protocol 299, and legacy
+216 passed / 1 skipped. The legacy suite also reports 11 existing NumPy
+degrees-of-freedom warnings. The placeholder Web package has no test files;
+this is not UI acceptance. The full workspace process matrix passes again in
+199.79 seconds; the new 25-case admission suite passes again in 24.94 seconds.
+The fresh full-suite database used 666876 KiB (64%) before automatic disposal.
+No test deadline, canonical assertion or database capacity was relaxed.
+
+At the owner's request, after all test processes exited, `cargo clean` removed
+16192 generated files (11.6 GiB reported). Project-owned Python test/type caches,
+bytecode, frontend/package build outputs and this run's confirmed pytest-0/1
+directories under `/tmp/pytest-of-root` were also removed. Installed toolchains,
+dependency environments/download caches, source, verification documents, secrets
+and research/history backups were retained. Other projects' `/tmp` content was
+not modified. Filesystem usage fell from 97% to 67%, with approximately 13 GiB
+available. Subsequent Rust builds must recreate their generated artifacts.
+
+Commit publication and remote CI are pending at this record's commit time.
+The fixture evidence is explicitly
+fabricated IS metadata over real jobs/transactions, not actual market evaluation.
+Production `BacktestPolicy` still denies admission and override resolution; no
+external admission RPC, production migration, factor admission, model request,
+paid data download or holdout unlock has occurred. Units 3-5 supply trusted
+manifests, runtime identities/isolation and authorized numerical execution.
+
+Manual review checks shared ordinary/readmission gates, non-overridable data
+integrity, historical replay without double retirement, SQL/source binding and
+default denial. The deployment bundle now grants UPDATE on the two mutable
+perturbation/factor projections, without granting UPDATE/DELETE on immutable
+history. It was generated for inspection only, not deployed. Disable writers
+for rollback and retain migration 9, trials, states, receipts and audit; after
+deployment use a schema-aware compatibility build or forward fix. See
+`docs/development/factor-admission.md`.

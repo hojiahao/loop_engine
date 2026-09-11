@@ -21,6 +21,32 @@ use super::{BacktestExport, ExportBacktest, PgJobStore, StoreError, StoreResult,
 /// allowed in these synchronous transaction callbacks; pre-resolve immutable
 /// evidence under the owning service's identity. Defaults deny every operation.
 pub trait BacktestPolicy: Send + Sync {
+    /// Resolve an immutable IS-only admission report against the registered
+    /// primary result and context. Prove canonical factor/direction, policy,
+    /// complete machine gates, finished semantic review and library snapshot.
+    /// Authorize access to the entire reviewed library, including replacements.
+    /// Missing review or infrastructure failures return an error, never a vote.
+    /// Pre-resolve bounded trusted evidence; no network under the ledger lock.
+    fn resolve_admission(
+        &self,
+        _principal: &Actor,
+        _job: &JobSpecification,
+        _context_id: &str,
+    ) -> StoreResult<super::AdmissionEvidence> {
+        Err(StoreError::AdmissionDenied)
+    }
+
+    /// Independently verify an unexpired, unrevoked human approval binds the
+    /// subject, report, exact reason and semantic-only exception. Default deny.
+    fn authorize_factor_override(
+        &self,
+        _principal: &Actor,
+        _command: &super::DecideFactor,
+        _evidence: &super::AdmissionEvidence,
+    ) -> StoreResult<()> {
+        Err(StoreError::AdmissionDenied)
+    }
+
     /// Resolve a frozen single-window family and prove IS-only data, canonical
     /// candidate identities, fixed direction/policies and worker build provenance.
     /// Authorize the principal to the entire family and its shared score history,

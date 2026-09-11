@@ -503,6 +503,7 @@ pub(super) async fn insert_job(
     .bind(&response_digest)
     .execute(&mut **transaction)
     .await?;
+    super::library::trials::register(transaction, specification).await?;
     Ok(record)
 }
 

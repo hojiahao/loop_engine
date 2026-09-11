@@ -5,6 +5,7 @@ pub mod backtest;
 pub mod batch;
 pub mod grant;
 pub mod holdout;
+pub mod library;
 pub mod perturbation;
 pub mod rejection;
 pub mod research;

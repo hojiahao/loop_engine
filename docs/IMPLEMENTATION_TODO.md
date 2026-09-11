@@ -145,13 +145,11 @@ complete task per implementation commit. Tests and documentation are part of
 that task, not additional delivery units. The same rule applies to later phases.
 
 1. Durable Sharpe/perturbation/random state, recovery and failed-candidate wiring
-   (`implemented`: ADR 0016; local numerical, PostgreSQL, process/crash and
-   workspace gates pass; `8095a9a` is pushed. Run `34458505546` failed because
-   the disposable PostgreSQL tmpfs filled. Correction `5dabadd` passes the full
-   Rust tests and workspace gate in run `34463208111`, but the Rust job's uv
-   cache post-hook failed. The matching cache-path correction still requires
-   all seven remote jobs before this delivery is accepted).
-2. Shared admission/readmission, coverage, trial/retirement accounting and overrides.
+   (`complete`: implementation `8095a9a`, fixture correction `5dabadd` and cache
+   correction `62dbcb5` are pushed. Run `34465141418` passed all seven jobs).
+2. Shared admission/readmission, coverage, trial/retirement accounting and overrides
+   (`in_progress`: ADR 0017 implemented; full local `just check/test` passed;
+   publication and remote acceptance remain pending).
 3. Trusted manifest resolution for calculation, result reads and exports.
 4. Runtime identity, holdout capability and actual data-access isolation.
 5. Canonical AST/operator/numerical integration into authorized execution.
