@@ -148,9 +148,13 @@ that task, not additional delivery units. The same rule applies to later phases.
    (`complete`: implementation `8095a9a`, fixture correction `5dabadd` and cache
    correction `62dbcb5` are pushed. Run `34465141418` passed all seven jobs).
 2. Shared admission/readmission, coverage, trial/retirement accounting and overrides
-   (`in_progress`: ADR 0017 implemented; full local `just check/test` passed;
-   publication and remote acceptance remain pending).
-3. Trusted manifest resolution for calculation, result reads and exports.
+   (`complete`: implementation `365875d` is pushed. Full local `just check/test`
+   passed; run `34566128777` passed all seven jobs).
+3. Trusted manifest resolution for calculation, result reads and exports
+   (`in_progress`: ADR 0018; immutable-file materialization outside transactions,
+   canonical input/result resolution, worker binding and audited export. Final
+   local `just check/test/build/doctor` pass, including file-backed 2/4/8-process
+   and kill/restart tests. Commit, push and remote CI are pending).
 4. Runtime identity, holdout capability and actual data-access isolation.
 5. Canonical AST/operator/numerical integration into authorized execution.
 

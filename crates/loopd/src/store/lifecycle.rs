@@ -6,6 +6,7 @@ use loop_protocol::wire::jobs::v1::{
 use loop_protocol::wire::v1::{
     Actor, BudgetExhaustion, CommandContext, ErrorCategory, InfrastructureFailure, JobCancellation,
     JobId, JobLease, JobOutcome, JobRecord, JobState, LeaseId, ServiceError, job_outcome,
+    job_specification,
 };
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -172,6 +173,37 @@ pub(super) async fn mutate(
     let operation = command.operation();
     let normalized = command.normalized();
     let request_blob = normalized.encode()?;
+    let needs_research = match &command {
+        JobMutation::Acquire(_) => true,
+        JobMutation::Complete(request) => matches!(
+            request
+                .outcome
+                .as_ref()
+                .and_then(|outcome| outcome.outcome.as_ref()),
+            Some(job_outcome::Outcome::Success(_) | job_outcome::Outcome::FactorRejection(_))
+        ),
+        _ => false,
+    };
+    let prepared_store;
+    let store = if needs_research {
+        let completion = match &command {
+            JobMutation::Complete(input) => {
+                match input.outcome.as_ref().and_then(|o| o.outcome.as_ref()) {
+                    Some(loop_protocol::wire::v1::job_outcome::Outcome::Success(success)) => {
+                        Some(success)
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        prepared_store = store
+            .prepare_research(principal, job_id, None, operation, completion)
+            .await?;
+        &prepared_store
+    } else {
+        store
+    };
     let mut transaction = store.pool.begin().await?;
     let now = store.observe_clock(&mut transaction).await?;
     if timestamp_millis(context.requested_at.as_ref().expect("validated time"), true)? > now {
@@ -186,6 +218,12 @@ pub(super) async fn mutate(
     store
         .admission
         .authorize_job_command(operation, principal, &record)?;
+    if needs_research
+        && let Some(job) = record.specification.as_ref()
+        && matches!(job.input, Some(job_specification::Input::Backtest(_)))
+    {
+        store.backtest_policy.validate_inputs(job)?;
+    }
     if matches!(command, JobMutation::Acquire(_)) {
         store.admission.validate_submission(
             record

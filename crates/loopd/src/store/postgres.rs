@@ -326,6 +326,25 @@ impl JobRepository for PgJobStore {
             return Err(StoreError::AdmissionDenied);
         }
         self.admission.validate_submission(specification)?;
+        let mut evidence = self.backtest_policy.clone();
+        if shape.kind == JobKind::Backtest {
+            self.backtest_policy.authorize_materialization(
+                specification
+                    .submitted_by
+                    .as_ref()
+                    .ok_or(StoreError::AdmissionDenied)?,
+                specification,
+                None,
+            )?;
+            if let Some(prepared) = self
+                .backtest_policy
+                .prepare(specification, None, None)
+                .await?
+            {
+                evidence = prepared;
+            }
+            evidence.validate_inputs(specification)?;
+        }
         if !specification
             .protocol_selection
             .as_ref()
@@ -358,6 +377,9 @@ impl JobRepository for PgJobStore {
 
         let mut transaction = self.pool.begin().await?;
         let now = self.observe_clock(&mut transaction).await?;
+        if shape.kind == JobKind::Backtest {
+            evidence.validate_inputs(specification)?;
+        }
         let receipt = sqlx::query(
             "SELECT * FROM command_receipts
              WHERE actor_id = $1 AND operation = 'loop.jobs.submit' AND idempotency_key = $2",

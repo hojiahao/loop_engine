@@ -1,7 +1,6 @@
 //! Fault injection is compiled only into the library test executable.
 
-#[path = "../../tests/support/mod.rs"]
-mod support;
+use crate::test_support as support;
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};

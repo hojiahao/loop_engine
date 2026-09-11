@@ -21,7 +21,9 @@ if [[ -z "${LOOP_TEST_POSTGRES_URL:-}" ]]; then
   bash ./scripts/postgres-test.sh stop
   bash ./scripts/postgres-test.sh start
 fi
-export RUST_TEST_THREADS="${RUST_TEST_THREADS:-2}"
+# Process tests control writer concurrency; unrelated cases must not compete
+# with a real worker's bounded file-verification budget on small hosts.
+export RUST_TEST_THREADS="${RUST_TEST_THREADS:-1}"
 ./scripts/cargo.sh test --locked --offline --workspace --all-features
 ./scripts/pnpm.sh test
 ./scripts/uv.sh sync --all-packages --all-groups --locked --offline

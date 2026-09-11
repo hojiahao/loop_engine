@@ -402,7 +402,8 @@ and research/history backups were retained. Other projects' `/tmp` content was
 not modified. Filesystem usage fell from 97% to 67%, with approximately 13 GiB
 available. Subsequent Rust builds must recreate their generated artifacts.
 
-Commit publication and remote CI are pending at this record's commit time.
+Implementation `365875d` is pushed; all seven jobs in GitHub Actions run
+`34566128777` passed. This closes delivery unit 2, not Phase 4.
 The fixture evidence is explicitly
 fabricated IS metadata over real jobs/transactions, not actual market evaluation.
 Production `BacktestPolicy` still denies admission and override resolution; no
@@ -418,3 +419,96 @@ history. It was generated for inspection only, not deployed. Disable writers
 for rollback and retain migration 9, trials, states, receipts and audit; after
 deployment use a schema-aware compatibility build or forward fix. See
 `docs/development/factor-admission.md`.
+
+## Delivery unit 3: byte-backed manifests and exports
+
+ADR 0018 adds a concrete resolver over service-pinned, immutable local objects.
+This is the owner-approved manifest/calculation/read/export task, not a separate
+platform or a claim that the complete research engine is running. No database
+migration, new table, production deployment, market-data request or LLM call is
+included. Use and rollback: `docs/development/research-manifests.md`.
+
+The resolver hashes actual source/environment files, canonical factor/AST bytes,
+configuration policies, dataset/calendar declarations, result series and review
+artifacts. It derives the six-component fingerprint and rejects cross-bound
+results. Backtest engine/version belong to the configuration fingerprint, so
+changing a deployment catalog cannot silently alter an already submitted job.
+Current contexts are immutable SHA-256 identities, not moving aliases.
+
+Every operation holds its own prepared evidence; overlapping requests cannot
+overwrite each other's context. Large scans run outside PostgreSQL transactions.
+Bounded regular-file descriptors retain inode/device, size, mtime and ctime;
+checks include the current directory entry, detecting both edits and replacement.
+Acquisition rechecks under the ledger lock before releasing an execution lease.
+Infrastructure failures remain recordable when research files are unavailable;
+they create neither successful metrics nor factor-rejection memory.
+
+The real installed Python perturbator verifies actual source/environment bytes
+before and after computation. The concrete resolver refuses an unattested worker.
+Source capture includes the research/protocol packages; environment capture
+includes NumPy/Protobuf, bundled native libraries, interpreter and ABI facts.
+This is a defined worker-build contract, not whole-host/stdlib attestation.
+
+Audited JSON export reuses the existing transactional receipt, checks actual
+evidence again before output, and leaves large series external. A broken or
+cancelled sink may leave partial output and a committed acceptance. Retrying
+reauthorizes/rechecks freshness without an extra acceptance event; delivery
+is not falsely called exactly-once.
+
+Verification progression on 2026-09-11:
+
+- The first real-file run exposed invalid hyphens in artifact schema names.
+  The new producer/parser names were corrected to the existing protocol's
+  underscore grammar; the strict shared validator was not relaxed.
+- The next run passed 23 targeted Rust cases. Adding real-process and delivery
+  tests raised that to 27 passed, with one subprocess entry explicitly exercised
+  by the 2/4/8-writer and kill/restart matrices (45.94 seconds).
+- Python targeted build/perturbation tests passed 43 cases, including 15 new
+  actual-byte, immutable-publication, symlink/FIFO, bounded-resource and installed
+  build tests. No separate project virtual environment was created.
+- Full `just check` passed after correcting a missing module import: protocol
+  compatibility/cross-language fixtures, rustfmt, all-target/all-feature Clippy
+  with `-D warnings`, TypeScript gates, Python Ruff/mypy and the single root
+  CPython 3.14.4 environment check. A subsequent engine/config binding addition
+  requires the final gate again; this intermediate result is not final acceptance.
+- Final `env CARGO_BUILD_JOBS=1 RUST_TEST_THREADS=1 just test` passes: Rust 345
+  plus three explicitly invoked subprocess entries, TypeScript 114, Python
+  research 166, Python protocol 299, and legacy 216 passed / 1 skipped. The
+  legacy tests emit 12 existing degrees-of-freedom warnings. The placeholder
+  Web package still has no test files; this is not UI acceptance.
+- The final library gate passes 36 cases, including all 30 new manifest cases,
+  in 92.06 seconds; two library subprocess entries are explicitly exercised by
+  the file-backed and existing kill/restart matrices. The separate full 2/4/8
+  OS-process matrix passes in 198.47 seconds, including the third subprocess
+  entry. Admission, grant, result, rejection and lifecycle regressions all pass.
+- A prior two-case-at-once full run hit the real build's 10-second artifact I/O
+  deadline during concurrent fault testing on this 1.6 GiB host. It failed closed
+  and is not acceptance evidence. After the compiler exited, 2.3 GiB of verified
+  project incremental cache was removed; installed dependencies and executables
+  remained. The complete rerun used one test case at a time. No timeout or
+  assertion was relaxed, and the independent 2/4/8-process tests were unchanged.
+  Local and CI defaults now use the same per-case scheduling. The initial cold
+  workspace compilation took 29m20s; the cached rerun built in 4.01 seconds.
+- The passing disposable PostgreSQL fixture used 705228 KiB (68%) of its 1 GiB
+  filesystem before automatic removal.
+- Final `env CARGO_BUILD_JOBS=1 just check` passes after the engine/config binding
+  change: protocol/cross-language gates, rustfmt, all-target/all-feature Clippy
+  with `-D warnings`, TypeScript gates, Python Ruff/mypy and the root environment
+  check. `git diff --check` also passes.
+- Final `env CARGO_BUILD_JOBS=1 just build` and `just doctor` pass: Rust targets,
+  TypeScript packages, Python wheels/source distributions and service health
+  checks, using the single root CPython 3.14.4 environment.
+- After all gates completed, package-scoped Cargo cleanup removed 2.9 GiB of
+  project build artifacts while retaining third-party dependencies. Ownership
+  checks matched all 538 entries in three pytest temporary directories to this
+  project's tests before their removal. Project distribution/type-check/test
+  caches were also removed. Installed environments, research/audit history and
+  other projects' `/tmp` files were preserved. The 40 GiB disk then had 9.9 GiB
+  available (74% used); `/tmp` occupied approximately 105 MiB.
+- Commit, push and remote CI remain pending at this pre-publication record.
+
+Synthetic producer results are explicitly labeled synthetic. These tests verify
+binding, persistence and actual worker execution, not market backtest metrics,
+PIT correctness, a live discovery loop or licensed production data. Runtime
+identity/storage isolation and authorized AST evaluation remain delivery units
+4 and 5. Production defaults still deny; no confirmation set has been unlocked.

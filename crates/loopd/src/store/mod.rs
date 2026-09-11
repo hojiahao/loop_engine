@@ -24,7 +24,7 @@ use loop_protocol::wire::v1::{Actor, JobRecord, JobSpecification};
 use thiserror::Error;
 
 pub use approval::ApprovalResult;
-pub use backtest::{BacktestPolicy, BacktestRepository, DenyBacktest};
+pub use backtest::{BacktestPolicy, BacktestPreparation, BacktestRepository, DenyBacktest};
 pub use batch::BatchResult;
 pub use export::{BacktestExport, ExportBacktest};
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};

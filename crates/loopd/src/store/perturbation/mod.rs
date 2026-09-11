@@ -134,6 +134,20 @@ async fn execute(
     if deadline <= requested || deadline - requested > 30_000 {
         return Err(StoreError::Invalid("perturbation deadline"));
     }
+    let prepared_store = store
+        .prepare_research(
+            principal,
+            &command
+                .source_job_id
+                .as_ref()
+                .ok_or(StoreError::Invalid("source job"))?
+                .value,
+            Some(&command.context_id),
+            OPERATION,
+            None,
+        )
+        .await?;
+    let store = &prepared_store;
     let mut transaction = store.pool.begin().await?;
     let now = store.observe_clock(&mut transaction).await?;
     check_time(now, requested, deadline)?;
@@ -146,6 +160,14 @@ async fn execute(
     if prepared.revision != command.expected_revision {
         return Err(StoreError::RevisionConflict);
     }
+    store.backtest_policy.validate_worker(
+        prepared
+            .space
+            .provenance
+            .as_ref()
+            .ok_or(StoreError::Corrupt("worker provenance"))?,
+        worker.build_identity(),
+    )?;
     transaction.commit().await?;
     let step = worker.advance(prepared.work.clone()).await?;
     validation::transition(&prepared.work, &prepared.space, &step)?;

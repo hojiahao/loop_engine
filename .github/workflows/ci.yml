@@ -43,7 +43,7 @@ jobs:
       - name: Install the real research worker for Rust integration tests
         run: bash scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: bash scripts/postgres-test.sh start
-      - run: cargo test --workspace --all-features --locked --offline -- --test-threads=2
+      - run: cargo test --workspace --all-features --locked --offline -- --test-threads=1
       - name: Report disposable PostgreSQL capacity
         if: always()
         run: bash scripts/postgres-test.sh usage

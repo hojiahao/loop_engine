@@ -3,6 +3,11 @@
 #[cfg(test)]
 extern crate self as loopd;
 
+#[cfg(test)]
+#[path = "../tests/support/mod.rs"]
+mod test_support;
+
+pub mod manifests;
 pub mod research_worker;
 pub mod store;
 

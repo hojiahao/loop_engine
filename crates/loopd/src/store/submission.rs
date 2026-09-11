@@ -288,6 +288,9 @@ pub(super) async fn submit(
             return Err(StoreError::Corrupt("role job binding"));
         }
         store.admission.validate_submission(specification)?;
+        if kind == JobKind::Backtest {
+            store.backtest_policy.validate_inputs(specification)?;
+        }
         transaction.commit().await?;
         return command.project(record, true);
     }
@@ -308,6 +311,9 @@ pub(super) async fn submit(
     };
     validate_job_specification(&specification)?;
     store.admission.validate_submission(&specification)?;
+    if kind == JobKind::Backtest {
+        store.backtest_policy.validate_inputs(&specification)?;
+    }
     if !specification
         .protocol_selection
         .as_ref()

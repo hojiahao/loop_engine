@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 import re
 import sys
 
@@ -162,10 +163,20 @@ def main() -> int:
         if not payload or len(payload) > MAX_BYTES:
             raise ValueError("worker input size")
         work = PerturbationWork.FromString(payload)
+        source = os.environ.get("LOOP_ENGINE_BUILD_SOURCE_SHA256")
+        environment = os.environ.get("LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256")
+        if source is not None or environment is not None:
+            if source is None or environment is None:
+                raise ValueError("incomplete worker build identity")
+            from loop_research.build_identity import require_build
+
+            require_build(source, environment)
         output = advance(work).SerializeToString()
+        if source is not None and environment is not None:
+            require_build(source, environment)
         if len(output) > MAX_BYTES:
             raise ValueError("worker output size")
-    except ValueError, DecodeError, OverflowError:
+    except ValueError, DecodeError, OverflowError, OSError:
         sys.stderr.write("invalid perturbation work\n")
         return 2
     sys.stdout.buffer.write(output)

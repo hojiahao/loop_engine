@@ -15,12 +15,13 @@ loop-core = { path = "../loop-core" }
 loop-protocol = { path = "../loop-protocol", features = ["jobs-service", "holdout-service", "discovery-service", "research-service"] }
 prost.workspace = true
 prost-types.workspace = true
+rustix.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 sqlx.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["process", "io-util"] }
+tokio = { workspace = true, features = ["process", "io-util", "fs"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 url.workspace = true

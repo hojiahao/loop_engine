@@ -5,6 +5,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from loop_research.build_identity import describe_build
 from loop_research.health import research_health
 from loop_research.nav_diagnostic import correlate_nav_files
 
@@ -13,6 +14,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="loop-research")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor")
+    manifests = commands.add_parser("build-manifests", help="Capture the installed worker build")
+    manifests.add_argument("--store", type=Path, required=True)
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -32,6 +35,12 @@ def main() -> None:
     args = parser.parse_args()
     if args.command == "doctor":
         print(research_health().model_dump_json())
+    elif args.command == "build-manifests":
+        try:
+            identity = describe_build(args.store)
+        except OSError, ValueError:
+            parser.error("worker build capture failed; no existing object was overwritten")
+        print(json.dumps(asdict(identity), separators=(",", ":")))
     elif args.command == "nav-correlation":
         try:
             report = correlate_nav_files(

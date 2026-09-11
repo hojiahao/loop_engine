@@ -135,6 +135,16 @@ async fn execute(
     if deadline <= requested || deadline - requested > 30_000 {
         return Err(StoreError::Invalid("factor deadline"));
     }
+    let prepared_store = store
+        .prepare_research(
+            principal,
+            job_id,
+            Some(&command.context_id),
+            OPERATION,
+            None,
+        )
+        .await?;
+    let store = &prepared_store;
     let mut transaction = store.pool.begin().await?;
     let now = store.observe_clock(&mut transaction).await?;
     check_time(now, requested, deadline)?;

@@ -1,4 +1,6 @@
 use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
 use loop_core::factor::{CanonicalDecimal, Identifier};
 use loop_protocol::artifact::validate_artifact_ref;
@@ -14,6 +16,11 @@ use sqlx::{Postgres, Row, Transaction};
 use super::postgres::{encode_message, record_from_row, timestamp_millis, verified_blob};
 use super::{BacktestExport, ExportBacktest, PgJobStore, StoreError, StoreResult, validate_id};
 
+/// Asynchronous preflight that optionally returns operation-scoped evidence.
+/// The future grants no authority; the returned resolver is internal metadata.
+pub type BacktestPreparation<'a> =
+    Pin<Box<dyn Future<Output = StoreResult<Option<Arc<dyn BacktestPolicy>>>> + Send + 'a>>;
+
 /// Server-owned, bounded result resolution. Implementations must verify immutable
 /// manifests, artifact checksums/availability, and the original factor, sample,
 /// seed and engine against independently resolved frozen inputs. A matching DTO
@@ -21,6 +28,51 @@ use super::{BacktestExport, ExportBacktest, PgJobStore, StoreError, StoreResult,
 /// allowed in these synchronous transaction callbacks; pre-resolve immutable
 /// evidence under the owning service's identity. Defaults deny every operation.
 pub trait BacktestPolicy: Send + Sync {
+    /// Check catalog-level access before materializing files. This supplements
+    /// the job/transport policy; it does not authenticate caller metadata.
+    fn authorize_materialization(
+        &self,
+        _principal: &Actor,
+        _job: &JobSpecification,
+        _context_id: Option<&str>,
+    ) -> StoreResult<()> {
+        Ok(())
+    }
+
+    /// Materialize immutable files before opening a ledger transaction. The
+    /// caller first authorizes the operation; this hook grants no permission.
+    /// Implementations bound time, bytes and scans and retain file-version
+    /// guards for synchronous resolution. Cancellation publishes no decision.
+    /// Return a request-scoped resolver, so overlapping preparations cannot
+    /// replace each other's evidence. In-memory policies return `None` and keep
+    /// their existing resolver; resolution still defaults to denial.
+    fn prepare<'a>(
+        &'a self,
+        _job: &'a JobSpecification,
+        _context_id: Option<&'a str>,
+        _success: Option<&'a JobSuccess>,
+    ) -> BacktestPreparation<'a> {
+        Box::pin(async { Ok(None) })
+    }
+
+    /// Recheck previously materialized frozen inputs immediately before their
+    /// use. The concrete manifest policy refuses unprepared or changed files.
+    /// This supplements, never replaces, admission and transport authorization.
+    fn validate_inputs(&self, _job: &JobSpecification) -> StoreResult<()> {
+        Ok(())
+    }
+
+    /// Bind the service-selected numerical worker to the resolved context.
+    /// Concrete file-backed policies require an attested source/environment;
+    /// default fixture policies make no execution-build claim.
+    fn validate_worker(
+        &self,
+        _provenance: &ResearchProvenanceFingerprint,
+        _build: Option<crate::research_worker::ResearchBuild>,
+    ) -> StoreResult<()> {
+        Ok(())
+    }
+
     /// Resolve an immutable IS-only admission report against the registered
     /// primary result and context. Prove canonical factor/direction, policy,
     /// complete machine gates, finished semantic review and library snapshot.
@@ -131,9 +183,18 @@ impl BacktestRepository for PgJobStore {
         context_id: &str,
     ) -> StoreResult<BacktestResult> {
         validate_current_request(principal, job_id, context_id)?;
+        let prepared = self
+            .prepare_research(
+                principal,
+                job_id,
+                Some(context_id),
+                "loop.backtests.read_current",
+                None,
+            )
+            .await?;
         let mut transaction = self.pool.begin().await?;
         let (_, result) = current_in_transaction(
-            self,
+            &prepared,
             &mut transaction,
             principal,
             job_id,
@@ -156,6 +217,48 @@ impl BacktestRepository for PgJobStore {
         )
         .await
         .map_err(|_| StoreError::Unavailable("export timeout"))?
+    }
+}
+
+impl PgJobStore {
+    pub(super) async fn prepare_research(
+        &self,
+        principal: &Actor,
+        job_id: &str,
+        context_id: Option<&str>,
+        operation: &'static str,
+        completion: Option<&JobSuccess>,
+    ) -> StoreResult<Self> {
+        use super::JobRepository;
+
+        let record = self.get(job_id).await?.ok_or(StoreError::NotFound)?;
+        self.admission
+            .authorize_job_command(operation, principal, &record)?;
+        let specification = specification(&record)?;
+        // Protected data never reaches a development materializer. Its own
+        // resolver and capability boundary remain independently default-deny.
+        if !matches!(
+            specification.input,
+            Some(job_specification::Input::Backtest(_))
+        ) {
+            return Ok(self.clone());
+        }
+        self.backtest_policy
+            .authorize_materialization(principal, specification, context_id)?;
+        let policy = self
+            .backtest_policy
+            .prepare(
+                specification,
+                context_id,
+                completion.or_else(|| success(&record)),
+            )
+            .await?;
+        let mut prepared = self.clone();
+        if let Some(policy) = policy {
+            prepared.backtest_policy = policy;
+        }
+        prepared.backtest_policy.validate_inputs(specification)?;
+        Ok(prepared)
     }
 }
 

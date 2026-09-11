@@ -1,6 +1,6 @@
 # ADR 0017: Unified factor admission and trial accounting
 
-- Status: Internal command verified locally; publication/remote CI pending; production denied
+- Status: Accepted internal command; production denied
 - Date: 2026-09-11
 - Owner: hojiahao
 
@@ -49,6 +49,10 @@ and rechecks provenance but returns the original receipt without reapplying
 retirements or issuing another decision.
 
 ## Acceptance And Recovery
+
+Implementation `365875d` is pushed. Local `just check/test` and all seven jobs
+in GitHub Actions run `34566128777` passed. This closes delivery unit 2, not
+Phase 4, production deployment or real-data research validation.
 
 Test real job submission/lease/completion followed by ordinary admission,
 rejection, readmission, human override, atomic replacement and restart. Include

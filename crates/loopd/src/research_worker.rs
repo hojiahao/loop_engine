@@ -14,8 +14,25 @@ use crate::store::{StoreError, StoreResult};
 
 const MAX_BYTES: usize = 1_048_576;
 
+/// Actual source/environment manifests expected from the installed worker.
+/// These are byte identities, not credentials or authority to execute work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResearchBuild {
+    /// Canonical `loop.source-files/v1` manifest digest.
+    pub source_sha256: [u8; 32],
+    /// Canonical `loop.environment-files/v1` manifest digest.
+    pub environment_sha256: [u8; 32],
+}
+
 /// A trusted server-selected numerical worker, never an LLM-supplied executable.
 pub trait PerturbationWorker: Send + Sync {
+    /// Declared installed-build contract; concrete workers must verify the
+    /// actual running bytes before and after calculation. `None` is unattested
+    /// and is refused by the trusted manifest policy, but supports old fixtures.
+    fn build_identity(&self) -> Option<ResearchBuild> {
+        None
+    }
+
     /// Calculate one bounded transition without persistent or external effects.
     /// Errors, cancellation and timeouts must not publish partial state.
     fn advance(
@@ -27,6 +44,7 @@ pub trait PerturbationWorker: Send + Sync {
 /// Invoke the fixed installed Python module with Protobuf stdin/stdout.
 pub struct PythonPerturber {
     python: PathBuf,
+    build: Option<ResearchBuild>,
 }
 
 impl PythonPerturber {
@@ -39,19 +57,54 @@ impl PythonPerturber {
         }
         Ok(Self {
             python: python.to_owned(),
+            build: None,
         })
+    }
+
+    /// Pin actual installed source and numerical dependencies to a frozen
+    /// context. Python rehashes them before and after every transition, emitting
+    /// no result on drift. This is not kernel/OS attestation or a sandbox.
+    /// The unverified constructor remains for explicitly synthetic fixtures.
+    pub fn verified(python: &Path, build: ResearchBuild) -> StoreResult<Self> {
+        let mut worker = Self::new(python)?;
+        worker.build = Some(build);
+        Ok(worker)
     }
 }
 
 impl PerturbationWorker for PythonPerturber {
+    fn build_identity(&self) -> Option<ResearchBuild> {
+        self.build
+    }
+
     async fn advance(&self, work: PerturbationWork) -> StoreResult<PerturbationStep> {
         if work.encoded_len() > MAX_BYTES {
             return Err(StoreError::Invalid("perturbation work size"));
         }
-        tokio::time::timeout(Duration::from_secs(10), async {
-            let mut child = tokio::process::Command::new(&self.python)
+        let timeout = Duration::from_secs(if self.build.is_some() { 20 } else { 10 });
+        tokio::time::timeout(timeout, async {
+            let mut process = tokio::process::Command::new(&self.python);
+            process
                 .args(["-I", "-m", "loop_research.perturbation"])
-                .env_clear()
+                .env_clear();
+            if let Some(build) = self.build {
+                let hex = |bytes: [u8; 32]| {
+                    format!(
+                        "sha256:{}",
+                        bytes
+                            .iter()
+                            .map(|byte| format!("{byte:02x}"))
+                            .collect::<String>()
+                    )
+                };
+                process
+                    .env("LOOP_ENGINE_BUILD_SOURCE_SHA256", hex(build.source_sha256))
+                    .env(
+                        "LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256",
+                        hex(build.environment_sha256),
+                    );
+            }
+            let mut child = process
                 .env("OPENBLAS_NUM_THREADS", "1")
                 .env("OMP_NUM_THREADS", "1")
                 .stdin(Stdio::piped())
