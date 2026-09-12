@@ -44,6 +44,12 @@ jobs:
         run: bash scripts/uv.sh sync --python "${PYTHON_VERSION}" --all-packages --all-groups --locked
       - run: bash scripts/postgres-test.sh start
       - run: cargo test --workspace --all-features --locked --offline -- --test-threads=1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.17.0
+          package-manager-cache: false
+      - name: Verify actual worker namespace isolation
+        run: node --test --test-isolation=none tests/runtime/isolation.test.mjs
       - name: Report disposable PostgreSQL capacity
         if: always()
         run: bash scripts/postgres-test.sh usage
@@ -161,6 +167,7 @@ jobs:
         run: ./scripts/bootstrap.sh
       - run: just check
       - run: just test
+      - run: just test-isolation
       - run: just build
       - run: just doctor
 
@@ -170,5 +177,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24.17.0
+          package-manager-cache: false
       - name: Build and verify clean container
         run: ./scripts/container-gate.sh

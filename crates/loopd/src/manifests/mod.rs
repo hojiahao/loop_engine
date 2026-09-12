@@ -1,9 +1,10 @@
 //! Server-pinned manifests backed by verified immutable local files.
 #![deny(missing_docs)]
 
-mod files;
+pub(crate) mod data;
+pub(crate) mod files;
 mod loading;
-mod model;
+pub(crate) mod model;
 mod policy;
 mod verification;
 

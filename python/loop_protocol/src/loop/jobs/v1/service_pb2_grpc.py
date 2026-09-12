@@ -59,6 +59,11 @@ class JobServiceStub:
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobRequest.SerializeToString,
                 response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobResponse.FromString,
                 _registered_method=True)
+        self.PrepareJobArtifacts = channel.unary_unary(
+                '/loop.jobs.v1.JobService/PrepareJobArtifacts',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.FromString,
+                _registered_method=True)
 
 
 class JobServiceServicer:
@@ -94,6 +99,14 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PrepareJobArtifacts(self, request, context):
+        """Materializes a read-only, job-scoped view; payload bytes never cross RPC.
+        Protected access additionally requires a lease-bound capability in metadata.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_JobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -121,6 +134,11 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.CancelJob,
                     request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobRequest.FromString,
                     response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobResponse.SerializeToString,
+            ),
+            'PrepareJobArtifacts': grpc.unary_unary_rpc_method_handler(
+                    servicer.PrepareJobArtifacts,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -258,6 +276,33 @@ class JobService:
             '/loop.jobs.v1.JobService/CancelJob',
             loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobRequest.SerializeToString,
             loop_dot_jobs_dot_v1_dot_service__pb2.CancelJobResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PrepareJobArtifacts(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/PrepareJobArtifacts',
+            loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.FromString,
             options,
             channel_credentials,
             insecure,

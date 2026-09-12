@@ -4,9 +4,11 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Duration } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_duration } from "@bufbuild/protobuf/wkt";
-import type { CommandContext, JobId, LeaseId } from "../../v1/common_pb.js";
+import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { ArtifactRef } from "../../v1/artifact_pb.js";
+import { file_loop_v1_artifact } from "../../v1/artifact_pb.js";
+import type { CommandContext, JobId, LeaseId, Sha256Digest } from "../../v1/common_pb.js";
 import { file_loop_v1_common } from "../../v1/common_pb.js";
 import type { JobOutcome, JobRecord } from "../../v1/job_pb.js";
 import { file_loop_v1_job } from "../../v1/job_pb.js";
@@ -16,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/jobs/v1/service.proto.
  */
 export const file_loop_jobs_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCIxCg5HZXRKb2JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCK0AQoWQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEjUKEnJlcXVlc3RlZF9kdXJhdGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI6ChdBY3F1aXJlSm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLbAQoYSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSNgoTcmVxdWVzdGVkX2V4dGVuc2lvbhgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI8ChlIZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIsMBChJDb21wbGV0ZUpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIkCgdvdXRjb21lGAUgASgLMhMubG9vcC52MS5Kb2JPdXRjb21lIjYKE0NvbXBsZXRlSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQihwEKEENhbmNlbEpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIOCgZyZWFzb24YBCABKAkiNAoRQ2FuY2VsSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQyuQMKCkpvYlNlcnZpY2USQwoGR2V0Sm9iEhsubG9vcC5qb2JzLnYxLkdldEpvYlJlcXVlc3QaHC5sb29wLmpvYnMudjEuR2V0Sm9iUmVzcG9uc2USXgoPQWNxdWlyZUpvYkxlYXNlEiQubG9vcC5qb2JzLnYxLkFjcXVpcmVKb2JMZWFzZVJlcXVlc3QaJS5sb29wLmpvYnMudjEuQWNxdWlyZUpvYkxlYXNlUmVzcG9uc2USZAoRSGVhcnRiZWF0Sm9iTGVhc2USJi5sb29wLmpvYnMudjEuSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0GicubG9vcC5qb2JzLnYxLkhlYXJ0YmVhdEpvYkxlYXNlUmVzcG9uc2USUgoLQ29tcGxldGVKb2ISIC5sb29wLmpvYnMudjEuQ29tcGxldGVKb2JSZXF1ZXN0GiEubG9vcC5qb2JzLnYxLkNvbXBsZXRlSm9iUmVzcG9uc2USTAoJQ2FuY2VsSm9iEh4ubG9vcC5qb2JzLnYxLkNhbmNlbEpvYlJlcXVlc3QaHy5sb29wLmpvYnMudjEuQ2FuY2VsSm9iUmVzcG9uc2ViBnByb3RvMw", [file_google_protobuf_duration, file_loop_v1_common, file_loop_v1_job]);
+  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCIxCg5HZXRKb2JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCK0AQoWQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEjUKEnJlcXVlc3RlZF9kdXJhdGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI6ChdBY3F1aXJlSm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLbAQoYSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSNgoTcmVxdWVzdGVkX2V4dGVuc2lvbhgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI8ChlIZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIsMBChJDb21wbGV0ZUpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIkCgdvdXRjb21lGAUgASgLMhMubG9vcC52MS5Kb2JPdXRjb21lIjYKE0NvbXBsZXRlSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQihwEKEENhbmNlbEpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIOCgZyZWFzb24YBCABKAkiNAoRQ2FuY2VsSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQipQEKGlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQigAIKG1ByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAIgASgLMhAubG9vcC52MS5MZWFzZUlkEjMKFGRhdGFfbWFuaWZlc3Rfc2hhMjU2GAMgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSJwoJYXJ0aWZhY3RzGAQgAygLMhQubG9vcC52MS5BcnRpZmFjdFJlZhIuCgpleHBpcmVzX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd2aWV3X2lkGAYgASgJMqUECgpKb2JTZXJ2aWNlEkMKBkdldEpvYhIbLmxvb3Auam9icy52MS5HZXRKb2JSZXF1ZXN0GhwubG9vcC5qb2JzLnYxLkdldEpvYlJlc3BvbnNlEl4KD0FjcXVpcmVKb2JMZWFzZRIkLmxvb3Auam9icy52MS5BY3F1aXJlSm9iTGVhc2VSZXF1ZXN0GiUubG9vcC5qb2JzLnYxLkFjcXVpcmVKb2JMZWFzZVJlc3BvbnNlEmQKEUhlYXJ0YmVhdEpvYkxlYXNlEiYubG9vcC5qb2JzLnYxLkhlYXJ0YmVhdEpvYkxlYXNlUmVxdWVzdBonLmxvb3Auam9icy52MS5IZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlElIKC0NvbXBsZXRlSm9iEiAubG9vcC5qb2JzLnYxLkNvbXBsZXRlSm9iUmVxdWVzdBohLmxvb3Auam9icy52MS5Db21wbGV0ZUpvYlJlc3BvbnNlEkwKCUNhbmNlbEpvYhIeLmxvb3Auam9icy52MS5DYW5jZWxKb2JSZXF1ZXN0Gh8ubG9vcC5qb2JzLnYxLkNhbmNlbEpvYlJlc3BvbnNlEmoKE1ByZXBhcmVKb2JBcnRpZmFjdHMSKC5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1JlcXVlc3QaKS5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1Jlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_artifact, file_loop_v1_common, file_loop_v1_job]);
 
 /**
  * @generated from message loop.jobs.v1.GetJobRequest
@@ -259,6 +261,85 @@ export const CancelJobResponseSchema: GenMessage<CancelJobResponse> = /*@__PURE_
   messageDesc(file_loop_jobs_v1_service, 9);
 
 /**
+ * @generated from message loop.jobs.v1.PrepareJobArtifactsRequest
+ */
+export type PrepareJobArtifactsRequest = Message<"loop.jobs.v1.PrepareJobArtifactsRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.LeaseId lease_id = 3;
+   */
+  leaseId?: LeaseId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 4;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.jobs.v1.PrepareJobArtifactsRequest.
+ * Use `create(PrepareJobArtifactsRequestSchema)` to create a new message.
+ */
+export const PrepareJobArtifactsRequestSchema: GenMessage<PrepareJobArtifactsRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 10);
+
+/**
+ * An immutable acceptance record, not bearer authority. Replays recheck the
+ * live lease and data bytes. A later lease loss invalidates access, not history.
+ *
+ * @generated from message loop.jobs.v1.PrepareJobArtifactsResponse
+ */
+export type PrepareJobArtifactsResponse = Message<"loop.jobs.v1.PrepareJobArtifactsResponse"> & {
+  /**
+   * @generated from field: loop.v1.JobId job_id = 1;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.LeaseId lease_id = 2;
+   */
+  leaseId?: LeaseId | undefined;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest data_manifest_sha256 = 3;
+   */
+  dataManifestSha256?: Sha256Digest | undefined;
+
+  /**
+   * @generated from field: repeated loop.v1.ArtifactRef artifacts = 4;
+   */
+  artifacts: ArtifactRef[];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp expires_at = 5;
+   */
+  expiresAt?: Timestamp | undefined;
+
+  /**
+   * Opaque read-only view namespace. It is not a path or reusable capability.
+   *
+   * @generated from field: string view_id = 6;
+   */
+  viewId: string;
+};
+
+/**
+ * Describes the message loop.jobs.v1.PrepareJobArtifactsResponse.
+ * Use `create(PrepareJobArtifactsResponseSchema)` to create a new message.
+ */
+export const PrepareJobArtifactsResponseSchema: GenMessage<PrepareJobArtifactsResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 11);
+
+/**
  * @generated from service loop.jobs.v1.JobService
  */
 export const JobService: GenService<{
@@ -301,6 +382,17 @@ export const JobService: GenService<{
     methodKind: "unary";
     input: typeof CancelJobRequestSchema;
     output: typeof CancelJobResponseSchema;
+  },
+  /**
+   * Materializes a read-only, job-scoped view; payload bytes never cross RPC.
+   * Protected access additionally requires a lease-bound capability in metadata.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.PrepareJobArtifacts
+   */
+  prepareJobArtifacts: {
+    methodKind: "unary";
+    input: typeof PrepareJobArtifactsRequestSchema;
+    output: typeof PrepareJobArtifactsResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_jobs_v1_service, 0);

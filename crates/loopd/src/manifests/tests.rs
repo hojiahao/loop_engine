@@ -2,6 +2,7 @@ use crate::test_support as support;
 
 mod fixture;
 mod process;
+mod runtime;
 
 use std::sync::{Arc, atomic::AtomicI64};
 

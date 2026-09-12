@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::Parser;
+use loopd::runtime::{RuntimeDeployment, RuntimeService};
 use loopd::store::{PgJobStore, StoreOptions};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -25,6 +26,9 @@ struct Args {
     /// Verify the configured database and exit without starting an HTTP listener.
     #[arg(long)]
     check_database: bool,
+    /// Enable the independent mTLS job endpoint using explicit private deployment configuration.
+    #[arg(long, env = "LOOPD_RUNTIME_CONFIG")]
+    runtime_config: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -50,6 +54,15 @@ async fn main() -> anyhow::Result<()> {
     anyhow::ensure!(url.len() <= 16_384, "database connection file is too large");
     let mut options = StoreOptions::new(url.trim())?;
     options.apply_migrations = args.migrate;
+    let runtime = args
+        .runtime_config
+        .as_deref()
+        .map(RuntimeDeployment::load)
+        .transpose()
+        .context("runtime deployment configuration is unavailable or invalid")?;
+    if let Some(runtime) = &runtime {
+        options.admission = runtime.authority.clone();
+    }
     let store = PgJobStore::open(options)
         .await
         .context("failed to open durable state")?;
@@ -66,10 +79,29 @@ async fn main() -> anyhow::Result<()> {
         .await
         .with_context(|| format!("failed to bind loopd to {}", args.bind))?;
     info!(bind = %args.bind, "loopd listening");
-    let result = axum::serve(listener, loopd::app_with_store(store.clone()))
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("loopd server failed");
+    let http = async {
+        axum::serve(listener, loopd::app_with_store(store.clone()))
+            .with_graceful_shutdown(shutdown_signal())
+            .await
+            .context("loopd server failed")
+    };
+    let result = if let Some(runtime) = runtime {
+        let tls = runtime.tls();
+        let address = runtime.bind;
+        let service = RuntimeService::new(store.clone(), runtime.authority, runtime.artifacts);
+        let rpc = async {
+            let listener = tokio::net::TcpListener::bind(address)
+                .await
+                .context("failed to bind authenticated runtime")?;
+            info!(bind = %address, "loopd authenticated runtime listening");
+            loopd::runtime::serve(service, listener, tls, shutdown_signal())
+                .await
+                .context("loopd runtime failed")
+        };
+        tokio::try_join!(http, rpc).map(|_| ())
+    } else {
+        http.await
+    };
     store.close().await;
     result
 }

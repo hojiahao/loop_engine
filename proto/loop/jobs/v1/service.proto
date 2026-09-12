@@ -3,6 +3,8 @@ syntax = "proto3";
 package loop.jobs.v1;
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
 import "loop/v1/common.proto";
 import "loop/v1/job.proto";
 
@@ -12,6 +14,9 @@ service JobService {
   rpc HeartbeatJobLease(HeartbeatJobLeaseRequest) returns (HeartbeatJobLeaseResponse);
   rpc CompleteJob(CompleteJobRequest) returns (CompleteJobResponse);
   rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+  // Materializes a read-only, job-scoped view; payload bytes never cross RPC.
+  // Protected access additionally requires a lease-bound capability in metadata.
+  rpc PrepareJobArtifacts(PrepareJobArtifactsRequest) returns (PrepareJobArtifactsResponse);
 }
 
 message GetJobRequest {
@@ -66,4 +71,23 @@ message CancelJobRequest {
 
 message CancelJobResponse {
   loop.v1.JobRecord job = 1;
+}
+
+message PrepareJobArtifactsRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+}
+
+// An immutable acceptance record, not bearer authority. Replays recheck the
+// live lease and data bytes. A later lease loss invalidates access, not history.
+message PrepareJobArtifactsResponse {
+  loop.v1.JobId job_id = 1;
+  loop.v1.LeaseId lease_id = 2;
+  loop.v1.Sha256Digest data_manifest_sha256 = 3;
+  repeated loop.v1.ArtifactRef artifacts = 4;
+  google.protobuf.Timestamp expires_at = 5;
+  // Opaque read-only view namespace. It is not a path or reusable capability.
+  string view_id = 6;
 }

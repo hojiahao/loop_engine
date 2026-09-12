@@ -8,7 +8,7 @@ for loop_shell_script in scripts/*.sh; do
   bash -n "${loop_shell_script}"
 done
 
-./scripts/pnpm.sh exec biome check tests/toolchains
+./scripts/pnpm.sh exec biome check tests/toolchains tests/runtime
 node --test --test-isolation=none tests/toolchains/rust-download.test.mjs
 ./scripts/proto-check.sh
 ./scripts/cargo.sh fmt --all -- --check

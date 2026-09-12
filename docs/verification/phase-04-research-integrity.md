@@ -512,3 +512,91 @@ binding, persistence and actual worker execution, not market backtest metrics,
 PIT correctness, a live discovery loop or licensed production data. Runtime
 identity/storage isolation and authorized AST evaluation remain delivery units
 4 and 5. Production defaults still deny; no confirmation set has been unlocked.
+
+Unit 3 publication is complete: `f1b87a8` is pushed and all seven jobs in
+GitHub Actions run `34581890194` passed.
+
+## Delivery unit 4: runtime identity and data isolation
+
+ADR 0019 connects an optional mTLS JobService to the existing PostgreSQL command
+handlers. It uses deployment-owned actor/role/run/job pins, not caller metadata
+as authentication. Unknown certificates, impersonation, forwarded identity,
+expired identities and unapproved job lookups fail closed. This task adds no
+database migration or new metadata table. Deployment and rollback instructions:
+`docs/development/runtime-authority.md`.
+
+Protected jobs require the actual consumed grant, persisted approval/period/batch
+bindings, a currently owned lease and a short-lived capability bound to subject,
+job, lease and runtime instance. Historical acquisition receipts do not renew
+access or transfer it to a new lease. Restart invalidates transient tokens,
+without reopening the period. Tokens are metadata only, excluded from durable
+jobs, receipts, audit events and ordinary error output.
+
+The file broker reuses the real no-follow content-addressed reader. It publishes
+only verified payloads into a job-specific, read-only leaf, after transactional
+receipt/audit acceptance and fresh lease checks. Replays verify current authority
+and bytes; corrupted existing views cannot be overwritten. Source directories
+and private view parents are distinct, and protected storage must be runtime-owned
+0700. Per-request byte/count/time limits and a broker-wide publication limit are
+enforced. A receipt is not proof of physical delivery or reusable access authority.
+
+Real worker-container profiles deny network access, privileges, writable root,
+host control sockets and source/parent mounts. Discovery/provider mount no
+research data; numerical workers mount only a trusted launcher-selected leaf.
+Automatic worker scheduling is not implemented by this profile and remains a
+later Harness/Loop Runtime gate. The host launcher is trusted infrastructure,
+not an Agent tool. Revocation cannot erase bytes already disclosed to a worker.
+
+Verification on 2026-09-12:
+
+- Added 39 Rust tests plus one explicitly invoked process helper. They cover
+  real TLS/CA/identity checks, actual startup configuration, protected synthetic
+  file delivery, actor/role confusion, expiry, restart, immutable replay,
+  tampering, cancellation, audit rollback and receipt projection corruption.
+- Data publication passes 2/4/8 independent OS writers with shared/distinct
+  request keys, plus kill/restart before and after acceptance commit. The
+  existing storage, grant, library, perturbation and export process matrices
+  remain unchanged and pass.
+- Full `env CARGO_BUILD_JOBS=1 just check` passes: protocol compatibility,
+  three-language bindings/fixtures, rustfmt, all-target/all-feature Clippy with
+  `-D warnings`, TypeScript gates, Ruff/mypy and the single root Python 3.14.4
+  environment. The added artifact RPC descriptor assertions also pass directly.
+- Full `env CARGO_BUILD_JOBS=1 just test` passes: Rust 384 plus four subprocess
+  helpers explicitly exercised by their parent tests; TypeScript 114; Python
+  research 166 and protocol 299; legacy 216 passed / 1 skipped. Legacy retains
+  12 existing degrees-of-freedom warnings. The placeholder Web package still has
+  no tests; this is not UI or complete-product acceptance.
+- The passing `loopd` library run has 75 tests plus three exercised subprocess
+  helpers and finishes in 135.86 seconds. The separate shared 2/4/8-writer matrix
+  passes in 193.90 seconds. The disposable PostgreSQL fixture uses 775844 KiB
+  of its 1 GiB temporary filesystem and is automatically removed afterwards.
+- The initial cold test build takes 36m36s on this small host. A later full build
+  takes 16m16s and the old installed-worker test hits its 20-second timeout. That
+  run is not acceptance. After all compilers exit, 3.3 GiB of project incremental
+  cache is removed; unchanged binaries rerun in 3.30 seconds and the entire suite
+  passes. No worker timeout, numerical assertion or process matrix is relaxed.
+- Two initial container starts time out during cold image/startup work. After
+  the pinned DaoCloud image is available, all four actual non-root/read-only
+  containers pass known-path, write, privilege, secret-environment and egress
+  denial checks. The profile never mounts a host control socket.
+- Final `env CARGO_BUILD_JOBS=1 just build` and `just doctor` pass: Rust binaries,
+  TypeScript packages, Python wheel/source distributions, CLI health and the
+  single root CPython 3.14.4 environment. The cached Rust build takes 2.81 seconds.
+- The final container-isolation rerun, including asserted container cleanup,
+  passes in 18.80 seconds. All four role profiles execute inside real containers;
+  the test removes its own synthetic data and container resources afterwards.
+- After all gates, project-scoped distribution, type-check, pytest, Ruff and
+  Hypothesis caches are removed. Installed environments and dependencies,
+  immutable research/audit records and other projects' temporary files remain.
+  No `loop-*` test directory remains in `/tmp`; unrelated pytest directories
+  are deliberately untouched. Incremental compilation cache had already been
+  reduced by 3.3 GiB as recorded above.
+- `git diff --check` passes. Commit, push and remote CI are pending at this
+  pre-publication record; no complete Phase 4 or product claim is implied.
+
+Only synthetic protected data is accepted at this boundary. No production
+listener, schema migration, approval, grant, real holdout unlock, paid data
+download or LLM request has been performed. Authorized AST/operator execution
+remains unit 5; licensed/PIT market research and final holdout computation remain
+later-phase gates. Rollback disables the new listener/publisher and stops its
+workers while retaining all immutable data, receipts and audit history.

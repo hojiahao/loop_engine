@@ -151,11 +151,13 @@ that task, not additional delivery units. The same rule applies to later phases.
    (`complete`: implementation `365875d` is pushed. Full local `just check/test`
    passed; run `34566128777` passed all seven jobs).
 3. Trusted manifest resolution for calculation, result reads and exports
-   (`in_progress`: ADR 0018; immutable-file materialization outside transactions,
-   canonical input/result resolution, worker binding and audited export. Final
-   local `just check/test/build/doctor` pass, including file-backed 2/4/8-process
-   and kill/restart tests. Commit, push and remote CI are pending).
-4. Runtime identity, holdout capability and actual data-access isolation.
+   (`complete`: implementation `f1b87a8` is pushed. Local
+   `just check/test/build/doctor` and all seven jobs in run `34581890194` pass).
+4. Runtime identity, holdout capability and actual data-access isolation
+   (`in_progress`: ADR 0019 implementation and local
+   `just check/test/build/doctor/test-isolation` gates pass, including real mTLS,
+   file views and 2/4/8-process publication. Commit, push and remote acceptance
+   remain pending at this pre-publication record. No production endpoint is enabled).
 5. Canonical AST/operator/numerical integration into authorized execution.
 
 - [ ] Port all eight existing fixes into shared contracts and regression tests.

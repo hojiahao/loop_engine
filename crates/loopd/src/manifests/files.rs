@@ -9,7 +9,7 @@ use loop_core::factor::ExpressionId;
 use rustix::fs::{Mode, OFlags, open, openat};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::store::{StoreError, StoreResult};
 
@@ -32,7 +32,7 @@ pub struct ObjectRef {
 }
 
 impl ObjectRef {
-    pub(super) fn digest(&self) -> StoreResult<[u8; 32]> {
+    pub(crate) fn digest(&self) -> StoreResult<[u8; 32]> {
         ExpressionId::parse(&self.sha256)
             .map(|id| *id.as_bytes())
             .map_err(|_| StoreError::Invalid("artifact digest"))
@@ -69,7 +69,7 @@ impl LocalArtifacts {
         })
     }
 
-    pub(super) async fn load(
+    pub(crate) async fn load(
         &self,
         reference: &ObjectRef,
         metadata: bool,
@@ -163,7 +163,7 @@ impl LocalArtifacts {
     }
 }
 
-pub(super) struct ReadBudget {
+pub(crate) struct ReadBudget {
     objects: usize,
     bytes: u64,
     metadata_bytes: u64,
@@ -171,7 +171,7 @@ pub(super) struct ReadBudget {
 }
 
 impl ReadBudget {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             objects: 0,
             bytes: 0,
@@ -213,7 +213,7 @@ impl ReadBudget {
     }
 }
 
-pub(super) struct VerifiedFile {
+pub(crate) struct VerifiedFile {
     root: Arc<File>,
     file: File,
     name: String,
@@ -223,7 +223,7 @@ pub(super) struct VerifiedFile {
 }
 
 impl VerifiedFile {
-    pub(super) fn check(&self) -> StoreResult<()> {
+    pub(crate) fn check(&self) -> StoreResult<()> {
         if version(&self.file)? != self.version
             || version(&open_leaf(&self.root, &self.name)?)? != self.version
         {
@@ -232,14 +232,14 @@ impl VerifiedFile {
         Ok(())
     }
 
-    pub(super) fn bytes(&self) -> StoreResult<&[u8]> {
+    pub(crate) fn bytes(&self) -> StoreResult<&[u8]> {
         self.check()?;
         self.bytes
             .as_deref()
             .ok_or(StoreError::Invalid("non-metadata artifact"))
     }
 
-    pub(super) fn json<T: DeserializeOwned + Serialize>(&self) -> StoreResult<T> {
+    pub(crate) fn json<T: DeserializeOwned + Serialize>(&self) -> StoreResult<T> {
         let bytes = self.bytes()?;
         let parsed: T =
             serde_json::from_slice(bytes).map_err(|_| StoreError::Corrupt("manifest JSON"))?;
@@ -249,6 +249,52 @@ impl VerifiedFile {
             return Err(StoreError::Corrupt("non-canonical manifest"));
         }
         Ok(parsed)
+    }
+
+    pub(crate) async fn copy_to(&self, path: &Path) -> StoreResult<()> {
+        self.check()?;
+        // A fresh open-file description avoids sharing a cursor between copies.
+        let input = open_leaf(&self.root, &self.name)?;
+        if version(&input)? != self.version {
+            return Err(StoreError::Corrupt("artifact copy version"));
+        }
+        let mut input = tokio::fs::File::from_std(input).take(self.reference.byte_size + 1);
+        let mut output = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(path)
+            .await
+            .map_err(|_| StoreError::Unavailable("artifact view output"))?;
+        let mut hash = Sha256::new();
+        let mut count = 0_u64;
+        let mut buffer = [0_u8; 65_536];
+        loop {
+            let length = input
+                .read(&mut buffer)
+                .await
+                .map_err(|_| StoreError::Unavailable("artifact copy read"))?;
+            if length == 0 {
+                break;
+            }
+            count += length as u64;
+            hash.update(&buffer[..length]);
+            output
+                .write_all(&buffer[..length])
+                .await
+                .map_err(|_| StoreError::Unavailable("artifact copy write"))?;
+        }
+        if count != self.reference.byte_size
+            || hash.finalize().as_slice() != self.reference.digest()?
+        {
+            return Err(StoreError::Corrupt("artifact copy checksum"));
+        }
+        self.check()?;
+        output
+            .sync_all()
+            .await
+            .map_err(|_| StoreError::Unavailable("artifact view sync"))?;
+        Ok(())
     }
 }
 

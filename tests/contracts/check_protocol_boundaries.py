@@ -26,6 +26,7 @@ DEVELOPMENT_DATA_FILE = "loop/v1/development_data.proto"
 HOLDOUT_FILE = "loop/v1/holdout.proto"
 HOLDOUT_SERVICE_FILE = "loop/holdout/v1/service.proto"
 JOB_FILE = "loop/v1/job.proto"
+JOB_SERVICE_FILE = "loop/jobs/v1/service.proto"
 PROVIDER_FILE_ALLOWLIST = {
     "google/protobuf/duration.proto",
     "google/protobuf/timestamp.proto",
@@ -93,6 +94,7 @@ def main() -> None:
     files = {file.name: file for file in descriptor.file}
 
     assert_development_dataset_leaf(files)
+    assert_artifact_delivery(files)
 
     provider = require_file(files, PROVIDER_FILE)
     assert set(provider.dependency) == {
@@ -228,6 +230,42 @@ def require_file(files: dict[str, FileDescriptorProto], name: str) -> FileDescri
         return files[name]
     except KeyError as error:
         raise AssertionError(f"missing descriptor file: {name}") from error
+
+
+def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
+    service = require_file(files, JOB_SERVICE_FILE)
+    messages = {message.name: message for message in service.message_type}
+    request = messages["PrepareJobArtifactsRequest"]
+    response = messages["PrepareJobArtifactsResponse"]
+    assert {field.name for field in request.field} == {
+        "context",
+        "job_id",
+        "lease_id",
+        "expected_revision",
+    }
+    assert {field.name for field in response.field} == {
+        "job_id",
+        "lease_id",
+        "data_manifest_sha256",
+        "artifacts",
+        "expires_at",
+        "view_id",
+    }
+    artifacts = next(field for field in response.field if field.name == "artifacts")
+    assert artifacts.type_name == ".loop.v1.ArtifactRef"
+    assert artifacts.label == FieldDescriptorProto.LABEL_REPEATED
+    assert all(
+        field.type != FieldDescriptorProto.TYPE_BYTES for field in response.field
+    )
+    method = next(
+        method
+        for definition in service.service
+        for method in definition.method
+        if method.name == "PrepareJobArtifacts"
+    )
+    assert method.input_type == ".loop.jobs.v1.PrepareJobArtifactsRequest"
+    assert method.output_type == ".loop.jobs.v1.PrepareJobArtifactsResponse"
+    assert not method.client_streaming and not method.server_streaming
 
 
 def assert_service(

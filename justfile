@@ -27,3 +27,6 @@ doctor:
 
 container-gate:
     ./scripts/container-gate.sh
+
+test-isolation:
+    node --test --test-isolation=none tests/runtime/isolation.test.mjs

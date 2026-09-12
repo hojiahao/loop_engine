@@ -167,6 +167,8 @@ pub(super) enum SampleRole {
     OperatorWarmup,
     InSample,
     DevelopmentValidation,
+    FirstLockedConfirmation,
+    SecondLockedHistoricalHoldout,
 }
 
 impl Sample {
@@ -177,6 +179,9 @@ impl Sample {
             SampleRole::OperatorWarmup => ("2005-01-01", "2006-12-31"),
             SampleRole::InSample => ("2007-01-01", "2016-12-31"),
             SampleRole::DevelopmentValidation => ("2017-01-01", "2020-12-31"),
+            SampleRole::FirstLockedConfirmation | SampleRole::SecondLockedHistoricalHoldout => {
+                return Err(StoreError::AdmissionDenied);
+            }
         };
         if start > end || start < date(lower)? || end > date(upper)? {
             return Err(StoreError::AdmissionDenied);
@@ -317,7 +322,7 @@ impl Series {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Artifact {
+pub(crate) struct Artifact {
     pub object: ObjectRef,
     pub schema: SchemaRef,
     pub media_type: String,
@@ -326,7 +331,7 @@ pub(super) struct Artifact {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct SchemaRef {
+pub(crate) struct SchemaRef {
     pub name: String,
     pub version: u32,
     pub document: ObjectRef,

@@ -15,6 +15,7 @@ mod lifecycle;
 mod perturbation;
 mod postgres;
 mod rejection;
+mod runtime;
 mod submission;
 
 use std::future::Future;
@@ -37,6 +38,7 @@ pub use library::{
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
 pub use postgres::{PgJobStore, StoreOptions};
+pub(crate) use runtime::live_lease;
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
 /// Fail-closed command errors. `PreviouslyRejected` identifies existing domain
@@ -214,7 +216,7 @@ pub trait JobRepository: Send + Sync {
     ) -> impl Future<Output = StoreResult<CommandResult>> + Send;
 }
 
-fn validate_id(value: &str) -> StoreResult<()> {
+pub(crate) fn validate_id(value: &str) -> StoreResult<()> {
     if value.is_empty()
         || value.len() > 128
         || !value.as_bytes()[0].is_ascii_alphanumeric()

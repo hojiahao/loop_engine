@@ -9,6 +9,7 @@ mod test_support;
 
 pub mod manifests;
 pub mod research_worker;
+pub mod runtime;
 pub mod store;
 
 use axum::{Json, Router, routing::get};
@@ -19,8 +20,8 @@ pub fn app() -> Router {
     Router::new().route("/healthz", get(health))
 }
 
-/// Readiness-only storage integration. Mutating RPCs remain unregistered until
-/// transport authentication and reference authorization are available.
+/// Readiness-only HTTP integration. Authenticated job RPCs use the separate,
+/// explicitly configured mTLS listener; they are never registered on this router.
 pub fn app_with_store(store: PgJobStore) -> Router {
     app().route(
         "/readyz",

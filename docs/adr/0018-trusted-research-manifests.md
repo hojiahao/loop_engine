@@ -1,6 +1,6 @@
 # ADR 0018: Trusted research manifests and file-backed evidence
 
-- Status: Implemented; local gates passed, publication pending
+- Status: Accepted; implementation f1b87a8 and remote gates passed
 - Date: 2026-09-11
 - Owner: hojiahao
 
@@ -76,7 +76,8 @@ Usage, limits and byte formats: `docs/development/research-manifests.md`.
 Final local `just check/test/build/doctor` pass. Detailed counts, real-process
 coverage and the resource-contention rerun are recorded in
 `docs/verification/phase-04-research-integrity.md`. No production endpoint is
-enabled; publication and remote CI remain required before task closure.
+enabled. Implementation `f1b87a8` is pushed and all seven jobs in GitHub Actions
+run `34581890194` pass.
 
 This task adds no database migration, table or service. Disable the concrete
 resolver/export writer to roll back; retain all immutable artifacts, receipts,

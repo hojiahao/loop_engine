@@ -20,6 +20,7 @@ export LOOP_ENGINE_UID="${LOOP_ENGINE_UID:-$(id -u)}"
 export LOOP_ENGINE_GID="${LOOP_ENGINE_GID:-$(id -g)}"
 
 cd "${loop_repo_dir}"
+node --test --test-isolation=none tests/runtime/isolation.test.mjs
 cleanup
 docker compose --project-name "${loop_gate_project}" build development postgres
 docker compose --project-name "${loop_gate_project}" up --detach --wait --wait-timeout 90 postgres
