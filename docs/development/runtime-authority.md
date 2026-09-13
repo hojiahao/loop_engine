@@ -24,7 +24,7 @@ whether a generic job exists.
 | Role | Job Access | Protected Data |
 | --- | --- | --- |
 | Operator | Read/cancel pinned development jobs | Denied |
-| Research | Read/lease/heartbeat/complete/development views | Denied |
+| Research | Read/lease/heartbeat/complete/development views; configured factor evaluation | Denied |
 | Holdout worker | Corresponding protected job operations | Lease and capability required |
 | Discovery, provider | No generic job operations | Denied |
 | Scheduler | Internal recovery only, no new recovery RPC | Denied |
@@ -32,7 +32,8 @@ whether a generic job exists.
 The listener registers `loop.jobs.v1.JobService`, including artifact preparation.
 It does not register generic submission, holdout approval/grant RPCs or arbitrary
 code execution. Job-envelope pins are administrative allowlists, not evidence of
-factor correctness or data quality. Numerical execution remains unit 5 work.
+factor correctness or data quality. The optional fixed numerical executor is
+documented in [Authorized Factor Evaluation](factor-evaluation.md).
 
 ## Configuration
 

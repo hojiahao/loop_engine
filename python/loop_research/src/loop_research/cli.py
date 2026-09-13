@@ -19,6 +19,15 @@ def build_parser() -> argparse.ArgumentParser:
     manifests.add_argument(
         "--profile", choices=["perturbation", "evaluation"], default="perturbation"
     )
+    query = commands.add_parser("data-query", help="Read-only local point-in-time data query")
+    query.add_argument("input", type=Path)
+    query.add_argument("--market-at", required=True)
+    query.add_argument("--known-at", required=True)
+    query.add_argument("--ingested-at", required=True)
+    selector = query.add_mutually_exclusive_group()
+    selector.add_argument("--security-id")
+    selector.add_argument("--ticker")
+    query.add_argument("--venue")
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -56,6 +65,24 @@ def main() -> None:
         except (OSError, ValueError) as error:
             parser.error(str(error))
         print(json.dumps(asdict(report), allow_nan=False, sort_keys=True))
+    elif args.command == "data-query":
+        from loop_research.data.diagnostic import query_file
+        from loop_research.data.models import PitQuery
+
+        try:
+            query = PitQuery(
+                market_at=args.market_at,
+                known_at=args.known_at,
+                ingested_at=args.ingested_at,
+                security_id=args.security_id,
+                ticker=args.ticker,
+                venue=args.venue,
+            )
+            pit_report = query_file(args.input, query)
+        except OSError, ValueError:
+            # Never echo record bodies, vendor payloads or private local paths.
+            parser.error("PIT query failed: invalid clocks, records, selection or input file")
+        print(pit_report.model_dump_json(by_alias=True))
 
 
 if __name__ == "__main__":

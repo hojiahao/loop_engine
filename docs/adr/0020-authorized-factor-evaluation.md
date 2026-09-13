@@ -1,6 +1,6 @@
 # ADR 0020: Authorized canonical factor evaluation
 
-- Status: In progress
+- Status: Accepted
 - Date: 2026-09-12
 - Owner: hojiahao
 
@@ -59,3 +59,8 @@ push and remote CI pass together.
 Rollback disables the new worker path. Do not rewrite old FactorSpec identities,
 metrics, grants, receipts, manifests or audit history. Newly computed results
 are bound to the new implementation and cannot be relabeled as old results.
+
+Implementation `9c02629` is published. Local check/test/build/doctor/isolation
+and all seven jobs in CI run `34747553685` pass. This accepts the bounded raw
+factor workflow described above; later portfolio and production-data gates
+remain unchanged.

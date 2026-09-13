@@ -1,7 +1,9 @@
 # Phase 4 research-integrity verification
 
-Status: in progress. These checkpoints do not enable production factor
-discovery, authorize holdout data, or validate historical A-share performance.
+Status: complete for the five agreed integrity foundation units; the final
+publication evidence is recorded below. Production discovery, portfolio/NAV
+execution and licensed data remain later-phase gates. These checkpoints do not
+validate historical A-share performance or grant production holdout access.
 
 ## Numerical checkpoint
 
@@ -681,3 +683,16 @@ Rollback disables the optional evaluator, retains immutable jobs/artifacts and
 receipts, and prevents new numerical completion. No destructive migration is
 required. Production holdout computation, portfolio accounting, data adapters
 and the autonomous discovery loop remain later-phase work.
+
+Unit 5 publication is complete: `9c02629` is pushed and all seven jobs in
+GitHub Actions run `34747553685` pass. All five agreed Phase 4 foundation units
+are accepted. The separately planned Phase 7 portfolio/NAV writer must integrate
+these gates and is still explicitly pending in the implementation checklist.
+
+A requested timing measurement runs the existing compiled real mTLS/PostgreSQL
+case with 3 sessions, 2 synthetic securities and `ma(2,2)`. The complete
+evaluation RPC takes 27.72 seconds on this host, including authentication,
+frozen-file checks, process startup, numerical work and transactional completion.
+The full case including fixture construction takes 36.20 seconds. This is one
+development observation, not a throughput SLA, pure-kernel benchmark or estimate
+for the US market. The temporary database is removed immediately afterwards.

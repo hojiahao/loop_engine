@@ -138,9 +138,16 @@ actual Rust executable verified TLS, session settings and every checksum.
 Production jobs, periods, grants and batches are empty. Fixture materializers
 are not production research parsers, and no holdout capability was issued.
 
-## Phase 4 - Research-integrity invariants (`in_progress`)
+## Phase 4 - Research-integrity invariants (`complete`)
 
-The remaining owner-approved delivery units are executed in this order, one
+All five agreed foundation delivery units are published and remotely verified.
+The final unit is `9c02629`; CI run `34747553685` passed all seven jobs, including
+the clean DaoCloud container. This closes the shared integrity and authorized
+raw-factor boundary. It does not claim a market-data adapter, portfolio backtest,
+production holdout execution or autonomous discovery loop; those remain the
+explicit later-phase deliverables below.
+
+The owner-approved foundation delivery units were executed in this order, one
 complete task per implementation commit. Tests and documentation are part of
 that task, not additional delivery units. The same rule applies to later phases.
 
@@ -158,12 +165,12 @@ that task, not additional delivery units. The same rule applies to later phases.
    `just check/test/build/doctor/test-isolation` and all seven jobs in
    run `34695520155` pass. No production endpoint is enabled).
 5. Canonical AST/operator/numerical integration into authorized execution
-   (`in_progress`: ADR 0020 implementation and local
-   `just check/test/build/doctor/test-isolation` pass. Commit, push and successful
-   remote CI remain required before closure).
+   (`complete`: `9c02629` is pushed. Local
+   `just check/test/build/doctor/test-isolation` and all seven jobs in
+   run `34747553685` pass).
 
-- [ ] Port all eight existing fixes into shared contracts and regression tests.
-- [ ] Add holdout capabilities, provenance invalidation, canonical SHA-256 IDs,
+- [x] Port all eight existing fixes into shared contracts and regression tests.
+- [x] Add holdout capabilities, provenance invalidation, canonical SHA-256 IDs,
       missing-window skew tests, durable perturbation state, unified readmission,
       failed-hash filtering, and return-based PnL correlation.
 - [x] Implement numerical reference primitives for actual-count skew, causal
@@ -171,8 +178,6 @@ that task, not additional delivery units. The same rule applies to later phases.
       independent SciPy goldens and bounded Hypothesis properties.
 - [x] Bind the numerical primitives to authorized canonical factor execution;
       enforce session alignment, coverage and versioned operator semantics.
-- [ ] Integrate portfolio/NAV generation into the Phase 7 backtester; do not
-      mistake raw factor values or imported synthetic results for a backtest.
 - [x] Share original-run integrity and current-context freshness assessment
       across Rust, TypeScript and Python; reject unresolved and stale metrics.
 - [x] Enforce provenance checks in durable result registration and current-result
@@ -237,10 +242,26 @@ authorized result export or production research execution.
 
 ## Phase 5 - US-equities data plane (`in_progress`)
 
+Remaining delivery units (one complete implementation/test/documentation commit
+each, followed by push and remote acceptance):
+
+1. Security master, historical ticker resolution and bitemporal market/fundamental
+   records, with an executable local point-in-time query (`in_progress`, ADR 0021;
+   local `just check/test/build/doctor` and 94 focused tests pass;
+   publication/remote acceptance pending).
+2. SEC and Alpaca development adapters, installed dependencies, bounded downloads,
+   entitlement checks and explicit development limitations (`pending`).
+3. Sharadar production adapter and optional WRDS/Databento paths, with credentials
+   and entitlement gates; no unlicensed production claims (`pending`).
+4. Immutable Parquet snapshots, quality/lineage/coverage checks and reproducible
+   data synchronization through 2026-08-31 (`pending`).
+
 - [x] Implement the bounded, offline XNYS session-date gate, pinned calendar
       dependency and actual NAV CLI integration. This is a Phase 4 alignment
       dependency, not completion of the data plane or a full calendar manifest.
-- [ ] Implement security master and bitemporal market/fundamental schemas.
+- [x] Implement security master and bitemporal market/fundamental schemas with
+      executable local historical queries. This does not certify vendor coverage;
+      the unit remains in progress until its full gates, commit and push succeed.
 - [ ] Implement SEC plus Alpaca development adapters.
 - [ ] Implement Sharadar production adapter and optional WRDS/Databento adapters.
 - [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
@@ -267,6 +288,9 @@ Phase 4 or claiming licensed/PIT market data. Evidence and rollback:
 
 ## Phase 7 - Primary backtester (`pending`)
 
+- [ ] Integrate portfolio/NAV generation with the Phase 4 authorization and
+      numerical integrity gates; raw factor values and imported synthetic
+      results must never be presented as a completed portfolio backtest.
 - [ ] Implement next-tradable-time portfolios, costs, borrow, turnover,
       capacity, risk exposures, IC analytics, and multiple-testing controls.
 - [ ] Validate every accounting path against synthetic golden ledgers.
