@@ -127,7 +127,13 @@ impl Case {
     }
 
     async fn client(&self) -> job_service_client::JobServiceClient<tonic::transport::Channel> {
-        self.tls.client(self.address, true).await.unwrap()
+        // The server allows a 90-second RPC envelope, including byte-backed
+        // build/data checks and its bounded numerical worker. The metadata
+        // fixture's 30-second client timeout must not cut this test short.
+        self.tls
+            .timed_client(self.address, Some("client"), Duration::from_secs(95))
+            .await
+            .unwrap()
     }
 
     async fn request(&self) -> EvaluateFactorRequest {

@@ -1,6 +1,7 @@
 """Research worker command line entry point."""
 
 import argparse
+import asyncio
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -19,6 +20,12 @@ def build_parser() -> argparse.ArgumentParser:
     manifests.add_argument(
         "--profile", choices=["perturbation", "evaluation"], default="perturbation"
     )
+    fetch = commands.add_parser("data-fetch", help="Bounded SEC/Alpaca development acquisition")
+    fetch.add_argument("config", type=Path)
+    fetch.add_argument("--store", type=Path, required=True)
+    replay = commands.add_parser("data-replay", help="Offline verification of a cached acquisition")
+    replay.add_argument("--store", type=Path, required=True)
+    replay.add_argument("--receipt", required=True)
     query = commands.add_parser("data-query", help="Read-only local point-in-time data query")
     query.add_argument("input", type=Path)
     query.add_argument("--market-at", required=True)
@@ -83,6 +90,24 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command in ("data-fetch", "data-replay"):
+        from loop_research.data.fetch_http import FetchError
+        from loop_research.data.ingestion import fetch_data, load_fetch_config, replay_data
+
+        try:
+            fetch_report = (
+                asyncio.run(fetch_data(load_fetch_config(args.config), args.store))
+                if args.command == "data-fetch"
+                else replay_data(args.store, args.receipt)
+            )
+        except FetchError as error:
+            status = f" (HTTP {error.status_code})" if error.status_code is not None else ""
+            parser.error(f"development data operation failed: {error.reason}{status}")
+        except OSError, ValueError:
+            parser.error("development data operation failed: invalid input or local IO")
+        except KeyboardInterrupt:
+            parser.exit(130, "development data operation cancelled; preserve cached evidence\n")
+        print(fetch_report.model_dump_json(by_alias=True))
 
 
 if __name__ == "__main__":

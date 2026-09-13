@@ -1,6 +1,6 @@
 # ADR 0021: Point-in-time security and observation records
 
-- Status: In progress
+- Status: Accepted
 - Date: 2026-09-13
 - Owner: hojiahao
 
@@ -55,6 +55,10 @@ output and that later invisible records cannot change an earlier decision.
 
 Rollback removes/disables the new diagnostic. Retain source inputs and their
 checksums; this unit has no destructive migration or production writer.
+
+Implementation `523a736` is pushed. Local check/test/build/doctor and all seven
+jobs in CI run `34749353894` pass. This accepts the local development query,
+not production-data coverage or full Phase 5 completion.
 
 ## Source Boundaries
 

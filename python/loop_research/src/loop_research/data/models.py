@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Hashable, Iterable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal, Self
 from zoneinfo import ZoneInfo
@@ -126,9 +126,13 @@ class RawBar(TemporalRecord):
         timezone = ZoneInfo("America/New_York")
         if not self.interval_start < self.effective_at <= self.known_at:
             raise ValueError("bar must close before it becomes publicly available")
-        if any(
-            instant.astimezone(timezone).date() != self.session
-            for instant in (self.interval_start, self.effective_at)
+        local_start = self.interval_start.astimezone(timezone)
+        local_end = self.effective_at.astimezone(timezone)
+        daily_end = local_start.time() == time.min and local_end == datetime.combine(
+            self.session + timedelta(days=1), time.min, timezone
+        )
+        if local_start.date() != self.session or (
+            local_end.date() != self.session and not daily_end
         ):
             raise ValueError("bar interval must belong to its New York session date")
         opening, high, low, close = map(Decimal, (self.open, self.high, self.low, self.close))

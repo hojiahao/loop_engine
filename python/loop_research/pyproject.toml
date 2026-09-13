@@ -5,7 +5,9 @@ description = "US-equities research worker for Loop Engine"
 authors = [{ name = "hojiahao", email = "hojiahao@outlook.com" }]
 requires-python = ">=3.14,<3.15"
 dependencies = [
+    "alpaca-py==0.44.0",
     "exchange-calendars==4.13.2",
+    "httpx==0.28.1",
     "loop-engine-protocol==0.2.0a1",
     "numpy>=2.5,<3",
     "pydantic>=2.11,<3",

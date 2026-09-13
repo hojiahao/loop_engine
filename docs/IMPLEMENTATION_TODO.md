@@ -246,11 +246,14 @@ Remaining delivery units (one complete implementation/test/documentation commit
 each, followed by push and remote acceptance):
 
 1. Security master, historical ticker resolution and bitemporal market/fundamental
-   records, with an executable local point-in-time query (`in_progress`, ADR 0021;
-   local `just check/test/build/doctor` and 94 focused tests pass;
-   publication/remote acceptance pending).
+   records, with an executable local point-in-time query (`complete`, ADR 0021;
+   `523a736` is pushed. Local `just check/test/build/doctor` and all seven jobs
+   in CI run `34749353894` pass).
 2. SEC and Alpaca development adapters, installed dependencies, bounded downloads,
-   entitlement checks and explicit development limitations (`pending`).
+   entitlement checks and explicit development limitations (`in_progress`, ADR 0022;
+   implementation and local gates pass, including a live SEC capture and offline
+   cache replay. Commit/push/remote CI remain the publication gate; Alpaca live
+   verification requires credentials).
 3. Sharadar production adapter and optional WRDS/Databento paths, with credentials
    and entitlement gates; no unlicensed production claims (`pending`).
 4. Immutable Parquet snapshots, quality/lineage/coverage checks and reproducible
@@ -261,8 +264,10 @@ each, followed by push and remote acceptance):
       dependency, not completion of the data plane or a full calendar manifest.
 - [x] Implement security master and bitemporal market/fundamental schemas with
       executable local historical queries. This does not certify vendor coverage;
-      the unit remains in progress until its full gates, commit and push succeed.
-- [ ] Implement SEC plus Alpaca development adapters.
+      unit 1's local gates, commit, push and remote CI have passed.
+- [x] Implement SEC plus Alpaca development adapters, with bounded acquisition,
+      first-observed semantics, separate SIP probing and byte-verified cache replay.
+      This checkbox records implementation; unit 2 closes only after publication.
 - [ ] Implement Sharadar production adapter and optional WRDS/Databento adapters.
 - [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.

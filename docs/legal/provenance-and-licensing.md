@@ -20,7 +20,7 @@ license or an independently implemented protocol based on public documentation.
 
 | Source | Intended level | Rights/quality gate |
 |---|---|---|
-| SEC EDGAR Company Facts | Development fundamentals | Obey SEC fair-access policy; retain accession and acceptance timestamps |
+| SEC EDGAR Company Facts | Development fundamentals | Obey fair-access policy; retain accession and raw filing metadata; use first-observed availability until historical dissemination is verified |
 | Alpaca | Development market data | Probe and record IEX/SIP entitlement; never infer production quality from an account name |
 | Sharadar/Nasdaq Data Link | Production candidate | Requires an active subscription and permitted local research storage/use |
 | WRDS CRSP/Compustat | Institutional candidate | Requires organizational or academic entitlement and compliance with export/use terms |
@@ -49,3 +49,20 @@ prove point-in-time knowledge of exceptional future closures.
   corporate actions, and a documented right to use the data.
 - Brand scans may replace obsolete presentation labels but must allow legal,
   historical, provider, and citation references.
+
+## Development Ingestion Dependencies
+
+Phase 5 unit 2 installs `alpaca-py==0.44.0` (Apache-2.0) and `httpx==0.28.1`
+(BSD-3-Clause) in the existing root Python 3.14.4 environment. These declarations
+were checked against installed distribution metadata and the
+[Alpaca package](https://pypi.org/project/alpaca-py/0.44.0/) and
+[HTTPX package](https://pypi.org/project/httpx/0.28.1/) records. Their published
+Python APIs are used without copying/relabeling upstream implementations.
+Installed license notices remain intact; all new transitive packages are pinned
+in `uv.lock` and remain subject to the release SBOM and license compatibility gate.
+
+SDK installation grants no market-data entitlement. SEC/Alpaca cache data belongs
+in a private ignored runtime directory, never in fixtures or public Git. The
+committed development HTTP fixtures are explicitly invented data. A successful
+API request proves only that the particular request was accepted at that time;
+it does not grant redistribution rights or certify historical PIT coverage.

@@ -3,8 +3,9 @@
 The Python data package resolves security histories and visible observations
 from a bounded local capture. This is the executable Phase 5 unit 1 development
 workflow. It does not download prices, certify a historical universe, register a
-research result or grant access to protected storage. Provider ingestion and
-immutable Parquet snapshots are separate subsequent delivery units.
+research result or grant access to protected storage. Provider ingestion has a
+separate [development command](development-data.md); immutable Parquet assembly
+and verified master joins remain later delivery units.
 
 ## Run the synthetic example
 
@@ -72,7 +73,10 @@ the same venue/ticker fail closed.
 Raw bars preserve their interval start/end, New York session date, currency,
 unadjusted OHLCV and visibility evidence. Prices must be positive exact decimals,
 low/high must contain open/close, and volume is a nonnegative integer. An ended
-bar cannot be visible before its end. This unit does not assert session-calendar
+bar cannot be visible before its end. A daily interval may run from New York
+midnight to the next local midnight, with an exclusive end (23/25 hours over DST
+transitions). Other intervals must remain within their declared local date.
+This unit does not assert session-calendar
 completeness, regular/extended-hours coverage, consolidation, corporate-action
 adjustments, executable quotes or availability to borrow.
 

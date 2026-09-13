@@ -127,6 +127,16 @@ impl Credentials {
         address: std::net::SocketAddr,
         identity: Option<&str>,
     ) -> Result<JobServiceClient<Channel>, tonic::transport::Error> {
+        self.timed_client(address, identity, std::time::Duration::from_secs(30))
+            .await
+    }
+
+    pub(super) async fn timed_client(
+        &self,
+        address: std::net::SocketAddr,
+        identity: Option<&str>,
+        timeout: std::time::Duration,
+    ) -> Result<JobServiceClient<Channel>, tonic::transport::Error> {
         let mut tls = ClientTlsConfig::new()
             .domain_name("localhost")
             .ca_certificate(Certificate::from_pem(self.read("ca.pem")));
@@ -140,7 +150,7 @@ impl Credentials {
             .unwrap()
             .tls_config(tls)?
             .connect_timeout(std::time::Duration::from_secs(3))
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(timeout)
             .connect()
             .await?;
         Ok(JobServiceClient::new(channel))

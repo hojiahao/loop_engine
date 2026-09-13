@@ -1,0 +1,15 @@
+{
+  "cik": "0001234567",
+  "name": "Loop Engine synthetic issuer",
+  "tickers": ["DEMO"],
+  "exchanges": ["Nasdaq"],
+  "filings": {
+    "recent": {
+      "accessionNumber": ["0001234567-26-000002"],
+      "filingDate": ["2026-08-25"],
+      "acceptanceDateTime": ["2026-08-25T16:10:00.000Z"],
+      "form": ["10-Q/A"]
+    },
+    "files": []
+  }
+}

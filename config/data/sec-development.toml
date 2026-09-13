@@ -1,0 +1,17 @@
+schema = "loop.development-fetch/v1"
+provider = "sec"
+cik = "0000320193"
+concepts = ["us-gaap:Assets", "us-gaap:StockholdersEquity"]
+contact_email = "hojiahao@outlook.com"
+start = 2026-01-01
+end = 2026-08-31
+
+[budget]
+requests = 4
+pages = 1
+response_bytes = 16777216
+total_bytes = 33554432
+records = 1000
+timeout_seconds = 90
+retries = 1
+interval_seconds = 1.0
