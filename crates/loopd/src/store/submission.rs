@@ -149,6 +149,8 @@ impl RoleCommand {
                         factor: input.factor.clone(),
                         dataset: input.dataset.clone(),
                         budget: research_budget(input.budget.as_ref()),
+                        provenance: input.provenance.clone(),
+                        deterministic_seed: input.deterministic_seed.clone(),
                     }),
                 )
             }

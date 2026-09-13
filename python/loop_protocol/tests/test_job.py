@@ -60,6 +60,22 @@ OTHER_FACTOR_ID = f"sha256:{'b' * 64}"
 SHARED_VECTORS = list(csv.DictReader(VECTORS.open(), delimiter="\t"))
 
 
+@pytest.mark.parametrize("missing", ["provenance", "deterministic_seed"])
+def test_factor_execution_identity_requires_a_complete_pair(missing: str) -> None:
+    specification = job_pb2.JobSpecification()
+    _set_valid_specification(
+        specification, {"kind": "factor_evaluation", "input": "factor_evaluation"}
+    )
+    value = specification.factor_evaluation
+    value.provenance.CopyFrom(_provenance())
+    value.deterministic_seed.CopyFrom(_digest(9))
+    validate_job_specification(specification)
+    value.ClearField(missing)
+    with pytest.raises(JobValidationError) as caught:
+        validate_job_specification(specification)
+    assert caught.value.code == JobValidationCode.MISSING_FIELD
+
+
 def test_protocol_selection_producer_matches_shared_golden() -> None:
     row = next(csv.DictReader(PROTOCOL_GOLDEN.open(), delimiter="\t"))
     selection = _protocol_selection()

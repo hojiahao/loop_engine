@@ -1,4 +1,5 @@
 mod deployment;
+mod evaluation;
 mod holdout;
 mod process;
 mod tls;
@@ -231,6 +232,42 @@ impl Drop for Running {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn evaluation_is_disabled_without_deployment() {
+    let running = Running::start(Role::Research).await;
+    let error = running
+        .client()
+        .await
+        .evaluate_factor(EvaluateFactorRequest {
+            context: Some(context("disabled-evaluation")),
+            job_id: running.id(),
+            lease_id: None,
+            expected_revision: 1,
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), Code::PermissionDenied);
+    assert_eq!(std::fs::read_dir(&running.views).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn discovery_cannot_request_numerical_execution() {
+    let running = Running::start(Role::Discovery).await;
+    let error = running
+        .client()
+        .await
+        .evaluate_factor(EvaluateFactorRequest {
+            context: Some(context("discovery-evaluation")),
+            job_id: running.id(),
+            lease_id: None,
+            expected_revision: 1,
+        })
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), Code::PermissionDenied);
+    assert_eq!(std::fs::read_dir(&running.views).unwrap().count(), 0);
 }
 
 #[tokio::test]

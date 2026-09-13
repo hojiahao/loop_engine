@@ -1,4 +1,4 @@
-"""Byte-backed identity of the fixed local perturbation worker, not OS attestation."""
+"""Byte-backed identities of fixed numerical workers, not OS attestation."""
 
 from __future__ import annotations
 
@@ -14,11 +14,12 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 MAX_FILES = 8192
 MAX_BYTES = 1_073_741_824
 MAX_SECONDS = 8.0
+EVALUATION_SECONDS = 20.0
 
 
 class ObjectReference(TypedDict):
@@ -62,8 +63,9 @@ def _reference(content: bytes) -> ObjectReference:
 
 
 class _Capture:
-    def __init__(self, directory: int | None) -> None:
+    def __init__(self, directory: int | None, seconds: float = MAX_SECONDS) -> None:
         self.directory = directory
+        self.seconds = seconds
         self.started = time.monotonic()
         self.count = 0
         self.total = 0
@@ -76,7 +78,7 @@ class _Capture:
         self.check_time()
 
     def check_time(self) -> None:
-        if time.monotonic() - self.started > (MAX_SECONDS if self.directory is None else 60.0):
+        if time.monotonic() - self.started > (self.seconds if self.directory is None else 60.0):
             raise ValueError("worker build verification timed out")
 
     def content(self, name: str, content: bytes) -> NamedFile:
@@ -162,14 +164,41 @@ def _publish(directory: int, reference: ObjectReference, content: bytes) -> None
         os.unlink(temporary, dir_fd=directory)
 
 
-def describe_build(store: Path | None = None) -> BuildIdentity:
+def publish_object(store: Path, content: bytes) -> ObjectReference:
+    """Publish immutable bytes using the same no-replace CAS path as build files.
+
+    The absolute output directory is trusted deployment configuration, not an
+    artifact URI or model path. Existing different bytes fail without overwrite.
+    Publication is not job completion or permission to release the artifact.
+    """
+    if not store.is_absolute() or store.resolve(strict=True) != store:
+        raise ValueError("artifact output must be an absolute canonical directory")
+    if not content or len(content) > MAX_BYTES:
+        raise ValueError("artifact output byte budget")
+    directory = os.open(store, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        metadata = os.fstat(directory)
+        if metadata.st_uid != os.geteuid() or metadata.st_mode & 0o777 != 0o700:
+            raise ValueError("artifact output requires a private runtime-owned directory")
+        reference = _reference(content)
+        _publish(directory, reference, content)
+        return reference
+    finally:
+        os.close(directory)
+
+
+def describe_build(
+    store: Path | None = None, *, profile: Literal["perturbation", "evaluation"] = "perturbation"
+) -> BuildIdentity:
     """Verify installed bytes; optionally publish immutable CAS objects.
 
     Covers the complete research/protocol packages, NumPy, Protobuf's Python and
     native runtime, NumPy's bundled native libraries, interpreter and shared
     Python library. Runtime ABI/platform facts are explicit. This does not claim
     a hermetic OS, validate market data or trust a caller-selected executable.
-    Existing objects are checked, never overwritten. Callers own the store path.
+    The evaluation profile additionally covers panel-validation and calendar
+    dependencies plus the actual New York timezone bytes. Existing objects are
+    checked, never overwritten. Callers own the store path.
     """
     directory = None
     if store is not None:
@@ -177,7 +206,11 @@ def describe_build(store: Path | None = None) -> BuildIdentity:
             raise ValueError("build artifact store must be absolute")
         directory = os.open(store, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
-        capture = _Capture(directory)
+        if profile not in ("perturbation", "evaluation"):
+            raise ValueError("unsupported numerical build profile")
+        capture = _Capture(
+            directory, EVALUATION_SECONDS if profile == "evaluation" else MAX_SECONDS
+        )
         source = []
         for package in ("loop_research", "loop_protocol", "loop"):
             source.extend(capture.tree(package, _package_root(package)))
@@ -187,6 +220,40 @@ def describe_build(store: Path | None = None) -> BuildIdentity:
         numpy_libraries = _package_root("numpy").parent / "numpy.libs"
         if numpy_libraries.is_dir():
             environment.extend(capture.tree("numpy.libs", numpy_libraries))
+        if profile == "evaluation":
+            for package in (
+                "pandas",
+                "pydantic",
+                "pydantic_core",
+                "exchange_calendars",
+                "dateutil",
+                "pyluach",
+                "toolz",
+                "tzdata",
+                "korean_lunar_calendar",
+                "typing_inspection",
+                "annotated_types",
+            ):
+                environment.extend(capture.tree(package, _package_root(package)))
+            for package in ("typing_extensions", "six"):
+                module = importlib.util.find_spec(package)
+                if module is None or module.origin is None:
+                    raise ValueError("evaluation dependency is unavailable")
+                environment.append(capture.file(package + ".py", Path(module.origin)))
+            pandas_libraries = _package_root("pandas").parent / "pandas.libs"
+            if pandas_libraries.is_dir():
+                environment.extend(capture.tree("pandas.libs", pandas_libraries))
+            from zoneinfo import TZPATH
+
+            timezone = next(
+                (
+                    Path(root) / "America/New_York"
+                    for root in TZPATH
+                    if (Path(root) / "America/New_York").is_file()
+                ),
+                _package_root("tzdata") / "zoneinfo/America/New_York",
+            )
+            environment.append(capture.file("zoneinfo/America/New_York", timezone))
         protobuf_native = importlib.util.find_spec("google._upb._message")
         if protobuf_native is None or protobuf_native.origin is None:
             raise ValueError("pinned Protobuf native runtime is unavailable")
@@ -228,9 +295,14 @@ def describe_build(store: Path | None = None) -> BuildIdentity:
             os.close(directory)
 
 
-def require_build(source_sha256: str, environment_sha256: str) -> BuildIdentity:
+def require_build(
+    source_sha256: str,
+    environment_sha256: str,
+    *,
+    profile: Literal["perturbation", "evaluation"] = "perturbation",
+) -> BuildIdentity:
     """Reject drift from the service-pinned build before any numerical output."""
-    identity = describe_build()
+    identity = describe_build(profile=profile)
     if (
         identity.source["sha256"] != source_sha256
         or identity.environment["sha256"] != environment_sha256

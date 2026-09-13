@@ -168,15 +168,21 @@ pub(crate) struct ReadBudget {
     bytes: u64,
     metadata_bytes: u64,
     started: Instant,
+    timeout: Duration,
 }
 
 impl ReadBudget {
     pub(crate) fn new() -> Self {
+        Self::with_timeout(Duration::from_secs(10))
+    }
+
+    pub(crate) fn with_timeout(timeout: Duration) -> Self {
         Self {
             objects: 0,
             bytes: 0,
             metadata_bytes: 0,
             started: Instant::now(),
+            timeout,
         }
     }
 
@@ -202,7 +208,7 @@ impl ReadBudget {
     }
 
     fn remaining(&self) -> StoreResult<Duration> {
-        Duration::from_secs(10)
+        self.timeout
             .checked_sub(self.started.elapsed())
             .filter(|duration| !duration.is_zero())
             .ok_or(StoreError::Unavailable("artifact verification timeout"))

@@ -600,3 +600,84 @@ download or LLM request has been performed. Authorized AST/operator execution
 remains unit 5; licensed/PIT market research and final holdout computation remain
 later-phase gates. Rollback disables the new listener/publisher and stops its
 workers while retaining all immutable data, receipts and audit history.
+
+Unit 4 publication is complete: `e1931f5` is pushed and all seven jobs in
+GitHub Actions run `34695520155` passed. Rust completes in 5m50s, the clean
+DaoCloud container in 10m21s and unified workspace gates in 13m05s. The final
+local cleanup also removes 20 project Python bytecode-cache directories;
+unrelated `/tmp` data remains untouched.
+
+## Delivery unit 5: authorized canonical numerical execution
+
+ADR 0020 connects the installed Python evaluator to the mTLS development-job
+path. The request names only an existing job, lease, revision and command
+context. Rust verifies the deployment pins and actual manifest bytes; Python
+executes the closed version-2 registry. Ordinary completion cannot substitute
+caller-supplied artifacts for numerical evidence. No new service or database
+table is added. Usage and rollback are in
+`docs/development/factor-evaluation.md`.
+
+The numerical contract includes fourteen operator families, explicit rolling
+width/minimum count, actual-count skew, sample standard deviation, defined rank
+ties and strictly aligned session/security axes. The canonical IDs preserve all
+historical semantics. Eligibility, missing observations and warmup are explicit;
+known-at timestamps are checked against the actual XNYS close. Output consists
+of raw values and coverage with all six provenance components, not a portfolio
+return, admission decision or licensed market-data claim.
+
+Acceptance includes the actual installed subprocess, PostgreSQL and mTLS; a
+two-session moving average must preserve missing initial values and commit the
+independently expected complete CSV and coverage. Negative cases cover missing
+deployment, discovery identity, unchecked completion, expired/cancelled leases
+and changed input/output bytes. Restart reopens all file caches and the executor;
+successful replay must preserve the original output and completion audit count.
+The existing independent 2/4/8-process and kill/restart matrices remain required.
+
+Local and remote closure gates are still pending. The initial integration run
+passes four rejection cases but fails three successful numerical paths with a
+dependency/evidence error; it is not accepted evidence. The focused rerun
+identifies the existing 10-second artifact-verification deadline while reading
+the complete installed evaluation environment. This context now has a bounded
+30-second resolver budget; other paths retain 10 seconds and the job's original
+deadline is not renewed. Static internal reason
+labels are now observable without exposing request metadata, paths or database
+errors. Final timings, test totals, publication and CI results will be recorded
+only after the corrected workflow passes.
+
+`env CARGO_BUILD_JOBS=1 just check` passes on 2026-09-13: current generated
+protocols and cross-language wire fixtures, compatibility and boundary checks,
+rustfmt, all-target/all-feature Clippy with `-D warnings`, TypeScript
+format/lint/types and Python Ruff/mypy. Clippy completes in 6m03s on the local
+host. This static gate does not substitute for the still-pending full behavioral
+suite, build, isolation, publication and remote CI.
+
+The first full behavioral run builds in 32m06s and confirms every added numerical
+runtime case, including exact `ma(2,2)` values, corrupted-output rejection and
+restart replay. A session interruption loses the final suite summary, so that
+partial observation is not recorded as a passing full gate. After confirming
+the processes have exited, 2.7 GiB of project incremental compilation cache is
+removed. The unchanged test binaries restart in 5.48 seconds; a project-scoped
+temporary log preserves the final rerun evidence until it is summarized here.
+
+The complete rerun of `just test` passes: Rust 395 plus four subprocess helpers
+explicitly invoked by their parent tests; TypeScript 116; Python research 247
+and protocol 301; legacy 216 passed / 1 skipped with its 12 existing numerical
+warnings. The `loopd` library passes 84 tests plus three exercised process helpers
+in 256.34 seconds. The separate independent 2/4/8-writer matrix passes in
+199.09 seconds. Research tests finish in 95.60 seconds, protocol in 1.80 seconds
+and legacy in 16.30 seconds. The disposable PostgreSQL instance uses 704412 KiB
+and is removed by the test script. These timings describe test suites, not
+full-market factor throughput. The unfinished Web placeholder still contains
+no tests and is not counted as UI acceptance.
+
+Final `just build` and `just doctor` pass: Rust binaries (9.47-second build),
+TypeScript packages, Python wheel/source packages, CLI health and the single
+root CPython 3.14.4 environment. The actual four-role container isolation test
+passes in 8.48 seconds and cleans its containers afterwards. `git diff --check`
+passes. All local gates are accepted; the task commit, push and remote CI remain
+pending at this pre-publication record. Phase 4 is not closed by local tests alone.
+
+Rollback disables the optional evaluator, retains immutable jobs/artifacts and
+receipts, and prevents new numerical completion. No destructive migration is
+required. Production holdout computation, portfolio accounting, data adapters
+and the autonomous discovery loop remain later-phase work.

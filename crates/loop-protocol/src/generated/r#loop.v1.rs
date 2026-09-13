@@ -1962,6 +1962,10 @@ pub struct FactorEvaluationJobInput {
     pub dataset: ::core::option::Option<DevelopmentDatasetReference>,
     #[prost(message, optional, tag = "4")]
     pub budget: ::core::option::Option<JobBudget>,
+    #[prost(message, optional, tag = "5")]
+    pub provenance: ::core::option::Option<ResearchProvenanceFingerprint>,
+    #[prost(message, optional, tag = "6")]
+    pub deterministic_seed: ::core::option::Option<Sha256Digest>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BacktestJobInput {
@@ -2379,6 +2383,56 @@ pub mod model_stream_event {
         #[prost(message, tag = "7")]
         Completed(super::StreamCompleted),
     }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FactorEvaluationWork {
+    #[prost(message, optional, tag = "1")]
+    pub job_id: ::core::option::Option<JobId>,
+    #[prost(message, optional, tag = "2")]
+    pub lease_id: ::core::option::Option<LeaseId>,
+    #[prost(message, optional, tag = "3")]
+    pub factor: ::core::option::Option<FactorSpec>,
+    #[prost(message, optional, tag = "4")]
+    pub panel_manifest: ::core::option::Option<ArtifactRef>,
+    #[prost(message, optional, tag = "5")]
+    pub sample_start: ::core::option::Option<CivilDate>,
+    #[prost(message, optional, tag = "6")]
+    pub sample_end: ::core::option::Option<CivilDate>,
+    #[prost(message, optional, tag = "7")]
+    pub provenance: ::core::option::Option<ResearchProvenanceFingerprint>,
+    #[prost(message, optional, tag = "8")]
+    pub deterministic_seed: ::core::option::Option<Sha256Digest>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FactorEvaluationResult {
+    #[prost(message, optional, tag = "1")]
+    pub job_id: ::core::option::Option<JobId>,
+    #[prost(message, optional, tag = "2")]
+    pub lease_id: ::core::option::Option<LeaseId>,
+    #[prost(message, optional, tag = "3")]
+    pub factor_spec_id: ::core::option::Option<FactorSpecId>,
+    #[prost(message, optional, tag = "4")]
+    pub expression_id: ::core::option::Option<FactorExpressionId>,
+    #[prost(message, optional, tag = "5")]
+    pub provenance: ::core::option::Option<ResearchProvenanceFingerprint>,
+    #[prost(message, optional, tag = "6")]
+    pub deterministic_seed: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "7")]
+    pub values: ::core::option::Option<ArtifactRef>,
+    #[prost(uint64, tag = "8")]
+    pub eligible_observations: u64,
+    #[prost(uint64, tag = "9")]
+    pub valid_observations: u64,
+    #[prost(uint64, tag = "10")]
+    pub work_units: u64,
+    #[prost(message, optional, tag = "11")]
+    pub sample_start: ::core::option::Option<CivilDate>,
+    #[prost(message, optional, tag = "12")]
+    pub sample_end: ::core::option::Option<CivilDate>,
+    #[prost(message, optional, tag = "13")]
+    pub completed_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(message, optional, tag = "14")]
+    pub manifest: ::core::option::Option<ArtifactRef>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PerturbationSpace {

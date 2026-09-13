@@ -103,6 +103,22 @@ pub struct PrepareJobArtifactsResponse {
     #[prost(string, tag = "6")]
     pub view_id: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EvaluateFactorRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "3")]
+    pub lease_id: ::core::option::Option<super::super::v1::LeaseId>,
+    #[prost(uint64, tag = "4")]
+    pub expected_revision: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EvaluateFactorResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+}
 /// Generated client implementations.
 pub mod job_service_client {
     #![allow(
@@ -337,6 +353,30 @@ pub mod job_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn evaluate_factor(
+            &mut self,
+            request: impl tonic::IntoRequest<super::EvaluateFactorRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::EvaluateFactorResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/EvaluateFactor",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "EvaluateFactor"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -389,6 +429,13 @@ pub mod job_service_server {
             request: tonic::Request<super::PrepareJobArtifactsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::PrepareJobArtifactsResponse>,
+            tonic::Status,
+        >;
+        async fn evaluate_factor(
+            &self,
+            request: tonic::Request<super::EvaluateFactorRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::EvaluateFactorResponse>,
             tonic::Status,
         >;
     }
@@ -723,6 +770,51 @@ pub mod job_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = PrepareJobArtifactsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/EvaluateFactor" => {
+                    #[allow(non_camel_case_types)]
+                    struct EvaluateFactorSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::EvaluateFactorRequest>
+                    for EvaluateFactorSvc<T> {
+                        type Response = super::EvaluateFactorResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::EvaluateFactorRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::evaluate_factor(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = EvaluateFactorSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

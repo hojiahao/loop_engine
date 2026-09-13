@@ -20,6 +20,12 @@ pub struct FactorEvaluationInput {
     pub dataset: ::core::option::Option<super::super::v1::DevelopmentDatasetReference>,
     #[prost(message, optional, tag = "3")]
     pub budget: ::core::option::Option<ResearchJobBudget>,
+    #[prost(message, optional, tag = "4")]
+    pub provenance: ::core::option::Option<
+        super::super::v1::ResearchProvenanceFingerprint,
+    >,
+    #[prost(message, optional, tag = "5")]
+    pub deterministic_seed: ::core::option::Option<super::super::v1::Sha256Digest>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BacktestInput {

@@ -111,14 +111,18 @@ class DiscoveryJobInput(_message.Message):
     def __init__(self, dataset: _Optional[_Union[_development_data_pb2.DevelopmentDatasetReference, _Mapping]] = ..., research_policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ..., maker_model: _Optional[_Union[_model_pb2.ModelResolutionSnapshot, _Mapping]] = ..., checker_model: _Optional[_Union[_model_pb2.ModelResolutionSnapshot, _Mapping]] = ..., budget: _Optional[_Union[JobBudget, _Mapping]] = ..., maximum_candidates: _Optional[int] = ...) -> None: ...
 
 class FactorEvaluationJobInput(_message.Message):
-    __slots__ = ("factor", "dataset", "budget")
+    __slots__ = ("factor", "dataset", "budget", "provenance", "deterministic_seed")
     FACTOR_FIELD_NUMBER: _ClassVar[int]
     DATASET_FIELD_NUMBER: _ClassVar[int]
     BUDGET_FIELD_NUMBER: _ClassVar[int]
+    PROVENANCE_FIELD_NUMBER: _ClassVar[int]
+    DETERMINISTIC_SEED_FIELD_NUMBER: _ClassVar[int]
     factor: _factor_pb2.FactorSpec
     dataset: _development_data_pb2.DevelopmentDatasetReference
     budget: JobBudget
-    def __init__(self, factor: _Optional[_Union[_factor_pb2.FactorSpec, _Mapping]] = ..., dataset: _Optional[_Union[_development_data_pb2.DevelopmentDatasetReference, _Mapping]] = ..., budget: _Optional[_Union[JobBudget, _Mapping]] = ...) -> None: ...
+    provenance: _research_common_pb2.ResearchProvenanceFingerprint
+    deterministic_seed: _common_pb2.Sha256Digest
+    def __init__(self, factor: _Optional[_Union[_factor_pb2.FactorSpec, _Mapping]] = ..., dataset: _Optional[_Union[_development_data_pb2.DevelopmentDatasetReference, _Mapping]] = ..., budget: _Optional[_Union[JobBudget, _Mapping]] = ..., provenance: _Optional[_Union[_research_common_pb2.ResearchProvenanceFingerprint, _Mapping]] = ..., deterministic_seed: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ...) -> None: ...
 
 class BacktestJobInput(_message.Message):
     __slots__ = ("budget", "factor_spec_id", "dataset", "return_definition", "provenance", "deterministic_seed")

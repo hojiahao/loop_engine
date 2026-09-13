@@ -12,6 +12,7 @@ mod grant;
 mod holdout;
 mod library;
 mod lifecycle;
+pub(crate) use lifecycle::validate_context as validate_runtime_context;
 mod perturbation;
 mod postgres;
 mod rejection;

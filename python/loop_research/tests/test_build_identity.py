@@ -139,3 +139,29 @@ def test_installed_build_is_repeatable() -> None:
 def test_wrong_installed_build_is_rejected() -> None:
     with pytest.raises(ValueError, match="frozen context"):
         builds.require_build("sha256:" + "0" * 64, "sha256:" + "0" * 64)
+
+
+def test_evaluation_build_is_repeatable_and_distinct() -> None:
+    identity = builds.describe_build(profile="evaluation")
+    assert (
+        builds.require_build(
+            identity.source["sha256"], identity.environment["sha256"], profile="evaluation"
+        )
+        == identity
+    )
+    assert identity.environment != builds.describe_build().environment
+
+
+def test_artifact_publication_uses_private_immutable_store(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    reference = builds.publish_object(tmp_path, b"factor values")
+    assert builds.publish_object(tmp_path, b"factor values") == reference
+    assert (tmp_path / reference["sha256"][7:]).read_bytes() == b"factor values"
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+def test_artifact_publication_denies_shared_output(tmp_path: Path) -> None:
+    tmp_path.chmod(0o755)
+    with pytest.raises(ValueError, match="private"):
+        builds.publish_object(tmp_path, b"factor values")
+    assert not list(tmp_path.iterdir())

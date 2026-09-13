@@ -16,6 +16,9 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser("doctor")
     manifests = commands.add_parser("build-manifests", help="Capture the installed worker build")
     manifests.add_argument("--store", type=Path, required=True)
+    manifests.add_argument(
+        "--profile", choices=["perturbation", "evaluation"], default="perturbation"
+    )
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -37,7 +40,7 @@ def main() -> None:
         print(research_health().model_dump_json())
     elif args.command == "build-manifests":
         try:
-            identity = describe_build(args.store)
+            identity = describe_build(args.store, profile=args.profile)
         except OSError, ValueError:
             parser.error("worker build capture failed; no existing object was overwritten")
         print(json.dumps(asdict(identity), separators=(",", ":")))

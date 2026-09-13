@@ -39,6 +39,28 @@ pub struct ArtifactBroker {
 }
 
 impl ArtifactBroker {
+    pub(crate) async fn evaluation_view(
+        &self,
+        response: &PrepareJobArtifactsResponse,
+    ) -> StoreResult<PathBuf> {
+        self.check_views()?;
+        if response.view_id.len() != 64
+            || !response
+                .view_id
+                .bytes()
+                .all(|value| value.is_ascii_hexdigit() && !value.is_ascii_uppercase())
+        {
+            return Err(StoreError::Invalid("evaluation view identity"));
+        }
+        let target = self.views.join(&response.view_id);
+        let metadata = std::fs::symlink_metadata(&target)?;
+        if !metadata.is_dir() || metadata.mode() & 0o777 != 0o555 {
+            return Err(StoreError::Corrupt("evaluation view permissions"));
+        }
+        self.verify_view(&target, &response.artifacts).await?;
+        Ok(target)
+    }
+
     /// Open three distinct, non-nested, canonical deployment directories.
     /// The view parent must be owned by the runtime UID and mode 0700. Source
     /// directories must not be group/world writable; the protected source must

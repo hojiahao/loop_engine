@@ -309,6 +309,16 @@ function validateJobInput(specification: JobSpecification, submittedAt: Timestam
       }
       validateFactorSpecIdentityEnvelope(input.value.factor);
       validateDevelopmentDataset(input.value.dataset);
+      if (input.value.provenance !== undefined || input.value.deterministicSeed !== undefined) {
+        validateProvenance(
+          input.value.provenance,
+          "specification.input.factor_evaluation.provenance",
+        );
+        requireDigest(
+          input.value.deterministicSeed,
+          "specification.input.factor_evaluation.deterministic_seed",
+        );
+      }
       validateBudget(input.value.budget, "specification.input.factor_evaluation.budget");
       return;
     case "backtest":

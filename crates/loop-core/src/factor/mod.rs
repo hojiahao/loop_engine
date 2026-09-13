@@ -6,6 +6,7 @@
 
 mod canonical;
 mod semantic;
+pub mod us_equities;
 
 use std::collections::BTreeMap;
 use std::fmt;

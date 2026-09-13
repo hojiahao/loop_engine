@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:5272576a5b41aed6b2e23d2da54b31fe234617de092c32efdbf0e767c3335abb"
+    "sha256": "sha256:f67a9799d8970a5e807bdeb283decdee91fecd7fb2826b8162fe62b53d69a216"
   },
   "expected_domain_projection": {
     "supported_packages": [

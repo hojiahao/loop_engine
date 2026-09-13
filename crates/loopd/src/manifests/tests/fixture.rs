@@ -445,7 +445,7 @@ fn put_json<T: Serialize>(root: &Path, value: &T) -> ObjectRef {
     put(root, &serde_json::to_vec(value).unwrap())
 }
 
-fn artifact(
+pub(super) fn artifact(
     root: &Path,
     name: &str,
     media_type: &str,

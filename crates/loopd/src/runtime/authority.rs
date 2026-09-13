@@ -341,6 +341,7 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.backtests.read_current"
                 | "loop.backtests.export_current"
         ),
+        Role::Research if operation == "loop.jobs.evaluate" => true,
         Role::Research | Role::HoldoutWorker => matches!(
             operation,
             "loop.jobs.read"

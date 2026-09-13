@@ -88,7 +88,10 @@ async fn main() -> anyhow::Result<()> {
     let result = if let Some(runtime) = runtime {
         let tls = runtime.tls();
         let address = runtime.bind;
-        let service = RuntimeService::new(store.clone(), runtime.authority, runtime.artifacts);
+        let mut service = RuntimeService::new(store.clone(), runtime.authority, runtime.artifacts);
+        if let Some(executor) = runtime.evaluator {
+            service = service.with_factor_executor(executor);
+        }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)
                 .await

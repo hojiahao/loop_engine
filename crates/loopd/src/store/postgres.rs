@@ -107,9 +107,19 @@ pub struct PgJobStore {
     pub(super) admission: Arc<dyn AdmissionPolicy>,
     pub(super) holdout_policy: Arc<dyn HoldoutPolicy>,
     pub(super) backtest_policy: Arc<dyn BacktestPolicy>,
+    pub(super) evaluation_evidence: Option<Arc<crate::manifests::evaluation::EvaluationEvidence>>,
 }
 
 impl PgJobStore {
+    pub(crate) fn with_evaluation_evidence(
+        &self,
+        evidence: crate::manifests::evaluation::EvaluationEvidence,
+    ) -> Self {
+        let mut prepared = self.clone();
+        prepared.evaluation_evidence = Some(Arc::new(evidence));
+        prepared
+    }
+
     /// Connect over TLS, optionally migrate with deployment authority, and verify.
     ///
     /// # Errors
@@ -208,6 +218,7 @@ impl PgJobStore {
             admission: options.admission,
             holdout_policy: options.holdout_policy,
             backtest_policy: options.backtest_policy,
+            evaluation_evidence: None,
         })
     }
 

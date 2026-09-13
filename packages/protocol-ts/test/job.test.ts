@@ -160,6 +160,23 @@ interface Vector {
 }
 
 describe("JobRecord structural validation", () => {
+  it.each(["provenance", "deterministicSeed"] as const)(
+    "requires both execution identity fields when %s is missing",
+    (missing) => {
+      const vector = vectors().find(
+        (entry) => entry.input === "factor_evaluation" && entry.expected === "accept",
+      );
+      if (vector === undefined) throw new Error("factor fixture missing");
+      const specification = validSpecification(vector);
+      if (specification.input.case !== "factorEvaluation") throw new Error("factor input missing");
+      const input = specification.input.value;
+      input.provenance = provenance();
+      input.deterministicSeed = digest(9);
+      validateJobSpecification(specification);
+      input[missing] = undefined;
+      expect(() => validateJobSpecification(specification)).toThrow(JobValidationError);
+    },
+  );
   it("executes every row in the shared fail-closed matrix", () => {
     const shared = vectors();
     expect(shared).toHaveLength(109);

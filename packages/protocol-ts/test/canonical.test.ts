@@ -347,8 +347,12 @@ describe("factor canonicalization v1", () => {
       FactorDomainError,
     );
 
-    const first = semanticContractFixture.accepted[0];
-    const second = semanticContractFixture.accepted[1];
+    const first = semanticContractFixture.accepted.find(
+      (vector) => vector.name === "arithmetic_add_v1",
+    );
+    const second = semanticContractFixture.accepted.find(
+      (vector) => vector.name === "arithmetic_add_v2",
+    );
     if (first === undefined || second === undefined) throw new Error("missing semantic fixtures");
     expect(
       () =>
@@ -361,7 +365,9 @@ describe("factor canonicalization v1", () => {
 
     const mismatched = {
       ...conformanceFixture.registry.operators[0],
-      semanticContractSha256: semanticContractFixture.accepted[2]?.sha256,
+      semanticContractSha256: semanticContractFixture.accepted.find(
+        (vector) => vector.name === "arithmetic_subtract_v1",
+      )?.sha256,
     };
     expect(
       () =>

@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
+use std::time::Duration;
 
 use loop_core::factor::{
     FactorSpec, FactorSpecId, OperatorPolicyRegistry, PolicyRef, ValidationLimits,
@@ -37,6 +38,19 @@ impl<'a> Materializer<'a> {
             registries,
             files: Vec::new(),
             budget: ReadBudget::new(),
+        }
+    }
+
+    /// The installed evaluator includes calendar/dataframe native libraries.
+    /// Its full byte-backed build receives a bounded 30-second verification
+    /// budget. Other manifest paths retain their existing 10-second deadline.
+    pub fn for_evaluation(
+        store: &'a LocalArtifacts,
+        registries: &'a [Arc<OperatorPolicyRegistry>],
+    ) -> Self {
+        Self {
+            budget: ReadBudget::with_timeout(Duration::from_secs(30)),
+            ..Self::new(store, registries)
         }
     }
 

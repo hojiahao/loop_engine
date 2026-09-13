@@ -6,7 +6,9 @@ use loop_protocol::wire::jobs::v1::{
     self,
     job_service_server::{JobService, JobServiceServer},
 };
-use loop_protocol::wire::v1::{JobRecord, job_specification};
+use loop_protocol::wire::v1::{
+    JobOutcome, JobRecord, JobState, JobSuccess, job_outcome, job_specification,
+};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{
@@ -16,7 +18,7 @@ use tonic::{
 
 use super::authority::{CAPABILITY_HEADER, Principal};
 use super::capability::Capabilities;
-use super::{ArtifactBroker, RuntimeAuthority};
+use super::{ArtifactBroker, FactorExecutor, RuntimeAuthority};
 use crate::store::{JobMutation, JobRepository, PgJobStore, StoreError, StoreResult};
 
 /// Optional mTLS-only job endpoint. The store must use this same deployment
@@ -27,6 +29,7 @@ pub struct RuntimeService {
     authority: Arc<RuntimeAuthority>,
     capabilities: Arc<Capabilities>,
     artifacts: Arc<ArtifactBroker>,
+    evaluator: Option<Arc<FactorExecutor>>,
 }
 
 impl RuntimeService {
@@ -43,7 +46,15 @@ impl RuntimeService {
             authority,
             artifacts,
             capabilities: Arc::new(Capabilities::new()),
+            evaluator: None,
         }
+    }
+
+    /// Enable only the deployment-pinned numerical implementation. Without this
+    /// explicit attachment the evaluation RPC denies, including completed replays.
+    pub fn with_factor_executor(mut self, executor: Arc<FactorExecutor>) -> Self {
+        self.evaluator = Some(executor);
+        self
     }
 
     async fn job<T>(
@@ -94,7 +105,7 @@ pub async fn serve(
     Server::builder()
         .tls_config(tls.timeout(Duration::from_secs(10)))
         .map_err(|_| StoreError::Invalid("runtime TLS configuration"))?
-        .timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(90))
         .concurrency_limit_per_connection(8)
         .max_concurrent_streams(8)
         .max_connection_age(Duration::from_secs(900))
@@ -111,6 +122,176 @@ pub async fn serve(
 
 #[tonic::async_trait]
 impl JobService for RuntimeService {
+    async fn evaluate_factor(
+        &self,
+        request: Request<v1::EvaluateFactorRequest>,
+    ) -> Result<Response<v1::EvaluateFactorResponse>, Status> {
+        let (principal, job) = self
+            .job(
+                &request,
+                request
+                    .get_ref()
+                    .job_id
+                    .as_ref()
+                    .map(|id| id.value.as_str()),
+                "loop.jobs.evaluate",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        let executor = self
+            .evaluator
+            .as_ref()
+            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
+        let _permit = executor
+            .permits
+            .try_acquire()
+            .map_err(|_| status(StoreError::Unavailable("factor execution capacity")))?;
+        let command = request.get_ref();
+        crate::store::validate_runtime_context(command.context.as_ref(), &principal.actor)
+            .map_err(status)?;
+        let specification = job
+            .specification
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Corrupt("evaluation job")))?;
+        let lease = command
+            .lease_id
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Invalid("evaluation lease")))?;
+        if job.state != JobState::Succeeded as i32 {
+            if job.revision != command.expected_revision {
+                return Err(status(StoreError::RevisionConflict));
+            }
+            crate::store::live_lease(
+                &job,
+                &principal.actor,
+                &lease.value,
+                self.authority.now().map_err(status)?,
+            )
+            .map_err(status)?;
+        }
+        let inputs = executor
+            .resolver
+            .prepare(specification, lease)
+            .await
+            .map_err(status)?;
+        let result;
+        let success = if job.state == JobState::Succeeded as i32 {
+            executor
+                .run(&inputs.work, None, Duration::from_secs(30))
+                .await
+                .map_err(status)?;
+            result = None;
+            match job
+                .outcome
+                .as_ref()
+                .and_then(|outcome| outcome.outcome.as_ref())
+            {
+                Some(job_outcome::Outcome::Success(success)) => success.clone(),
+                _ => return Err(status(StoreError::Corrupt("evaluation replay outcome"))),
+            }
+        } else {
+            let preparation = v1::PrepareJobArtifactsRequest {
+                context: command.context.clone(),
+                job_id: command.job_id.clone(),
+                lease_id: command.lease_id.clone(),
+                expected_revision: command.expected_revision,
+            };
+            let prepared = self
+                .artifacts
+                .prepare(&self.store, &principal.actor, &preparation, &job)
+                .await
+                .map_err(status)?;
+            let view = self
+                .artifacts
+                .evaluation_view(&prepared)
+                .await
+                .map_err(status)?;
+            // Preparation consumes the original lease and job budget. Recheck
+            // current state immediately before spawn; never grant a fresh
+            // wall-clock budget merely because artifact verification finished.
+            let (_, current) = self
+                .job(
+                    &request,
+                    command.job_id.as_ref().map(|id| id.value.as_str()),
+                    "loop.jobs.evaluate",
+                    false,
+                )
+                .await
+                .map_err(status)?;
+            if current.revision != command.expected_revision {
+                return Err(status(StoreError::RevisionConflict));
+            }
+            let now = self.authority.now().map_err(status)?;
+            let expires = crate::store::live_lease(&current, &principal.actor, &lease.value, now)
+                .map_err(status)?;
+            let remaining = Duration::from_millis(
+                u64::try_from(expires - now).map_err(|_| status(StoreError::LeaseFenced))?,
+            )
+            .min(Duration::from_secs(60));
+            let response = executor
+                .run(&inputs.work, Some(&view), remaining)
+                .await
+                .map_err(status)?
+                .ok_or_else(|| status(StoreError::Corrupt("missing evaluation result")))?;
+            let success = JobSuccess {
+                outputs: vec![
+                    response
+                        .values
+                        .clone()
+                        .ok_or_else(|| status(StoreError::Corrupt("missing factor values")))?,
+                    response
+                        .manifest
+                        .clone()
+                        .ok_or_else(|| status(StoreError::Corrupt("missing factor manifest")))?,
+                ],
+            };
+            result = Some(response);
+            success
+        };
+        let evidence = inputs
+            .resolve(&executor.outputs, &success)
+            .await
+            .map_err(status)?;
+        if result
+            .as_ref()
+            .is_some_and(|result| result != &evidence.result)
+        {
+            return Err(status(StoreError::Corrupt(
+                "worker/manifest result mismatch",
+            )));
+        }
+        self.job(
+            &request,
+            command.job_id.as_ref().map(|id| id.value.as_str()),
+            "loop.jobs.evaluate",
+            false,
+        )
+        .await
+        .map_err(status)?;
+        executor.check_output().map_err(status)?;
+        let completed = self
+            .store
+            .with_evaluation_evidence(evidence)
+            .mutate(
+                &principal.actor,
+                JobMutation::Complete(v1::CompleteJobRequest {
+                    context: command.context.clone(),
+                    job_id: command.job_id.clone(),
+                    lease_id: command.lease_id.clone(),
+                    expected_revision: command.expected_revision,
+                    outcome: Some(JobOutcome {
+                        outcome: Some(job_outcome::Outcome::Success(success)),
+                    }),
+                }),
+            )
+            .await
+            .map_err(status)?;
+        Ok(Response::new(v1::EvaluateFactorResponse {
+            job: Some(completed.job),
+        }))
+    }
+
     async fn get_job(
         &self,
         request: Request<v1::GetJobRequest>,
@@ -389,6 +570,11 @@ pub(super) fn status(error: StoreError) -> Status {
     use loop_protocol::wire::v1::{ErrorCategory, ServiceError};
     use prost::Message;
     use tonic::Code;
+    // Only static, service-owned reason labels reach operator logs. Database
+    // errors, paths and caller-supplied metadata are deliberately not formatted.
+    if let StoreError::Unavailable(reason) | StoreError::Corrupt(reason) = &error {
+        tracing::warn!(reason, "runtime operation failed closed");
+    }
     let (code, category, label, message, retryable) = match error {
         StoreError::AdmissionDenied => (
             Code::PermissionDenied,

@@ -110,7 +110,7 @@ impl JobMutation {
     }
 }
 
-pub(super) fn validate_context<'a>(
+pub(crate) fn validate_context<'a>(
     context: Option<&'a CommandContext>,
     principal: &Actor,
 ) -> StoreResult<&'a CommandContext> {
@@ -218,6 +218,30 @@ pub(super) async fn mutate(
     store
         .admission
         .authorize_job_command(operation, principal, &record)?;
+    if let JobMutation::Complete(input) = &command
+        && matches!(
+            record
+                .specification
+                .as_ref()
+                .and_then(|job| job.input.as_ref()),
+            Some(job_specification::Input::FactorEvaluation(_))
+        )
+        && matches!(
+            input
+                .outcome
+                .as_ref()
+                .and_then(|outcome| outcome.outcome.as_ref()),
+            Some(job_outcome::Outcome::Success(_))
+        )
+    {
+        let evidence = store
+            .evaluation_evidence
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if input.lease_id != evidence.result.lease_id {
+            return Err(StoreError::LeaseFenced);
+        }
+    }
     if needs_research
         && let Some(job) = record.specification.as_ref()
         && matches!(job.input, Some(job_specification::Input::Backtest(_)))
@@ -257,6 +281,9 @@ pub(super) async fn mutate(
         }
         backtest::verify_stored(&mut transaction, &job).await?;
         rejection::verify_stored(&mut transaction, &job).await?;
+        if let Some(evidence) = &store.evaluation_evidence {
+            evidence.check(&job)?;
+        }
         transaction.commit().await?;
         return Ok(CommandResult {
             job,
@@ -281,6 +308,9 @@ pub(super) async fn mutate(
     record.revision += 1;
     record.updated_at = Some(timestamp(now));
     validate_job_record(&record)?;
+    if let Some(evidence) = &store.evaluation_evidence {
+        evidence.check(&record)?;
+    }
     write_record(&mut transaction, &record, expected_revision).await?;
     backtest::record_completion(store, &mut transaction, &record, now).await?;
     rejection::record_completion(&mut transaction, &record, now).await?;

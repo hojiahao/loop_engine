@@ -93,6 +93,8 @@ pub fn inputs() -> Vec<(JobKind, job_specification::Input)> {
                 factor: Some(factor()),
                 dataset: Some(dataset()),
                 budget: Some(budget()),
+                provenance: None,
+                deterministic_seed: None,
             }),
         ),
         (

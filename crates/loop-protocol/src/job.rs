@@ -476,6 +476,16 @@ fn validate_job_input(
             })?;
             validate_factor_spec_identity_envelope(factor)?;
             validate_development_dataset(value.dataset.as_ref())?;
+            if value.provenance.is_some() || value.deterministic_seed.is_some() {
+                validate_provenance(
+                    value.provenance.as_ref(),
+                    "specification.input.factor_evaluation.provenance",
+                )?;
+                require_digest(
+                    value.deterministic_seed.as_ref(),
+                    "specification.input.factor_evaluation.deterministic_seed",
+                )?;
+            }
             validate_budget(
                 value.budget.as_ref(),
                 "specification.input.factor_evaluation.budget",

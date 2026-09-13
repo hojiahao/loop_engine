@@ -9,7 +9,8 @@ use rustix::fs::{Mode, OFlags, open};
 use serde::Deserialize;
 use tonic::transport::{Certificate, Identity as TlsIdentity, ServerTlsConfig};
 
-use super::{ArtifactBroker, DataPin, Identity, JobPin, RuntimeAuthority};
+use super::{ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, RuntimeAuthority};
+use crate::manifests::{EvaluationPin, EvaluationResolver};
 use crate::store::{StoreError, StoreResult, SystemClock};
 
 #[derive(Deserialize)]
@@ -26,6 +27,16 @@ struct Configuration {
     protected_store: PathBuf,
     view_store: PathBuf,
     data: Vec<DataPin>,
+    #[serde(default)]
+    evaluation: Option<EvaluationConfiguration>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EvaluationConfiguration {
+    python: PathBuf,
+    output_store: PathBuf,
+    contexts: Vec<EvaluationPin>,
 }
 
 /// Explicit startup-only runtime configuration. It deliberately has no Debug
@@ -37,6 +48,8 @@ pub struct RuntimeDeployment {
     pub authority: Arc<RuntimeAuthority>,
     /// Broker owning distinct source and job-view namespaces.
     pub artifacts: Arc<ArtifactBroker>,
+    /// Optional fixed numerical implementation; absent means fail closed.
+    pub evaluator: Option<Arc<FactorExecutor>>,
     tls: ServerTlsConfig,
 }
 
@@ -67,10 +80,36 @@ impl RuntimeDeployment {
             &config.view_store,
             config.data,
         )?);
+        let evaluator = config
+            .evaluation
+            .map(|evaluation| {
+                if [
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ]
+                .iter()
+                .any(|path| {
+                    evaluation.output_store.starts_with(path)
+                        || path.starts_with(&evaluation.output_store)
+                }) {
+                    return Err(StoreError::Invalid(
+                        "evaluation output overlaps input namespace",
+                    ));
+                }
+                let resolver = Arc::new(EvaluationResolver::open(
+                    &config.development_store,
+                    evaluation.contexts,
+                )?);
+                FactorExecutor::open(&evaluation.python, &evaluation.output_store, resolver)
+                    .map(Arc::new)
+            })
+            .transpose()?;
         Ok(Self {
             bind: config.bind,
             authority,
             artifacts,
+            evaluator,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),

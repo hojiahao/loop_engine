@@ -407,6 +407,15 @@ def _validate_job_input(
             _fail(JobValidationCode.MISSING_FIELD, "specification.input.factor_evaluation.factor")
         validate_factor_spec_identity_envelope(value.factor)
         _validate_development_dataset(value.dataset if value.HasField("dataset") else None)
+        if value.HasField("provenance") or value.HasField("deterministic_seed"):
+            _validate_provenance(
+                value.provenance if value.HasField("provenance") else None,
+                "specification.input.factor_evaluation.provenance",
+            )
+            _require_digest(
+                value.deterministic_seed if value.HasField("deterministic_seed") else None,
+                "specification.input.factor_evaluation.deterministic_seed",
+            )
         _validate_budget(
             value.budget if value.HasField("budget") else None,
             "specification.input.factor_evaluation.budget",

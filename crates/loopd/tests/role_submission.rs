@@ -78,12 +78,16 @@ fn role_command(input: job_specification::Input, key: &str) -> RoleCommand {
             factor,
             dataset,
             budget,
+            provenance,
+            deterministic_seed,
         }) => RoleCommand::FactorEvaluation(research::EnqueueFactorEvaluationRequest {
             context,
             input: Some(research::FactorEvaluationInput {
                 factor,
                 dataset,
                 budget: budget.map(research_budget),
+                provenance,
+                deterministic_seed,
             }),
         }),
         job_specification::Input::Backtest(BacktestJobInput {

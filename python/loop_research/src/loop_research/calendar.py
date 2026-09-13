@@ -2,9 +2,10 @@
 
 import hashlib
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from itertools import pairwise
+from zoneinfo import ZoneInfo
 
 FIRST_DATE = date(2005, 1, 1)
 LAST_DATE = date(2026, 12, 31)
@@ -68,3 +69,33 @@ def require_xnys_sessions(sessions: tuple[date, ...]) -> CalendarEvidence:
     return CalendarEvidence(
         "XNYS", version("exchange-calendars"), hashlib.sha256(content).hexdigest()
     )
+
+
+def require_session_decisions(
+    sessions: tuple[date, ...], decision_times_ms: tuple[int, ...]
+) -> CalendarEvidence:
+    """Require same-day decisions no earlier than the pinned XNYS close.
+
+    Accounts for scheduled half days and DST using the installed calendar,
+    without hand-coded trading hours. This does not prove a feed had delivered
+    its data; the panel's known_at checks independently enforce visibility.
+    """
+    evidence = require_xnys_sessions(sessions)
+    if len(decision_times_ms) != len(sessions):
+        raise ValueError("decision times must align to every session")
+    import exchange_calendars as xcals
+
+    calendar = xcals.get_calendar(
+        "XNYS",
+        start=(sessions[0] - timedelta(days=7)).isoformat(),
+        end=(sessions[-1] + timedelta(days=7)).isoformat(),
+    )
+    timezone = ZoneInfo("America/New_York")
+    for session, decision_ms in zip(sessions, decision_times_ms, strict=True):
+        if type(decision_ms) is not int or not 0 < decision_ms < 2**53:
+            raise ValueError("decision time must be bounded integer milliseconds")
+        decision = datetime.fromtimestamp(decision_ms / 1000, UTC)
+        close = calendar.session_close(session.isoformat()).to_pydatetime()
+        if decision < close or decision.astimezone(timezone).date() != session:
+            raise ValueError("decision precedes the close or uses another session date")
+    return evidence

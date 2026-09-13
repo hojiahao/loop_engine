@@ -2,12 +2,14 @@
 #![deny(missing_docs)]
 
 pub(crate) mod data;
+pub(crate) mod evaluation;
 pub(crate) mod files;
 mod loading;
 pub(crate) mod model;
 mod policy;
 mod verification;
 
+pub use evaluation::{EvaluationPin, EvaluationResolver};
 pub use files::{LocalArtifacts, ObjectRef};
 pub use policy::TrustedManifests;
 

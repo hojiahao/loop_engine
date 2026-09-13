@@ -33,6 +33,8 @@ pub enum WindowPolicy {
     TrailingArgument2MinimumValidMinNMax3Floor2NDiv3RightInclusiveConstantPreserve,
     #[serde(rename = "lag_argument_2")]
     LagArgument2,
+    #[serde(rename = "trailing_argument_2_minimum_argument_3_right_inclusive")]
+    TrailingExplicitMinimum,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +68,12 @@ pub enum NumericPolicy {
     #[serde(rename = "binary64_reject_non_finite")]
     Binary64RejectNonFinite,
     OrdinalUnitInterval,
+    #[serde(rename = "binary64_sample_std_effective_n_minimum_2_non_finite_to_missing")]
+    SampleStd,
+    #[serde(rename = "binary64_sample_zscore_effective_n_minimum_2_constant_missing")]
+    SampleZscore,
+    #[serde(rename = "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_missing")]
+    AdjustedSkew,
     #[serde(
         rename = "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing"
     )]
@@ -260,6 +268,9 @@ fn window_policy_name(value: WindowPolicy) -> &'static str {
             "trailing_argument_2_minimum_valid_min_n_max_3_floor_2n_div_3_right_inclusive_constant_preserve"
         }
         WindowPolicy::LagArgument2 => "lag_argument_2",
+        WindowPolicy::TrailingExplicitMinimum => {
+            "trailing_argument_2_minimum_argument_3_right_inclusive"
+        }
     }
 }
 
@@ -296,6 +307,15 @@ fn numeric_policy_name(value: NumericPolicy) -> &'static str {
         NumericPolicy::Binary64NonFiniteToMissing => "binary64_non_finite_to_missing",
         NumericPolicy::Binary64RejectNonFinite => "binary64_reject_non_finite",
         NumericPolicy::OrdinalUnitInterval => "ordinal_unit_interval",
+        NumericPolicy::SampleStd => {
+            "binary64_sample_std_effective_n_minimum_2_non_finite_to_missing"
+        }
+        NumericPolicy::SampleZscore => {
+            "binary64_sample_zscore_effective_n_minimum_2_constant_missing"
+        }
+        NumericPolicy::AdjustedSkew => {
+            "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_missing"
+        }
         NumericPolicy::Binary64AdjustedFisherPearsonEffectiveNMinimum3ConstantZeroNonFiniteToMissing => {
             "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing"
         }

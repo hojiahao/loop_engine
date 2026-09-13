@@ -267,6 +267,13 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     assert method.output_type == ".loop.jobs.v1.PrepareJobArtifactsResponse"
     assert not method.client_streaming and not method.server_streaming
 
+    evaluate = messages["EvaluateFactorRequest"]
+    assert {field.name for field in evaluate.field} == {
+        "context", "job_id", "lease_id", "expected_revision"
+    }
+    assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in evaluate.field)
+    assert {field.name for field in messages["EvaluateFactorResponse"].field} == {"job"}
+
 
 def assert_service(
     file: FileDescriptorProto,

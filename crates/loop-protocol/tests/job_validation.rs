@@ -53,6 +53,39 @@ struct Vector<'a> {
 }
 
 #[test]
+fn factor_execution_identity_requires_a_complete_pair() {
+    let vector = vectors()
+        .find(|entry| entry.input == "factor_evaluation" && entry.expected == "accept")
+        .unwrap();
+    for missing_provenance in [true, false] {
+        let mut specification = valid_specification(&vector);
+        let Some(job_specification::Input::FactorEvaluation(input)) = &mut specification.input
+        else {
+            unreachable!()
+        };
+        input.provenance = Some(provenance());
+        input.deterministic_seed = Some(digest(9));
+        validate_job_specification(&specification).unwrap();
+        let Some(job_specification::Input::FactorEvaluation(input)) = &mut specification.input
+        else {
+            unreachable!()
+        };
+        if missing_provenance {
+            input.provenance = None;
+        } else {
+            input.deterministic_seed = None;
+        }
+        assert_eq!(
+            validate_job_specification(&specification)
+                .unwrap_err()
+                .code
+                .as_str(),
+            "missing_field"
+        );
+    }
+}
+
+#[test]
 fn shared_job_record_matrix_fails_closed() {
     let vectors = vectors().collect::<Vec<_>>();
     assert_eq!(vectors.len(), 109, "all shared rows must execute");
@@ -598,6 +631,8 @@ fn input(value: &str) -> Option<job_specification::Input> {
                 factor: Some(valid_factor_spec()),
                 dataset: Some(development_dataset()),
                 budget: Some(valid_budget()),
+                provenance: None,
+                deterministic_seed: None,
             },
         )),
         "backtest" => Some(job_specification::Input::Backtest(BacktestJobInput {

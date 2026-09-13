@@ -77,6 +77,10 @@ message FactorEvaluationJobInput {
   FactorSpec factor = 1;
   DevelopmentDatasetReference dataset = 2;
   JobBudget budget = 4;
+  // Absent only in historical envelopes. Numerical execution requires both
+  // fields and resolves all six component manifests before acquiring data.
+  ResearchProvenanceFingerprint provenance = 5;
+  Sha256Digest deterministic_seed = 6;
 }
 
 message BacktestJobInput {

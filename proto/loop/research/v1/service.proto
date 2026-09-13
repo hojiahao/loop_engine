@@ -52,6 +52,8 @@ message FactorEvaluationInput {
   loop.v1.FactorSpec factor = 1;
   loop.v1.DevelopmentDatasetReference dataset = 2;
   ResearchJobBudget budget = 3;
+  loop.v1.ResearchProvenanceFingerprint provenance = 4;
+  loop.v1.Sha256Digest deterministic_seed = 5;
 }
 
 message BacktestInput {

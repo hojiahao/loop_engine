@@ -165,6 +165,7 @@ export type NullPolicy = (typeof NULL_POLICIES)[number];
 export const WINDOW_POLICIES = [
   "not_applicable",
   "trailing_argument_2_full_window_right_inclusive_constant_preserve",
+  "trailing_argument_2_minimum_argument_3_right_inclusive",
   "trailing_argument_2_minimum_valid_min_n_max_3_floor_2n_div_3_right_inclusive_constant_preserve",
   "lag_argument_2",
 ] as const;
@@ -195,6 +196,9 @@ export const NUMERIC_POLICIES = [
   "binary64_reject_non_finite",
   "ordinal_unit_interval",
   "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing",
+  "binary64_sample_std_effective_n_minimum_2_non_finite_to_missing",
+  "binary64_sample_zscore_effective_n_minimum_2_constant_missing",
+  "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_missing",
 ] as const;
 export type NumericPolicy = (typeof NUMERIC_POLICIES)[number];
 

@@ -154,11 +154,13 @@ that task, not additional delivery units. The same rule applies to later phases.
    (`complete`: implementation `f1b87a8` is pushed. Local
    `just check/test/build/doctor` and all seven jobs in run `34581890194` pass).
 4. Runtime identity, holdout capability and actual data-access isolation
-   (`in_progress`: ADR 0019 implementation and local
-   `just check/test/build/doctor/test-isolation` gates pass, including real mTLS,
-   file views and 2/4/8-process publication. Commit, push and remote acceptance
-   remain pending at this pre-publication record. No production endpoint is enabled).
-5. Canonical AST/operator/numerical integration into authorized execution.
+   (`complete`: implementation `e1931f5` is pushed. Local
+   `just check/test/build/doctor/test-isolation` and all seven jobs in
+   run `34695520155` pass. No production endpoint is enabled).
+5. Canonical AST/operator/numerical integration into authorized execution
+   (`in_progress`: ADR 0020 implementation and local
+   `just check/test/build/doctor/test-isolation` pass. Commit, push and successful
+   remote CI remain required before closure).
 
 - [ ] Port all eight existing fixes into shared contracts and regression tests.
 - [ ] Add holdout capabilities, provenance invalidation, canonical SHA-256 IDs,
@@ -167,11 +169,13 @@ that task, not additional delivery units. The same rule applies to later phases.
 - [x] Implement numerical reference primitives for actual-count skew, causal
       windows, valid NAV returns and return-derived correlation; verify against
       independent SciPy goldens and bounded Hypothesis properties.
-- [ ] Bind the numerical primitives to authorized factor/backtest execution;
-      resolve session alignment, coverage and versioned operator semantics.
+- [x] Bind the numerical primitives to authorized canonical factor execution;
+      enforce session alignment, coverage and versioned operator semantics.
+- [ ] Integrate portfolio/NAV generation into the Phase 7 backtester; do not
+      mistake raw factor values or imported synthetic results for a backtest.
 - [x] Share original-run integrity and current-context freshness assessment
       across Rust, TypeScript and Python; reject unresolved and stale metrics.
-- [ ] Enforce provenance checks in durable result registration and current-result
+- [x] Enforce provenance checks in durable result registration and current-result
       read/export paths, with trusted manifest resolution and restart coverage.
 - [x] Commit and verify transactional backtest result registration and the
       current-result repository gate under ADR 0013. Production resolvers and

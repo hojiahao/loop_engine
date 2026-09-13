@@ -236,6 +236,7 @@ class WindowPolicy(StrEnum):
         "floor_2n_div_3_right_inclusive_constant_preserve"
     )
     LAG_ARGUMENT_2 = "lag_argument_2"
+    TRAILING_EXPLICIT_MINIMUM = "trailing_argument_2_minimum_argument_3_right_inclusive"
 
 
 class TiePolicy(StrEnum):
@@ -264,6 +265,9 @@ class NumericPolicy(StrEnum):
     BINARY64_NON_FINITE_TO_MISSING = "binary64_non_finite_to_missing"
     BINARY64_REJECT_NON_FINITE = "binary64_reject_non_finite"
     ORDINAL_UNIT_INTERVAL = "ordinal_unit_interval"
+    SAMPLE_STD = "binary64_sample_std_effective_n_minimum_2_non_finite_to_missing"
+    SAMPLE_ZSCORE = "binary64_sample_zscore_effective_n_minimum_2_constant_missing"
+    ADJUSTED_SKEW = "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_missing"
     BINARY64_ADJUSTED_FISHER_PEARSON_EFFECTIVE_N_MINIMUM_3_CONSTANT_ZERO_NON_FINITE_TO_MISSING = (
         "binary64_adjusted_fisher_pearson_effective_n_minimum_3_constant_zero_non_finite_to_missing"
     )

@@ -135,7 +135,7 @@ impl Dataset {
 }
 
 // Licensed/PIT production claims require Phase 5's dedicated data-quality gate.
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(super) enum Quality {
     Synthetic,

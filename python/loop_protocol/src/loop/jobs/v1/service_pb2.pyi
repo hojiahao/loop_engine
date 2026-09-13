@@ -128,3 +128,21 @@ class PrepareJobArtifactsResponse(_message.Message):
     expires_at: _timestamp_pb2.Timestamp
     view_id: str
     def __init__(self, job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., lease_id: _Optional[_Union[_common_pb2.LeaseId, _Mapping]] = ..., data_manifest_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., artifacts: _Optional[_Iterable[_Union[_artifact_pb2.ArtifactRef, _Mapping]]] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., view_id: _Optional[str] = ...) -> None: ...
+
+class EvaluateFactorRequest(_message.Message):
+    __slots__ = ("context", "job_id", "lease_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    LEASE_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    lease_id: _common_pb2.LeaseId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., lease_id: _Optional[_Union[_common_pb2.LeaseId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class EvaluateFactorResponse(_message.Message):
+    __slots__ = ("job",)
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    job: _job_pb2.JobRecord
+    def __init__(self, job: _Optional[_Union[_job_pb2.JobRecord, _Mapping]] = ...) -> None: ...

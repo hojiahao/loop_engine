@@ -64,6 +64,11 @@ class JobServiceStub:
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.SerializeToString,
                 response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.FromString,
                 _registered_method=True)
+        self.EvaluateFactor = channel.unary_unary(
+                '/loop.jobs.v1.JobService/EvaluateFactor',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.FromString,
+                _registered_method=True)
 
 
 class JobServiceServicer:
@@ -107,6 +112,15 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def EvaluateFactor(self, request, context):
+        """Execute a deployment-selected numerical worker on an existing development
+        lease. The caller cannot submit output bytes, code, paths or worker identity.
+        Same command replay verifies immutable output instead of recomputing it.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_JobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -139,6 +153,11 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.PrepareJobArtifacts,
                     request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.FromString,
                     response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.SerializeToString,
+            ),
+            'EvaluateFactor': grpc.unary_unary_rpc_method_handler(
+                    servicer.EvaluateFactor,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -303,6 +322,33 @@ class JobService:
             '/loop.jobs.v1.JobService/PrepareJobArtifacts',
             loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsRequest.SerializeToString,
             loop_dot_jobs_dot_v1_dot_service__pb2.PrepareJobArtifactsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def EvaluateFactor(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/EvaluateFactor',
+            loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,12 +1,13 @@
 # ADR 0019: Runtime identity and data authority
 
-- Status: In progress
+- Status: Accepted; implementation e1931f5 and remote gates passed
 - Date: 2026-09-11
 - Owner: hojiahao
 
-Implementation and local `just check/test/build/doctor/test-isolation` gates
-pass. Commit, push and remote acceptance remain pending at this pre-publication
-record. Detailed evidence: `docs/verification/phase-04-research-integrity.md`.
+Implementation `e1931f5` is pushed. Local
+`just check/test/build/doctor/test-isolation` and all seven jobs in GitHub
+Actions run `34695520155` pass. Detailed evidence:
+`docs/verification/phase-04-research-integrity.md`.
 
 ## Requirement
 
