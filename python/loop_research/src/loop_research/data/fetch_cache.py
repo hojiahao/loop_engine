@@ -31,6 +31,16 @@ def read_config_bytes(path: Path) -> bytes:
     return _read(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 64 * 1024)
 
 
+def read_private_config(path: Path) -> bytes:
+    """Read a small owner-only rights declaration; reject shared files and symlinks."""
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    metadata = os.fstat(descriptor)
+    if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) not in {0o400, 0o600}:
+        os.close(descriptor)
+        raise ValueError("rights declaration requires an owner-only regular file")
+    return _read(descriptor, 64 * 1024)
+
+
 def private_directory(store: Path) -> int:
     """Open an existing canonical private directory; caller must close the FD."""
     if not store.is_absolute() or store.resolve(strict=True) != store:

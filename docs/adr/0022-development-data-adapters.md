@@ -1,8 +1,13 @@
 # ADR 0022: Bounded SEC and Alpaca development ingestion
 
-- Status: Implemented; local gates passed, publication/remote CI pending
+- Status: Accepted
 - Date: 2026-09-13
 - Owner: hojiahao
+
+Implementation `cc462da` is pushed. CI run `34765587180` passes all seven jobs,
+including isolated research dependencies, unified commands and the clean
+DaoCloud container. This accepts the bounded development adapter/cache workflow;
+it does not certify Alpaca live access or production historical data quality.
 
 ## Requirement
 

@@ -250,12 +250,12 @@ each, followed by push and remote acceptance):
    `523a736` is pushed. Local `just check/test/build/doctor` and all seven jobs
    in CI run `34749353894` pass).
 2. SEC and Alpaca development adapters, installed dependencies, bounded downloads,
-   entitlement checks and explicit development limitations (`in_progress`, ADR 0022;
-   implementation and local gates pass, including a live SEC capture and offline
-   cache replay. Commit/push/remote CI remain the publication gate; Alpaca live
-   verification requires credentials).
+   entitlement checks and explicit development limitations (`complete`, ADR 0022;
+   `cc462da` is pushed and CI run `34765587180` passes all seven jobs. Local gates,
+   live SEC capture and offline replay pass. Alpaca live verification remains
+   unavailable without credentials and is not claimed).
 3. Sharadar production adapter and optional WRDS/Databento paths, with credentials
-   and entitlement gates; no unlicensed production claims (`pending`).
+   and entitlement gates; no unlicensed production claims (`in_progress`).
 4. Immutable Parquet snapshots, quality/lineage/coverage checks and reproducible
    data synchronization through 2026-08-31 (`pending`).
 
@@ -267,7 +267,7 @@ each, followed by push and remote acceptance):
       unit 1's local gates, commit, push and remote CI have passed.
 - [x] Implement SEC plus Alpaca development adapters, with bounded acquisition,
       first-observed semantics, separate SIP probing and byte-verified cache replay.
-      This checkbox records implementation; unit 2 closes only after publication.
+      Unit 2 publication and remote CI are complete; data quality is development-only.
 - [ ] Implement Sharadar production adapter and optional WRDS/Databento adapters.
 - [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.

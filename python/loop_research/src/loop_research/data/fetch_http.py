@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import math
 import re
 import time
@@ -14,6 +15,26 @@ from typing import Literal
 import httpx
 
 from loop_research.data.fetch_config import FetchBudget
+
+
+class _QueryKeyRedaction(logging.Filter):
+    """Remove Data Link query credentials from HTTPX's normal request log."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        def redact(value: object) -> object:
+            if isinstance(value, httpx.URL):
+                return value.copy_remove_param("api_key")
+            if isinstance(value, str):
+                return re.sub(r"api_key=[^&\s\"']+", "api_key=REDACTED", value)
+            return value
+
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact(value) for value in record.args)
+        record.msg = redact(record.msg)
+        return True
+
+
+logging.getLogger("httpx").addFilter(_QueryKeyRedaction())
 
 type FailureReason = Literal[
     "missing_credentials",
@@ -32,6 +53,7 @@ type FailureReason = Literal[
     "invalid_cache",
     "invalid_configuration",
     "identity_unresolved",
+    "license_denied",
 ]
 
 
@@ -153,16 +175,17 @@ class BoundedHttp:
         try:
             async with asyncio.timeout(self.check()):
                 async with self._lock:
-                    return await self._get(url, params=params, headers=headers)
+                    return await self._request(url, params=params, headers=headers)
         except TimeoutError:
             raise FetchError("deadline") from None
 
-    async def _get(
+    async def _request(
         self,
         url: str,
         *,
         params: Mapping[str, str] | None,
         headers: Mapping[str, str] | None,
+        method: Literal["GET", "POST"] = "GET",
     ) -> Download:
         parsed = httpx.URL(url)
         if (
@@ -178,10 +201,49 @@ class BoundedHttp:
                 "data.alpaca.markets",
                 "api.alpaca.markets",
                 "paper-api.alpaca.markets",
+                "data.nasdaq.com",
+                "hist.databento.com",
             }
         ):
             raise FetchError("invalid_configuration")
-        if parsed.host == "data.sec.gov":
+        reference = parsed.host == "hist.databento.com"
+        if (method == "POST") != reference:
+            raise FetchError("invalid_configuration")
+        if parsed.host == "data.nasdaq.com":
+            valid_path = (
+                re.fullmatch(
+                    r"/api/v3/datatables/SHARADAR/(?:SEP|SF1|TICKERS|ACTIONS)\.json", parsed.path
+                )
+                is not None
+            )
+            allowed_headers = set()
+            key = (params or {}).get("api_key", "")
+            if not re.fullmatch(r"[A-Za-z0-9_-]{8,128}", key):
+                raise FetchError("missing_credentials")
+            if not set(params or {}) <= {
+                "api_key",
+                "ticker",
+                "qopts.columns",
+                "qopts.cursor_id",
+                "table",
+                "dimension",
+                "date.gte",
+                "date.lte",
+                "datekey.gte",
+                "datekey.lte",
+            }:
+                raise FetchError("invalid_configuration")
+        elif reference:
+            valid_path = parsed.path in {
+                "/v0/security_master.get_range",
+                "/v0/corporate_actions.get_range",
+            }
+            allowed_headers = {"authorization"}
+            if (params or {}).get("allocate_isins") != "false" or (params or {}).get(
+                "compression"
+            ) != "none":
+                raise FetchError("invalid_configuration")
+        elif parsed.host == "data.sec.gov":
             valid_path = (
                 re.fullmatch(
                     r"/(?:api/xbrl/companyfacts|submissions)/CIK[0-9]{10}\.json", parsed.path
@@ -214,14 +276,19 @@ class BoundedHttp:
             self.client.cookies.clear()
             try:
                 async with self.client.stream(
-                    "GET",
+                    method,
                     url,
-                    params=params,
+                    params=params if method == "GET" else None,
+                    data=params if method == "POST" else None,
                     headers=headers,
                     timeout=httpx.Timeout(min(10.0, self.check())),
                 ) as response:
                     self.check()
                     status = response.status_code
+                    if reference and response.headers.get("x-warning") not in (None, "", "[]"):
+                        # An unhandled provider warning may describe partial data.
+                        # Never log its potentially sensitive free-form content.
+                        raise FetchError("invalid_response")
                     if status in (429, 500, 502, 503, 504):
                         if attempt == self.budget.retries:
                             raise FetchError(
@@ -248,8 +315,16 @@ class BoundedHttp:
                         }
                         raise FetchError(reasons.get(status, "invalid_response"), status)
                     content_type = response.headers.get("content-type", "").split(";", 1)[0]
+                    allowed_types = {"application/json"}
+                    if reference:
+                        allowed_types |= {
+                            "application/jsonl",
+                            "application/x-ndjson",
+                            "application/octet-stream",
+                            "text/plain",
+                        }
                     if (
-                        content_type.strip().lower() != "application/json"
+                        content_type.strip().lower() not in allowed_types
                         or response.headers.get("content-encoding", "identity").lower()
                         != "identity"
                     ):
@@ -272,7 +347,9 @@ class BoundedHttp:
                         ):
                             raise FetchError("byte_budget")
                         content.extend(chunk)
-                    if not content or (declared is not None and len(content) != int(declared)):
+                    if (not content and not reference) or (
+                        declared is not None and len(content) != int(declared)
+                    ):
                         raise FetchError("invalid_response")
                     request_id = response.headers.get("x-request-id")
                     if request_id is not None and (
@@ -281,9 +358,12 @@ class BoundedHttp:
                         or not request_id.isprintable()
                     ):
                         raise FetchError("invalid_response")
-                    return Download(
-                        str(response.request.url), bytes(content), self.observed_at(), request_id
-                    )
+                    # Nasdaq authenticates in the query. Persist only the public
+                    # request identity; exceptions never include request URLs.
+                    public = response.request.url.copy_remove_param("api_key")
+                    if reference:
+                        public = public.copy_merge_params(params or {})
+                    return Download(str(public), bytes(content), self.observed_at(), request_id)
             except httpx.TimeoutException:
                 raise FetchError("deadline") from None
             except httpx.HTTPError:
@@ -291,3 +371,21 @@ class BoundedHttp:
                     raise FetchError("upstream_unavailable") from None
                 delay = 1.0
         raise FetchError("upstream_unavailable")
+
+    async def post_reference(
+        self, url: str, *, params: Mapping[str, str], headers: Mapping[str, str]
+    ) -> Download:
+        """Read only fixed Databento reference routes without ISIN allocation.
+
+        POST is the provider's read protocol. Form parameters are retained in a
+        credential-free request identity; response bytes remain original JSONL.
+        Empty bodies are valid only for this reference protocol.
+        """
+        if self.client.is_closed:
+            raise FetchError("invalid_configuration")
+        try:
+            async with asyncio.timeout(self.check()):
+                async with self._lock:
+                    return await self._request(url, params=params, headers=headers, method="POST")
+        except TimeoutError:
+            raise FetchError("deadline") from None

@@ -97,7 +97,12 @@ jobs:
       - run: ../../scripts/uv-research.sh run --locked --offline --no-sync ruff format --check src tests
       - run: ../../scripts/uv-research.sh run --locked --offline --no-sync mypy
       - name: Test declared research dependencies in isolation
-        run: ../../scripts/uv-research.sh run --isolated --locked pytest
+        run: |
+          bash ../../scripts/postgres-test.sh start
+          LOOP_WRDS_TEST_POSTGRES=1 ../../scripts/uv-research.sh run --isolated --locked pytest
+      - name: Remove research PostgreSQL fixture
+        if: always()
+        run: bash ../../scripts/postgres-test.sh stop
       - run: ../../scripts/uv-research.sh run --locked --offline --no-sync hatchling build
 
   python-protocol:

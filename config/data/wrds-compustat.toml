@@ -1,0 +1,18 @@
+# GVKEYs are issuer/company identifiers. This does not join CRSP securities
+# or claim that the currently supplied fundamental vintages are historical PIT.
+schema = "loop.licensed-fetch/v1"
+provider = "wrds"
+license_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+username_reference = "LOOP_WRDS_USERNAME"
+password_reference = "LOOP_WRDS_PASSWORD"
+profile = "compustat_fundq_v1"
+identifiers = ["001690", "012141"]
+start = 2026-01-01
+end = 2026-08-31
+
+[budget]
+requests = 1
+pages = 1
+records = 10000
+timeout_seconds = 90
+retries = 0

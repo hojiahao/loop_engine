@@ -66,3 +66,29 @@ in a private ignored runtime directory, never in fixtures or public Git. The
 committed development HTTP fixtures are explicitly invented data. A successful
 API request proves only that the particular request was accepted at that time;
 it does not grant redistribution rights or certify historical PIT coverage.
+
+## Licensed Acquisition Dependencies
+
+Phase 5 unit 3 installs `nasdaq-data-link==1.0.4` (MIT), `databento==0.86.0`
+(Apache-2.0) and `psycopg[binary]==3.3.5` (LGPL-3.0-only for Psycopg). Installed
+distribution metadata supplies these declarations; original notices are retained.
+The binary Psycopg distribution bundles native libraries with their own notices,
+which must also appear in the release SBOM/license review. The inherited project's
+licensing question is unchanged; installing a library does not relicense the tree.
+
+The executable adapter uses official request contracts and a fixed read-only
+PostgreSQL projection. It does not copy or relabel supplier implementation code.
+All additional dependencies and hashes are pinned in `uv.lock`. Python 3.14.4 is
+still the single primary workspace interpreter; there is no new virtual environment.
+
+Licensed downloads require a private, digest-pinned local declaration of active
+prepaid internal-research/storage rights. That declaration is not supplier-signed
+entitlement proof. API acceptance verifies the specific request, while production
+data quality and redistribution remain separately gated. Current Sharadar metadata
+requires explicit permission in addition to historical date scope. Databento new
+ISIN allocation is disabled. No subscribed vendor live request was made as part
+of implementation without credentials; test records are explicitly invented.
+
+Sources: [Nasdaq SDK](https://pypi.org/project/Nasdaq-Data-Link/1.0.4/),
+[Databento SDK](https://pypi.org/project/databento/0.86.0/),
+[Psycopg](https://pypi.org/project/psycopg/3.3.5/).

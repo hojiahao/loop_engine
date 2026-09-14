@@ -26,6 +26,15 @@ def build_parser() -> argparse.ArgumentParser:
     replay = commands.add_parser("data-replay", help="Offline verification of a cached acquisition")
     replay.add_argument("--store", type=Path, required=True)
     replay.add_argument("--receipt", required=True)
+    licensed = commands.add_parser("data-acquire", help="Acquire explicitly licensed source data")
+    licensed.add_argument("config", type=Path)
+    licensed.add_argument("--license", type=Path, required=True)
+    licensed.add_argument("--store", type=Path, required=True)
+    licensed_replay = commands.add_parser(
+        "data-verify", help="Offline licensed-source receipt replay"
+    )
+    licensed_replay.add_argument("--store", type=Path, required=True)
+    licensed_replay.add_argument("--receipt", required=True)
     query = commands.add_parser("data-query", help="Read-only local point-in-time data query")
     query.add_argument("input", type=Path)
     query.add_argument("--market-at", required=True)
@@ -90,6 +99,28 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command in ("data-acquire", "data-verify"):
+        from loop_research.data.fetch_http import FetchError
+        from loop_research.data.licensed_ingestion import (
+            fetch_licensed,
+            load_config,
+            replay_licensed,
+        )
+
+        try:
+            licensed_report = (
+                asyncio.run(fetch_licensed(load_config(args.config), args.store, args.license))
+                if args.command == "data-acquire"
+                else replay_licensed(args.store, args.receipt)
+            )
+        except FetchError as error:
+            status = f" (HTTP {error.status_code})" if error.status_code is not None else ""
+            parser.error(f"licensed data operation failed: {error.reason}{status}")
+        except OSError, ValueError:
+            parser.error("licensed data operation failed: invalid input or local IO")
+        except KeyboardInterrupt:
+            parser.exit(130, "licensed data operation cancelled; preserve cached evidence\n")
+        print(licensed_report.model_dump_json(by_alias=True))
     elif args.command in ("data-fetch", "data-replay"):
         from loop_research.data.fetch_http import FetchError
         from loop_research.data.ingestion import fetch_data, load_fetch_config, replay_data

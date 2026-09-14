@@ -218,3 +218,93 @@ marked complete. Rollback disables the new CLI writers and preserves source arti
 completed receipts and research/audit history; no destructive down-migration is
 required. Normal test artifacts are isolated in
 `/tmp/loop-engine-phase5-unit2.BhkAnj` for cleanup after evidence is summarized.
+
+Unit 2 publication is complete: `cc462da` is pushed and run `34765587180` passes
+all seven jobs on that exact commit, including Rust, isolated Python research,
+protocol/legacy regressions, TypeScript, unified workspace commands and the
+clean DaoCloud container. This closes unit 2, not Phase 5 or live Alpaca access.
+
+After summarizing local evidence, the 19 MiB project-specific temporary directory,
+307 MiB of Rust incremental intermediates and about 26 MiB of project test/type
+caches and package build outputs were removed. These are logical sizes; shared
+hard links affect physical reclaimed space. The 3.8 MiB real SEC cache remains
+in its private ignored runtime directory. Other projects' temporary files were
+not included. Disk free space is approximately 5.9 GiB after cleanup.
+
+## Unit 3: Licensed source acquisition (2026-09-14)
+
+ADR 0023 implements the agreed Sharadar and optional WRDS/Databento delivery
+unit in the existing Python data package. The installed CLI has `data-acquire`
+and offline `data-verify` workflows, strict private license declarations, named
+credential references, bounded source reads, immutable raw/normalized objects
+and completion receipts. Configuration and operational limits are documented
+in `docs/development/licensed-data.md`; four example TOML files grant no rights
+and deliberately require a real declaration digest before acquisition.
+
+Installed and locked in the existing root Python 3.14.4 environment:
+`nasdaq-data-link==1.0.4`, `databento==0.86.0`, `psycopg[binary]==3.3.5` and their
+transitive dependencies. The lock resolves 74 packages; sync installed 16 new
+distributions and rebuilt the research package, without changing the existing
+dependency versions. No new project virtual environment or application schema
+is created.
+
+Sharadar uses fixed Tables endpoints and terminal cursor pagination. Explicit
+source column names protect against reordered values; split-adjusted OHLCV and
+separate raw/fully adjusted closes remain distinct. As-reported fundamental dates
+are retained without inventing historical dissemination times. Textual source
+identifiers preserve leading zeroes; nullable corporate-action composite keys
+have deterministic IDs rather than treating a changed value as a new event.
+
+Databento uses native reference POST forms, uncompressed JSONL and the SDK's
+timestamp encoding. It retains all supplied vintages, source nanoseconds and
+cancellations, explicitly disables new ISIN allocation, and distinguishes valid
+empty responses from missing artifacts. Unhandled provider warnings fail closed.
+WRDS uses a fixed TLS PostgreSQL endpoint, parameterized read-only CIZ/fundq
+projections and bounded transactions. CIZ delisting returns are not applied twice;
+currently supplied Compustat revisions are not labeled verified historical PIT.
+
+Preliminary focused evidence:
+
+- 100 tests passed in 8.87 seconds across the first licensed-source contracts
+  and the existing HTTP boundary suite.
+- 144 tests passed in 13.21 seconds after adding current-reference rights,
+  JSONL secret-echo, provider-warning and rehashed-normalization checks, including
+  the existing development-ingestion regression. One existing upstream Alpaca
+  websocket deprecation warning remains visible.
+- The final targeted licensed HTTP/codec set passed 66 tests in 5.29 seconds.
+- Real PostgreSQL tests passed 7 cases in 2.52 seconds: both source profiles,
+  exact projection/filtering, row overflow, write rejection, statement timeout,
+  cancellation and missing-column failure. Every connection closed; the unique
+  synthetic database was removed without FORCE. A prior sandbox-only connection
+  attempt was denied by the local TCP restriction and is not acceptance evidence.
+- Full host `just check` passed Rust fmt/Clippy, TypeScript, Python Ruff/format/
+  strict types, protocol-generation and workspace checks.
+
+The final full host `just test` passed on the complete implementation:
+
+- Rust: 395 passed, with four subprocess helpers exercised by their parent
+  process tests. Runtime/manifest tests took 260.98 seconds; the 2/4/8-process
+  fencing and kill/restart matrix took 203.28 seconds.
+- TypeScript: 116 passed (115 protocol and one existing Provider Host smoke case).
+  This is not acceptance of the later Provider platform or Web UI.
+- Python research: 551 passed in 89.22 seconds, including all seven actual
+  PostgreSQL source tests. One existing upstream websocket deprecation remains.
+- Python protocol: 301 passed in 1.24 seconds.
+- Legacy: 216 passed, one skipped and 11 existing numerical warnings in 18.15
+  seconds. Historical stale performance remains invalid.
+- The disposable PostgreSQL fixture used 703,060 KiB and was automatically
+  removed. No production application database was accessed.
+
+`just build` and `just doctor` also passed. Rust/TypeScript artifacts and both
+Python wheel/sdist packages build. Doctor confirms the single root CPython
+3.14.4 environment and the existing component health/type checks. The four
+documented acquisition configurations parse through the installed implementation;
+their placeholder license digests do not authorize downloads.
+
+Publication and remote CI remain the exit gate at this task's commit time.
+Unit 3 and Phase 5 are not yet marked complete. No licensed vendor live call,
+snapshot admission or backtest conclusion is claimed. All supplier contract
+records used here are invented data. Rollback disables the new writers and
+retains completed receipts and research/audit history. Temporary gate logs and
+fixtures are confined to this task's directory and identified pytest directories;
+they can be removed after preserving this evidence, without deleting real caches.
