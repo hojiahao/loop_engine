@@ -255,9 +255,11 @@ each, followed by push and remote acceptance):
    live SEC capture and offline replay pass. Alpaca live verification remains
    unavailable without credentials and is not claimed).
 3. Sharadar production adapter and optional WRDS/Databento paths, with credentials
-   and entitlement gates; no unlicensed production claims (`in_progress`).
+   and entitlement gates; no unlicensed production claims (`complete`, ADR 0023;
+   `32bafdb` is pushed and CI run `34804345277` passes all seven jobs. This closes
+   the acquisition implementation, not licensed live access or PIT certification).
 4. Immutable Parquet snapshots, quality/lineage/coverage checks and reproducible
-   data synchronization through 2026-08-31 (`pending`).
+   data synchronization through 2026-08-31 (`in_progress`).
 
 - [x] Implement the bounded, offline XNYS session-date gate, pinned calendar
       dependency and actual NAV CLI integration. This is a Phase 4 alignment
@@ -268,7 +270,8 @@ each, followed by push and remote acceptance):
 - [x] Implement SEC plus Alpaca development adapters, with bounded acquisition,
       first-observed semantics, separate SIP probing and byte-verified cache replay.
       Unit 2 publication and remote CI are complete; data quality is development-only.
-- [ ] Implement Sharadar production adapter and optional WRDS/Databento adapters.
+- [x] Implement Sharadar production adapter and optional WRDS/Databento adapters.
+      Full host gates and publication pass; live vendor access remains unverified.
 - [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.
 

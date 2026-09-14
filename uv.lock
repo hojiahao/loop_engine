@@ -671,6 +671,7 @@ dependencies = [
     { name = "nasdaq-data-link" },
     { name = "numpy" },
     { name = "psycopg", extra = ["binary"] },
+    { name = "pyarrow" },
     { name = "pydantic" },
 ]
 
@@ -694,6 +695,7 @@ requires-dist = [
     { name = "nasdaq-data-link", specifier = "==1.0.4" },
     { name = "numpy", specifier = ">=2.5,<3" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.5" },
+    { name = "pyarrow", specifier = "==25.0.1" },
     { name = "pydantic", specifier = ">=2.11,<3" },
 ]
 

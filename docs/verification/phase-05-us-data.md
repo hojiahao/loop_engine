@@ -1,10 +1,10 @@
 # Phase 5 US Data Verification
 
-Status: in progress. The XNYS session-date diagnostic and local security/
-observation query are published. SEC/Alpaca development ingestion is implemented
-and undergoing the full unit 2 gate below. Licensed adapters, immutable Parquet
-publication, historical universe coverage and production calendar manifests
-remain open.
+Status: in progress. Units 1-3 (local security/PIT queries, SEC/Alpaca development
+ingestion and licensed source acquisition) are published with successful remote
+CI. Unit 4's Parquet/synchronization implementation is undergoing its final gates.
+Actual licensed historical universe/PIT coverage and authorized production-data
+admission remain distinct from successful source acquisition and file validation.
 
 ## Session-Date Checkpoint
 
@@ -308,3 +308,85 @@ records used here are invented data. Rollback disables the new writers and
 retains completed receipts and research/audit history. Temporary gate logs and
 fixtures are confined to this task's directory and identified pytest directories;
 they can be removed after preserving this evidence, without deleting real caches.
+
+Unit 3 publication is complete: `32bafdb` is pushed and CI run `34804345277`
+passes all seven jobs on that exact commit, including the isolated research
+dependency environment, unified workspace and clean DaoCloud container gates.
+The 17 MiB task directory, 1.5 MiB of identified pytest fixtures and approximately
+30 MiB of project test/type caches and package build outputs were removed after
+recording the evidence. The real SEC cache and other projects' files remain intact.
+
+## Unit 4: Source Parquet snapshots and bounded synchronization (2026-09-14)
+
+ADR 0024 and `docs/development/source-snapshots.md` define the receipt-to-Parquet
+workflow. `data-snapshot` replays source evidence, keeps native columns/precision
+and distinct business/knowledge/ingestion times, partitions fixed periods through
+2026-08-31, and publishes checksummed Parquet/schema/calendar/quality objects before
+the final manifest. `data-validate` replays the complete graph and compares actual
+Parquet schema and values. Current asset metadata is excluded from past periods;
+no historical universe, verified PIT quality or protected access is inferred.
+
+`data-sync` executes strict source request plans using the existing five adapters,
+with aggregate budget reservations, credential/license preflight, secret-echo
+rejection and immutable progress after every completed request. Resume verifies
+the exact plan and source prefix before skipping work. No mutable latest pointer,
+service, database table or new research capability is added. PyArrow 25.0.1 was
+already installed/locked; it is now an explicit research dependency. No existing
+package version changed and no additional virtual environment was created.
+
+Focused evidence:
+
+- Initial source snapshot suite: 28 passed in 94.35 seconds, including installed
+  CLI round trips and 2/4/8 independent OS processes publishing the same snapshot.
+- Initial synchronization suite: 17 passed in 8.58 seconds, including completed
+  offline resume, interrupted prefixes, source/plan corruption, current access
+  preflight, reserved budgets, cancellation and actual TOML/CLI validation.
+- Expanded combined suite: 51 passed in 102.02 seconds; includes clock regression,
+  nontrading daily data, empty-market coverage and credential-echo prevention.
+- Real hard kills immediately before and after final-manifest publication both
+  recover to the same digest. The focused fault/deadline set passed five tests
+  in 8.78 seconds. The final full suite additionally checks that aggregate source
+  byte limits reject before raw replay and extends both real PostgreSQL source
+  profiles through the snapshot builder and offline validator.
+- Full `just check` passed; after the final source-budget correction, research
+  Ruff/format and strict types pass again. Both committed sync examples parse
+  through the installed implementation. Their dates reach 2026-08-31; the
+  requested window alone does not claim complete underlying coverage.
+
+The retained real SEC cache was converted and revalidated locally with no new
+HTTP request. The source receipt remains
+`sha256:8ce9fbec3082bf43566d21c48a7e6c609386bd995d425fc97963df9df73d6b42`.
+The new source snapshot is
+`sha256:95657c0782edb87d2ef3fc4b572628a546bcc5b48b7259a11f7cb67feb2bdaee`
+(1,280-byte manifest), containing four facts in one partition and zero excluded
+rows. Its declared observation window is 2005-01-01 through 2026-08-31, while the
+actual selected source facts remain limited. It explicitly reports
+`historical_pit: not_certified` and `production_eligible: false`. The complete
+private source cache is approximately 3.9 MiB and remains outside Git.
+
+The final full host `just test` passed:
+
+- Rust: 395 passed, with four subprocess helpers exercised by their parent tests.
+  The runtime/manifest library passed in 266.29 seconds; the actual 2/4/8-process
+  fencing and kill/restart matrix passed in 191.78 seconds.
+- TypeScript: 116 passed (115 protocol and the existing Provider Host smoke case).
+- Python research: 605 passed in 133.44 seconds, including the 54 new snapshot/
+  synchronization cases and both real PostgreSQL-to-Parquet source profiles.
+  The single existing upstream websocket deprecation remains visible.
+- Python protocol: 301 passed in 1.34 seconds.
+- Legacy: 216 passed, one skipped and 12 existing numerical warnings in 14.11
+  seconds. No stale historical performance conclusion is restored.
+- The disposable PostgreSQL fixture used 703,532 KiB and was automatically
+  removed. No production database or licensed vendor was accessed.
+
+`just build` and `just doctor` also pass: Rust/TypeScript artifacts and both
+Python wheel/sdist packages build, and doctor confirms the single root CPython
+3.14.4 environment and existing component health/type checks. These checks do
+not imply a completed UI, Provider platform or production research workflow.
+
+Commit/push and remote CI remain the publication gate. Unit 4 and Phase 5 are
+not yet closed. Actual licensed market-data quality and the Phase 6 security/PIT
+panel join remain required before production factor research.
+Rollback disables new writers and preserves immutable progress, snapshots and
+research/audit history. Temporary artifacts stay under this task's identified
+`/tmp/loop-engine-phase5-unit4.*` directory for removal after evidence is recorded.

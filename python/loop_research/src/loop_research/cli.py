@@ -35,6 +35,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     licensed_replay.add_argument("--store", type=Path, required=True)
     licensed_replay.add_argument("--receipt", required=True)
+    snapshot = commands.add_parser("data-snapshot", help="Build immutable source Parquet snapshots")
+    snapshot.add_argument("--store", type=Path, required=True)
+    snapshot.add_argument("--receipt", action="append", required=True)
+    snapshot.add_argument("--start", required=True)
+    snapshot.add_argument("--through", required=True)
+    validate = commands.add_parser(
+        "data-validate", help="Replay source snapshot lineage and Parquet"
+    )
+    validate.add_argument("--store", type=Path, required=True)
+    validate.add_argument("--snapshot", required=True)
+    sync = commands.add_parser("data-sync", help="Synchronize an explicit bounded source plan")
+    sync.add_argument("plan", type=Path)
+    sync.add_argument("--store", type=Path, required=True)
+    sync.add_argument("--license", type=Path, action="append", default=[])
+    sync.add_argument("--resume")
     query = commands.add_parser("data-query", help="Read-only local point-in-time data query")
     query.add_argument("input", type=Path)
     query.add_argument("--market-at", required=True)
@@ -99,6 +114,54 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command in ("data-snapshot", "data-validate", "data-sync"):
+        from loop_research.data.fetch_http import FetchError
+        from loop_research.data.snapshot_models import SnapshotRequest
+        from loop_research.data.snapshots import build_snapshot, validate_snapshot
+        from loop_research.data.sync import load_sync_plan, synchronize
+
+        try:
+            if args.command == "data-sync":
+                snapshot_report = asyncio.run(
+                    synchronize(
+                        args.store,
+                        load_sync_plan(args.plan),
+                        licenses=tuple(args.license),
+                        resume=args.resume,
+                        progress=lambda reference, count: print(
+                            json.dumps(
+                                {
+                                    "event": "sync_progress",
+                                    "completed_requests": count,
+                                    "progress": reference.model_dump(),
+                                }
+                            ),
+                            flush=True,
+                        ),
+                    )
+                )
+            elif args.command == "data-validate":
+                snapshot_report = validate_snapshot(args.store, args.snapshot)
+            else:
+                snapshot_request = SnapshotRequest.model_validate_json(
+                    json.dumps(
+                        {
+                            "receipts": sorted(args.receipt),
+                            "start": args.start,
+                            "through": args.through,
+                        }
+                    )
+                )
+                snapshot_report = build_snapshot(args.store, snapshot_request)
+        except FetchError as error:
+            parser.error(f"source snapshot operation failed: {error.reason}")
+        except OSError, ValueError, TimeoutError:
+            parser.error(
+                "source snapshot operation failed: invalid evidence, input, budget or local IO"
+            )
+        except KeyboardInterrupt:
+            parser.exit(130, "source snapshot operation cancelled; preserve immutable progress\n")
+        print(snapshot_report.model_dump_json(by_alias=True))
     elif args.command in ("data-acquire", "data-verify"):
         from loop_research.data.fetch_http import FetchError
         from loop_research.data.licensed_ingestion import (

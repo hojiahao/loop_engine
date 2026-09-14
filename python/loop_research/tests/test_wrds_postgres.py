@@ -21,6 +21,8 @@ from loop_research.data import wrds
 from loop_research.data.fetch_http import FetchError
 from loop_research.data.licensed_config import WrdsRequest
 from loop_research.data.licensed_ingestion import fetch_licensed, replay_licensed
+from loop_research.data.snapshot_models import SnapshotRequest
+from loop_research.data.snapshots import build_snapshot, validate_snapshot
 
 _FIXTURE = {
     "host": "127.0.0.1",
@@ -131,6 +133,16 @@ def test_actual_sql_acquisition_replays(
     assert sum(report.row_counts.values()) == count
     assert replay_licensed(store, report.receipt.sha256) == report
     assert len(connections) == 1 and connections[0].closed
+    snapshot = build_snapshot(
+        store,
+        SnapshotRequest(
+            receipts=(report.receipt.sha256,),
+            start=config.start,
+            through=config.end,
+        ),
+    )
+    assert snapshot.row_count == count
+    assert validate_snapshot(store, snapshot.snapshot.sha256) == snapshot
 
 
 def test_row_limit_rolls_back_and_closes(tmp_path: Path, database: str) -> None:

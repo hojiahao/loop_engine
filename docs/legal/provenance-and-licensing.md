@@ -92,3 +92,14 @@ of implementation without credentials; test records are explicitly invented.
 Sources: [Nasdaq SDK](https://pypi.org/project/Nasdaq-Data-Link/1.0.4/),
 [Databento SDK](https://pypi.org/project/databento/0.86.0/),
 [Psycopg](https://pypi.org/project/psycopg/3.3.5/).
+
+## Source Snapshot Dependency
+
+Phase 5 unit 4 declares the already installed `pyarrow==25.0.1` directly in the
+research package. Installed distribution metadata declares Apache-2.0. Original
+Arrow/native-library notices remain intact and included in the release SBOM
+review. The application uses the published Parquet API; it does not copy or
+relabel upstream source. Converting source records into Parquet does not change
+the underlying market-data license or grant redistribution/research access.
+Real SEC cache/snapshot artifacts remain private and ignored by Git; all new
+committed source fixtures are invented.

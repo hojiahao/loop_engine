@@ -1,6 +1,6 @@
 # ADR 0023: Licensed source acquisition with verifiable local receipts
 
-- Status: Proposed; implementation and acceptance in progress
+- Status: Accepted for bounded acquisition; licensed live access remains unverified
 - Date: 2026-09-14
 - Owner: hojiahao
 
@@ -84,6 +84,10 @@ relevant subscription and credentials; no licensed data enters Git.
 Rollback disables the new acquisition commands/writers. Preserve immutable
 source objects and successful receipts. Existing SEC/Alpaca readers and the
 application database remain compatible; there is no destructive down-migration.
+
+Implementation `32bafdb` is published. Host `just check/test/build/doctor` and
+all seven jobs in CI run `34804345277` pass. This accepts the acquisition and
+replay workflow, not vendor credentials, production PIT quality or Phase 5 closure.
 
 ## Primary Sources
 
