@@ -259,7 +259,9 @@ each, followed by push and remote acceptance):
    `32bafdb` is pushed and CI run `34804345277` passes all seven jobs. This closes
    the acquisition implementation, not licensed live access or PIT certification).
 4. Immutable Parquet snapshots, quality/lineage/coverage checks and reproducible
-   data synchronization through 2026-08-31 (`in_progress`).
+   data synchronization through 2026-08-31 (`complete`, ADR 0024; `67854a5` is
+   pushed and all seven jobs in CI run `34811496117` pass. Source snapshots remain
+   private and are not automatically admitted factor panels).
 
 - [x] Implement the bounded, offline XNYS session-date gate, pinned calendar
       dependency and actual NAV CLI integration. This is a Phase 4 alignment
@@ -272,8 +274,25 @@ each, followed by push and remote acceptance):
       Unit 2 publication and remote CI are complete; data quality is development-only.
 - [x] Implement Sharadar production adapter and optional WRDS/Databento adapters.
       Full host gates and publication pass; live vendor access remains unverified.
-- [ ] Build immutable Parquet snapshots, validation, lineage, and entitlement
+- [x] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.
+- [x] Implement and locally verify offline source-access preflight shared with
+      synchronization, and document supplier credential onboarding (ADR 0025).
+
+All four coding delivery units have passed local and remote gates. Phase 5's
+production-data exit remains open: actual licensed historical security/universe,
+delisting and PIT coverage have not been attested. No credentials were provided
+for that acceptance. Later implementation may proceed on synthetic/development
+evidence without enabling production-data admission or claiming profitability.
+
+Owner's 2026-09-14 sequencing amendment: finish the Phase 5 operational handoff
+before continuing Phase 6. The final delivery unit adds an executable offline
+credential/license preflight, shares it with real synchronization, closes
+before-download configuration checks, and documents how to obtain and inject
+each supplier's credentials (ADR 0025). Implementation and local workspace gates
+have passed; publication acceptance is the pushed task commit and its seven
+successful CI jobs, as required above. Live supplier coverage acceptance remains
+a separate external gate; local readiness must not certify it.
 
 The first data-plane step pins and installs `exchange-calendars==4.13.2` in
 the existing Python 3.14.4 uv workspace. It adds explicit XNYS validation to the
@@ -285,6 +304,19 @@ Phase 4 or claiming licensed/PIT market data. Evidence and rollback:
 `docs/verification/phase-05-us-data.md`.
 
 ## Phase 6 - Factor engine (`pending`)
+
+Delivery units (implementation, tests and documentation together; publish and
+verify each before the next):
+
+1. Build causal factor panels from verified data and explicit security histories,
+   with complete calendar axes, eligibility and knowledge-time checks; connect
+   the output to the existing authorized factor execution path (`pending`).
+2. Add versioned cross-sectional winsorization, standardization and industry/
+   size/beta neutralization, with deterministic missing/rank-deficient behavior
+   and independent numerical goldens (`pending`).
+3. Integrate the complete factor-research evaluation and trial/admission workflow,
+   with frozen preprocessing/operator provenance, coverage, duplicate/failure
+   filtering, determinism and no-lookahead acceptance (`pending`).
 
 - [ ] Port and specify operators, canonical AST evaluation, neutralization,
       coverage checks, and trial registry.

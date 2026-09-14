@@ -2,9 +2,11 @@
 
 Status: in progress. Units 1-3 (local security/PIT queries, SEC/Alpaca development
 ingestion and licensed source acquisition) are published with successful remote
-CI. Unit 4's Parquet/synchronization implementation is undergoing its final gates.
+CI. Unit 4's Parquet/synchronization implementation is also published and verified.
 Actual licensed historical universe/PIT coverage and authorized production-data
 admission remain distinct from successful source acquisition and file validation.
+The owner's final operational handoff adds offline access preflight and supplier
+credential instructions before Phase 6 resumes; its evidence is appended below.
 
 ## Session-Date Checkpoint
 
@@ -390,3 +392,78 @@ panel join remain required before production factor research.
 Rollback disables new writers and preserves immutable progress, snapshots and
 research/audit history. Temporary artifacts stay under this task's identified
 `/tmp/loop-engine-phase5-unit4.*` directory for removal after evidence is recorded.
+
+Unit 4 publication is complete: `67854a5` is pushed and run `34811496117` passed
+all seven jobs on that exact commit. Unified workspace acceptance took 10m21s;
+the clean DaoCloud container took 11m48s. Approximately 20 MiB of task temporary
+files and 30 MiB of project caches/build outputs were removed after summarizing
+evidence. The 3.9 MiB real SEC source/snapshot cache remains private and intact.
+Phase 5's actual licensed universe/PIT acceptance is still open; no self-declared
+license, successful fixture or verified Parquet file closes that production gate.
+
+## Operational Handoff: Access Preflight And Credentials
+
+Requirement: finish Phase 5's operating workflow before continuing Phase 6.
+ADR 0025 and `docs/development/data-credentials.md` define the executable handoff,
+supplier registration paths, exact environment references and private license
+configuration. No credential value, subscription purchase or production-database
+access was needed for this implementation.
+
+`data-preflight` accepts all existing single-source TOML examples and sync plans.
+It reuses strict request/credential/license/cache validation and returns local
+readiness, missing references and static errors without network or publication.
+It always labels live access as unchecked and production eligibility as false.
+Actual `data-sync` shares its remaining-request gate and rechecks source access
+at execution. Later invalid dates or secret-bearing license files now abort the
+batch before even its first download; a previous readiness report is no grant.
+
+Focused evidence on 2026-09-14:
+
+- Initial preflight, sync and development/licensed-ingestion regression selection:
+  132 passed in 35.29 seconds, with one existing upstream websocket deprecation.
+  The final version additionally checks WRDS ambient settings even when a caller
+  passes a restricted credential mapping.
+- All eight committed data TOML examples parse through the installed preflight.
+  Empty environments report real missing requirements rather than treating the
+  all-zero sample license digest or a fabricated key as live access.
+- Real installed CLI cases verify exit 0 for local SEC readiness, exit 3 for
+  missing Alpaca references and exit 2 with redacted malformed configuration.
+- The retained actual SEC store passes offline preflight and `data-validate`.
+  Its snapshot stays `sha256:95657c0782edb87d2ef3fc4b572628a546bcc5b48b7259a11f7cb67feb2bdaee`,
+  with four facts, one partition and no new HTTP request or cache publication.
+- `just check` passes. Final source Ruff/format and strict typing checks also
+  pass after the additional WRDS environment/credential-size guards.
+
+The initial sandboxed full-test invocation could not access the Docker socket
+and did not run database tests. The authorized host `just test` passed using
+only the project's disposable TLS PostgreSQL fixture:
+
+- Rust: 395 passed; four isolated-process helpers ran through their parent
+  cases. Runtime/manifest acceptance took 254.16 seconds, and the 2/4/8-process
+  fencing/kill-restart matrix took 203.28 seconds.
+- TypeScript: 116 passed; the Web scaffold still has no implemented UI tests.
+- Python research: 644 passed in 162.92 seconds, including 39 new preflight/
+  handoff cases and the real local PostgreSQL source-adapter tests. One existing
+  upstream websocket deprecation remains visible.
+- Python protocol: 301 passed in 1.74 seconds.
+- Legacy: 216 passed, one skipped and 12 existing numerical warnings in 14.73
+  seconds. Historical stale A-share performance is not restored.
+- The disposable PostgreSQL fixture used 703,060 KiB and was removed by the
+  test wrapper. No production database or licensed vendor was contacted.
+
+`just build` and `just doctor` pass. The built research wheel contains the new
+access module and CLI; CPython remains 3.14.4 in the single root environment.
+No package/lockfile version changed. The actual Sharadar preflight returns exit 3,
+identifying the absent `LOOP_SHARADAR_API_KEY` and matching license declaration,
+without contacting the supplier or modifying the retained cache.
+
+Publication acceptance requires this task's pushed commit and all seven CI jobs
+on that commit. No previous CI run substitutes for this task's acceptance. Actual
+Alpaca/Sharadar/WRDS/Databento live credentials and historical coverage evidence
+remain unavailable; the completed coding handoff does not close that data gate.
+
+Rollback disables the new diagnostic/sync writer or reverts this task's commit.
+Immutable source receipts, progress, snapshots and research/audit history remain
+intact. No schema migration is introduced. Temporary test artifacts are scoped to
+`/tmp/loop-engine-phase5-handoff.*` and removed after evidence is summarized;
+the retained real SEC cache is not temporary test data.

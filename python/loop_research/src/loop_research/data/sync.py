@@ -12,20 +12,19 @@ from typing import Any
 
 import httpx
 
+from loop_research.data.access import check_requests, license_files
 from loop_research.data.fetch_cache import (
     private_directory,
     publish,
     read_cached,
     read_config_bytes,
-    read_private_config,
     read_receipt,
 )
 from loop_research.data.fetch_config import AlpacaRequest, SecRequest
-from loop_research.data.fetch_json import contains_secret
+from loop_research.data.fetch_http import FetchError
 from loop_research.data.fetch_records import CachedObject
-from loop_research.data.ingestion import _headers, fetch_data
-from loop_research.data.licensed_config import DataLicense, check_license
-from loop_research.data.licensed_ingestion import _credentials, fetch_licensed
+from loop_research.data.ingestion import fetch_data
+from loop_research.data.licensed_ingestion import fetch_licensed
 from loop_research.data.snapshot_models import (
     SnapshotReport,
     SnapshotRequest,
@@ -47,18 +46,6 @@ def load_sync_plan(path: Path) -> SyncPlan:
         raise ValueError("unsupported sync TOML value")
 
     return SyncPlan.model_validate_json(json.dumps(values, default=scalar, allow_nan=False))
-
-
-def _licensed_paths(paths: tuple[Path, ...]) -> dict[str, Path]:
-    if len(paths) > 32:
-        raise ValueError("too many license declarations")
-    result = {}
-    for path in paths:
-        digest = "sha256:" + hashlib.sha256(read_private_config(path)).hexdigest()
-        if digest in result:
-            raise ValueError("duplicate license declaration")
-        result[digest] = path
-    return result
 
 
 async def synchronize(
@@ -106,25 +93,13 @@ async def synchronize(
             if source.reference != reference or source.config != plan.requests[index]:
                 raise ValueError("completed source request differs from resume plan")
             receipts.append(reference)
-    paths = _licensed_paths(licenses)
+    declarations = license_files(licenses)
     env = os.environ if environment is None else environment
-    secrets: list[str] = []
-    for request in plan.requests[len(receipts) :]:
-        deadline.remaining()
-        if isinstance(request, SecRequest | AlpacaRequest):
-            headers = _headers(request, env)
-            if isinstance(request, AlpacaRequest):
-                secrets.extend(headers.values())
-        else:
-            credentials = _credentials(request, env)
-            secrets.extend(credentials[1:] if request.provider == "wrds" else credentials)
-            path = paths.get(request.license_sha256)
-            if path is None:
-                raise ValueError("missing source license declaration")
-            declaration = DataLicense.model_validate_json(read_private_config(path))
-            check_license(request, declaration, now())
-    if secrets and contains_secret(plan_bytes, tuple(secrets)):
-        raise ValueError("source plan contains credential material")
+    for access in check_requests(
+        plan.requests[len(receipts) :], declarations, env, now(), plan_bytes
+    ):
+        if access.issues:
+            raise FetchError(access.issues[0])
     remaining = deadline.remaining()
     publish(store, plan_bytes)
     async with asyncio.timeout(remaining):
@@ -140,7 +115,7 @@ async def synchronize(
                 if connector is not None:
                     kwargs["connector"] = connector
                 licensed = await fetch_licensed(
-                    request, store, paths[request.license_sha256], **kwargs
+                    request, store, declarations[request.license_sha256].path, **kwargs
                 )
                 reference = licensed.receipt
             receipts.append(reference)

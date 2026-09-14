@@ -20,6 +20,10 @@ def build_parser() -> argparse.ArgumentParser:
     manifests.add_argument(
         "--profile", choices=["perturbation", "evaluation"], default="perturbation"
     )
+    access = commands.add_parser("data-preflight", help="Offline source credential/license checks")
+    access.add_argument("config", type=Path)
+    access.add_argument("--store", type=Path, required=True)
+    access.add_argument("--license", type=Path, action="append", default=[])
     fetch = commands.add_parser("data-fetch", help="Bounded SEC/Alpaca development acquisition")
     fetch.add_argument("config", type=Path)
     fetch.add_argument("--store", type=Path, required=True)
@@ -84,6 +88,20 @@ def main() -> None:
         except OSError, ValueError:
             parser.error("worker build capture failed; no existing object was overwritten")
         print(json.dumps(asdict(identity), separators=(",", ":")))
+    elif args.command == "data-preflight":
+        from loop_research.data.access import load_access_config, preflight
+
+        try:
+            access_report = preflight(
+                load_access_config(args.config), args.store, licenses=tuple(args.license)
+            )
+        except OSError, ValueError:
+            parser.error("data access preflight failed: malformed, unsafe or sensitive input")
+        except KeyboardInterrupt:
+            parser.exit(130, "data access preflight cancelled\n")
+        print(access_report.model_dump_json(by_alias=True))
+        if not access_report.local_ready:
+            parser.exit(3)
     elif args.command == "nav-correlation":
         try:
             report = correlate_nav_files(

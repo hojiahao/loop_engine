@@ -2,8 +2,11 @@
 
 The installed research CLI downloads explicitly selected SEC fundamentals or
 Alpaca raw daily bars, writes private content-addressed cache objects, and verifies
-them offline. It does not yet assemble licensed Parquet snapshots, resolve a
-complete historical universe, register results or execute a portfolio backtest.
+them offline. The separate `data-snapshot` and `data-sync` commands now assemble
+source Parquet snapshots; see `source-snapshots.md`. These development adapters
+do not resolve a complete historical universe, register results or execute a
+portfolio backtest. Credential onboarding and the offline `data-preflight`
+command are documented in `data-credentials.md`.
 
 ## Install and run
 
@@ -192,7 +195,8 @@ Rollback disables `data-fetch`/`data-replay` and their new writers without
 destroying captured source objects or immutable research/audit history. There
 is no database migration or production deployment in this unit. Source changes
 are included in the existing worker build capture and invalidate dependent
-provenance normally. Production source/Parquet work remains Phase 5 units 3/4.
+provenance normally. Licensed source acquisition and Parquet publication are
+implemented separately; actual licensed historical coverage remains unverified.
 
 Primary references: [SEC APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces),
 [SEC fair access](https://www.sec.gov/about/developer-resources),

@@ -40,6 +40,10 @@ The application PostgreSQL database is not used for source downloads.
 
 ## Rights and configuration
 
+For supplier registration, key acquisition and the executable offline access
+check, follow `data-credentials.md`. Nasdaq Data Link and the direct Sharadar API
+are distinct endpoints; the implemented adapter requires a Data Link key.
+
 1. Obtain the supplier's actual entitlement for internal research and local
    storage. The implemented acquisition path accepts only already prepaid
    subscription access. A declaration cannot change the supplier's billing or
@@ -153,9 +157,11 @@ committed. Corrupt cache objects are not overwritten to make verification pass.
   2005-present coverage or data-quality conclusion is inferred from the API name.
 - All raw caches and native staging tables remain private, outside discovery
   and Provider mounts. They can contain metadata/revision dates outside a price
-  partition. Unit 4 must build immutable, period-filtered Parquet snapshots,
-  source lineage, calendar/PIT/coverage reports and registry bindings before
-  exposure through the authorized research boundary.
+  partition. `data-snapshot` now builds immutable, period-filtered source Parquet
+  and source/quality evidence; see `source-snapshots.md`. Phase 6 must perform the
+  explicit historical-security/visibility join before registering a factor panel
+  at the authorized research boundary. Source snapshot validation alone cannot
+  enable production or protected-data access.
 
 All committed fixtures are invented contract data. Without licensed live
 credentials these paths remain locally/contract verified, not vendor-live

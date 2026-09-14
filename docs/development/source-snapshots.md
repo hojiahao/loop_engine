@@ -69,6 +69,14 @@ or identifiers when a request cannot fit its row/page budget. Plans contain no
 arbitrary SQL, URLs or executable hooks. All remaining credential and license
 requirements are checked before the first download.
 
+Run `data-preflight` with the same plan, store and license arguments to inspect
+those local requirements without downloads or publication. It shares the real
+sync gate, checks every remaining request before sync starts and reports all
+missing references together. Exit 0 means local readiness only; exit 3 means
+missing/invalid access requirements, and exit 2 means malformed or unsafe input.
+See `data-credentials.md` for account setup and concrete commands. A completed
+offline resume still uses its original receipts and needs no current credentials.
+
 The entire plan reserves the sum of its request budgets before execution. Limits
 are at most 32 requests, 512 HTTP/SQL attempts, 512 MiB of source-response budgets,
 100,000 observation records and 1,800 seconds. Each adapter retains its smaller

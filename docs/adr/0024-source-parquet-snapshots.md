@@ -1,6 +1,6 @@
 # ADR 0024: Reproducible source snapshots and bounded synchronization
 
-- Status: Proposed; implementation and acceptance in progress
+- Status: Accepted for source snapshots; production-quality admission remains unavailable
 - Date: 2026-09-14
 - Owner: hojiahao
 
@@ -70,6 +70,11 @@ Disable the new commands to roll back. Preserve source objects, immutable progre
 snapshots and research/audit history; no destructive down-migration is required.
 Production-quality acceptance requires actual licensed data and evidence, and
 cannot be closed by synthetic fixtures or a self-declared license.
+
+Implementation `67854a5` is published. Host check/test/build/doctor and all seven
+jobs in CI run `34811496117` pass, including the clean DaoCloud container. This
+accepts the administrative source workflow, not actual licensed universe/PIT
+coverage, a production factor panel or a protected backtest.
 
 ## References
 
