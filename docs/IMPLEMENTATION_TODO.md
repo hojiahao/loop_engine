@@ -242,7 +242,7 @@ authorized result export or production research execution.
 
 ## Phase 5 - US-equities data plane (`in_progress`)
 
-Remaining delivery units (one complete implementation/test/documentation commit
+Delivery units (one complete implementation/test/documentation commit
 each, followed by push and remote acceptance):
 
 1. Security master, historical ticker resolution and bitemporal market/fundamental
@@ -252,8 +252,9 @@ each, followed by push and remote acceptance):
 2. SEC and Alpaca development adapters, installed dependencies, bounded downloads,
    entitlement checks and explicit development limitations (`complete`, ADR 0022;
    `cc462da` is pushed and CI run `34765587180` passes all seven jobs. Local gates,
-   live SEC capture and offline replay pass. Alpaca live verification remains
-   unavailable without credentials and is not claimed).
+   live SEC capture and offline replay pass. The later 2026-09-14 operational
+   acceptance verifies real Alpaca IEX access and replay; latest SIP access is
+   explicitly denied. See the live acceptance record below).
 3. Sharadar production adapter and optional WRDS/Databento paths, with credentials
    and entitlement gates; no unlicensed production claims (`complete`, ADR 0023;
    `32bafdb` is pushed and CI run `34804345277` passes all seven jobs. This closes
@@ -277,22 +278,46 @@ each, followed by push and remote acceptance):
 - [x] Build immutable Parquet snapshots, validation, lineage, and entitlement
       reports through 2026-08-31.
 - [x] Implement and locally verify offline source-access preflight shared with
-      synchronization, and document supplier credential onboarding (ADR 0025).
+      synchronization, and document supplier credential onboarding (ADR 0025;
+      `754486e` is pushed and all seven jobs in CI run `34816439735` pass).
 
 All four coding delivery units have passed local and remote gates. Phase 5's
 production-data exit remains open: actual licensed historical security/universe,
-delisting and PIT coverage have not been attested. No credentials were provided
-for that acceptance. Later implementation may proceed on synthetic/development
-evidence without enabling production-data admission or claiming profitability.
+delisting and PIT coverage have not been attested. Alpaca and Nasdaq Data Link
+credentials are now privately configured; the Sharadar subscription scope and
+matching license declaration are still unconfirmed. Credentials alone do not
+close that data-quality gate.
 
-Owner's 2026-09-14 sequencing amendment: finish the Phase 5 operational handoff
-before continuing Phase 6. The final delivery unit adds an executable offline
-credential/license preflight, shares it with real synchronization, closes
-before-download configuration checks, and documents how to obtain and inject
-each supplier's credentials (ADR 0025). Implementation and local workspace gates
-have passed; publication acceptance is the pushed task commit and its seven
-successful CI jobs, as required above. Live supplier coverage acceptance remains
-a separate external gate; local readiness must not certify it.
+Owner's latest 2026-09-14 sequencing instruction: finish all remaining Phase 5
+acceptance before beginning Phase 6. The offline handoff is published and remotely
+verified. The current task records actual SEC/Alpaca acquisition, offline replay,
+Parquet materialization and quality validation using the existing installed CLI.
+It introduces no new service, source adapter or dependency.
+
+Local live acceptance passes: six IEX bars for AAPL/MSFT on 2020-12-28 through
+2020-12-30, eight SEC facts selected in 2020, and the complete source snapshot
+`sha256:3846dc0bc1140095cd7c50026334bc752ff92a26e3eeff38d070b1574b0d8370`.
+Each selected stock has three expected and three observed sessions; two current
+asset records are correctly excluded from the historical selection. The snapshot
+has 14 rows and remains `production_eligible=false`. Publication/CI of this live
+acceptance task must be recorded before closing its delivery.
+
+Remaining Phase 5 exit work, in order:
+
+1. Confirm an actual licensed source's subscribed tables, historical scope,
+   authorization dates and internal-research/local-storage rights. Current
+   Sharadar preflight sees the key reference but returns `license_denied`.
+2. Pin that real license declaration and perform a bounded supplier request,
+   then verify its receipt and source Parquet offline. No invented declaration,
+   subscription purchase or automatic increase in spending is permitted.
+3. Expand authorized selections within explicit request/byte/time budgets and
+   audit historical security/universe coverage, corporate actions, delisting
+   returns and PIT/revision availability through 2026-08-31. Preserve missing
+   evidence as failed/unverified checks; a subscription does not certify quality.
+4. Publish the resulting acceptance evidence and pass the task's remote gates.
+   Phase 6 remains pending until this exit is satisfied or the owner explicitly
+   changes the sequencing/data requirements. Optional WRDS and Databento accounts
+   are not both required if the selected source meets the agreed coverage.
 
 The first data-plane step pins and installs `exchange-calendars==4.13.2` in
 the existing Python 3.14.4 uv workspace. It adds explicit XNYS validation to the

@@ -107,6 +107,21 @@ export LOOP_SHARADAR_API_KEY
 其他供应商使用上表给出的变量名。当前程序读取环境变量，不会自动加载 `.env`。
 需要持久服务配置时，由部署环境的 secret manager 或受保护的环境文件注入。
 
+本机已将 Alpaca 的两个变量及 Data Link 变量保存在仓库外的
+`/home/hojiahao/.config/loop-engine/data.env`，目录权限为 `0700`，文件为
+`0600`。该文件由当前运行用户持有，不会随 Git 分发。在同一用户的
+可信 Bash 终端中执行下列命令，再运行数据命令：
+
+```bash
+set +x
+set -a
+source /home/hojiahao/.config/loop-engine/data.env
+set +a
+```
+
+不要打印文件内容或将整个环境输出到日志。新终端、容器和服务进程不会
+自动继承这些变量；部署时仍需使用其自己的 secret reference 注入。
+
 对 Sharadar、WRDS、Databento，还需按 [许可文件格式](licensed-data.md#rights-and-configuration)
 编写真实授权声明，保存到 `var/data/private/`，设置模式 `0600`。声明记录已有授权的
 来源、表、历史范围、期限和本地存储用途；它不是向供应商购买权限的凭证。
@@ -160,9 +175,20 @@ Parquet 并运行 `data-validate`。这条顺序先验证实际认证、响应�
 
 编码验收包括五条源路径、原始缓存、精确值/时间语义、离线重放、Parquet 快照、
 可恢复同步及预检。供应商契约使用合成数据，WRDS 查询还使用独立的本地 TLS
-PostgreSQL 验证；已有真实 SEC 公共请求和离线快照证据。
+PostgreSQL 验证。截至 2026-09-14，本机实际状态如下：
 
-Alpaca、Sharadar、WRDS、Databento 尚未使用真实供应商凭据完成 live 验证。
-即使最小下载通过，还必须检查实际证券历史、退市、调整价格、修订可见时间与
-完整样本覆盖，才能评估数据是否适合生产研究。当前数据报告如实保持未认证状态。
-Phase 6 因子面板和 Phase 7 回测不能由这些接入测试替代。
+| 数据源 | 已有证据 | 仍缺少的证据 |
+| --- | --- | --- |
+| SEC | 真实请求、缓存重放、Parquet 及完整快照校验通过 | 历史修订可见性和完整申报覆盖 |
+| Alpaca | Paper 资产接口、IEX 历史日线、重放和快照校验通过；最新 SIP 探测被拒绝 | 历史 SIP 权限尚未单独测试；历史 universe、退市、PIT 未认证 |
+| Sharadar / Data Link | 凭据变量已配置，预检无缺失 key reference | 订阅范围和匹配许可尚未确认，预检为 `license_denied`；未做 live 请求 |
+| WRDS、Databento（可选） | 适配器与离线契约通过 | 未提供供应商凭据和许可，未做 live 验证 |
+
+真实验证样本选自 2020 年开发区间，没有解锁确认集。两只股票、三个
+交易日的行情齐全只证明该选择范围，不证明 2005–2026-08 全样本可用。
+收到已订阅的表名、授权日期、历史范围以及内部研究/本地存储权限信息后，
+才能写入真实许可并运行有界的授权源验证；不需要再次发送密钥。随后检查
+证券历史、退市、调整价格、修订可见时间和完整区间覆盖，结果不足时仍保留
+未认证状态。精确 receipt、snapshot 和验证命令见
+[真实数据验收记录](../verification/phase-05-us-data.md#live-sec-and-alpaca-acceptance-2026-09-14)。
+Phase 6 因子面板和 Phase 7 回测仍为后续独立阶段。

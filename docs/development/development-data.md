@@ -171,8 +171,20 @@ exclusively owned store. Normal completion/failure cleans its temporary link.
 On this host, the bounded live SEC check is retained in the ignored private
 `var/data/development/sec-20260913` store. Its receipt is
 `sha256:8ce9fbec3082bf43566d21c48a7e6c609386bd995d425fc97963df9df73d6b42`.
-The source data is not in Git. See the verification record for counts/timing;
-Alpaca live verification still requires actual credentials.
+The source data is not in Git.
+
+The 2026-09-14 real SEC/Alpaca acceptance is retained separately in
+`var/data/development/connectivity-20260914`. It verifies six IEX daily bars for
+AAPL/MSFT on 2020-12-28 through 2020-12-30 and eight SEC facts selected in 2020.
+Both receipts replay offline. The combined source snapshot
+`sha256:3846dc0bc1140095cd7c50026334bc752ff92a26e3eeff38d070b1574b0d8370`
+passes complete graph/Parquet validation, with 14 rows and two current asset
+records correctly excluded from the historical window. Each selected stock has
+three expected sessions, three observations and no missing session. Latest SIP
+access is `forbidden`; this does not determine separate historical SIP access.
+Historical PIT, universe and delisting coverage remain uncertified. See
+[the verification record](../verification/phase-05-us-data.md#live-sec-and-alpaca-acceptance-2026-09-14)
+for immutable identities, exact scope, timing and offline replay commands.
 
 ## Verification and rollback
 

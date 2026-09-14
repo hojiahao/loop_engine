@@ -5,8 +5,13 @@ ingestion and licensed source acquisition) are published with successful remote
 CI. Unit 4's Parquet/synchronization implementation is also published and verified.
 Actual licensed historical universe/PIT coverage and authorized production-data
 admission remain distinct from successful source acquisition and file validation.
-The owner's final operational handoff adds offline access preflight and supplier
-credential instructions before Phase 6 resumes; its evidence is appended below.
+The offline access preflight/credential handoff is published as `754486e`; all
+seven jobs in run `34816439735` pass. Real SEC and Alpaca IEX acquisition, replay
+and source Parquet validation now pass; the dated evidence is appended below.
+Sharadar credentials are configured, but subscription scope and a matching license
+declaration are unconfirmed. Phase 6 remains pending under the owner's latest
+instruction to complete Phase 5's remaining acceptance first. Older checkpoints
+below describe their own publication-time state, not the current access status.
 
 ## Session-Date Checkpoint
 
@@ -467,3 +472,88 @@ Immutable source receipts, progress, snapshots and research/audit history remain
 intact. No schema migration is introduced. Temporary test artifacts are scoped to
 `/tmp/loop-engine-phase5-handoff.*` and removed after evidence is summarized;
 the retained real SEC cache is not temporary test data.
+
+## Live SEC and Alpaca acceptance (2026-09-14)
+
+Requirement: finish the remaining Phase 5 operational acceptance using the owner's
+configured credentials, then continue the agreed phases only when their gates
+are satisfied. The existing installed CLI performs this task; no new adapter,
+dependency, migration or service is needed. The previous implementation commit
+`754486edf8aa6d8dfbdd9ef053972ebaf79505f6` has all seven successful jobs in
+[CI run 34816439735](https://github.com/hojiahao/loop_engine/actions/runs/34816439735).
+That CI is implementation evidence, not a substitute for these real supplier calls.
+
+The private environment file is outside the repository with mode `0600` in a
+`0700` directory. It supplies the two Alpaca references and the Nasdaq Data Link
+reference; neither values nor the private file are committed. Alpaca preflight
+returns exit 0 with no missing references. Sharadar preflight sees its reference
+but returns exit 3 with `license_denied`: subscription scope and the matching
+license declaration are not confirmed. No licensed request or purchase occurred.
+
+Actual installed `data-fetch` results:
+
+| Source | Selected scope | UTC start / completion | Attempts / response bytes | Result |
+| --- | --- | --- | --- | --- |
+| Alpaca | AAPL/MSFT; raw IEX daily bars, 2020-12-28 through 2020-12-30; Paper asset metadata; separate latest SIP probe | 08:10:37.384835 / 08:10:45.655784 | 4 / 1,616 | Six bars; latest SIP `forbidden` |
+| SEC | CIK 0000320193; Assets and StockholdersEquity; business-date selection in 2020 | 08:10:46.824609 / 08:10:51.504567 | 2 / 3,953,190 | Eight selected facts |
+
+Both normalized reports have empty `missing` lists. These are bounded connectivity
+samples in the development period, not long-history coverage tests. No trading
+order, LLM request, production database change or holdout unlock occurred. The SEC
+endpoint returns broader source vintages; those raw bytes remain in the private
+data-owner cache and are not exposed as a research panel. Historical availability
+continues to use first observation instead of backdating knowledge to 2020.
+
+The private store is `var/data/development/connectivity-20260914`, mode `0700`.
+Immutable identities:
+
+- Alpaca receipt: `sha256:4e48d3c62d2918b5173804296aefa41a5879d2c5a33858c5d2d0313f47f4b5b4`
+  (1,498 bytes).
+- SEC receipt: `sha256:c086c917a1e88811d32dbe1414ba3692421dc926247f08c8f5b36e02f73a5971`
+  (1,003 bytes).
+- Combined snapshot: `sha256:3846dc0bc1140095cd7c50026334bc752ff92a26e3eeff38d070b1574b0d8370`
+  (2,782-byte manifest), requested 2020-01-01 through 2020-12-31.
+
+Both installed `data-replay` commands pass offline. `data-snapshot` then produces
+three table parts: six bars, eight fundamentals and an explicit empty asset
+selection. Two current asset rows are excluded because their observation dates
+are outside the historical selection. `data-validate` replays the source graph,
+normalization, schema, calendar, quality and actual Parquet values successfully,
+returning the same snapshot identity and 14 rows. Each selected stock has three
+expected and three observed sessions, with zero missing sessions; the six bars
+have no null native fields. The eight balance-sheet facts have null period starts,
+which remain explicit rather than being filled with invented dates.
+
+The retained evidence can be checked without credentials, network or new downloads:
+
+```bash
+loop_data_store=/home/hojiahao/loop_engine/var/data/development/connectivity-20260914
+
+./scripts/uv.sh run --package loop-research --locked --offline --no-sync loop-research data-replay \
+  --store "$loop_data_store" \
+  --receipt sha256:4e48d3c62d2918b5173804296aefa41a5879d2c5a33858c5d2d0313f47f4b5b4
+
+./scripts/uv.sh run --package loop-research --locked --offline --no-sync loop-research data-replay \
+  --store "$loop_data_store" \
+  --receipt sha256:c086c917a1e88811d32dbe1414ba3692421dc926247f08c8f5b36e02f73a5971
+
+./scripts/uv.sh run --package loop-research --locked --offline --no-sync loop-research data-validate \
+  --store "$loop_data_store" \
+  --snapshot sha256:3846dc0bc1140095cd7c50026334bc752ff92a26e3eeff38d070b1574b0d8370
+```
+
+The new real cache occupies approximately 3.9 MiB; the earlier 3.9 MiB SEC cache
+is preserved separately. Both are ignored by Git and are persistent source
+evidence, not temporary test fixtures. No test cache or additional environment
+was created for this operational task. Rollback stops further downloads or reverts
+the documentation update while retaining immutable receipts/snapshots and audit
+history. No source data needs deletion or database rollback.
+
+This task closes the local SEC/Alpaca connectivity-to-Parquet evidence gap; its
+publication acceptance requires its own pushed commit and successful remote CI.
+It does not close Phase 5's licensed-data gate. Latest SIP denial says nothing
+about untested historical SIP entitlement. Neither IEX nor selected SEC records
+attest complete historical universe, delisting or PIT coverage. Every snapshot
+therefore correctly retains `production_eligible=false` and
+`historical_pit: not_certified`. The remaining licensed-source request and coverage acceptance are
+listed in `docs/IMPLEMENTATION_TODO.md`; no Phase 6 implementation starts here.
