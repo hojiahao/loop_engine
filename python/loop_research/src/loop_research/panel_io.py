@@ -11,14 +11,16 @@ import stat
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from loop_research.calendar import require_session_decisions
+from loop_research.cross_section import Exposures
 from loop_research.evaluator import MAX_CELLS, Panel
 from loop_research.operators import FIELDS
+from loop_research.transform_models import PanelTransform, resolve_policy
 
 MAX_PANEL_BYTES = 64 * 1024 * 1024
 MAX_METADATA_BYTES = 1024 * 1024
@@ -36,7 +38,7 @@ class PanelManifest(BaseModel):
     """Versioned development input declaration bound to exact CSV bytes."""
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-    schema_version: Literal["loop.factor-panel/v1"] = Field(alias="schema")
+    schema_version: Literal["loop.factor-panel/v1", "loop.factor-panel/v2"] = Field(alias="schema")
     quality: Literal["synthetic", "public_development"]
     sessions: tuple[str, ...] = Field(min_length=1, max_length=8192)
     securities: tuple[str, ...] = Field(min_length=1, max_length=10000)
@@ -44,6 +46,17 @@ class PanelManifest(BaseModel):
     decision_times_ms: tuple[int, ...] = Field(min_length=1, max_length=8192)
     evaluation_start: str
     values: ContentRef
+    transform: PanelTransform | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def transform_version(self) -> Self:
+        if (self.schema_version == "loop.factor-panel/v2") != (self.transform is not None):
+            raise ValueError("panel transformation requires version 2")
+        if self.transform is not None:
+            policy = resolve_policy(self.transform.preprocess, self.transform.neutralization)
+            if policy.needs_exposures != (self.transform.exposures is not None):
+                raise ValueError("panel exposures differ from transformation policy")
+        return self
 
 
 def _version(metadata: os.stat_result) -> tuple[int, int, int, int, int]:
@@ -119,6 +132,7 @@ class PanelInput:
     panel: Panel
     manifest: PanelManifest
     guards: tuple[_FileGuard, ...]
+    exposures: Exposures | None = None
 
     def check(self) -> None:
         """Reject file/view replacement before releasing numerical outputs."""
@@ -217,10 +231,24 @@ def load_panel(
                 fields[name][row_index, column] = value
     if next(reader, None) is not None:
         raise ValueError("panel contains rows outside the authorized grid")
+    guards: tuple[_FileGuard, ...] = (metadata_guard, values_guard)
+    exposures = None
+    if manifest.transform is not None and manifest.transform.exposures is not None:
+        from loop_research.exposure_io import load_exposures
+
+        exposures, exposure_guard = load_exposures(
+            view,
+            manifest.transform.exposures,
+            sessions=sessions,
+            securities=manifest.securities,
+            decisions=manifest.decision_times_ms,
+        )
+        guards += (exposure_guard,)
     result = PanelInput(
         Panel(sessions, manifest.securities, fields, eligible),
         manifest,
-        (metadata_guard, values_guard),
+        guards,
+        exposures,
     )
     result.check()
     return result

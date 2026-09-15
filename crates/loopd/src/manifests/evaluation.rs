@@ -20,6 +20,9 @@ use super::policy::check_files;
 use super::{LocalArtifacts, ObjectRef, model};
 use crate::store::{StoreError, StoreResult};
 
+mod transform;
+use transform::{BoundTransform, PanelTransform, TransformEvidence};
+
 /// Deployment pin for one frozen development-evaluation context.
 /// A pin is not transport authority and cannot introduce protected samples.
 #[derive(Clone, Serialize, Deserialize)]
@@ -31,7 +34,7 @@ pub struct EvaluationPin {
     pub context: ObjectRef,
 }
 
-/// Actual-file resolver for the closed version-2 numerical execution path.
+/// Actual-file resolver for the closed raw/transformed numerical execution paths.
 /// Resolves before computation, retains guards and denies missing/drifting data.
 pub struct EvaluationResolver {
     artifacts: LocalArtifacts,
@@ -43,6 +46,7 @@ pub(crate) struct EvaluationInputs {
     job: JobSpecification,
     pub work: FactorEvaluationWork,
     quality: model::Quality,
+    transform: Option<BoundTransform>,
     files: Vec<Arc<VerifiedFile>>,
 }
 
@@ -65,6 +69,8 @@ struct PanelDocument {
     decision_times_ms: Vec<i64>,
     evaluation_start: String,
     values: ObjectRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transform: Option<PanelTransform>,
 }
 
 impl EvaluationResolver {
@@ -126,7 +132,10 @@ impl EvaluationResolver {
         let resolved = loader.context(context).await?;
         if provenance != &resolved.provenance
             || input.dataset.as_ref() != Some(&resolved.dataset.reference(&resolved.manifest.data)?)
-            || resolved.engine_version != "factor-evaluator.2"
+            || !matches!(
+                resolved.engine_version.as_str(),
+                "factor-evaluator.2" | "factor-evaluator.3"
+            )
             || resolved.engine != model::Engine::PrimaryCrossSectional
             || !matches!(
                 resolved.dataset.sample.role,
@@ -167,9 +176,7 @@ impl EvaluationResolver {
                 return Err(StoreError::Corrupt("evaluation policy binding"));
             }
         }
-        if resolved.dataset.snapshots.len() != 1
-            || resolved.dataset.snapshots[0].artifacts.len() != 2
-        {
+        if resolved.dataset.snapshots.len() != 1 {
             return Err(StoreError::Invalid(
                 "evaluation requires one explicit panel snapshot",
             ));
@@ -180,12 +187,59 @@ impl EvaluationResolver {
             .iter()
             .find(|artifact| {
                 artifact.schema.name == "loop.factor_panel"
-                    && artifact.schema.version == 1
+                    && matches!(artifact.schema.version, 1 | 2)
                     && artifact.media_type == "application/json"
             })
             .ok_or(StoreError::Invalid("evaluation panel manifest"))?;
         let panel: PanelDocument = loader.json(&artifact.object).await?;
-        model::schema(&panel.schema, "loop.factor-panel/v1")?;
+        let transformation = match (
+            panel.schema.as_str(),
+            artifact.schema.version,
+            panel.transform.as_ref(),
+            resolved.engine_version.as_str(),
+        ) {
+            ("loop.factor-panel/v1", 1, None, "factor-evaluator.2") => {
+                for expected in [
+                    canonical.preprocess_policy(),
+                    canonical.neutralization_policy(),
+                ] {
+                    if !resolved.policy_documents.iter().any(|document| {
+                        document.policy_id == expected.policy_id().as_str()
+                            && document.revision == expected.revision().as_str()
+                            && document.settings.is_empty()
+                    }) {
+                        return Err(StoreError::Invalid(
+                            "raw evaluator cannot ignore transformation policy",
+                        ));
+                    }
+                }
+                None
+            }
+            ("loop.factor-panel/v2", 2, Some(transformation), "factor-evaluator.3") => {
+                let start = panel
+                    .sessions
+                    .iter()
+                    .position(|day| day == &panel.evaluation_start)
+                    .ok_or(StoreError::Invalid("transformation evaluation boundary"))?;
+                Some(transformation.bind(&canonical, panel.sessions.len() - start)?)
+            }
+            _ => return Err(StoreError::Invalid("evaluation panel/engine version")),
+        };
+        let exposure = transformation
+            .as_ref()
+            .and_then(|value| value.exposures.as_ref());
+        if snapshot.artifacts.len() != 2 + usize::from(exposure.is_some())
+            || exposure.is_some_and(|reference| {
+                !snapshot.artifacts.iter().any(|entry| {
+                    entry.object == *reference
+                        && entry.schema.name == "loop.factor_exposures"
+                        && entry.schema.version == 1
+                        && entry.media_type == "text/csv"
+                })
+            })
+        {
+            return Err(StoreError::Corrupt("transformation exposure artifact set"));
+        }
         let calendar: model::Calendar = loader.json(&resolved.manifest.calendar).await?;
         if panel.sessions != calendar.sessions
             || panel.quality != resolved.dataset.quality
@@ -217,6 +271,7 @@ impl EvaluationResolver {
                 deterministic_seed: Some(seed.clone()),
             },
             quality: resolved.dataset.quality,
+            transform: transformation,
             files: loader.files,
         })
     }
@@ -240,6 +295,7 @@ impl EvaluationInputs {
         let manifest = &success.outputs[1];
         let mut files = self.files;
         let mut budget = ReadBudget::new();
+        let output_version = if self.transform.is_some() { 2 } else { 1 };
         for (artifact, name, media_type, columns) in [
             (
                 values,
@@ -264,7 +320,7 @@ impl EvaluationInputs {
             let schema = model::SchemaDocument {
                 schema: "loop.artifact-schema/v1".to_owned(),
                 name: name.to_owned(),
-                version: 1,
+                version: output_version,
                 media_type: media_type.to_owned(),
                 columns: columns.into_iter().map(str::to_owned).collect(),
             };
@@ -274,7 +330,7 @@ impl EvaluationInputs {
             let digest = sha2::Sha256::digest(&bytes).to_vec();
             if artifact.schema.as_ref().is_none_or(|schema| {
                 schema.name != name
-                    || schema.version != 1
+                    || schema.version != output_version
                     || schema
                         .schema_sha256
                         .as_ref()
@@ -310,6 +366,15 @@ impl EvaluationInputs {
             .ok_or(StoreError::Corrupt("result manifest"))?
             .json()?;
         let result = document.result(values.clone(), manifest.clone())?;
+        match (&self.transform, &document.transform) {
+            (None, None) => {}
+            (Some(expected), Some(actual)) => expected.check(
+                actual,
+                result.eligible_observations,
+                result.valid_observations,
+            )?,
+            _ => return Err(StoreError::Corrupt("transformation result version")),
+        }
         let work = &self.work;
         let factor = work
             .factor
@@ -445,6 +510,8 @@ struct ReportDocument {
     valid_observations: u64,
     work_units: u64,
     completed_at_ms: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    transform: Option<TransformEvidence>,
 }
 
 impl ReportDocument {
@@ -453,7 +520,14 @@ impl ReportDocument {
         values: ArtifactRef,
         manifest: ArtifactRef,
     ) -> StoreResult<FactorEvaluationResult> {
-        model::schema(&self.schema, "loop.factor-evaluation-result/v1")?;
+        model::schema(
+            &self.schema,
+            if self.transform.is_some() {
+                "loop.factor-evaluation-result/v2"
+            } else {
+                "loop.factor-evaluation-result/v1"
+            },
+        )?;
         Ok(FactorEvaluationResult {
             job_id: Some(loop_protocol::wire::v1::JobId {
                 value: self.job_id.clone(),

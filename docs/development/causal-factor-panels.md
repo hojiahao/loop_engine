@@ -6,6 +6,10 @@ values, eligibility, a complete XNYS session grid and immutable lineage. It does
 not search for factors, register jobs, admit factors or calculate portfolio returns.
 ADR 0026 records the design and rollback boundary.
 
+For frozen winsorization, standardization and industry/size/beta neutralization,
+use the version-2 extension in `cross-sectional-transforms.md`. It reuses these
+source/store boundaries and adds explicit policies and derived exposure inputs.
+
 ## Inputs and authority
 
 Use two existing, absolute, canonical directories owned by the data administrator
@@ -96,7 +100,7 @@ The returned `dataset` and `calendar` references can be pinned in the existing
 research context described in `factor-evaluation.md`. Generating these files
 does not create a runtime identity, job, lease or capability. The existing
 resolver and artifact broker still verify the references and expose only the
-authorized panel and CSV in a read-only worker view. The integration tests use
+authorized panel artifacts in a read-only worker view. The integration tests use
 the installed panel command before real TLS/PostgreSQL/lease-controlled execution.
 
 ## Limits and recovery

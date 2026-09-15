@@ -36,8 +36,11 @@ impl Clock for TestClock {
 
 impl Case {
     async fn start() -> Self {
+        Self::open(fixture(false).await).await
+    }
+
+    async fn open(fixture: Fixture) -> Self {
         let _ = tracing_subscriber::fmt().with_test_writer().try_init();
-        let fixture = fixture().await;
         let clock = Arc::new(TestClock(AtomicI64::new(0)));
         let store = fixture.open(clock.clone(), fixture.policy().await).await;
         store.submit(fixture.job.clone()).await.unwrap();
@@ -259,7 +262,7 @@ fn context(key: &str) -> CommandContext {
     context
 }
 
-async fn fixture() -> Fixture {
+async fn fixture(transformed: bool) -> Fixture {
     let mut fixture = Fixture::new();
     let captured = tokio::time::timeout(
         Duration::from_secs(65),
@@ -302,9 +305,30 @@ async fn fixture() -> Fixture {
         &std::fs::read(fixture.path(&fixture.context.configuration)).unwrap(),
     )
     .unwrap();
-    configuration.backtest_engine_version = "factor-evaluator.2".to_owned();
+    configuration.backtest_engine_version = if transformed {
+        "factor-evaluator.3"
+    } else {
+        "factor-evaluator.2"
+    }
+    .to_owned();
+    if transformed {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/market/transforms/transform.json");
+        let recipe: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        for role in ["preprocess", "neutralization"] {
+            let document: model::PolicyDocument =
+                serde_json::from_value(recipe[role].clone()).unwrap();
+            let policy = configuration
+                .policies
+                .iter_mut()
+                .find(|entry| entry.policy_id == document.policy_id)
+                .unwrap();
+            policy.document = fixture.json(&document);
+        }
+    }
     fixture.context.configuration = fixture.json(&configuration);
-    let data = build_panel_input(&mut fixture).await;
+    let data = build_panel_input(&mut fixture, transformed).await;
     fixture.context.family = None;
     let (_, job_specification::Input::FactorEvaluation(mut input)) =
         support::research::inputs().remove(1)
@@ -370,15 +394,29 @@ async fn fixture() -> Fixture {
     fixture
 }
 
-async fn build_panel_input(fixture: &mut Fixture) -> model::Dataset {
+async fn build_panel_input(fixture: &mut Fixture, transformed: bool) -> model::Dataset {
     // Exercise the installed data-owner workflow before TLS/lease execution.
     // Source history stays outside the development store and broker views.
     std::fs::set_permissions(&fixture.root, std::fs::Permissions::from_mode(0o700)).unwrap();
     let sources = fixture.directory.path().join("panel-sources");
     std::fs::create_dir(&sources).unwrap();
     std::fs::set_permissions(&sources, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/market/panels");
-    for name in ["source.json", "capture.json"] {
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join(if transformed {
+        "../../fixtures/market/transforms"
+    } else {
+        "../../fixtures/market/panels"
+    });
+    let sources_names: &[&str] = if transformed {
+        &[
+            "source.json",
+            "capture.json",
+            "exposures.json",
+            "transform.json",
+        ]
+    } else {
+        &["source.json", "capture.json"]
+    };
+    for name in sources_names {
         super::super::fixture::put(&sources, &std::fs::read(examples.join(name)).unwrap());
     }
     let built = tokio::time::timeout(
@@ -413,14 +451,64 @@ async fn build_panel_input(fixture: &mut Fixture) -> model::Dataset {
         production_eligible: bool,
     }
     let report: BuiltPanel = serde_json::from_slice(&built.stdout).unwrap();
+    let expected = if transformed { 24 } else { 6 };
     assert_eq!(
         (report.rows, report.eligible_rows, report.observed_rows),
-        (6, 6, 6)
+        (expected, expected, expected)
     );
     assert!(!report.production_eligible);
     fixture.context.data = report.dataset;
     fixture.context.calendar = report.calendar;
     serde_json::from_slice(&std::fs::read(fixture.path(&fixture.context.data)).unwrap()).unwrap()
+}
+
+fn change_preprocess(fixture: &mut Fixture) {
+    // Rebind the entire frozen context to a different valid document. The test
+    // must reach panel/policy validation, not merely fail a stale digest check.
+    let mut configuration: model::Configuration = serde_json::from_slice(
+        &std::fs::read(fixture.path(&fixture.context.configuration)).unwrap(),
+    )
+    .unwrap();
+    let policy = configuration
+        .policies
+        .iter_mut()
+        .find(|entry| entry.policy_id == "policy.preprocess")
+        .unwrap();
+    let mut document: model::PolicyDocument =
+        serde_json::from_slice(&std::fs::read(fixture.path(&policy.document)).unwrap()).unwrap();
+    document
+        .settings
+        .insert("standardize".to_owned(), "zscore".to_owned());
+    policy.document = fixture.json(&document);
+    let digest = policy.document.digest().unwrap();
+    fixture.context.configuration = fixture.json(&configuration);
+    let provenance = fixture
+        .context
+        .provenance(*fixture.registry.identity().as_bytes())
+        .unwrap();
+    let Some(job_specification::Input::FactorEvaluation(input)) =
+        &mut fixture.job.specification.input
+    else {
+        unreachable!()
+    };
+    input.provenance = Some(provenance);
+    let factor = input.factor.as_mut().unwrap();
+    factor
+        .frozen_policy
+        .as_mut()
+        .unwrap()
+        .preprocess_policy
+        .as_mut()
+        .unwrap()
+        .sha256 = Some(model::digest(digest));
+    factor.factor_spec_id.as_mut().unwrap().value = format!(
+        "sha256:{}",
+        loop_protocol::job::factor_spec_identity_sha256(factor)
+            .unwrap()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
 }
 
 fn bind_moving_average(
@@ -705,4 +793,141 @@ async fn changed_output_cannot_replay_a_successful_receipt() {
         .unwrap_err();
     assert_eq!(error.code(), Code::Unavailable);
     assert_eq!(case.store.audit_events(0, 20).await.unwrap().len(), 4);
+}
+
+#[tokio::test]
+async fn raw_policy_is_not_ignored() {
+    let mut fixture = fixture(false).await;
+    change_preprocess(&mut fixture);
+    let case = Case::open(fixture).await;
+    let error = case
+        .client()
+        .await
+        .evaluate_factor(case.request().await)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), Code::Unavailable);
+    assert_eq!(std::fs::read_dir(&case.output).unwrap().count(), 0);
+    assert_eq!(std::fs::read_dir(&case.views).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn transformed_policy_must_match_panel() {
+    let mut fixture = fixture(true).await;
+    change_preprocess(&mut fixture);
+    let case = Case::open(fixture).await;
+    let error = case
+        .client()
+        .await
+        .evaluate_factor(case.request().await)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), Code::Unavailable);
+    assert_eq!(std::fs::read_dir(&case.output).unwrap().count(), 0);
+    assert_eq!(std::fs::read_dir(&case.views).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn transformed_values_commit() {
+    let case = Case::open(fixture(true).await).await;
+    let job = case
+        .client()
+        .await
+        .evaluate_factor(case.request().await)
+        .await
+        .unwrap()
+        .into_inner()
+        .job
+        .unwrap();
+    let Some(job_outcome::Outcome::Success(success)) = job.outcome.unwrap().outcome else {
+        panic!("transformed numerical success");
+    };
+    assert!(
+        success
+            .outputs
+            .iter()
+            .all(|artifact| artifact.schema.as_ref().unwrap().version == 2)
+    );
+    let content = std::fs::read_to_string(
+        case.output
+            .join(&success.outputs[0].artifact_id.as_ref().unwrap().value[7..]),
+    )
+    .unwrap();
+    let rows = content.lines().skip(1).collect::<Vec<_>>();
+    assert_eq!(rows.len(), 24);
+    let expected = [1.0_f64, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0];
+    for (index, row) in rows.iter().enumerate() {
+        let value = row.rsplit(',').next().unwrap();
+        if index < 8 {
+            assert!(value.is_empty());
+        } else {
+            assert!((value.parse::<f64>().unwrap() - expected[index % 8]).abs() < 1e-12);
+        }
+    }
+    let report: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(
+            case.output
+                .join(&success.outputs[1].artifact_id.as_ref().unwrap().value[7..]),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(report["schema"], "loop.factor-evaluation-result/v2");
+    assert_eq!(report["eligible_observations"], 24);
+    assert_eq!(report["valid_observations"], 16);
+    assert_eq!(report["transform"]["raw_valid_observations"], 16);
+    assert_eq!(
+        report["transform"]["outcomes"],
+        serde_json::json!(["insufficient", "ok", "ok"])
+    );
+}
+
+#[tokio::test]
+async fn transformed_completion_replays() {
+    let mut case = Case::open(fixture(true).await).await;
+    let request = case.request().await;
+    let first = case
+        .client()
+        .await
+        .evaluate_factor(request.clone())
+        .await
+        .unwrap()
+        .into_inner();
+    let before = std::fs::read_dir(&case.output).unwrap().count();
+    case.restart().await;
+    let repeated = case
+        .client()
+        .await
+        .evaluate_factor(request)
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(first, repeated);
+    assert_eq!(std::fs::read_dir(&case.output).unwrap().count(), before);
+    assert_eq!(case.store.audit_events(0, 20).await.unwrap().len(), 4);
+}
+
+#[tokio::test]
+async fn changed_exposures_block_execution() {
+    let case = Case::open(fixture(true).await).await;
+    let request = case.request().await;
+    let data: model::Dataset = serde_json::from_slice(
+        &std::fs::read(case.fixture.path(&case.fixture.context.data)).unwrap(),
+    )
+    .unwrap();
+    let exposure = data.snapshots[0]
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.schema.name == "loop.factor_exposures")
+        .unwrap();
+    std::fs::write(case.fixture.path(&exposure.object), b"corrupt").unwrap();
+    let error = case
+        .client()
+        .await
+        .evaluate_factor(request)
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), Code::Unavailable);
+    assert_eq!(std::fs::read_dir(&case.output).unwrap().count(), 0);
+    assert_eq!(std::fs::read_dir(&case.views).unwrap().count(), 0);
 }

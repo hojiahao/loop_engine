@@ -26,9 +26,11 @@ from loop_protocol.job import (
 from loop_protocol.provenance import PROVENANCE_COMPONENTS, ProvenanceSnapshot
 
 from loop_research.build_identity import canonical_bytes, publish_object, require_build
+from loop_research.cross_section import transform
 from loop_research.evaluator import Evaluation, evaluate
 from loop_research.operators import operator_registry
 from loop_research.panel_io import ContentRef, PanelInput, load_panel
+from loop_research.transform_models import TransformEvidence, resolve_policy
 
 MAX_MESSAGE_BYTES = 1_048_576
 MAX_OUTPUT_BYTES = 64 * 1024 * 1024
@@ -72,6 +74,7 @@ def _artifact(
     columns: list[str],
     completed_ms: int,
     row_count: int | None = None,
+    schema_version: int = 1,
 ) -> ArtifactRef:
     schema = publish_object(
         output,
@@ -79,7 +82,7 @@ def _artifact(
             {
                 "schema": "loop.artifact-schema/v1",
                 "name": name,
-                "version": 1,
+                "version": schema_version,
                 "media_type": media_type,
                 "columns": columns,
             }
@@ -93,7 +96,7 @@ def _artifact(
         sha256=Sha256Digest(value=digest),
         schema=ArtifactSchemaReference(
             name=name,
-            version=1,
+            version=schema_version,
             schema_sha256=Sha256Digest(value=bytes.fromhex(schema["sha256"][7:])),
         ),
         media_type=media_type,
@@ -135,7 +138,7 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
     panel_reference = validate_artifact_ref(work.panel_manifest)
     if (
         panel_reference.schema_name != "loop.factor_panel"
-        or panel_reference.schema_version != 1
+        or panel_reference.schema_version not in {1, 2}
         or panel_reference.media_type != "application/json"
     ):
         raise ValueError("factor work requires a supported panel manifest")
@@ -150,9 +153,42 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
         sample_start=date(work.sample_start.year, work.sample_start.month, work.sample_start.day),
         sample_end=date(work.sample_end.year, work.sample_end.month, work.sample_end.day),
     )
+    processing = loaded.manifest.transform
+    output_version = 1 if processing is None else 2
+    if panel_reference.schema_version != output_version:
+        raise ValueError("panel artifact and transformation version differ")
+    if processing is not None:
+        for reference, policy_document in (
+            (factor.spec.preprocess_policy, processing.preprocess),
+            (factor.spec.neutralization_policy, processing.neutralization),
+        ):
+            if (reference.policy_id, reference.revision, reference.sha256) != (
+                policy_document.policy_id,
+                policy_document.revision,
+                policy_document.digest(),
+            ):
+                raise ValueError("transformation policy differs from the frozen FactorSpec")
     result = evaluate(
         factor, loaded.panel, evaluation_start=date.fromisoformat(loaded.manifest.evaluation_start)
     )
+    transformation = None
+    if processing is not None:
+        transformed = transform(
+            result,
+            loaded.panel,
+            resolve_policy(processing.preprocess, processing.neutralization),
+            loaded.exposures,
+        )
+        result = transformed.evaluation
+        transformation = TransformEvidence(
+            preprocess_sha256=processing.preprocess.digest(),
+            neutralization_sha256=processing.neutralization.digest(),
+            exposures_sha256=processing.exposures.sha256
+            if processing.exposures is not None
+            else None,
+            raw_valid_observations=transformed.raw_valid_observations,
+            outcomes=transformed.outcomes,
+        )
     content = _values(result, loaded)
     loaded.check()
     _require_build(work)
@@ -165,6 +201,7 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
         columns=["session", "security_id", "eligible", "value"],
         completed_ms=completed_ms,
         row_count=result.values.size,
+        schema_version=output_version,
     )
     report = FactorEvaluationResult(
         job_id=work.job_id,
@@ -183,7 +220,7 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
     )
     document = canonical_bytes(
         {
-            "schema": "loop.factor-evaluation-result/v1",
+            "schema": f"loop.factor-evaluation-result/v{output_version}",
             "job_id": work.job_id.value,
             "lease_id": work.lease_id.value,
             "factor_spec_id": result.factor_spec_id,
@@ -207,6 +244,11 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
             "valid_observations": result.valid_observations,
             "work_units": result.work_units,
             "completed_at_ms": completed_ms,
+            **(
+                {"transform": transformation.model_dump(mode="json")}
+                if transformation is not None
+                else {}
+            ),
         }
     )
     report.manifest.CopyFrom(
@@ -222,6 +264,7 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
                 "eligible_observations",
             ],
             completed_ms=completed_ms,
+            schema_version=output_version,
         )
     )
     loaded.check()

@@ -1,6 +1,6 @@
 # ADR 0026: Causal development panels from captured security histories
 
-- Status: Implemented; local gates pass; publication gates pending
+- Status: Accepted; implementation and publication gates pass
 - Date: 2026-09-14
 - Owner: hojiahao
 
@@ -68,3 +68,7 @@ Rollback disables the new administrative writers and reverts this task's code.
 Keep completed source captures, construction receipts, panels, jobs and audit
 history. No destructive migration, production database operation, paid request,
 subscription purchase or holdout unlock is part of this unit.
+
+Implementation `39959d7` is pushed. Local check/test/build/doctor and all seven
+jobs in CI run `34924328910` pass. This accepts the bounded development-panel
+workflow, without closing the licensed production-data or later Phase 6 gates.

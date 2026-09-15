@@ -28,6 +28,7 @@ from loop_research.evaluator import MAX_CELLS, MAX_WORK
 from loop_research.panel_io import MAX_METADATA_BYTES, MAX_PANEL_BYTES, ContentRef, PanelManifest
 from loop_research.panel_models import PanelReceipt, PanelReport, PanelRequest, RawField
 from loop_research.panel_sources import load_capture
+from loop_research.transform_models import PanelTransform
 
 
 class _Budget:
@@ -203,20 +204,25 @@ def _materialize(
         return object_ref(content)
 
     def artifact(
-        reference: CachedObject, name: str, media: str, columns: list[str]
+        reference: CachedObject,
+        name: str,
+        media: str,
+        columns: list[str],
+        *,
+        schema_version: int = 1,
     ) -> dict[str, object]:
         schema = document(
             {
                 "schema": "loop.artifact-schema/v1",
                 "name": name,
-                "version": 1,
+                "version": schema_version,
                 "media_type": media,
                 "columns": columns,
             }
         )
         return {
             "object": reference.model_dump(),
-            "schema": {"name": name, "version": 1, "document": schema.model_dump()},
+            "schema": {"name": name, "version": schema_version, "document": schema.model_dump()},
             "media_type": media,
             "created_at_ms": _milliseconds(capture.captured_at),
         }
@@ -224,8 +230,34 @@ def _materialize(
     sessions, _, _, decisions = schedule
     calendar_version = version("exchange-calendars")
     values = object_ref(csv_bytes)
+    transformation = None
+    exposure_artifacts: list[dict[str, object]] = []
+    if request.transform is not None:
+        from loop_research.exposure_io import COLUMNS, prepare_exposures
+
+        recipe, exposure_bytes = prepare_exposures(
+            sources,
+            request.transform,
+            quality=capture.quality,
+            captured_at=capture.captured_at,
+            sessions=sessions,
+            securities=request.securities,
+            decisions=decisions,
+            check=budget.check,
+            charge=budget.charge,
+        )
+        exposure_ref = object_ref(exposure_bytes) if exposure_bytes is not None else None
+        transformation = PanelTransform(
+            preprocess=recipe.preprocess,
+            neutralization=recipe.neutralization,
+            exposures=exposure_ref,
+        )
+        if exposure_ref is not None:
+            exposure_artifacts.append(
+                artifact(exposure_ref, "loop.factor_exposures", "text/csv", COLUMNS)
+            )
     panel = PanelManifest(
-        schema="loop.factor-panel/v1",
+        schema="loop.factor-panel/v1" if transformation is None else "loop.factor-panel/v2",
         quality=capture.quality,
         sessions=tuple(day.isoformat() for day in sessions),
         securities=request.securities,
@@ -233,6 +265,7 @@ def _materialize(
         decision_times_ms=decisions,
         evaluation_start=next(day.isoformat() for day in sessions if day >= request.sample_start),
         values=ContentRef(**values.model_dump()),
+        transform=transformation,
     )
     panel_ref = object_ref(panel.model_dump_json(by_alias=True).encode("ascii"))
     calendar = document(
@@ -277,7 +310,13 @@ def _materialize(
                     else "public-development",
                     "known_through_ms": decisions[-1],
                     "artifacts": [
-                        artifact(panel_ref, "loop.factor_panel", "application/json", []),
+                        artifact(
+                            panel_ref,
+                            "loop.factor_panel",
+                            "application/json",
+                            [],
+                            schema_version=1 if transformation is None else 2,
+                        ),
                         artifact(
                             values,
                             "loop.factor_panel_values",
@@ -290,6 +329,7 @@ def _materialize(
                                 *request.fields,
                             ],
                         ),
+                        *exposure_artifacts,
                     ],
                 }
             ],

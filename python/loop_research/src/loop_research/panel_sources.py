@@ -18,10 +18,9 @@ MAX_SOURCE_BYTES = 512 * 1024 * 1024
 MAX_SOURCE_FILES = 512
 
 
-def _check_raw(store: Path, capture: PitInput, check: Callable[[], float]) -> None:
-    references = sorted(
-        {record.source.raw_sha256 for record in (*capture.securities, *capture.bars)}
-    )
+def check_raw_references(store: Path, digests: tuple[str, ...], check: Callable[[], float]) -> None:
+    """Resolve a bounded private source set; no output or access grant is created."""
+    references = sorted(set(digests))
     if len(references) > MAX_SOURCE_FILES:
         raise ValueError("panel source file budget")
     total = 0
@@ -107,7 +106,11 @@ def load_capture(store: Path, request: PanelRequest, check: Callable[[], float])
         raise ValueError("requested security has no explicit history")
     if capture.fundamentals:
         raise ValueError("raw OHLCV construction requires a capture without fundamentals")
-    _check_raw(store, capture, check)
+    check_raw_references(
+        store,
+        tuple(record.source.raw_sha256 for record in (*capture.securities, *capture.bars)),
+        check,
+    )
     if capture.quality == "synthetic":
         if request.source_snapshot is not None:
             raise ValueError("synthetic captures cannot import public source data")

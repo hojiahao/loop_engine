@@ -15,7 +15,7 @@ RawField = Literal["market.open", "market.high", "market.low", "market.close", "
 class PanelRequest(ImmutableRecord):
     """Freeze a development selection; references never grant data authority."""
 
-    schema_version: Literal["loop.panel-build-request/v1"] = Field(
+    schema_version: Literal["loop.panel-build-request/v1", "loop.panel-build-request/v2"] = Field(
         default="loop.panel-build-request/v1", alias="schema"
     )
     capture: CachedObject
@@ -26,9 +26,14 @@ class PanelRequest(ImmutableRecord):
     sample_start: date
     sample_end: date
     close_delay_ms: int = Field(default=300_000, ge=0, le=7_200_000)
+    transform: CachedObject | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def valid_selection(self) -> Self:
+        if (self.schema_version == "loop.panel-build-request/v2") != (self.transform is not None):
+            raise ValueError("transformed panels require an explicit version-2 request")
+        if self.transform is not None and self.transform.byte_size > 1024 * 1024:
+            raise ValueError("panel transformation metadata byte budget")
         if not (
             date(2005, 1, 1) <= self.warmup_start <= self.sample_start <= self.sample_end
             and (

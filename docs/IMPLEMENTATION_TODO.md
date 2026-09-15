@@ -341,15 +341,18 @@ verify each before the next):
 
 1. Build causal factor panels from verified data and explicit security histories,
    with complete calendar axes, eligibility and knowledge-time checks; connect
-   the output to the existing authorized factor execution path (`in_progress`:
-   implementation and all local gates pass on 2026-09-15; commit/push/remote CI
-   pending at this checkpoint). ADR 0026 and
+   the output to the existing authorized factor execution path (`complete`:
+   `39959d7` is pushed; all seven jobs in CI run `34924328910` pass). ADR 0026 and
    `docs/verification/phase-06-factor-engine.md` record 49 new panel/source cases,
    693 passing research tests and the actual TLS/PostgreSQL/Python handoff.
    No paid source, protected sample or production-quality claim is included.
 2. Add versioned cross-sectional winsorization, standardization and industry/
    size/beta neutralization, with deterministic missing/rank-deficient behavior
-   and independent numerical goldens (`pending`).
+   and independent numerical goldens (`in_progress`; implementation and 42 new
+   Python cases pass, with five new Rust integration cases prepared. ADR 0027
+   binds versioned panels, exposures and results to frozen policies; raw inputs
+   remain compatible. Full remote acceptance is pending; see the verification
+   record for the constrained-host compilation and isolated concurrency rerun).
 3. Integrate the complete factor-research evaluation and trial/admission workflow,
    with frozen preprocessing/operator provenance, coverage, duplicate/failure
    filtering, determinism and no-lookahead acceptance (`pending`).

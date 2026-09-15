@@ -1,6 +1,6 @@
 # Authorized Factor Evaluation
 
-This development-only path computes raw factor values and exact coverage. It
+This development-only path computes factor values and exact coverage. It
 does not construct portfolios, admit factors, unlock holdouts, or establish
 point-in-time market-data quality. ADR 0020 and the Phase 4 verification record
 track acceptance; the presence of this document is not a release claim.
@@ -8,6 +8,8 @@ track acceptance; the presence of this document is not a release claim.
 Build causal inputs from captured source evidence with the administrative
 workflow in `causal-factor-panels.md`. Its outputs reuse the formats below;
 runtime registration, provenance checks and authority requirements still apply.
+The version-2 transformed-panel extension is documented in
+`cross-sectional-transforms.md` and ADR 0027; raw-input compatibility is retained.
 
 ## Deployment Boundary
 
@@ -71,9 +73,11 @@ readable but cannot execute. A partial pair is invalid. The pinned context must
 match the durable input, actual canonical operator registry, all nine policy
 references, source/environment files, data and calendar. Its configuration names
 `factor-evaluator.2`; this identifies the raw-value implementation, not a completed
-primary portfolio backtester.
+primary portfolio backtester. Raw evaluation requires empty preprocessing and
+neutralization settings. Explicit version-2 transforms use `factor-evaluator.3`
+and bind their policy documents to both the FactorSpec and this context.
 
-Each current development snapshot contains exactly two artifacts:
+Each raw development snapshot contains exactly two artifacts:
 
 - `loop.factor_panel`, version 1, `application/json`.
 - `loop.factor_panel_values`, version 1, `text/csv`.
@@ -124,11 +128,13 @@ timeout; timeout or request cancellation drops and kills the subprocess. These
 are ceilings, not throughput estimates. Full-market runtime must be measured
 with the licensed dataset, universe and expression depth of the actual study.
 
-Successful output contains raw-value CSV plus a canonical result manifest,
+Successful output contains factor-value CSV plus a canonical result manifest,
 including exact factor/lease identities, six fingerprints, seed, quality,
 sample bounds, coverage and work counts. Frozen civil-date sample bounds are
 preserved even when the first/last boundary is a nontrading day. The raw values
-are deterministic; independently created completion timestamps are metadata.
+are deterministic within the pinned implementation/environment; independently
+created completion timestamps are metadata. Transformed outputs use artifact
+version 2 and record transformation identities and session outcomes as well.
 Completed retries resolve the stored output and immutable receipt instead of
 recomputing or appending a second completion audit.
 

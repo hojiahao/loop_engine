@@ -71,9 +71,52 @@ Full local gates pass on 2026-09-15:
   guard is unchanged. The complete rerun above passes. The disposable local
   PostgreSQL fixture was automatically removed; production was not accessed.
 
-Publication and exact-commit remote CI are pending at commit time. Passing these
-cases does not establish a full-market throughput SLA, licensed PIT coverage,
-a portfolio backtest, factor admission or a completed Phase 6.
+Implementation `39959d7` is pushed. All seven jobs in CI run `34924328910` pass:
+Rust 7m14s, TypeScript 25s, research 1m41s, protocol 32s, legacy 29s, unified
+workspace 10m43s and DaoCloud container 12m13s. This includes independent worker
+namespace isolation and clean-container acceptance. Passing these cases does
+not establish a full-market throughput SLA, licensed PIT coverage, a portfolio
+backtest, factor admission or a completed Phase 6.
+
+## Unit 2: Frozen cross-sectional transformations
+
+Implementation follows ADR 0027 and `docs/development/cross-sectional-transforms.md`.
+The existing panel builder produces version-2 panels with the actual frozen
+policy documents and optional causal exposure CSV. The existing Rust resolver,
+artifact broker, installed Python worker and fenced completion handle these
+artifacts without a new RPC, service, dependency or database schema.
+
+The numerical profile clips linear-quantile tails, fits declared equal-weight
+industry/log-size/beta OLS and optionally standardizes with ddof=1. Raw coverage
+and every session outcome remain in the result. Sparse/rank-deficient inputs
+produce explicit missing outcomes; unknown policies, numerical failures, changed
+evidence and exhausted budgets fail the operation. Version-1 raw inputs reject
+nonempty transformation policies instead of silently ignoring them.
+
+The initial targeted run passes 92 Python cases in 229.17 seconds, including
+raw/source/worker regressions and 18 cross-sectional goldens/properties. It
+exercises the installed worker, hand/SciPy comparisons, frozen policy mismatch,
+missing exposure coverage and microsecond-late revisions. Further cases cover
+exposure-only corruption/time checks, bounded design work and preprocessing
+without an exposure artifact. Five additional Rust integration cases exercise
+version-2 completion, restart, policy mismatch, raw-policy refusal and corrupted
+exposure inputs through the actual TLS/PostgreSQL/worker path.
+
+Local `just check` and `just doctor` pass. The complete Rust test compilation
+was interrupted on the approximately 1.6 GiB host after both ordinary and
+single-job builds encountered sustained paging/I/O wait (77–78% in the sampled
+interval). Neither interrupted attempt is counted as a passing full-suite gate.
+The local research suite records 734 passed and one failed in 365.06 seconds.
+All 42 new unit-2 cases pass, including actual installed-worker OLS, clipping/
+standardization without exposures, temporal parsing and numerical properties.
+The existing `test_independent_snapshot_writers[8]` exceeds its 90-second process
+exit deadline under host resource pressure, after emitting a snapshot report;
+the 2- and 4-writer cases pass. The timeout remains unchanged and is not treated
+as success. The isolated 8-writer rerun passes in 85.12 seconds, with its original
+deadline and assertions. The established GitHub Actions Rust, unified-workspace
+and clean-container jobs must still execute the complete behavior/build/isolation
+gates on the published commit. Publication and remote acceptance are pending at
+this checkpoint; this is not yet unit/phase closure.
 
 ## Rollback and retained evidence
 
