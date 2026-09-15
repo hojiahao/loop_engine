@@ -9,9 +9,11 @@ The offline access preflight/credential handoff is published as `754486e`; all
 seven jobs in run `34816439735` pass. Real SEC and Alpaca IEX acquisition, replay
 and source Parquet validation now pass; the dated evidence is appended below.
 Sharadar credentials are configured, but subscription scope and a matching license
-declaration are unconfirmed. Phase 6 remains pending under the owner's latest
-instruction to complete Phase 5's remaining acceptance first. Older checkpoints
-below describe their own publication-time state, not the current access status.
+declaration are unconfirmed. The owner's subsequent 2026-09-14 instruction defers
+paid subscriptions and authorizes Phase 6 development with synthetic/public
+evidence. The licensed production-quality exit remains deferred, not passed.
+The real-data task `e2a04de` is pushed and all seven CI jobs in run `34822845327`
+pass. Older checkpoints below describe their own publication-time state.
 
 ## Session-Date Checkpoint
 

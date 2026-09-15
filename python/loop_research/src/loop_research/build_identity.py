@@ -187,6 +187,20 @@ def publish_object(store: Path, content: bytes) -> ObjectReference:
         os.close(directory)
 
 
+def describe_source() -> ObjectReference:
+    """Hash the installed research/protocol source tree without copying it.
+
+    This is the same source identity used by numerical worker provenance, not
+    environment or OS attestation. Reads retain the existing byte/time guards.
+    """
+    capture = _Capture(None)
+    files = []
+    for package in ("loop_research", "loop_protocol", "loop"):
+        files.extend(capture.tree(package, _package_root(package)))
+    files.sort(key=lambda file: file["name"])
+    return _reference(canonical_bytes({"schema": "loop.source-files/v1", "files": files}))
+
+
 def describe_build(
     store: Path | None = None, *, profile: Literal["perturbation", "evaluation"] = "perturbation"
 ) -> BuildIdentity:

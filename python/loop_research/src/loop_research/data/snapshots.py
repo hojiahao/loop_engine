@@ -290,10 +290,10 @@ def build_snapshot(
     return _report(reference, manifest)
 
 
-def validate_snapshot(store: Path, digest: str) -> SnapshotReport:
+def validate_snapshot(store: Path, digest: str, *, timeout_seconds: float = 180) -> SnapshotReport:
     """Replay all sources and verify actual Parquet values; write nothing."""
     reference, manifest = read_snapshot(store, digest)
-    _materialize(store, manifest.request, _Deadline(180), expected=manifest)
+    _materialize(store, manifest.request, _Deadline(min(timeout_seconds, 180)), expected=manifest)
     return _report(reference, manifest)
 
 

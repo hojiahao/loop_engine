@@ -1,0 +1,14 @@
+{
+  "schema": "loop.panel-build-request/v1",
+  "capture": {
+    "sha256": "sha256:f24baba97355c3ae86d747da20a70121de00bb6ac719a645bf228f3e316543b3",
+    "byte_size": 4119
+  },
+  "source_snapshot": null,
+  "securities": ["US.001", "US.002"],
+  "fields": ["market.close"],
+  "warmup_start": "2010-01-02",
+  "sample_start": "2010-01-02",
+  "sample_end": "2010-01-06",
+  "close_delay_ms": 300000
+}

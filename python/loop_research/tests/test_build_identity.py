@@ -131,6 +131,7 @@ def test_relative_store_is_rejected() -> None:
 
 def test_installed_build_is_repeatable() -> None:
     identity = builds.describe_build()
+    assert builds.describe_source() == identity.source
     assert (
         builds.require_build(identity.source["sha256"], identity.environment["sha256"]) == identity
     )

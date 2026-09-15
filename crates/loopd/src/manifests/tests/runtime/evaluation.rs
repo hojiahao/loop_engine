@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use loop_protocol::wire::v1::*;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use super::*;
 use crate::manifests::{EvaluationPin, EvaluationResolver, ObjectRef};
@@ -304,87 +304,7 @@ async fn fixture() -> Fixture {
     .unwrap();
     configuration.backtest_engine_version = "factor-evaluator.2".to_owned();
     fixture.context.configuration = fixture.json(&configuration);
-    let decisions = [1_262_639_100_000_i64, 1_262_725_500_000, 1_262_811_900_000];
-    let sessions = vec![
-        "2010-01-04".to_owned(),
-        "2010-01-05".to_owned(),
-        "2010-01-06".to_owned(),
-    ];
-    let mut csv = "session,security_id,eligible,known_at_ms,market.close\n".to_owned();
-    for (index, session) in sessions.iter().enumerate() {
-        for security in ["US.001", "US.002"] {
-            csv.push_str(&format!(
-                "{session},{security},1,{},{}\n",
-                decisions[index] - 60_000,
-                8 + index * 2
-            ));
-        }
-    }
-    let values = super::super::fixture::artifact(
-        &fixture.root,
-        "loop.factor_panel_values",
-        "text/csv",
-        csv.as_bytes(),
-        &[
-            "session",
-            "security_id",
-            "eligible",
-            "known_at_ms",
-            "market.close",
-        ],
-    );
-    #[derive(Serialize)]
-    struct Panel<'a> {
-        schema: &'a str,
-        quality: &'a str,
-        sessions: &'a [String],
-        securities: [&'a str; 2],
-        fields: [&'a str; 1],
-        decision_times_ms: [i64; 3],
-        evaluation_start: &'a str,
-        values: &'a ObjectRef,
-    }
-    let panel = super::super::fixture::artifact(
-        &fixture.root,
-        "loop.factor_panel",
-        "application/json",
-        &serde_json::to_vec(&Panel {
-            schema: "loop.factor-panel/v1",
-            quality: "synthetic",
-            sessions: &sessions,
-            securities: ["US.001", "US.002"],
-            fields: ["market.close"],
-            decision_times_ms: decisions,
-            evaluation_start: "2010-01-04",
-            values: &values.object,
-        })
-        .unwrap(),
-        &[],
-    );
-    let data = model::Dataset {
-        schema: "loop.development-dataset/v1".to_owned(),
-        sample: model::Sample {
-            role: model::SampleRole::InSample,
-            start: "2010-01-02".to_owned(),
-            end: "2010-01-06".to_owned(),
-        },
-        quality: model::Quality::Synthetic,
-        snapshots: vec![model::Snapshot {
-            snapshot_id: "snapshot.synthetic".to_owned(),
-            source: "synthetic".to_owned(),
-            dataset: "factor-panel".to_owned(),
-            entitlement: "offline".to_owned(),
-            known_through_ms: decisions[2],
-            artifacts: vec![panel, values],
-        }],
-    };
-    fixture.context.data = fixture.json(&data);
-    fixture.context.calendar = fixture.json(&model::Calendar {
-        schema: "loop.trading-calendar/v1".to_owned(),
-        name: "XNYS".to_owned(),
-        timezone: "America/New_York".to_owned(),
-        sessions,
-    });
+    let data = build_panel_input(&mut fixture).await;
     fixture.context.family = None;
     let (_, job_specification::Input::FactorEvaluation(mut input)) =
         support::research::inputs().remove(1)
@@ -448,6 +368,59 @@ async fn fixture() -> Fixture {
     fixture.job.specification.submitted_at =
         Some(support::timestamp(SystemClock.now_millis().unwrap()));
     fixture
+}
+
+async fn build_panel_input(fixture: &mut Fixture) -> model::Dataset {
+    // Exercise the installed data-owner workflow before TLS/lease execution.
+    // Source history stays outside the development store and broker views.
+    std::fs::set_permissions(&fixture.root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let sources = fixture.directory.path().join("panel-sources");
+    std::fs::create_dir(&sources).unwrap();
+    std::fs::set_permissions(&sources, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let examples = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/market/panels");
+    for name in ["source.json", "capture.json"] {
+        super::super::fixture::put(&sources, &std::fs::read(examples.join(name)).unwrap());
+    }
+    let built = tokio::time::timeout(
+        Duration::from_secs(35),
+        tokio::process::Command::new(python())
+            .args(["-I", "-m", "loop_research.cli", "panel-build"])
+            .arg(examples.join("request.json"))
+            .arg("--sources")
+            .arg(&sources)
+            .arg("--store")
+            .arg(&fixture.root)
+            .env_clear()
+            .env("OPENBLAS_NUM_THREADS", "1")
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert!(
+        built.status.success(),
+        "{}",
+        String::from_utf8_lossy(&built.stderr)
+    );
+    #[derive(Deserialize)]
+    struct BuiltPanel {
+        dataset: ObjectRef,
+        calendar: ObjectRef,
+        rows: u64,
+        eligible_rows: u64,
+        observed_rows: u64,
+        production_eligible: bool,
+    }
+    let report: BuiltPanel = serde_json::from_slice(&built.stdout).unwrap();
+    assert_eq!(
+        (report.rows, report.eligible_rows, report.observed_rows),
+        (6, 6, 6)
+    );
+    assert!(!report.production_eligible);
+    fixture.context.data = report.dataset;
+    fixture.context.calendar = report.calendar;
+    serde_json::from_slice(&std::fs::read(fixture.path(&fixture.context.data)).unwrap()).unwrap()
 }
 
 fn bind_moving_average(

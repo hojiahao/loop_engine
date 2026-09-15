@@ -63,6 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
     selector.add_argument("--security-id")
     selector.add_argument("--ticker")
     query.add_argument("--venue")
+    panel = commands.add_parser("panel-build", help="Build causal development OHLCV panels")
+    panel.add_argument("request", type=Path)
+    panel.add_argument("--sources", type=Path, required=True)
+    panel.add_argument("--store", type=Path, required=True)
+    panel_check = commands.add_parser("panel-validate", help="Offline causal panel reconstruction")
+    panel_check.add_argument("--receipt", required=True)
+    panel_check.add_argument("--sources", type=Path, required=True)
+    panel_check.add_argument("--store", type=Path, required=True)
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -132,6 +140,20 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command in ("panel-build", "panel-validate"):
+        from loop_research.panel_builder import build_panel, load_panel_request, validate_panel
+
+        try:
+            panel_report = (
+                build_panel(args.sources, args.store, load_panel_request(args.request))
+                if args.command == "panel-build"
+                else validate_panel(args.sources, args.store, args.receipt)
+            )
+        except OSError, ValueError, TimeoutError:
+            parser.error("panel operation failed: invalid source, selection, provenance or budget")
+        except KeyboardInterrupt:
+            parser.exit(130, "panel operation cancelled; preserve immutable source evidence\n")
+        print(panel_report.model_dump_json(by_alias=True))
     elif args.command in ("data-snapshot", "data-validate", "data-sync"):
         from loop_research.data.fetch_http import FetchError
         from loop_research.data.snapshot_models import SnapshotRequest

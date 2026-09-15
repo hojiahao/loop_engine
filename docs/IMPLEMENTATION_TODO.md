@@ -328,14 +328,25 @@ is pending at commit time. This advances a Phase 4 dependency without closing
 Phase 4 or claiming licensed/PIT market data. Evidence and rollback:
 `docs/verification/phase-05-us-data.md`.
 
-## Phase 6 - Factor engine (`pending`)
+Owner's subsequent 2026-09-14 decision defers paid subscriptions and authorizes
+continued implementation using synthetic and public-development evidence. The
+live acceptance task `e2a04de` is pushed; all seven jobs in run `34822845327`
+pass. The licensed coverage exit above remains deferred, not passed. It no longer
+blocks Phase 6 development; production data admission stays disabled.
+
+## Phase 6 - Factor engine (`in_progress`)
 
 Delivery units (implementation, tests and documentation together; publish and
 verify each before the next):
 
 1. Build causal factor panels from verified data and explicit security histories,
    with complete calendar axes, eligibility and knowledge-time checks; connect
-   the output to the existing authorized factor execution path (`pending`).
+   the output to the existing authorized factor execution path (`in_progress`:
+   implementation and all local gates pass on 2026-09-15; commit/push/remote CI
+   pending at this checkpoint). ADR 0026 and
+   `docs/verification/phase-06-factor-engine.md` record 49 new panel/source cases,
+   693 passing research tests and the actual TLS/PostgreSQL/Python handoff.
+   No paid source, protected sample or production-quality claim is included.
 2. Add versioned cross-sectional winsorization, standardization and industry/
    size/beta neutralization, with deterministic missing/rank-deficient behavior
    and independent numerical goldens (`pending`).

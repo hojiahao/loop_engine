@@ -5,6 +5,10 @@ does not construct portfolios, admit factors, unlock holdouts, or establish
 point-in-time market-data quality. ADR 0020 and the Phase 4 verification record
 track acceptance; the presence of this document is not a release claim.
 
+Build causal inputs from captured source evidence with the administrative
+workflow in `causal-factor-panels.md`. Its outputs reuse the formats below;
+runtime registration, provenance checks and authority requirements still apply.
+
 ## Deployment Boundary
 
 The optional mTLS runtime adds `JobService.EvaluateFactor`. It accepts only a
