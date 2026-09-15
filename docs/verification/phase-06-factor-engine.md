@@ -118,6 +118,14 @@ and clean-container jobs must still execute the complete behavior/build/isolatio
 gates on the published commit. Publication and remote acceptance are pending at
 this checkpoint; this is not yet unit/phase closure.
 
+Implementation `e881d3a` is pushed. CI run `34934903854` reaches the actual
+Rust/Python integration: transformed completion, restart, exposure corruption
+and policy binding pass. The raw-policy negative test expects `Unavailable`,
+while the existing transport correctly maps invalid input to `InvalidArgument`.
+This single wrong assertion fails the Rust/unified/container gates. The follow-up
+corrects that expected code; it does not change the guard, transport mapping or
+numerical implementation. Full acceptance must use the follow-up commit's CI.
+
 ## Rollback and retained evidence
 
 Disable the new administrative writers and revert the unit's code if needed.

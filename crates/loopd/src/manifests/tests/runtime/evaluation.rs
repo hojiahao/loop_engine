@@ -806,7 +806,7 @@ async fn raw_policy_is_not_ignored() {
         .evaluate_factor(case.request().await)
         .await
         .unwrap_err();
-    assert_eq!(error.code(), Code::Unavailable);
+    assert_eq!(error.code(), Code::InvalidArgument);
     assert_eq!(std::fs::read_dir(&case.output).unwrap().count(), 0);
     assert_eq!(std::fs::read_dir(&case.views).unwrap().count(), 0);
 }
