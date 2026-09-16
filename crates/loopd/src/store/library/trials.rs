@@ -34,7 +34,7 @@ pub(crate) async fn register(
     Ok(())
 }
 
-pub(super) async fn verify(
+pub(in crate::store) async fn verify(
     transaction: &mut Transaction<'_, Postgres>,
     record: &JobRecord,
 ) -> StoreResult<FactorTrial> {
@@ -70,6 +70,7 @@ pub(super) async fn verify(
         factor_spec_id: factor.to_owned(),
         state: record.state,
         attempt: record.attempt,
+        evaluation: super::super::evaluation::read(transaction, record).await?,
     })
 }
 

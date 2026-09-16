@@ -405,6 +405,15 @@ pub(super) struct Review {
     pub machine_rejection: String,
     pub semantic_accepted: bool,
     pub replacements: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evaluation: Option<EvaluationSource>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct EvaluationSource {
+    pub job_id: String,
+    pub manifest: ObjectRef,
 }
 
 pub(super) fn digest(value: [u8; 32]) -> Sha256Digest {

@@ -3,7 +3,9 @@
 `FactorRepository::decide_factor` is the internal Rust command for both ordinary
 admission and readmission. It consumes registered current primary IS results;
 it neither submits a new backtest nor accepts user-supplied performance values.
-Production `BacktestPolicy` still denies report resolution and semantic override.
+The default `BacktestPolicy` denies report resolution and semantic override.
+The optional actual-file resolver accepts version-2 reviews with registered
+numerical lineage under ADR 0028; its semantic override remains disabled.
 There is no enabled external admission RPC or `loopctl factor admit` command yet.
 
 ## Decision contract
@@ -17,7 +19,10 @@ needs a new result job, except for an explicitly authorized semantic override.
 Both paths execute the same checks: separately authenticated actor, development
 job/trial binding, primary result, all six current fingerprints, server-resolved
 IS report/policy, valid/eligible coverage, machine gates, completed semantic
-review and the reviewed active library. Coverage compares integers using u128:
+review and the reviewed active library. File-backed reviews also bind the
+completed numerical trial, actual value content/schema, data, seed, coverage,
+frozen policies and compatible worker provenance; see `evaluation-trials.md`.
+Coverage compares integers using u128:
 `valid * 10000 >= eligible * minimum_coverage_bps`. Zero eligible observations,
 counts outside the eligible set, missing reports and unresolved policies are
 invalid/unavailable evidence, not an investment conclusion.
@@ -64,6 +69,9 @@ outcomes instead of counting only admitted factors. The trial input checksum
 detects corruption; the canonical FactorSpec ID remains the research identity.
 Job executions and admission decisions are distinct accounting units, so a
 semantic override does not create another numerical experiment.
+Numerical trials now include verified completion evidence and either
+`ready_for_backtest` or `insufficient_coverage`. Neither grants admission.
+Pre-migration numerical successes remain explicit unverified history.
 
 ## Verification and recovery
 
@@ -75,9 +83,11 @@ bash scripts/postgres-test.sh usage
 bash scripts/postgres-test.sh stop
 ```
 
-These tests use real PostgreSQL jobs/receipts and explicitly fabricated IS
-report metadata, not licensed market data. Phase 4 units 3-5 must supply trusted
-manifest parsing, deployed identities, data isolation and actual evaluation.
+These legacy decision-accounting tests use real PostgreSQL jobs/receipts and
+explicitly fabricated IS report metadata, not licensed market data. Phase 4
+units 3–5 supply trusted manifest parsing, identities, isolation and evaluation;
+Phase 6's `evaluation` integration cases connect genuine computed values and
+version-2 reviews to this handler. Their portfolio reports remain synthetic.
 Independent backtester admission requirements belong to Phase 8/13; this
 internal boundary does not assert production factor readiness.
 
@@ -85,7 +95,9 @@ Keep the workspace feature selection when running targeted tests: `-p loopd`
 alone enables fewer protocol features and builds a separate, large test cache.
 
 Migration 9 adds two projections and refuses to fabricate trials for existing
-research jobs. It is not deployed to production. Disable decision/submission
+research jobs. Migration 10 adds immutable numerical completion evidence;
+neither this document nor committed SQL establishes production deployment.
+Disable decision/submission
 writers before rollback; keep all trials, factor states, receipts and audit.
 After schema deployment use a schema-aware recovery build or forward fix,
 not table deletion or removal of a migration checksum. See ADR 0017.

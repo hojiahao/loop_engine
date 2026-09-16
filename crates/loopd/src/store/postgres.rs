@@ -502,6 +502,7 @@ pub(super) async fn insert_job(
         return Err(StoreError::Invalid("submission time or elapsed budget"));
     }
     super::rejection::check_previous(transaction, specification).await?;
+    super::evaluation::check_previous(transaction, specification).await?;
     let record = JobRecord {
         specification: Some(specification.clone()),
         state: JobState::Queued as i32,

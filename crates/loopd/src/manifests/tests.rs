@@ -744,7 +744,7 @@ async fn registered_manifest_survives_restart_and_audited_export() {
 }
 
 #[tokio::test]
-async fn actual_review_enters_the_shared_admission_handler() {
+async fn legacy_review_cannot_create_new_admission() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let store = fixture
@@ -753,12 +753,10 @@ async fn actual_review_enters_the_shared_admission_handler() {
     seed(&fixture, &store).await;
     let mut command = support::library::command(1, 0, "manifest.admit");
     command.context_id = fixture.context_id();
-    let decision = store.decide_factor(&actor(), command).await.unwrap();
-    assert_eq!(decision.states[0].status, "admitted");
-    assert_eq!(
-        decision.states[0].factor_spec_id,
-        fixture.job_input().factor_spec_id.unwrap().value
-    );
+    assert!(matches!(
+        store.decide_factor(&actor(), command).await,
+        Err(StoreError::Unavailable("unregistered admission report"))
+    ));
     store.close().await;
 }
 

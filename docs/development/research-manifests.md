@@ -63,7 +63,8 @@ documents are constructed by `crates/loopd/src/manifests/tests/fixture.rs`.
 | `loop.backtest-result/v1` | Source job/spec, engine/version, metrics, eight result-series references and completion time |
 | `loop.artifact-schema/v1` | Schema name/version, media type and column names |
 | `loop.window-family/v1` | Algorithm, RNG/backtest seeds and canonical candidates differing at one window |
-| `loop.admission-review/v1` | Exact result/factor/policy/library, coverage, machine/semantic outcome and replacements |
+| `loop.admission-review/v1` | Historical result/factor/policy/library, coverage, machine/semantic outcome and replacements; new file-backed admission is disabled |
+| `loop.admission-review/v2` | All v1 bindings plus an actual completed evaluation job and result-manifest reference; see `evaluation-trials.md` |
 
 Artifact schema **names** follow the existing protocol identifier rules, for
 example `loop.backtest_result` or `loop.admission_review`; they are distinct from
@@ -120,10 +121,14 @@ The receipt is evidence of accepted metadata release, not exactly-once delivery.
 ## Bounds and recovery
 
 File loading permits at most 16,384 references, 64 GiB declared bytes, 16 MiB
-aggregate metadata and 10 seconds per materializer. Individual metadata is at
+aggregate metadata and a bounded verification deadline. Individual metadata is at
 most 1 MiB. The shared file cache is bounded to 16,384 entries and 32 MiB metadata;
 operations retain their own descriptors, so eviction does not replace evidence.
-An overall preparation has a 10-second timeout even when resolving two contexts.
+Legacy preparation has a 10-second timeout even when resolving two contexts.
+Version-2 admission reviews reference the installed numerical worker's full
+native environment, so their materializers and overall preparation share its
+30-second verification bound. Command deadlines still apply independently;
+this does not skip byte checks or permit unbounded loading.
 Regular files are opened with no symlink following; inode/device, size, mtime,
 ctime and the current directory entry are checked again at each consumption.
 These checks cannot defeat a malicious administrator or compromised kernel.
@@ -137,8 +142,9 @@ not throughput promises for production datasets.
 
 Restart rematerializes the pinned catalog. Missing or modified original evidence
 is a hard failure; a changed resolved current component is `stale`. Neither case
-rewrites old metrics or creates a factor rejection. There is no new migration,
-table or service. Disable the concrete resolver/export host integration to roll
+rewrites old metrics or creates a factor rejection. The resolver itself adds no
+table or service; ADR 0028 separately adds the numerical-trial projection through
+migration 0010. Disable the concrete resolver/export host integration to roll
 back, keeping every object, trial, receipt and audit event. Do not remove history
 or downgrade the already committed schema. Acceptance evidence is maintained in
 `docs/verification/phase-04-research-integrity.md`.

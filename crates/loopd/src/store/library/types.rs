@@ -68,6 +68,21 @@ pub struct AdmissionEvidence {
     /// Sorted, distinct active factors to retire atomically, at most sixteen.
     #[prost(string, repeated, tag = "10")]
     pub replacements: Vec<String>,
+    /// Required for new file-backed reviews. Legacy synthetic policy fixtures
+    /// can omit this; omission grants no authority in `TrustedManifests`.
+    #[prost(message, optional, tag = "12")]
+    pub evaluation: Option<EvaluationSource>,
+}
+
+/// Exact numerical predecessor named by a verified admission review.
+#[derive(Clone, PartialEq, Message)]
+pub struct EvaluationSource {
+    /// Completed numerical job; authorized and verified against its trial.
+    #[prost(string, tag = "1")]
+    pub job_id: String,
+    /// SHA-256 of the actual resolved evaluation result manifest.
+    #[prost(bytes = "vec", tag = "2")]
+    pub manifest_sha256: Vec<u8>,
 }
 
 /// Persisted per-context projection. Counters describe lifetime events, not PnL.
@@ -119,6 +134,9 @@ pub struct FactorTrial {
     pub state: i32,
     /// Actual lease executions, zero for work cancelled before execution.
     pub attempt: u32,
+    /// Verified numerical completion, absent for other states/kinds and explicit
+    /// unverified pre-migration successes. Does not certify current-file freshness.
+    pub evaluation: Option<super::super::EvaluationTrial>,
 }
 
 #[derive(Clone, PartialEq, Message)]

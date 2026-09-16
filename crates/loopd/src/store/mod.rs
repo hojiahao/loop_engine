@@ -7,6 +7,7 @@ mod backtest;
 mod batch;
 #[cfg(test)]
 mod crash_tests;
+mod evaluation;
 mod export;
 mod grant;
 mod holdout;
@@ -28,13 +29,15 @@ use thiserror::Error;
 pub use approval::ApprovalResult;
 pub use backtest::{BacktestPolicy, BacktestPreparation, BacktestRepository, DenyBacktest};
 pub use batch::BatchResult;
+pub use evaluation::EvaluationTrial;
 pub use export::{BacktestExport, ExportBacktest};
 pub use grant::{CloseGrant, GrantClosure, GrantResult, ResolvedFreeze};
 pub use holdout::{
     DenyHoldout, HoldoutPolicy, HoldoutRepository, PeriodRegistration, RegisterPeriod,
 };
 pub use library::{
-    AdmissionEvidence, DecideFactor, FactorDecision, FactorRepository, FactorState, FactorTrial,
+    AdmissionEvidence, DecideFactor, EvaluationSource, FactorDecision, FactorRepository,
+    FactorState, FactorTrial,
 };
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
@@ -59,10 +62,14 @@ pub enum StoreError {
     #[error("job identity already exists")]
     DuplicateJob,
     /// A committed deterministic rejection already covers the frozen development
-    /// backtest context. Do not retry as an infrastructure failure or dispatch.
+    /// research context. Do not retry as an infrastructure failure or dispatch.
     /// No historical evidence or source-job identity is exposed by this error.
-    #[error("development backtest was already rejected in this frozen context")]
+    #[error("development research was already rejected in this frozen context")]
     PreviouslyRejected,
+    /// An exact frozen numerical context already has a completed passing result.
+    /// Skip dispatch; no new trial, admission or artifact access is authorized.
+    #[error("factor was already evaluated in this frozen context")]
+    AlreadyEvaluated,
     /// The canonical locked period already exists, possibly in a terminal state.
     #[error("holdout period already exists and cannot be registered again")]
     DuplicatePeriod,

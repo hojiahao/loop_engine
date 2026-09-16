@@ -18,7 +18,9 @@ use super::lifecycle::validate_context;
 use super::postgres::{record_from_row, timestamp, timestamp_millis};
 use super::{PgJobStore, StoreError, StoreResult, audit, backtest, validate_id};
 use types::Receipt;
-pub use types::{AdmissionEvidence, DecideFactor, FactorDecision, FactorState, FactorTrial};
+pub use types::{
+    AdmissionEvidence, DecideFactor, EvaluationSource, FactorDecision, FactorState, FactorTrial,
+};
 
 const OPERATION: &str = "loop.factors.decide";
 
@@ -192,6 +194,15 @@ async fn execute(
             .as_ref()
             .map(|d| d.value.as_slice()),
     )?;
+    super::evaluation::check_admission(
+        store,
+        &mut transaction,
+        principal,
+        &source,
+        &result,
+        &evidence,
+    )
+    .await?;
     if force {
         store.admission.authorize_job_command(
             "loop.factors.override_semantic",
@@ -357,9 +368,11 @@ fn validate_evidence(evidence: &AdmissionEvidence, manifest: Option<&[u8]>) -> S
 }
 
 fn rejection_code(evidence: &AdmissionEvidence) -> &str {
-    if u128::from(evidence.valid_observations) * 10000
-        < u128::from(evidence.eligible_observations) * u128::from(evidence.minimum_coverage_bps)
-    {
+    if !super::evaluation::coverage_passes(
+        evidence.eligible_observations,
+        evidence.valid_observations,
+        evidence.minimum_coverage_bps,
+    ) {
         "insufficient_coverage"
     } else if !evidence.machine_rejection.is_empty() {
         &evidence.machine_rejection

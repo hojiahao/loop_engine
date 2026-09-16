@@ -69,7 +69,10 @@ impl FactorExecutor {
         Ok(())
     }
 
-    pub(super) async fn run(
+    /// Run the fixed numerical subprocess. Internal callers must first authorize
+    /// the job and lease and obtain a broker-owned view. Returned output grants
+    /// no completion authority; actual files still require sealed verification.
+    pub(crate) async fn run(
         &self,
         work: &FactorEvaluationWork,
         view: Option<&Path>,

@@ -47,6 +47,7 @@ pub(crate) struct EvaluationInputs {
     pub work: FactorEvaluationWork,
     quality: model::Quality,
     transform: Option<BoundTransform>,
+    minimum_coverage_bps: u32,
     files: Vec<Arc<VerifiedFile>>,
 }
 
@@ -55,6 +56,7 @@ pub(crate) struct EvaluationInputs {
 pub(crate) struct EvaluationEvidence {
     job: JobSpecification,
     pub result: FactorEvaluationResult,
+    pub minimum_coverage_bps: u32,
     files: Vec<Arc<VerifiedFile>>,
 }
 
@@ -176,6 +178,22 @@ impl EvaluationResolver {
                 return Err(StoreError::Corrupt("evaluation policy binding"));
             }
         }
+        let evaluation_policy = resolved
+            .policy_documents
+            .iter()
+            .find(|document| {
+                document.policy_id == canonical.evaluation_policy().policy_id().as_str()
+            })
+            .ok_or(StoreError::Corrupt("evaluation coverage policy"))?;
+        let minimum_coverage_bps = evaluation_policy
+            .settings
+            .get("minimum_coverage_bps")
+            .and_then(|value| {
+                value.parse::<u32>().ok().filter(|minimum| {
+                    (1..=10_000).contains(minimum) && minimum.to_string() == *value
+                })
+            })
+            .ok_or(StoreError::Invalid("frozen minimum coverage"))?;
         if resolved.dataset.snapshots.len() != 1 {
             return Err(StoreError::Invalid(
                 "evaluation requires one explicit panel snapshot",
@@ -272,6 +290,7 @@ impl EvaluationResolver {
             },
             quality: resolved.dataset.quality,
             transform: transformation,
+            minimum_coverage_bps,
             files: loader.files,
         })
     }
@@ -413,6 +432,7 @@ impl EvaluationInputs {
         Ok(EvaluationEvidence {
             job: self.job,
             result,
+            minimum_coverage_bps: self.minimum_coverage_bps,
             files,
         })
     }

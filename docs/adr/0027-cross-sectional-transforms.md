@@ -1,6 +1,6 @@
 # ADR 0027: Frozen cross-sectional factor transformations
 
-- Status: Accepted for implementation; publication gates pending
+- Status: Accepted; published and verified
 - Date: 2026-09-15
 - Owner: hojiahao
 
@@ -62,3 +62,8 @@ Rollback disables new version-2 writers/evaluation and retains the raw version-1
 path. Preserve completed source captures, panels, factor identities, job receipts
 and audit events. No destructive database migration, paid request, production
 data admission or holdout unlock is introduced.
+
+Implementation `e881d3a` and assertion correction `a1ec5e3` are published.
+All seven jobs in CI run `34947453231` pass, including full Rust, unified
+workspace and DaoCloud container gates. The correction changes only a negative
+test's expected transport error code. Phase 6 unit 3 remains separate.

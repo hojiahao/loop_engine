@@ -604,6 +604,20 @@ pub(super) fn status(error: StoreError) -> Status {
             "runtime revision or request conflict",
             false,
         ),
+        StoreError::PreviouslyRejected => (
+            Code::FailedPrecondition,
+            ErrorCategory::Conflict,
+            "previously_rejected",
+            "frozen research context already rejected",
+            false,
+        ),
+        StoreError::AlreadyEvaluated => (
+            Code::AlreadyExists,
+            ErrorCategory::Conflict,
+            "already_evaluated",
+            "frozen factor context already evaluated",
+            false,
+        ),
         StoreError::LeaseFenced | StoreError::InvalidTransition => (
             Code::FailedPrecondition,
             ErrorCategory::Conflict,

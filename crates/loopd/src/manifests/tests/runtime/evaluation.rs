@@ -9,6 +9,8 @@ use crate::manifests::{EvaluationPin, EvaluationResolver, ObjectRef};
 use crate::runtime::FactorExecutor;
 use crate::store::{Clock, SystemClock};
 
+mod workflow;
+
 struct Case {
     fixture: Fixture,
     store: PgJobStore,
@@ -140,6 +142,10 @@ impl Case {
     }
 
     async fn request(&self) -> EvaluateFactorRequest {
+        self.request_with_lease(120).await
+    }
+
+    async fn request_with_lease(&self, seconds: i64) -> EvaluateFactorRequest {
         let job = self
             .client()
             .await
@@ -147,10 +153,7 @@ impl Case {
                 context: Some(context("evaluation-acquire")),
                 job_id: self.fixture.job.specification.job_id.clone(),
                 expected_revision: 1,
-                requested_duration: Some(prost_types::Duration {
-                    seconds: 120,
-                    nanos: 0,
-                }),
+                requested_duration: Some(prost_types::Duration { seconds, nanos: 0 }),
             })
             .await
             .unwrap()
@@ -263,6 +266,10 @@ fn context(key: &str) -> CommandContext {
 }
 
 async fn fixture(transformed: bool) -> Fixture {
+    fixture_with_minimum(transformed, 9500).await
+}
+
+async fn fixture_with_minimum(transformed: bool, minimum: u32) -> Fixture {
     let mut fixture = Fixture::new();
     let captured = tokio::time::timeout(
         Duration::from_secs(65),
@@ -311,6 +318,17 @@ async fn fixture(transformed: bool) -> Fixture {
         "factor-evaluator.2"
     }
     .to_owned();
+    let policy = configuration
+        .policies
+        .iter_mut()
+        .find(|policy| policy.policy_id == "policy.evaluation")
+        .unwrap();
+    let mut document: model::PolicyDocument =
+        serde_json::from_slice(&std::fs::read(fixture.path(&policy.document)).unwrap()).unwrap();
+    document
+        .settings
+        .insert("minimum_coverage_bps".to_owned(), minimum.to_string());
+    policy.document = fixture.json(&document);
     if transformed {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../fixtures/market/transforms/transform.json");

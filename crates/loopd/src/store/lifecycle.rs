@@ -231,7 +231,7 @@ pub(super) async fn mutate(
                 .outcome
                 .as_ref()
                 .and_then(|outcome| outcome.outcome.as_ref()),
-            Some(job_outcome::Outcome::Success(_))
+            Some(job_outcome::Outcome::Success(_) | job_outcome::Outcome::FactorRejection(_))
         )
     {
         let evidence = store
@@ -281,6 +281,7 @@ pub(super) async fn mutate(
         }
         backtest::verify_stored(&mut transaction, &job).await?;
         rejection::verify_stored(&mut transaction, &job).await?;
+        super::evaluation::read(&mut transaction, &job).await?;
         if let Some(evidence) = &store.evaluation_evidence {
             evidence.check(&job)?;
         }
@@ -302,6 +303,14 @@ pub(super) async fn mutate(
                 .expect("validated specification"),
         )
         .await?;
+        super::evaluation::check_previous(
+            &mut transaction,
+            record
+                .specification
+                .as_ref()
+                .expect("validated specification"),
+        )
+        .await?;
     }
     let previous_state = state_name(record.state)?;
     apply(&mut record, &command, principal, now)?;
@@ -314,6 +323,7 @@ pub(super) async fn mutate(
     write_record(&mut transaction, &record, expected_revision).await?;
     backtest::record_completion(store, &mut transaction, &record, now).await?;
     rejection::record_completion(&mut transaction, &record, now).await?;
+    super::evaluation::record_completion(store, &mut transaction, &record).await?;
     audit::append(
         &mut transaction,
         &store.ledger_id,
@@ -362,6 +372,10 @@ pub(super) async fn mutate(
         super::crash_tests::fault_point("rejection_before_commit").await;
     }
     transaction.commit().await?;
+    #[cfg(test)]
+    if super::evaluation::completed(&record) {
+        super::crash_tests::fault_point("evaluation_after_commit").await;
+    }
     #[cfg(test)]
     if rejection::is_rejected_backtest(&record) {
         super::crash_tests::fault_point("rejection_after_commit").await;

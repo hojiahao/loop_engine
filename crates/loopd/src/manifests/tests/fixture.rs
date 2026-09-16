@@ -233,6 +233,7 @@ impl Fixture {
             &[],
         );
         let review = model::Review {
+            evaluation: None,
             schema: "loop.admission-review/v1".to_owned(),
             job_id: "job.1".to_owned(),
             result: result_artifact.object.clone(),

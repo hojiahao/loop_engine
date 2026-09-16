@@ -13,6 +13,8 @@ use super::files::{ReadBudget, VerifiedFile};
 use super::{LocalArtifacts, ObjectRef, model};
 use crate::store::{StoreError, StoreResult};
 
+pub(super) const NUMERICAL_VERIFICATION_TIMEOUT: Duration = Duration::from_secs(30);
+
 pub(super) struct Materializer<'a> {
     pub store: &'a LocalArtifacts,
     pub registries: &'a [Arc<OperatorPolicyRegistry>],
@@ -33,25 +35,30 @@ pub(super) struct ResolvedContext {
 
 impl<'a> Materializer<'a> {
     pub fn new(store: &'a LocalArtifacts, registries: &'a [Arc<OperatorPolicyRegistry>]) -> Self {
+        Self::with_timeout(store, registries, Duration::from_secs(10))
+    }
+
+    pub fn with_timeout(
+        store: &'a LocalArtifacts,
+        registries: &'a [Arc<OperatorPolicyRegistry>],
+        timeout: Duration,
+    ) -> Self {
         Self {
             store,
             registries,
             files: Vec::new(),
-            budget: ReadBudget::new(),
+            budget: ReadBudget::with_timeout(timeout),
         }
     }
 
     /// The installed evaluator includes calendar/dataframe native libraries.
     /// Its full byte-backed build receives a bounded 30-second verification
-    /// budget. Other manifest paths retain their existing 10-second deadline.
+    /// budget, shared by reviews that bind this actual numerical environment.
     pub fn for_evaluation(
         store: &'a LocalArtifacts,
         registries: &'a [Arc<OperatorPolicyRegistry>],
     ) -> Self {
-        Self {
-            budget: ReadBudget::with_timeout(Duration::from_secs(30)),
-            ..Self::new(store, registries)
-        }
+        Self::with_timeout(store, registries, NUMERICAL_VERIFICATION_TIMEOUT)
     }
 
     pub async fn object(

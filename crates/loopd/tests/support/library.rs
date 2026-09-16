@@ -123,6 +123,7 @@ pub fn evidence() -> AdmissionEvidence {
         machine_rejection: String::new(),
         semantic_accepted: true,
         replacements: vec![],
+        evaluation: None,
     }
 }
 

@@ -10,7 +10,7 @@ use serde::Serialize;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use super::files::VerifiedFile;
-use super::loading::{Materializer, ResolvedContext, sorted};
+use super::loading::{Materializer, NUMERICAL_VERIFICATION_TIMEOUT, ResolvedContext, sorted};
 use super::{LocalArtifacts, ObjectRef, model, verification};
 use crate::store::{
     AdmissionEvidence, BacktestExport, BacktestPolicy, BacktestPreparation, BacktestRepository,
@@ -183,6 +183,22 @@ impl Prepared {
 }
 
 impl TrustedManifests {
+    fn verification_timeout(&self, job: &JobSpecification) -> std::time::Duration {
+        // A v2 review binds the installed evaluator's complete native build.
+        // Use the evaluator's existing bound for cold byte verification; caller
+        // deadlines, file guards and transaction-time checks still apply.
+        if self.catalog.backtests.iter().any(|entry| {
+            Some(entry.job_id.as_str()) == job.job_id.as_ref().map(|id| id.value.as_str())
+                && entry.review.as_ref().is_some_and(|review| {
+                    review.schema.name == "loop.admission_review" && review.schema.version == 2
+                })
+        }) {
+            NUMERICAL_VERIFICATION_TIMEOUT
+        } else {
+            std::time::Duration::from_secs(10)
+        }
+    }
+
     async fn materialize(
         &self,
         job: &JobSpecification,
@@ -201,7 +217,8 @@ impl TrustedManifests {
                 Some(entry.job_id.as_str()) == job.job_id.as_ref().map(|id| id.value.as_str())
             })
             .ok_or(StoreError::AdmissionDenied)?;
-        let mut loader = Materializer::new(&self.artifacts, &self.registries);
+        let timeout = self.verification_timeout(job);
+        let mut loader = Materializer::with_timeout(&self.artifacts, &self.registries, timeout);
         let specification: model::Backtest = loader.json(&entry.specification).await?;
         let resolved = loader.context(&specification.context).await?;
         let factor = loader.factor(&specification.factor, &resolved).await?;
@@ -239,7 +256,7 @@ impl TrustedManifests {
                 .iter()
                 .find(|entry| entry.context_id == id)
                 .ok_or(StoreError::Unavailable("unregistered current context"))?;
-            let mut loader = Materializer::new(&self.artifacts, &self.registries);
+            let mut loader = Materializer::with_timeout(&self.artifacts, &self.registries, timeout);
             let context = loader.context(&entry.manifest).await?;
             let family = verification::family(&mut loader, &context).await?;
             let evidence = Arc::new(Current {
@@ -292,7 +309,7 @@ impl TrustedManifests {
         };
         self.authorize_materialization(principal, job, Some(&export.context_id))?;
         let prepared = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
+            self.verification_timeout(job),
             self.materialize(job, Some(&export.context_id), Some(success)),
         )
         .await
@@ -384,7 +401,7 @@ impl BacktestPolicy for TrustedManifests {
     ) -> BacktestPreparation<'a> {
         Box::pin(async move {
             let prepared = tokio::time::timeout(
-                std::time::Duration::from_secs(10),
+                self.verification_timeout(job),
                 self.materialize(job, context, success),
             )
             .await
@@ -502,6 +519,7 @@ impl BacktestPolicy for Prepared {
         frozen
             .review
             .clone()
+            .filter(|review| review.evaluation.is_some())
             .ok_or(StoreError::Unavailable("unregistered admission report"))
     }
 }

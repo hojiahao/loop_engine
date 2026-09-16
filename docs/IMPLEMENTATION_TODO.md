@@ -348,14 +348,17 @@ verify each before the next):
    No paid source, protected sample or production-quality claim is included.
 2. Add versioned cross-sectional winsorization, standardization and industry/
    size/beta neutralization, with deterministic missing/rank-deficient behavior
-   and independent numerical goldens (`in_progress`; implementation and 42 new
-   Python cases pass, with five new Rust integration cases prepared. ADR 0027
-   binds versioned panels, exposures and results to frozen policies; raw inputs
-   remain compatible. Full remote acceptance is pending; see the verification
-   record for the constrained-host compilation and isolated concurrency rerun).
+   and independent numerical goldens (`complete`: `e881d3a` and `a1ec5e3` are
+   pushed; all seven jobs in CI run `34947453231` pass). ADR 0027 binds versioned
+   panels, exposures and results to frozen policies; raw inputs remain compatible.
 3. Integrate the complete factor-research evaluation and trial/admission workflow,
    with frozen preprocessing/operator provenance, coverage, duplicate/failure
-   filtering, determinism and no-lookahead acceptance (`pending`).
+   filtering, determinism and no-lookahead acceptance (`in_progress`; ADR 0028).
+   Implementation and the nine local workflow acceptance cases pass, including
+   independent 2/4/8 writers and kill/restart. Publication and exact-commit CI
+   remain the closure gates at this checkpoint; evidence is in the Phase 6 record.
+   Passing numerical coverage means ready for later backtesting, not admission
+   or portfolio performance. Production backtesting remains Phase 7.
 
 - [ ] Port and specify operators, canonical AST evaluation, neutralization,
       coverage checks, and trial registry.

@@ -167,13 +167,32 @@ pub(super) async fn review(
     }
     materializer.artifact(reference).await?;
     if reference.schema.name != "loop.admission_review"
-        || reference.schema.version != 1
+        || !matches!(reference.schema.version, 1 | 2)
         || reference.media_type != "application/json"
     {
         return Err(StoreError::Corrupt("review artifact type"));
     }
     let report: model::Review = materializer.json(&reference.object).await?;
-    model::schema(&report.schema, "loop.admission-review/v1")?;
+    model::schema(
+        &report.schema,
+        if reference.schema.version == 1 {
+            "loop.admission-review/v1"
+        } else {
+            "loop.admission-review/v2"
+        },
+    )?;
+    let evaluation = match (reference.schema.version, &report.evaluation) {
+        (1, None) => None,
+        (2, Some(source)) => {
+            crate::store::validate_id(&source.job_id)?;
+            materializer.object(&source.manifest, true).await?;
+            Some(crate::store::EvaluationSource {
+                job_id: source.job_id.clone(),
+                manifest_sha256: source.manifest.digest()?.to_vec(),
+            })
+        }
+        _ => return Err(StoreError::Corrupt("admission review version")),
+    };
     report.policy.validate()?;
     let policy = factor.evaluation_policy();
     if report.job_id != entry.job_id
@@ -224,5 +243,6 @@ pub(super) async fn review(
         machine_rejection: report.machine_rejection,
         semantic_accepted: report.semantic_accepted,
         replacements: report.replacements,
+        evaluation,
     }))
 }

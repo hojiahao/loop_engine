@@ -3,8 +3,8 @@
 Status: in progress. The owner defers Sharadar subscription and authorizes
 continued development with synthetic/public-development evidence. Phase 5's
 licensed historical coverage and production-admission exit is deferred, not
-passed. Phase 6 units 2–3 and the later primary-backtest/independent-validation
-stages remain open.
+passed. Phase 6 unit 3 and the later primary-backtest/independent-validation
+stages remain open. Units 1–2 are published and verified.
 
 ## Unit 1: Causal source-to-worker panels
 
@@ -126,13 +126,68 @@ This single wrong assertion fails the Rust/unified/container gates. The follow-u
 corrects that expected code; it does not change the guard, transport mapping or
 numerical implementation. Full acceptance must use the follow-up commit's CI.
 
+Correction `a1ec5e3` is pushed. All seven jobs in CI run `34947453231` pass:
+Rust 9m09s, TypeScript 25s, research 2m01s, protocol 19s, legacy 49s, unified
+workspace 10m49s and DaoCloud container 13m45s. This closes unit 2, including
+complete behavior/build/isolation acceptance; it does not close unit 3 or
+licensed-data/portfolio gates. Task-scoped local unit-2 logs and fixtures were
+removed after recording this durable summary; real market caches were retained.
+
+## Unit 3: Evaluation trials and admission lineage
+
+Implementation follows ADR 0028 and `docs/development/evaluation-trials.md`.
+Actual numerical success atomically records a verified evaluation projection
+and frozen coverage disposition with its existing job/receipt/audit. Submission
+and lease acquisition consult completed evidence; trial reads return verified
+numerical provenance. File-backed version-2 admission reports name the actual
+numerical predecessor and share the existing admission/readmission handler.
+
+Verification is in progress. The added cases exercise actual installed-worker
+coverage, trial reads/replay, duplicate/failure filtering, corrupt projections,
+unverified rejection refusal, version-2 review lineage, exact context/coverage
+boundaries and independent 2/4/8 writers with kill/restart around commit.
+The admission fixtures deliberately supply synthetic portfolio results; they
+cannot establish a completed Phase 7 engine or a real investment conclusion.
+No production database, paid dataset or LLM API is used for this acceptance.
+
+The first complete local `evaluation` run on 2026-09-16 records 22 passed,
+3 failed and one subprocess helper explicitly exercised by its parent tests
+(757.29 seconds). Actual worker/replay, coverage memory, migration, corruption,
+unverified rejection and kill/restart cases pass. Both admission cases exceed
+the legacy 10-second cold-file budget before a decision; v2 preparation now uses
+the evaluator's existing 30-second bound for the same full native environment.
+The independent-writer case exceeds the unchanged per-process verification
+budget while hashing builds concurrently. Its setup now verifies each process
+before releasing the shared 2/4/8-writer commit barrier, within the existing
+five-minute lease limit. This failed run is not counted as acceptance; the
+corrected workflow and exact-commit remote gates must pass.
+
+The corrected local workflow passes all nine parent/behavior tests in 582.88
+seconds (one ignored subprocess entry point is explicitly invoked). This covers
+actual evaluated values through semantic rejection/readmission/replay, fabricated
+coverage denial, corrupt-record refusal, duplicate/failure filtering, baseline
+migration, restart, 2/4/8 independent simultaneous commits and kills immediately
+before/after commit. Each database writer verifies its own byte-backed evidence;
+only this preparation is serialized. The original coverage and file checks,
+per-process numerical verification bound and production lease limits remain in
+force. Portfolio artifacts in admission tests remain synthetic.
+The focused legacy-review regression also passes (1 test, 1.00 second): a v1
+review cannot create new file-backed admission. Formatting and whitespace checks
+pass. Publication and full workspace/container acceptance must use this delivery
+commit's remote gates; these local results alone do not close the phase.
+Final `loopd` Clippy (`--all-targets --all-features -- -D warnings`) passes
+against the corrected code in 6m45s on the development host. No warnings are
+suppressed, and no numerical/corruption check is relaxed to obtain acceptance.
+
 ## Rollback and retained evidence
 
-Disable the new administrative writers and revert the unit's code if needed.
+Disable the new administrative/evaluation/admission writers if rollback is needed.
 Keep all real source caches, completed construction receipts, derived panels,
-jobs and audit history. No schema migration or destructive down-migration is
-introduced. Old receipts require their original builder source/environment for
-exact replay; never rewrite an old receipt to match a newer implementation.
+jobs and audit history. Units 1 and 2 do not change the database schema; unit 3
+adds migration 0010. Retain that additive schema and use a compatible reader,
+without a destructive down-migration. Old receipts require their original
+builder source/environment for exact replay; never rewrite an old receipt to
+match a newer implementation.
 
 The committed fixture contains only invented data. Local gate logs and pytest
 outputs are task-scoped temporary evidence; after their results are summarized,

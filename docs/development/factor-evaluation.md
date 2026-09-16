@@ -10,6 +10,8 @@ workflow in `causal-factor-panels.md`. Its outputs reuse the formats below;
 runtime registration, provenance checks and authority requirements still apply.
 The version-2 transformed-panel extension is documented in
 `cross-sectional-transforms.md` and ADR 0027; raw-input compatibility is retained.
+The trial, coverage-memory and shared-admission connection is described in
+`evaluation-trials.md` and ADR 0028. Passing coverage waits for later backtesting.
 
 ## Deployment Boundary
 
@@ -146,5 +148,6 @@ and stored outputs again; no generic current-value exporter is introduced here.
 On failure or cancellation, no successful completion is authorized. Immutable
 unreferenced output can remain after a crash; do not treat it as admitted work.
 Disable the optional evaluator to roll back and retain all accepted artifacts,
-jobs, receipts and audit history. No new schema or destructive down-migration is
-required. Real holdout execution and production market-data retests remain off.
+jobs, receipts and audit history. The later trial integration adds migration
+0010; follow `evaluation-trials.md` for its compatible-reader rollback and retain
+that schema. Real holdout execution and production market-data retests remain off.
