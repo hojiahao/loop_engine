@@ -191,4 +191,6 @@ PostgreSQL 验证。截至 2026-09-14，本机实际状态如下：
 证券历史、退市、调整价格、修订可见时间和完整区间覆盖，结果不足时仍保留
 未认证状态。精确 receipt、snapshot 和验证命令见
 [真实数据验收记录](../verification/phase-05-us-data.md#live-sec-and-alpaca-acceptance-2026-09-14)。
-Phase 6 因子面板、数值评测及试验接线已完成；Phase 7 正式组合回测仍是下一独立阶段。
+Phase 6 因子面板、数值评测及试验接线已完成；Phase 7 正在实现组合账本和回放。
+首项开发路径见[组合回放说明](portfolio-backtest.md)，不需要新增或付费凭据。
+完整生产回测及独立复核仍有后续阶段门槛。

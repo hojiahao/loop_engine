@@ -9,6 +9,7 @@ import math
 import re
 import sys
 import time
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from loop.v1.artifact_pb2 import ArtifactRef, ArtifactSchemaReference
 from loop.v1.common_pb2 import ArtifactId, Sha256Digest
 from loop.v1.evaluation_pb2 import FactorEvaluationResult, FactorEvaluationWork
 from loop_protocol.artifact import validate_artifact_ref
-from loop_protocol.canonical import parse_canonical_factor_spec
+from loop_protocol.canonical import CanonicalFactorSpec, parse_canonical_factor_spec
 from loop_protocol.job import (
     canonical_factor_spec_identity_bytes,
     validate_factor_spec_identity_envelope,
@@ -45,7 +46,8 @@ def _require_build(work: FactorEvaluationWork) -> None:
     )
 
 
-def _values(result: Evaluation, loaded: PanelInput) -> bytes:
+def encode_values(result: Evaluation, loaded: PanelInput) -> bytes:
+    """Encode the exact evaluated grid for publication or read-only replay."""
     stream = io.StringIO(newline="")
     writer = csv.writer(stream, lineterminator="\n")
     writer.writerow(["session", "security_id", "eligible", "value"])
@@ -109,13 +111,22 @@ def _artifact(
     return result
 
 
-def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEvaluationResult:
-    """Compute from a runtime-prepared leaf and publish immutable candidate output.
+@dataclass(frozen=True, slots=True)
+class FactorComputation:
+    """Verified numerical inputs and values, without publication or job authority."""
 
-    The trusted launcher owns the paths and authenticated lease. This function
-    has no provider, database, holdout or network API. Its response is numerical
-    evidence, not permission to complete a job or release results. The runtime
-    must recheck frozen manifests, the current lease and receipt transaction.
+    factor: CanonicalFactorSpec
+    loaded: PanelInput
+    result: Evaluation
+    transformation: TransformEvidence | None
+    values_csv: bytes
+
+
+def compute(work: FactorEvaluationWork, *, view: Path) -> FactorComputation:
+    """Recompute the frozen factor from actual files, without writing artifacts.
+
+    An administrative replay may use this same kernel. It does not authenticate
+    the caller or turn a supplied job/lease ID into execution authority.
     """
     if work.ByteSize() > MAX_MESSAGE_BYTES:
         raise ValueError("factor work message budget")
@@ -142,10 +153,6 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
         or panel_reference.media_type != "application/json"
     ):
         raise ValueError("factor work requires a supported panel manifest")
-    if not output.is_absolute() or output.resolve(strict=True) != output:
-        raise ValueError("factor output must be a canonical deployment directory")
-    if output == view or output.is_relative_to(view) or view.is_relative_to(output):
-        raise ValueError("factor output must be separate from its data view")
     _require_build(work)
     loaded = load_panel(
         view,
@@ -189,9 +196,74 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
             raw_valid_observations=transformed.raw_valid_observations,
             outcomes=transformed.outcomes,
         )
-    content = _values(result, loaded)
+    content = encode_values(result, loaded)
     loaded.check()
     _require_build(work)
+    return FactorComputation(factor, loaded, result, transformation, content)
+
+
+def encode_manifest(
+    work: FactorEvaluationWork,
+    computed: FactorComputation,
+    *,
+    values_sha256: str,
+    completed_ms: int,
+) -> bytes:
+    """Preserve the versioned result format in both publication and verification."""
+    result, loaded = computed.result, computed.loaded
+    transformation = computed.transformation
+    output_version = 1 if transformation is None else 2
+    return canonical_bytes(
+        {
+            "schema": f"loop.factor-evaluation-result/v{output_version}",
+            "job_id": work.job_id.value,
+            "lease_id": work.lease_id.value,
+            "factor_spec_id": result.factor_spec_id,
+            "expression_id": result.expression_id,
+            "provenance": {
+                component + "_sha256": "sha256:"
+                + getattr(work.provenance, component + "_sha256").value.hex()
+                for component in PROVENANCE_COMPONENTS
+            },
+            "deterministic_seed": "sha256:" + work.deterministic_seed.value.hex(),
+            "panel_manifest_sha256": work.panel_manifest.artifact_id.value,
+            "values_sha256": values_sha256,
+            "quality": loaded.manifest.quality,
+            "sample_start": date(
+                work.sample_start.year, work.sample_start.month, work.sample_start.day
+            ).isoformat(),
+            "sample_end": date(
+                work.sample_end.year, work.sample_end.month, work.sample_end.day
+            ).isoformat(),
+            "eligible_observations": result.eligible_observations,
+            "valid_observations": result.valid_observations,
+            "work_units": result.work_units,
+            "completed_at_ms": completed_ms,
+            **(
+                {"transform": transformation.model_dump(mode="json")}
+                if transformation is not None
+                else {}
+            ),
+        }
+    )
+
+
+def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEvaluationResult:
+    """Compute from a runtime-prepared leaf and publish immutable candidate output.
+
+    The trusted launcher owns the paths and authenticated lease. This function
+    has no provider, database, holdout or network API. Its response is numerical
+    evidence, not permission to complete a job or release results. The runtime
+    must recheck frozen manifests, the current lease and receipt transaction.
+    """
+    if not output.is_absolute() or output.resolve(strict=True) != output:
+        raise ValueError("factor output must be a canonical deployment directory")
+    if output == view or output.is_relative_to(view) or view.is_relative_to(output):
+        raise ValueError("factor output must be separate from its data view")
+    computed = compute(work, view=view)
+    result, loaded = computed.result, computed.loaded
+    output_version = 1 if computed.transformation is None else 2
+    content = computed.values_csv
     completed_ms = time.time_ns() // 1_000_000
     values = _artifact(
         output,
@@ -218,38 +290,8 @@ def execute(work: FactorEvaluationWork, *, view: Path, output: Path) -> FactorEv
         sample_end=work.sample_end,
         completed_at=values.created_at,
     )
-    document = canonical_bytes(
-        {
-            "schema": f"loop.factor-evaluation-result/v{output_version}",
-            "job_id": work.job_id.value,
-            "lease_id": work.lease_id.value,
-            "factor_spec_id": result.factor_spec_id,
-            "expression_id": result.expression_id,
-            "provenance": {
-                component + "_sha256": "sha256:"
-                + getattr(work.provenance, component + "_sha256").value.hex()
-                for component in PROVENANCE_COMPONENTS
-            },
-            "deterministic_seed": "sha256:" + work.deterministic_seed.value.hex(),
-            "panel_manifest_sha256": panel_reference.artifact_id,
-            "values_sha256": values.artifact_id.value,
-            "quality": loaded.manifest.quality,
-            "sample_start": date(
-                work.sample_start.year, work.sample_start.month, work.sample_start.day
-            ).isoformat(),
-            "sample_end": date(
-                work.sample_end.year, work.sample_end.month, work.sample_end.day
-            ).isoformat(),
-            "eligible_observations": result.eligible_observations,
-            "valid_observations": result.valid_observations,
-            "work_units": result.work_units,
-            "completed_at_ms": completed_ms,
-            **(
-                {"transform": transformation.model_dump(mode="json")}
-                if transformation is not None
-                else {}
-            ),
-        }
+    document = encode_manifest(
+        work, computed, values_sha256=values.artifact_id.value, completed_ms=completed_ms
     )
     report.manifest.CopyFrom(
         _artifact(

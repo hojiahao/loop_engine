@@ -8,6 +8,12 @@
 > [`docs/IMPLEMENTATION_TODO.md`](docs/IMPLEMENTATION_TODO.md)。当前 `main` 仍是已冻结的
 > A 股 legacy 基线，不代表美股版本已经完成。
 
+Phase 6 的美股因子面板、数值评测和试验接线已验收。Phase 7 正在实现组合回测，
+首项提供下一交易时点执行、现金/持仓/净值账本和离线重放，使用方法见
+[`组合回放说明`](docs/development/portfolio-backtest.md)，验收状态见
+[`Phase 7 验证记录`](docs/verification/phase-07-primary-backtest.md)。当前结果仍限于
+合成或开发级数据；公司行动、借券、容量、统计和授权回测接线尚待后续任务。
+
 目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
 [`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；
 目标目录所有权和迁移顺序见
@@ -253,9 +259,9 @@ PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 
 当前测试集收集 217 个测试（本环境 216 通过、1 个真实 Windows AlphaLab fixture
 因外部依赖缺失而跳过）。mock 模式仅验证流水线，不产生投资研究结论。
 
-## 真实重测与导出
+## Legacy A 股重测与导出
 
-真实模式仍需要原项目的私有 AlphaLab CLI、RQData/行情缓存和 OSS 数据权限。
+A 股 legacy 真实模式仍需要原项目的私有 AlphaLab CLI、RQData/行情缓存和 OSS 数据权限。
 PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此伪造重测结果。
 依赖和数据就绪后按以下顺序执行：
 
@@ -271,10 +277,10 @@ PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此
 
 ## 已知限制与下一阶段
 
-- 当前 universe、字段、成本和企业行动口径均为 A 股专用，尚不能用于美股研究。
-- 当前 JSON checkpoint 已具备单机进程安全，但美股重构会升级为事务型元数据存储、
-  内容寻址 Parquet 数据快照和不可见 holdout 权限边界。
-- 新工作区已经使用 Loop Engine 品牌和维护者信息；美股数据供应商与回测内核将在
-  对应阶段接入。第三方许可证及不可变审计历史必须依法保留，不会伪装成原创内容。
+- Legacy 的 universe、字段、成本和企业行动口径为 A 股专用，不能直接用作美股研究输入。
+- Legacy JSON checkpoint 保留用于历史诊断；美股工作区已使用 PostgreSQL、不可变数据
+  快照和独立的 holdout 权限边界，实际验收状态见实施清单。
+- 美股因子引擎已验收，组合回测仍在开发；生产数据质量、正式统计、独立复核、完整 Agent
+  运行和操作界面尚未全部完成。第三方许可证及不可变审计历史必须依法保留。
 - 本项目用于研究基础设施，不构成投资建议；任何结果都必须经过独立复核、成本与容量
   压测以及真正未触碰样本的验证。

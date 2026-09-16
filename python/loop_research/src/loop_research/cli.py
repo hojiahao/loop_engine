@@ -71,6 +71,16 @@ def build_parser() -> argparse.ArgumentParser:
     panel_check.add_argument("--receipt", required=True)
     panel_check.add_argument("--sources", type=Path, required=True)
     panel_check.add_argument("--store", type=Path, required=True)
+    backtest = commands.add_parser("backtest-run", help="Replay a frozen development portfolio")
+    backtest.add_argument("request", type=Path)
+    backtest_check = commands.add_parser(
+        "backtest-validate", help="Reconstruct every immutable portfolio ledger offline"
+    )
+    backtest_check.add_argument("--receipt", required=True)
+    for command in (backtest, backtest_check):
+        command.add_argument("--evidence", type=Path, required=True)
+        command.add_argument("--view", type=Path, required=True)
+        command.add_argument("--store", type=Path, required=True)
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -140,6 +150,22 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command in ("backtest-run", "backtest-validate"):
+        from loop_research.backtest import load_request, run_backtest, validate_backtest
+
+        try:
+            backtest_report = (
+                run_backtest(args.evidence, args.view, args.store, load_request(args.request))
+                if args.command == "backtest-run"
+                else validate_backtest(args.evidence, args.view, args.store, args.receipt)
+            )
+        except OSError, ValueError, TimeoutError:
+            parser.error(
+                "portfolio operation failed: invalid evidence, policy, accounting or budget"
+            )
+        except KeyboardInterrupt:
+            parser.exit(130, "portfolio operation cancelled; preserve immutable input evidence\n")
+        print(backtest_report.model_dump_json(by_alias=True))
     elif args.command in ("panel-build", "panel-validate"):
         from loop_research.panel_builder import build_panel, load_panel_request, validate_panel
 

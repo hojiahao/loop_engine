@@ -372,17 +372,20 @@ verify each before the next):
       `ResearchProvenance.source_code_sha256`.
 - [x] Add golden, property, determinism, and look-ahead tests.
 
-## Phase 7 - Primary backtester (`pending`)
+## Phase 7 - Primary backtester (`in_progress`)
 
 Delivery units, each with an executable workflow, negative-path tests, numerical
 goldens, documentation, a Simplified Chinese commit and remote acceptance:
 
-1. Frozen next-session portfolio replay and cash/NAV ledger (`pending`): consume
+1. Frozen next-session portfolio replay and cash/NAV ledger (`implemented`; ADR 0029): consume
    verified factor values and explicit raw execution observations; implement
    deterministic long-only ranking, sizing, commissions/spread assumptions,
    orders/fills, holdings, cash, NAV and simple returns. Add bounded administrative
    CLI execution/replay and immutable receipts. Unsupported actions/shorting fail
    explicitly; synthetic/development evidence cannot claim production eligibility.
+   Local final acceptance: 77 affected tests, Ruff, strict mypy, Rust formatting
+   and workspace Clippy pass. Publication and exact-commit CI remain the task's
+   final gate at commit time; see `docs/verification/phase-07-primary-backtest.md`.
 2. Market/accounting completeness (`pending`): integrate PIT execution inputs,
    splits, dividends, delisting settlements, short availability, borrow costs,
    participation/capacity and price-impact policy. Exercise corporate-action,

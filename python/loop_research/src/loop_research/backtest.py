@@ -1,0 +1,354 @@
+"""Bounded administrative portfolio execution and immutable, read-only replay."""
+
+import csv
+import hashlib
+import io
+import math
+import os
+import re
+import time
+from collections.abc import Callable
+from datetime import timedelta
+from pathlib import Path
+
+from google.protobuf.message import DecodeError  # type: ignore[import-untyped]
+from loop.v1.evaluation_pb2 import FactorEvaluationWork
+
+from loop_research.backtest_models import (
+    MAX_REPLAY_CELLS,
+    POLICY_ROLES,
+    BacktestReceipt,
+    BacktestReport,
+    BacktestRequest,
+    ExecutionTape,
+    LedgerArtifacts,
+    PortfolioPolicy,
+    money,
+)
+from loop_research.build_identity import canonical_bytes, require_build
+from loop_research.calendar import require_session_decisions
+from loop_research.data.fetch_cache import (
+    private_directory,
+    publish,
+    read_cached,
+    read_config_bytes,
+    read_receipt,
+)
+from loop_research.data.fetch_json import decode_object
+from loop_research.data.fetch_records import CachedObject
+from loop_research.factor_worker import FactorComputation, compute, encode_manifest
+from loop_research.portfolio import Observation, Session, decimal_text, replay
+
+
+class _Deadline:
+    def __init__(self, seconds: float, clock: Callable[[], float]) -> None:
+        if not math.isfinite(seconds) or not 0 < seconds <= 180:
+            raise ValueError("portfolio deadline budget")
+        self.clock, self.seconds = clock, seconds
+        self.started = self.previous = clock()
+        self.check()
+
+    def check(self) -> None:
+        current = self.clock()
+        if (
+            not math.isfinite(current)
+            or not math.isfinite(self.previous)
+            or current < self.previous
+        ):
+            raise ValueError("portfolio clock regression")
+        self.previous = current
+        if current - self.started >= self.seconds:
+            raise TimeoutError("portfolio deadline exceeded")
+
+
+def load_request(path: Path) -> BacktestRequest:
+    """Read a small explicit recipe, rejecting duplicate fields and unsafe leaves."""
+    content = read_config_bytes(path)
+    decode_object(content)
+    return BacktestRequest.model_validate_json(content)
+
+
+def _integer(value: str, lower: int, upper: int) -> int:
+    if not re.fullmatch(r"0|[1-9][0-9]{0,15}", value, re.ASCII):
+        raise ValueError("portfolio input requires a canonical integer")
+    result = int(value)
+    if not lower <= result <= upper:
+        raise ValueError("portfolio integer bounds")
+    return result
+
+
+def _policy(request: BacktestRequest, computed: FactorComputation) -> PortfolioPolicy:
+    factor = computed.factor.spec
+    for role in POLICY_ROLES:
+        document = request.policies[role]
+        reference = getattr(factor, role)
+        if (document.policy_id, document.revision, document.digest()) != (
+            reference.policy_id,
+            reference.revision,
+            reference.sha256,
+        ):
+            raise ValueError("portfolio policy differs from the frozen FactorSpec")
+    # Selection/calendar evidence comes from the already built panel. This base
+    # profile must not silently implement an unrecognized declarative policy.
+    for role in ("universe_policy", "data_policy", "calendar_policy"):
+        if request.policies[role].settings:
+            raise ValueError("unsupported panel selection policy")
+    processing = computed.loaded.manifest.transform
+    for role in ("preprocess_policy", "neutralization_policy"):
+        document = request.policies[role]
+        if processing is None:
+            if document.settings:
+                raise ValueError("raw factor values cannot implement a transformation policy")
+        elif document != getattr(processing, role.removesuffix("_policy")):
+            raise ValueError("portfolio transformation policy differs from the factor panel")
+    settings = request.policies["portfolio_policy"].settings
+    if set(settings) != {"algorithm", "holdings", "initial_cash_usd", "lot_size"} or (
+        settings["algorithm"] != "long-only-top-n.1"
+    ):
+        raise ValueError("unsupported portfolio policy")
+    if request.policies["execution_policy"].settings != {"algorithm": "next-session-open.1"}:
+        raise ValueError("unsupported execution policy")
+    costs = request.policies["cost_policy"].settings
+    if (
+        set(costs)
+        != {"algorithm", "commission_per_share_usd", "half_spread_bps", "minimum_commission_usd"}
+        or costs["algorithm"] != "commission-spread.1"
+    ):
+        raise ValueError("unsupported cost policy")
+    coverage = request.policies["evaluation_policy"].settings
+    if set(coverage) != {"minimum_coverage_bps"}:
+        raise ValueError("unsupported evaluation coverage policy")
+    minimum = _integer(coverage["minimum_coverage_bps"], 0, 10000)
+    result = computed.result
+    if not result.eligible_observations or (
+        result.valid_observations * 10000 < result.eligible_observations * minimum
+    ):
+        raise ValueError("factor coverage does not satisfy its frozen policy")
+    return PortfolioPolicy(
+        initial_cash_usd=settings["initial_cash_usd"],
+        holdings=_integer(settings["holdings"], 1, 1000),
+        lot_size=_integer(settings["lot_size"], 1, 10000),
+        commission_per_share_usd=costs["commission_per_share_usd"],
+        minimum_commission_usd=costs["minimum_commission_usd"],
+        half_spread_bps=_integer(costs["half_spread_bps"], 0, 1000),
+    )
+
+
+def _sessions(
+    content: bytes, computed: FactorComputation, deadline: _Deadline
+) -> tuple[Session, ...]:
+    import exchange_calendars as xcals  # type: ignore[import-untyped]
+
+    panel, result = computed.loaded.panel, computed.result
+    start = panel.sessions.index(result.evaluation_start)
+    sessions = panel.sessions[start:]
+    if len(sessions) < 2 or len(sessions) * len(panel.securities) > MAX_REPLAY_CELLS:
+        raise ValueError("portfolio sample has no execution session or exceeds cell budget")
+    calendar = xcals.get_calendar(
+        "XNYS",
+        start=(sessions[0] - timedelta(days=7)).isoformat(),
+        end=(sessions[-1] + timedelta(days=7)).isoformat(),
+    )
+    reader = csv.reader(io.StringIO(content.decode("ascii"), newline=""), strict=True)
+    if next(reader, None) != [
+        "session",
+        "security_id",
+        "open_at_ms",
+        "open_usd",
+        "close_known_at_ms",
+        "close_usd",
+    ]:
+        raise ValueError("execution tape CSV schema differs")
+    prepared = []
+    for index, day in enumerate(sessions):
+        deadline.check()
+        open_ms = int(calendar.session_open(day.isoformat()).value // 1_000_000)
+        close_ms = int(calendar.session_close(day.isoformat()).value // 1_000_000)
+        decision = computed.loaded.manifest.decision_times_ms[start + index]
+        observations = []
+        for column, security in enumerate(panel.securities):
+            row = next(reader, None)
+            if row is None or len(row) != 6 or row[:2] != [day.isoformat(), security]:
+                raise ValueError("execution tape must cover the exact evaluation grid")
+            if (row[2] == "") != (row[3] == "") or (row[4] == "") != (row[5] == ""):
+                raise ValueError("execution observations require paired price and clock")
+            for price in (row[3], row[5]):
+                if price and not re.fullmatch(r"(0|[1-9][0-9]{0,9})(\.[0-9]{1,8})?", price):
+                    raise ValueError("execution observation must be a bounded raw USD decimal")
+            value = float(result.values[index, column])
+            observations.append(
+                Observation(
+                    security,
+                    bool(panel.eligible[start + index, column]),
+                    value if math.isfinite(value) else None,
+                    _integer(row[2], open_ms, close_ms - 1) if row[2] else None,
+                    money(row[3], positive=True, maximum="1000000000") if row[3] else None,
+                    _integer(row[4], close_ms, decision) if row[4] else None,
+                    money(row[5], positive=True, maximum="1000000000") if row[5] else None,
+                )
+            )
+        prepared.append(Session(day, decision, tuple(observations)))
+    if next(reader, None) is not None:
+        raise ValueError("execution tape contains rows outside the evaluation grid")
+    return tuple(prepared)
+
+
+def _reference(content: bytes) -> CachedObject:
+    return CachedObject(
+        sha256="sha256:" + hashlib.sha256(content).hexdigest(), byte_size=len(content)
+    )
+
+
+def _materialize(
+    evidence: Path, view: Path, request: BacktestRequest, deadline: _Deadline
+) -> tuple[BacktestReceipt, dict[str, bytes], Callable[[], None]]:
+    request = BacktestRequest.model_validate_json(request.model_dump_json(by_alias=True))
+    inputs: list[tuple[CachedObject, bytes]] = []
+
+    def read(reference: CachedObject) -> bytes:
+        deadline.check()
+        content = read_cached(evidence, reference)
+        inputs.append((reference, content))
+        return content
+
+    try:
+        work = FactorEvaluationWork.FromString(read(request.evaluation_work))
+    except DecodeError as error:
+        raise ValueError("invalid frozen evaluation work") from error
+    result_bytes = read(request.evaluation_result)
+    result_document = decode_object(result_bytes)
+    completed_ms = result_document.get("completed_at_ms")
+    if type(completed_ms) is not int or not 0 < completed_ms < 2**53:
+        raise ValueError("invalid evaluation completion clock")
+    tape_bytes = read(request.execution_tape)
+    decode_object(tape_bytes)
+    tape = ExecutionTape.model_validate_json(tape_bytes)
+    factor_values = read(request.factor_values)
+    observations = read(tape.observations)
+    computed = compute(work, view=view)
+    deadline.check()
+    if factor_values != computed.values_csv or result_bytes != (
+        encode_manifest(
+            work, computed, values_sha256=request.factor_values.sha256, completed_ms=completed_ms
+        )
+    ):
+        raise ValueError("factor evidence differs from actual numerical replay")
+    if tape.quality != computed.loaded.manifest.quality:
+        raise ValueError("execution and factor data quality differ")
+    policy = _policy(request, computed)
+    try:
+        sessions = _sessions(observations, computed, deadline)
+    except csv.Error as error:
+        raise ValueError("invalid execution CSV encoding") from error
+    calendar = require_session_decisions(
+        tuple(session.day for session in sessions),
+        tuple(session.decision_ms for session in sessions),
+    )
+    ledger = replay(sessions, policy, computed.factor.spec.direction, check_budget=deadline.check)
+    source = "sha256:" + work.provenance.source_code_sha256.value.hex()
+    environment = "sha256:" + work.provenance.environment_sha256.value.hex()
+
+    def check() -> None:
+        deadline.check()
+        computed.loaded.check()
+        require_build(source, environment, profile="evaluation")
+        for reference, content in inputs:
+            if read_cached(evidence, reference) != content:
+                raise ValueError("portfolio input changed during execution")
+        deadline.check()
+
+    receipt = BacktestReceipt(
+        request=request,
+        factor_spec_id=computed.factor.factor_spec_id,
+        source_code_sha256=source,
+        environment_sha256=environment,
+        calendar_version=calendar.package_version,
+        quality=tape.quality,
+        artifacts=LedgerArtifacts.model_validate(
+            {name: _reference(content) for name, content in ledger.artifacts.items()}
+        ),
+        sessions=len(sessions),
+        orders=ledger.orders,
+        fills=ledger.fills,
+        ending_nav_usd=decimal_text(ledger.ending_nav),
+    )
+    return receipt, ledger.artifacts, check
+
+
+def _paths(evidence: Path, view: Path, store: Path) -> None:
+    for directory in (evidence, store):
+        os.close(private_directory(directory))
+        if directory == view or directory.is_relative_to(view) or view.is_relative_to(directory):
+            raise ValueError("portfolio cache must be separate from the read-only factor view")
+
+
+def _report(reference: CachedObject, receipt: BacktestReceipt) -> BacktestReport:
+    return BacktestReport(
+        receipt=reference,
+        artifacts=receipt.artifacts,
+        quality=receipt.quality,
+        sessions=receipt.sessions,
+        orders=receipt.orders,
+        fills=receipt.fills,
+        ending_nav_usd=receipt.ending_nav_usd,
+    )
+
+
+def run_backtest(
+    evidence: Path,
+    view: Path,
+    store: Path,
+    request: BacktestRequest,
+    *,
+    timeout_seconds: float = 180,
+    clock: Callable[[], float] = time.monotonic,
+) -> BacktestReport:
+    """Recompute a frozen development evaluation and publish its modeled ledger.
+
+    Paths are deployment-selected administrative inputs, not capabilities. No
+    protected samples, database mutations, admission, or paid requests occur.
+    Interruptions may leave verified CAS objects; only the last receipt denotes
+    a complete run. Existing artifacts are never overwritten or silently fixed.
+    """
+    deadline = _Deadline(timeout_seconds, clock)
+    _paths(evidence, view, store)
+    receipt, artifacts, check = _materialize(evidence, view, request, deadline)
+    for content in artifacts.values():
+        deadline.check()
+        publish(store, content)
+    check()
+    return _report(
+        publish(store, canonical_bytes(receipt.model_dump(mode="json", by_alias=True))), receipt
+    )
+
+
+def validate_backtest(
+    evidence: Path,
+    view: Path,
+    store: Path,
+    digest: str,
+    *,
+    timeout_seconds: float = 180,
+    clock: Callable[[], float] = time.monotonic,
+) -> BacktestReport:
+    """Reconstruct every ledger byte under the current build without writing files.
+
+    Source/environment drift, altered inputs or outputs, corruption and budget
+    failures invalidate current replay while preserving historical evidence.
+    """
+    deadline = _Deadline(timeout_seconds, clock)
+    _paths(evidence, view, store)
+    reference, content = read_receipt(store, digest)
+    decode_object(content)
+    original = BacktestReceipt.model_validate_json(content)
+    receipt, artifacts, check = _materialize(evidence, view, original.request, deadline)
+    if canonical_bytes(receipt.model_dump(mode="json", by_alias=True)) != content:
+        raise ValueError("portfolio receipt differs from actual replay")
+    for name, expected in artifacts.items():
+        deadline.check()
+        if read_cached(store, getattr(receipt.artifacts, name)) != expected:
+            raise ValueError("portfolio output differs from actual replay")
+    check()
+    if read_cached(store, reference) != content:
+        raise ValueError("portfolio receipt changed during replay")
+    return _report(reference, receipt)
