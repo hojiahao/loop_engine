@@ -117,7 +117,8 @@ fn change_component(value: &mut ResearchProvenanceFingerprint, component: Proven
 }
 
 #[tokio::test]
-async fn export_receipt_survives_restart() {
+// Scenario: export receipt survives restart.
+async fn export_receipt_restart() {
     let mut f = Fixture::new().await;
     let first = f
         .store
@@ -160,7 +161,8 @@ async fn export_receipt_survives_restart() {
 }
 
 #[tokio::test]
-async fn stale_components_block_new_exports() {
+// Scenario: stale components block new exports.
+async fn stale_components_exports() {
     let f = Fixture::new().await;
     for component in ProvenanceComponent::ALL {
         let mut current = backtest::result().provenance.unwrap();
@@ -176,7 +178,8 @@ async fn stale_components_block_new_exports() {
 }
 
 #[tokio::test]
-async fn replay_cannot_bypass_stale_context() {
+// Scenario: replay cannot bypass stale context.
+async fn replay_stale_context() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -196,7 +199,8 @@ async fn replay_cannot_bypass_stale_context() {
 }
 
 #[tokio::test]
-async fn unavailable_context_blocks_replay() {
+// Scenario: unavailable context blocks replay.
+async fn unavailable_context_replay() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -214,7 +218,8 @@ async fn unavailable_context_blocks_replay() {
 }
 
 #[tokio::test]
-async fn unavailable_manifest_resolver_blocks_replay() {
+// Scenario: unavailable manifest resolver blocks replay.
+async fn unavailable_manifest_resolver() {
     let mut f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -235,7 +240,8 @@ async fn unavailable_manifest_resolver_blocks_replay() {
 }
 
 #[tokio::test]
-async fn protected_jobs_keep_the_holdout_gate() {
+// Scenario: protected jobs keep the holdout gate.
+async fn protected_jobs_holdout() {
     let directory = tempfile::tempdir().unwrap();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut config = options(&directory.path().join("state"), clock.clone());
@@ -265,7 +271,8 @@ async fn protected_jobs_keep_the_holdout_gate() {
 }
 
 #[tokio::test]
-async fn both_read_and_export_permissions_are_required() {
+// Scenario: both read and export permissions are required.
+async fn export_permissions() {
     let f = Fixture::new().await;
     for operation in [
         "loop.backtests.read_current",
@@ -284,7 +291,8 @@ async fn both_read_and_export_permissions_are_required() {
 }
 
 #[tokio::test]
-async fn revoked_permission_blocks_replay() {
+// Scenario: revoked permission blocks replay.
+async fn revoked_permission_replay() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -302,7 +310,8 @@ async fn revoked_permission_blocks_replay() {
 }
 
 #[tokio::test]
-async fn metadata_cannot_spoof_transport_identity() {
+// Scenario: metadata cannot spoof transport identity.
+async fn metadata_spoof_transport() {
     let f = Fixture::new().await;
     let mut impostor = actor();
     impostor.authenticated_subject = "different:subject".to_owned();
@@ -325,7 +334,8 @@ async fn metadata_cannot_spoof_transport_identity() {
 }
 
 #[tokio::test]
-async fn changed_retry_content_conflicts() {
+// Scenario: changed retry content conflicts.
+async fn changed_retry_content() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -349,7 +359,8 @@ async fn changed_retry_content_conflicts() {
 }
 
 #[tokio::test]
-async fn deadline_is_required_and_bounded() {
+// Scenario: deadline is required and bounded.
+async fn deadline_bounded() {
     let f = Fixture::new().await;
     for deadline in [None, Some(timestamp(NOW)), Some(timestamp(NOW + 30_001))] {
         let mut command = backtest::export("deadline");
@@ -364,7 +375,8 @@ async fn deadline_is_required_and_bounded() {
 }
 
 #[tokio::test]
-async fn expired_request_cannot_export() {
+// Scenario: expired request cannot export.
+async fn expired_request_export() {
     let f = Fixture::new().await;
     f.clock.0.store(NOW + 30_000, Ordering::SeqCst);
     assert!(matches!(
@@ -378,7 +390,8 @@ async fn expired_request_cannot_export() {
 }
 
 #[tokio::test]
-async fn future_request_time_is_rejected() {
+// Scenario: future request time is rejected.
+async fn future_request_time() {
     let f = Fixture::new().await;
     let mut request = backtest::export("future");
     request.context.as_mut().unwrap().requested_at = Some(timestamp(NOW + 1));
@@ -391,7 +404,8 @@ async fn future_request_time_is_rejected() {
 }
 
 #[tokio::test]
-async fn clock_regression_cannot_export() {
+// Scenario: clock regression cannot export.
+async fn clock_regression_export() {
     let f = Fixture::new().await;
     f.clock.0.store(NOW - 1, Ordering::SeqCst);
     assert!(matches!(
@@ -431,7 +445,8 @@ impl BacktestPolicy for AdvancingPolicy {
 }
 
 #[tokio::test]
-async fn deadline_is_rechecked_after_resolution() {
+// Scenario: deadline is rechecked after resolution.
+async fn deadline_rechecked_resolution() {
     let mut f = Fixture::new().await;
     f.store.close().await;
     let mut config = f.options();
@@ -451,7 +466,8 @@ async fn deadline_is_rechecked_after_resolution() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_receipt() {
+// Scenario: audit failure rolls back receipt.
+async fn audit_failure_receipt() {
     let f = Fixture::new().await;
     let mut db = connection(&f.directory).await;
     db.execute("CREATE TRIGGER injected_export_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -484,7 +500,8 @@ async fn audit_failure_rolls_back_receipt() {
 }
 
 #[tokio::test]
-async fn corrupt_receipt_is_not_released() {
+// Scenario: corrupt receipt is not released.
+async fn corrupt_receipt() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -506,7 +523,8 @@ async fn corrupt_receipt_is_not_released() {
 }
 
 #[tokio::test]
-async fn receipt_projection_is_verified() {
+// Scenario: receipt projection is verified.
+async fn receipt_projection() {
     let f = Fixture::new().await;
     f.store
         .export_current(&actor(), backtest::export("retry"))
@@ -528,7 +546,8 @@ async fn receipt_projection_is_verified() {
 }
 
 #[tokio::test]
-async fn cancellation_rolls_back_pending_export() {
+// Scenario: cancellation rolls back pending export.
+async fn cancellation_pending_export() {
     let f = Fixture::new().await;
     let mut db = connection(&f.directory).await;
     db.execute("CREATE FUNCTION delay_export() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_advisory_xact_lock(hashtextextended(TG_TABLE_SCHEMA || '.export-test', 0)); RETURN NEW; END $$").await.unwrap();

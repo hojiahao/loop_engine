@@ -12,7 +12,8 @@ use std::sync::{
 use support::*;
 
 #[tokio::test]
-async fn migration_configures_durable_storage_and_reopens() {
+// Scenario: migration configures durable storage and reopens.
+async fn migration_durable_storage() {
     let (directory, store, clock) = fixture().await;
     store.verify_configuration().await.unwrap();
     store.submit(command(1)).await.unwrap();
@@ -28,7 +29,8 @@ async fn migration_configures_durable_storage_and_reopens() {
 }
 
 #[tokio::test]
-async fn concurrent_startup_serializes_migrations() {
+// Scenario: concurrent startup serializes migrations.
+async fn concurrent_startup_migrations() {
     let directory = tempfile::tempdir().unwrap();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let path = directory.path().join("state");
@@ -45,7 +47,8 @@ async fn concurrent_startup_serializes_migrations() {
 }
 
 #[tokio::test]
-async fn default_policy_denies_submission_without_creating_state() {
+// Scenario: default policy denies submission without creating state.
+async fn default_policy_submission() {
     let directory = tempfile::tempdir().unwrap();
     let store = PgJobStore::open(base_options(&directory.path().join("state")))
         .await
@@ -60,7 +63,8 @@ async fn default_policy_denies_submission_without_creating_state() {
 }
 
 #[tokio::test]
-async fn a_replay_returns_the_original_response_without_another_event() {
+// Scenario: a replay returns the original response without another event.
+async fn replay_original_response() {
     let (_directory, store, clock) = fixture().await;
     let first = store.submit(command(1)).await.unwrap();
     clock.0.store(NOW + 10, Ordering::SeqCst);
@@ -75,7 +79,8 @@ async fn a_replay_returns_the_original_response_without_another_event() {
 }
 
 #[tokio::test]
-async fn changed_semantics_under_the_same_key_fail_closed() {
+// Scenario: changed semantics under the same key fail closed.
+async fn changed_semantics_key() {
     let (_directory, store, _) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let mut changed = command(1);
@@ -103,7 +108,8 @@ async fn changed_semantics_under_the_same_key_fail_closed() {
 }
 
 #[tokio::test]
-async fn concurrent_writers_commit_one_job_receipt_and_event() {
+// Scenario: concurrent writers commit one job receipt and event.
+async fn concurrent_writers_job() {
     let (directory, first, clock) = fixture().await;
     let second = PgJobStore::open(options(&directory.path().join("state"), clock))
         .await
@@ -137,7 +143,8 @@ async fn concurrent_writers_commit_one_job_receipt_and_event() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_job_receipt_and_clock_watermark() {
+// Scenario: audit failure rolls back job receipt and clock watermark.
+async fn audit_failure_job() {
     let (directory, store, _) = fixture().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -161,7 +168,8 @@ async fn audit_failure_rolls_back_job_receipt_and_clock_watermark() {
 }
 
 #[tokio::test]
-async fn backward_clock_and_invalid_time_never_add_a_job() {
+// Scenario: backward clock and invalid time never add a job.
+async fn backward_clock_invalid() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     clock.0.store(NOW - 1, Ordering::SeqCst);
@@ -186,7 +194,8 @@ async fn backward_clock_and_invalid_time_never_add_a_job() {
 }
 
 #[tokio::test]
-async fn unavailable_pinned_protocol_is_denied() {
+// Scenario: unavailable pinned protocol is denied.
+async fn unavailable_pinned_protocol() {
     let (_directory, store, _) = fixture().await;
     let mut request = command(1);
     let selection = request.specification.protocol_selection.as_mut().unwrap();
@@ -203,7 +212,8 @@ async fn unavailable_pinned_protocol_is_denied() {
 }
 
 #[tokio::test]
-async fn audit_chain_is_verified_and_rows_are_immutable() {
+// Scenario: audit chain is verified and rows are immutable.
+async fn audit_chain_rows() {
     let (directory, store, _) = fixture().await;
     for index in 1..=3 {
         store.submit(command(index)).await.unwrap();
@@ -227,7 +237,8 @@ async fn audit_chain_is_verified_and_rows_are_immutable() {
 }
 
 #[tokio::test]
-async fn envelope_checksum_and_projection_corruption_are_rejected() {
+// Scenario: envelope checksum and projection corruption are rejected.
+async fn envelope_checksum_projection() {
     let (directory, store, _) = fixture().await;
     store.submit(command(1)).await.unwrap();
     store.submit(command(2)).await.unwrap();
@@ -255,7 +266,8 @@ async fn envelope_checksum_and_projection_corruption_are_rejected() {
 }
 
 #[tokio::test]
-async fn changing_the_audit_ledger_identity_on_reopen_is_rejected() {
+// Scenario: changing the audit ledger identity on reopen is rejected.
+async fn audit_ledger_identity() {
     let (directory, store, clock) = fixture().await;
     store.close().await;
     let mut changed = options(&directory.path().join("state"), clock);
@@ -267,7 +279,8 @@ async fn changing_the_audit_ledger_identity_on_reopen_is_rejected() {
 }
 
 #[tokio::test]
-async fn migration_lock_wait_is_bounded_and_cancellable() {
+// Scenario: migration lock wait is bounded and cancellable.
+async fn migration_lock_wait() {
     use std::time::Duration;
     let directory = tempfile::tempdir().unwrap();
     let path = directory.path().join("state");
@@ -305,7 +318,8 @@ async fn migration_lock_wait_is_bounded_and_cancellable() {
 }
 
 #[tokio::test]
-async fn modified_migration_checksum_is_rejected_on_reopen() {
+// Scenario: modified migration checksum is rejected on reopen.
+async fn modified_migration_checksum() {
     let (directory, store, clock) = fixture().await;
     let mut database = connection(&directory).await;
     sqlx::query(
@@ -323,7 +337,8 @@ async fn modified_migration_checksum_is_rejected_on_reopen() {
 }
 
 #[tokio::test]
-async fn a_prelease_terminal_capability_is_required() {
+// Scenario: a prelease terminal capability is required.
+async fn prelease_terminal_capability() {
     let (_directory, store, _) = fixture().await;
     let mut request = command(1);
     let selection = request.specification.protocol_selection.as_mut().unwrap();
@@ -341,7 +356,8 @@ async fn a_prelease_terminal_capability_is_required() {
 }
 
 #[tokio::test]
-async fn strict_table_checks_reject_partial_leases_and_invalid_revisions() {
+// Scenario: strict table checks reject partial leases and invalid revisions.
+async fn strict_table_leases() {
     let (directory, store, _) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let mut database = connection(&directory).await;

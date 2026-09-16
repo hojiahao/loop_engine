@@ -24,7 +24,8 @@ from loop_research.data import databento, sharadar, wrds
 from loop_research.data.licensed_config import DatabentoRequest, SharadarRequest, WrdsRequest
 
 
-def test_sharadar_encoding_matches_official_converter(tmp_path: Path) -> None:
+# Scenario: sharadar encoding matches official converter.
+def test_sharadar_encoding(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path)
     assert isinstance(config, SharadarRequest)
     expected = Util.convert_options(
@@ -38,7 +39,8 @@ def test_sharadar_encoding_matches_official_converter(tmp_path: Path) -> None:
     assert sharadar.parameters(config, "SEP") == expected
 
 
-def test_reordered_columns_preserve_prices(tmp_path: Path) -> None:
+# Scenario: reordered columns preserve prices.
+def test_reordered_columns(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path)
     assert isinstance(config, SharadarRequest)
     table = sharadar.normalize(config, "SEP", [captured(table_bytes())])
@@ -49,7 +51,8 @@ def test_reordered_columns_preserve_prices(tmp_path: Path) -> None:
     assert "raw" not in table.semantics
 
 
-def test_high_precision_source_decimal_survives(tmp_path: Path) -> None:
+# Scenario: high precision source decimal survives.
+def test_high_precision(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path)
     assert isinstance(config, SharadarRequest)
     payload = table_bytes().replace(b", 11,", b", 10.123456789012345678,")
@@ -61,7 +64,8 @@ def test_high_precision_source_decimal_survives(tmp_path: Path) -> None:
     "mutation",
     ["missing", "duplicate", "type", "width", "cursor", "out_of_scope", "price", "float_infinity"],
 )
-def test_sharadar_schema_and_scope_fail_closed(tmp_path: Path, mutation: str) -> None:
+# Scenario: sharadar schema and scope fail closed.
+def test_sharadar_schema(tmp_path: Path, mutation: str) -> None:
     config, _ = license_config(tmp_path)
     assert isinstance(config, SharadarRequest)
     body = json.loads(table_bytes())
@@ -87,14 +91,16 @@ def test_sharadar_schema_and_scope_fail_closed(tmp_path: Path, mutation: str) ->
         sharadar.normalize(config, "SEP", [captured(json.dumps(body).encode())])
 
 
-def test_same_daily_key_cannot_be_ingested_twice(tmp_path: Path) -> None:
+# Scenario: same daily key cannot be ingested twice.
+def test_daily_key(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path)
     assert isinstance(config, SharadarRequest)
     with pytest.raises(ValueError, match="duplicate native key"):
         sharadar.normalize(config, "SEP", [captured(table_bytes()), captured(table_bytes())])
 
 
-def test_as_reported_dimension_retains_three_source_dates(tmp_path: Path) -> None:
+# Scenario: as reported dimension retains three source dates.
+def test_reported_dimension(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, tables=["SF1"])
     assert isinstance(config, SharadarRequest)
     columns = [
@@ -135,7 +141,8 @@ def test_as_reported_dimension_retains_three_source_dates(tmp_path: Path) -> Non
         sharadar.normalize(config, "SF1", [captured(table_bytes(columns, [row]))])
 
 
-def test_corporate_actions_keep_null_contra_and_distinct_rows(tmp_path: Path) -> None:
+# Scenario: corporate actions keep null contra and distinct rows.
+def test_corporate_actions(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, tables=["ACTIONS"])
     assert isinstance(config, SharadarRequest)
     columns = [
@@ -154,9 +161,8 @@ def test_corporate_actions_keep_null_contra_and_distinct_rows(tmp_path: Path) ->
 
 
 @pytest.mark.parametrize("dataset", ["security_master", "corporate_actions"])
-def test_databento_form_matches_native_sdk(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dataset: str
-) -> None:
+# Scenario: databento form matches native sdk.
+def test_databento_form(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dataset: str) -> None:
     config, _ = license_config(tmp_path, "databento", datasets=[dataset])
     assert isinstance(config, DatabentoRequest)
     api_type = SecurityMasterHttpAPI if dataset == "security_master" else CorporateActionsHttpAPI
@@ -195,7 +201,8 @@ def test_databento_form_matches_native_sdk(
     assert databento.parameters(config, dataset) == expected
 
 
-def test_databento_retains_cancellation_and_nanoseconds(tmp_path: Path) -> None:
+# Scenario: databento retains cancellation and nanoseconds.
+def test_databento_retains(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, "databento", datasets=["corporate_actions"])
     assert isinstance(config, DatabentoRequest)
     row = reference_row(
@@ -225,14 +232,16 @@ def test_databento_retains_cancellation_and_nanoseconds(tmp_path: Path) -> None:
         {"unexpected": [1, 2, 3]},
     ],
 )
-def test_databento_rejects_wrong_identity_or_clocks(tmp_path: Path, change: dict[str, Any]) -> None:
+# Scenario: databento rejects wrong identity or clocks.
+def test_databento_wrong(tmp_path: Path, change: dict[str, Any]) -> None:
     config, _ = license_config(tmp_path, "databento")
     assert isinstance(config, DatabentoRequest)
     with pytest.raises(ValueError):
         databento.normalize(config, "security_master", captured(jsonl(reference_row(**change))))
 
 
-def test_equal_timestamp_encodings_cannot_duplicate_a_vintage(tmp_path: Path) -> None:
+# Scenario: equal timestamp encodings cannot duplicate a vintage.
+def test_equal_timestamp(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, "databento")
     assert isinstance(config, DatabentoRequest)
     with pytest.raises(ValueError, match="duplicate native key"):
@@ -245,7 +254,8 @@ def test_equal_timestamp_encodings_cannot_duplicate_a_vintage(tmp_path: Path) ->
         )
 
 
-def test_crsp_ciz_does_not_apply_delisting_twice(tmp_path: Path) -> None:
+# Scenario: crsp ciz does not apply delisting twice.
+def test_crsp_ciz(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, "wrds")
     assert isinstance(config, WrdsRequest)
     content = json.dumps(
@@ -272,7 +282,8 @@ def test_crsp_ciz_does_not_apply_delisting_twice(tmp_path: Path) -> None:
     assert params[0] == [999999] and params[-1] == 10001
 
 
-def test_compustat_query_fixes_reporting_format(tmp_path: Path) -> None:
+# Scenario: compustat query fixes reporting format.
+def test_compustat_query(tmp_path: Path) -> None:
     config, _ = license_config(
         tmp_path, "wrds", profile="compustat_fundq_v1", identifiers=["123456"]
     )
@@ -283,7 +294,8 @@ def test_compustat_query_fixes_reporting_format(tmp_path: Path) -> None:
     assert "123456" not in sql
 
 
-def test_current_permaticker_is_separate_from_historical_status(tmp_path: Path) -> None:
+# Scenario: current permaticker is separate from historical status.
+def test_permaticker_separate(tmp_path: Path) -> None:
     config, _ = license_config(tmp_path, tables=["TICKERS"])
     assert isinstance(config, SharadarRequest)
     columns = [

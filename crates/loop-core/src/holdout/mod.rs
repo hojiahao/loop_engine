@@ -304,7 +304,7 @@ pub fn canonicalize_holdout_period(
     })
 }
 
-pub fn parse_canonical_holdout_period(
+pub fn parse_holdout_period(
     canonical: &[u8],
 ) -> Result<CanonicalHoldoutPeriod, HoldoutValidationError> {
     validate_json_envelope(canonical, MAX_PERIOD_BYTES)?;
@@ -326,7 +326,7 @@ pub fn parse_canonical_holdout_period(
         snapshot_manifest_sha256: raw.snapshot_manifest_sha256,
     };
     let parsed = canonicalize_holdout_period(value)?;
-    if !constant_time_bytes_eq(&parsed.canonical_bytes, canonical) {
+    if !bytes_eq(&parsed.canonical_bytes, canonical) {
         return Err(HoldoutValidationError::new(
             HoldoutValidationCode::NonCanonical,
             "period",
@@ -335,14 +335,14 @@ pub fn parse_canonical_holdout_period(
     Ok(parsed)
 }
 
-pub fn verify_holdout_period_identity(
+pub fn verify_period_identity(
     canonical: &[u8],
     holdout_period_id: &str,
     canonical_period_sha256: &[u8; 32],
 ) -> Result<CanonicalHoldoutPeriod, HoldoutValidationError> {
-    let period = parse_canonical_holdout_period(canonical)?;
+    let period = parse_holdout_period(canonical)?;
     if period.holdout_period_id != holdout_period_id
-        || !constant_time_digest_eq(&period.canonical_period_sha256, canonical_period_sha256)
+        || !digest_eq(&period.canonical_period_sha256, canonical_period_sha256)
     {
         return Err(HoldoutValidationError::new(
             HoldoutValidationCode::PeriodMismatch,
@@ -352,7 +352,7 @@ pub fn verify_holdout_period_identity(
     Ok(period)
 }
 
-pub fn canonicalize_holdout_evaluation_plan(
+pub fn canonicalize_holdout_plan(
     value: HoldoutEvaluationPlan,
     expected_period: &CanonicalHoldoutPeriod,
     trusted_backtest_schema_sha256: &[u8; 32],
@@ -382,7 +382,7 @@ pub fn canonicalize_holdout_evaluation_plan(
     })
 }
 
-pub fn parse_canonical_holdout_evaluation_plan(
+pub fn parse_holdout_plan(
     canonical: &[u8],
     expected_period: &CanonicalHoldoutPeriod,
     trusted_backtest_schema_sha256: &[u8; 32],
@@ -429,13 +429,13 @@ pub fn parse_canonical_holdout_evaluation_plan(
             })
             .collect(),
     };
-    let parsed = canonicalize_holdout_evaluation_plan(
+    let parsed = canonicalize_holdout_plan(
         value,
         expected_period,
         trusted_backtest_schema_sha256,
         resolved_backtest_artifacts,
     )?;
-    if !constant_time_bytes_eq(&parsed.canonical_bytes, canonical) {
+    if !bytes_eq(&parsed.canonical_bytes, canonical) {
         return Err(HoldoutValidationError::new(
             HoldoutValidationCode::NonCanonical,
             "plan",
@@ -444,7 +444,7 @@ pub fn parse_canonical_holdout_evaluation_plan(
     Ok(parsed)
 }
 
-pub fn validate_holdout_evaluation_plan_reference(
+pub fn validate_plan_reference(
     reference: &HoldoutEvaluationPlanReference,
     canonical_plan_bytes: &[u8],
     expected_period: &CanonicalHoldoutPeriod,
@@ -452,7 +452,7 @@ pub fn validate_holdout_evaluation_plan_reference(
     trusted_backtest_schema_sha256: &[u8; 32],
     resolved_backtest_artifacts: &BTreeMap<String, Vec<u8>>,
 ) -> Result<CanonicalHoldoutEvaluationPlan, HoldoutValidationError> {
-    let parsed = parse_canonical_holdout_evaluation_plan(
+    let parsed = parse_holdout_plan(
         canonical_plan_bytes,
         expected_period,
         trusted_backtest_schema_sha256,
@@ -463,8 +463,8 @@ pub fn validate_holdout_evaluation_plan_reference(
     let expected_uri = format!("artifact://sha256/{}", &raw_id[7..]);
     if artifact.artifact_id != raw_id
         || artifact.uri != expected_uri
-        || !constant_time_digest_eq(&artifact.sha256, &parsed.plan_sha256)
-        || !constant_time_digest_eq(&reference.plan_sha256, &parsed.plan_sha256)
+        || !digest_eq(&artifact.sha256, &parsed.plan_sha256)
+        || !digest_eq(&reference.plan_sha256, &parsed.plan_sha256)
         || artifact.byte_size != canonical_plan_bytes.len() as u64
         || artifact.has_row_count
         || artifact.has_manifest_sha256
@@ -477,7 +477,7 @@ pub fn validate_holdout_evaluation_plan_reference(
     if artifact.schema_name != PLAN_ARTIFACT_SCHEMA_NAME
         || artifact.schema_version != 1
         || artifact.media_type != JSON_MEDIA_TYPE
-        || !constant_time_digest_eq(&artifact.schema_sha256, trusted_plan_schema_sha256)
+        || !digest_eq(&artifact.schema_sha256, trusted_plan_schema_sha256)
     {
         return Err(HoldoutValidationError::new(
             HoldoutValidationCode::SchemaMismatch,
@@ -487,7 +487,7 @@ pub fn validate_holdout_evaluation_plan_reference(
     if reference.holdout_evaluation_plan_id != parsed.holdout_evaluation_plan_id
         || usize::try_from(reference.entry_count).ok() != Some(parsed.value.entries.len())
         || reference.holdout_period_id != expected_period.holdout_period_id
-        || !constant_time_digest_eq(
+        || !digest_eq(
             &reference.canonical_period_sha256,
             &expected_period.canonical_period_sha256,
         )
@@ -629,9 +629,7 @@ fn validate_backtest_artifact(
             "backtest_spec_artifact",
         )
     })?;
-    if content.len() as u64 != declared_size
-        || !constant_time_digest_eq(&raw_hash(content), &digest)
-    {
+    if content.len() as u64 != declared_size || !digest_eq(&raw_hash(content), &digest) {
         return Err(HoldoutValidationError::new(
             HoldoutValidationCode::InvalidArtifact,
             "backtest_spec_artifact",
@@ -1007,7 +1005,7 @@ fn encode_digest(digest: &[u8; 32]) -> String {
     output
 }
 
-fn constant_time_digest_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
+fn digest_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
     left.iter()
         .zip(right)
         .fold(0_u8, |difference, (left, right)| {
@@ -1016,7 +1014,7 @@ fn constant_time_digest_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
         == 0
 }
 
-fn constant_time_bytes_eq(left: &[u8], right: &[u8]) -> bool {
+fn bytes_eq(left: &[u8], right: &[u8]) -> bool {
     if left.len() != right.len() {
         return false;
     }

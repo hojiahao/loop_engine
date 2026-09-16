@@ -40,7 +40,7 @@ export class ProvenanceSnapshot {
     Object.freeze(this);
   }
 
-  static fromWire(value: ResearchProvenanceFingerprint): ProvenanceSnapshot {
+  static from_wire(value: ResearchProvenanceFingerprint): ProvenanceSnapshot {
     const fields = [
       value.sourceCodeSha256,
       value.operatorRegistrySha256,
@@ -78,7 +78,7 @@ export type ProvenanceAssessment =
  * The owner must resolve factor, backtest, sample, seed, frozen inputs and current
  * context independently. Matching caller metadata is not authority or execution proof.
  */
-export function assessProvenance(
+export function assess_provenance(
   recorded: ProvenanceSnapshot,
   frozen: ProvenanceSnapshot,
   current: ProvenanceSnapshot | undefined,
@@ -95,7 +95,7 @@ export function assessProvenance(
 }
 
 /** Refuse stale/unresolved metrics at a current-result consumption boundary. */
-export function requireCurrentProvenance(assessment: ProvenanceAssessment): void {
+export function require_current_provenance(assessment: ProvenanceAssessment): void {
   if (assessment.status === "stale") throw new ProvenanceError("stale", assessment.changed);
   if (assessment.status !== "current") throw new ProvenanceError("unresolved_current");
 }

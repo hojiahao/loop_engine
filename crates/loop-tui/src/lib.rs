@@ -16,7 +16,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bootstrap_view_renders_without_overflow() {
+    // Scenario: bootstrap view renders without overflow.
+    fn bootstrap_view_overflow() {
         let backend = TestBackend::new(48, 3);
         let mut terminal = Terminal::new(backend).unwrap();
         terminal.draw(draw_bootstrap).unwrap();

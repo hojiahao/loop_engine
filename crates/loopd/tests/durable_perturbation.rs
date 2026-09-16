@@ -88,7 +88,8 @@ impl PerturbationWorker for Unavailable {
 }
 
 #[tokio::test]
-async fn restart_restores_history_and_rng() {
+// Scenario: restart restores history and rng.
+async fn restart_history_rng() {
     let mut f = Fixture::new().await;
     let first = f
         .store
@@ -145,7 +146,8 @@ async fn restart_restores_history_and_rng() {
 }
 
 #[tokio::test]
-async fn failures_filter_real_worker_proposals() {
+// Scenario: failures filter real worker proposals.
+async fn failures_filter_worker() {
     let f = Fixture::new().await;
     p::seed(&f.store, 2, 25, true).await;
     let result = f
@@ -166,7 +168,8 @@ async fn failures_filter_real_worker_proposals() {
 }
 
 #[tokio::test]
-async fn full_failure_memory_returns_exhausted() {
+// Scenario: full failure memory returns exhausted.
+async fn full_failure_memory() {
     let f = Fixture::new().await;
     for (index, window) in [5, 10, 20, 25].into_iter().enumerate() {
         p::seed(&f.store, index as u32 + 2, window, true).await;
@@ -183,7 +186,8 @@ async fn full_failure_memory_returns_exhausted() {
 }
 
 #[tokio::test]
-async fn worker_failure_does_not_advance_state() {
+// Scenario: worker failure does not advance state.
+async fn worker_failure_state() {
     let f = Fixture::new().await;
     assert!(matches!(
         f.store
@@ -195,7 +199,8 @@ async fn worker_failure_does_not_advance_state() {
 }
 
 #[tokio::test]
-async fn source_replay_does_not_duplicate_sharpe() {
+// Scenario: source replay does not duplicate sharpe.
+async fn source_replay_sharpe() {
     let f = Fixture::new().await;
     let first = f
         .store
@@ -216,7 +221,8 @@ async fn source_replay_does_not_duplicate_sharpe() {
 }
 
 #[tokio::test]
-async fn revision_and_retry_conflicts_fail_closed() {
+// Scenario: revision and retry conflicts fail closed.
+async fn revision_retry_conflicts() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -238,7 +244,8 @@ async fn revision_and_retry_conflicts_fail_closed() {
 }
 
 #[tokio::test]
-async fn unavailable_or_stale_context_blocks_replay() {
+// Scenario: unavailable or stale context blocks replay.
+async fn unavailable_stale_context() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -274,7 +281,8 @@ async fn unavailable_or_stale_context_blocks_replay() {
 }
 
 #[tokio::test]
-async fn default_resolver_denies_optimization() {
+// Scenario: default resolver denies optimization.
+async fn default_resolver_optimization() {
     let f = Fixture::new().await;
     let mut options = f.options();
     options.backtest_policy = Arc::new(DenyBacktest);
@@ -289,7 +297,8 @@ async fn default_resolver_denies_optimization() {
 }
 
 #[tokio::test]
-async fn revoked_authority_blocks_replay() {
+// Scenario: revoked authority blocks replay.
+async fn revoked_authority_replay() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -306,7 +315,8 @@ async fn revoked_authority_blocks_replay() {
 }
 
 #[tokio::test]
-async fn cancelled_source_is_not_a_sharpe_observation() {
+// Scenario: cancelled source is not a sharpe observation.
+async fn cancelled_source_sharpe() {
     let f = Fixture::new().await;
     let mut submission = rejection::command(2);
     let Some(job_specification::Input::Backtest(input)) = &mut submission.specification.input
@@ -339,7 +349,8 @@ async fn cancelled_source_is_not_a_sharpe_observation() {
 }
 
 #[tokio::test]
-async fn changing_family_cannot_reset_state() {
+// Scenario: changing family cannot reset state.
+async fn family_state() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -356,7 +367,8 @@ async fn changing_family_cannot_reset_state() {
 }
 
 #[tokio::test]
-async fn ambiguous_sharpe_estimator_is_rejected() {
+// Scenario: ambiguous sharpe estimator is rejected.
+async fn ambiguous_sharpe_estimator() {
     let policy = Arc::new(p::Policy::default());
     *policy.metric_override.lock().unwrap() = Some(("1.5".to_owned(), "undefined.v1".to_owned()));
     let f = Fixture::with_policy(policy).await;
@@ -370,7 +382,8 @@ async fn ambiguous_sharpe_estimator_is_rejected() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_state_and_receipt() {
+// Scenario: audit failure rolls back state and receipt.
+async fn audit_failure_state() {
     let f = Fixture::new().await;
     let mut db = connection(&f.directory).await;
     db.execute("CREATE FUNCTION reject_proposal_audit() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture audit outage'; END; $$").await.unwrap();
@@ -393,7 +406,8 @@ async fn audit_failure_rolls_back_state_and_receipt() {
 }
 
 #[tokio::test]
-async fn sql_guards_preserve_history() {
+// Scenario: sql guards preserve history.
+async fn sql_guards_history() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -413,7 +427,8 @@ async fn sql_guards_preserve_history() {
 }
 
 #[tokio::test]
-async fn corrupt_state_fails_before_worker() {
+// Scenario: corrupt state fails before worker.
+async fn corrupt_state_worker() {
     let f = Fixture::new().await;
     f.store
         .advance_perturbation(&actor(), p::command(1, 0, "first"), &p::worker())
@@ -438,7 +453,8 @@ async fn corrupt_state_fails_before_worker() {
 }
 
 #[tokio::test]
-async fn deadlines_and_clock_regression_fail_closed() {
+// Scenario: deadlines and clock regression fail closed.
+async fn deadlines_clock_regression() {
     let f = Fixture::new().await;
     f.clock.0.store(NOW - 1, Ordering::SeqCst);
     assert!(matches!(
@@ -466,7 +482,8 @@ impl PerturbationWorker for Pending {
 }
 
 #[tokio::test]
-async fn cancelled_calculation_leaves_no_write_lock() {
+// Scenario: cancelled calculation leaves no write lock.
+async fn cancelled_calculation_lock() {
     let f = Fixture::new().await;
     assert!(
         tokio::time::timeout(
@@ -496,7 +513,8 @@ impl PerturbationWorker for RejectDuringCompute<'_> {
 }
 
 #[tokio::test]
-async fn rejection_during_compute_blocks_commit() {
+// Scenario: rejection during compute blocks commit.
+async fn rejection_compute() {
     let f = Fixture::new().await;
     assert!(matches!(
         f.store
@@ -530,7 +548,8 @@ impl PerturbationWorker for AlterHistory {
 }
 
 #[tokio::test]
-async fn worker_cannot_rewrite_registered_sharpe() {
+// Scenario: worker cannot rewrite registered sharpe.
+async fn worker_registered_sharpe() {
     let f = Fixture::new().await;
     assert!(matches!(
         f.store
@@ -552,7 +571,8 @@ impl PerturbationWorker for AdvanceClock {
 }
 
 #[tokio::test]
-async fn deadline_expiring_during_compute_rolls_back() {
+// Scenario: deadline expiring during compute rolls back.
+async fn deadline_expiring_compute() {
     let f = Fixture::new().await;
     assert!(matches!(
         f.store
@@ -568,7 +588,8 @@ async fn deadline_expiring_during_compute_rolls_back() {
 }
 
 #[tokio::test]
-async fn holdout_jobs_cannot_feed_optimization() {
+// Scenario: holdout jobs cannot feed optimization.
+async fn holdout_jobs_optimization() {
     let directory = tempfile::tempdir().unwrap();
     let mut config = options(
         &directory.path().join("state"),

@@ -15,7 +15,8 @@ from loop_research.data.fetch_json import decimal_text, decode_object
 from loop_research.data.sec import normalize_sec
 
 
-def test_sec_preserves_units_periods_and_revised_exact_values() -> None:
+# Scenario: sec preserves units periods and revised exact values.
+def test_sec_units() -> None:
     result = normalize_sec(sec_config(), download("sec-facts"), download("sec-submissions"))
     assert len(result.fundamentals) == 4
     values = {(fact.concept, fact.unit, fact.period_start): fact for fact in result.fundamentals}
@@ -44,7 +45,8 @@ def test_sec_preserves_units_periods_and_revised_exact_values() -> None:
         (b'"units": {', b'"units": null, "invalid": {'),
     ],
 )
-def test_sec_rejects_invalid_source_fields(old: bytes, new: bytes) -> None:
+# Scenario: sec rejects invalid source fields.
+def test_sec_invalid(old: bytes, new: bytes) -> None:
     with pytest.raises(ValueError):
         normalize_sec(
             sec_config(),
@@ -53,7 +55,8 @@ def test_sec_rejects_invalid_source_fields(old: bytes, new: bytes) -> None:
         )
 
 
-def test_sec_rejects_mismatched_submission_identity() -> None:
+# Scenario: sec rejects mismatched submission identity.
+def test_sec_mismatched() -> None:
     with pytest.raises(FetchError, match="identity_unresolved"):
         normalize_sec(
             sec_config(),
@@ -64,26 +67,30 @@ def test_sec_rejects_mismatched_submission_identity() -> None:
         )
 
 
-def test_sec_same_date_conflicting_vintages_fail() -> None:
+# Scenario: sec same date conflicting vintages fail.
+def test_sec_date() -> None:
     content = fixture("sec-facts").replace(b'"filed":"2026-08-01"', b'"filed":"2026-08-25"')
     with pytest.raises(ValueError, match="conflicting same-date"):
         normalize_sec(sec_config(), download("sec-facts", content), download("sec-submissions"))
 
 
-def test_sec_missing_concept_is_an_empty_selection() -> None:
+# Scenario: sec missing concept is an empty selection.
+def test_sec_missing() -> None:
     result = normalize_sec(
         sec_config(concepts=["us-gaap:Missing"]), download("sec-facts"), download("sec-submissions")
     )
     assert not result.fundamentals and result.missing == ("us-gaap:Missing",)
 
 
-def test_sec_counts_all_selected_vintages_against_budget() -> None:
+# Scenario: sec counts all selected vintages against budget.
+def test_sec_selected() -> None:
     config = sec_config(budget={"records": 1})
     with pytest.raises(FetchError, match="record_budget"):
         normalize_sec(config, download("sec-facts"), download("sec-submissions"))
 
 
-def test_sdk_parameters_pin_every_market_semantic() -> None:
+# Scenario: sdk parameters pin every market semantic.
+def test_sdk_parameters() -> None:
     assert bars_parameters(alpaca_config(), date(2026, 9, 13)) == {
         "start": "2026-08-28T04:00:00+00:00",
         "end": "2026-09-01T03:59:59.999999+00:00",
@@ -98,7 +105,8 @@ def test_sdk_parameters_pin_every_market_semantic() -> None:
     }
 
 
-def test_raw_bars_keep_decimal_precision_and_complete_day_end() -> None:
+# Scenario: raw bars keep decimal precision and complete day end.
+def test_raw_bars() -> None:
     result = normalize_alpaca(
         alpaca_config(),
         date(2026, 9, 13),
@@ -123,9 +131,8 @@ def test_raw_bars_keep_decimal_precision_and_complete_day_end() -> None:
         ("2026-11-01", "2026-11-01T04:00:00Z", "2026-11-02T05:00:00Z", 25),
     ],
 )
-def test_daily_intervals_follow_dst_not_fixed_24_hours(
-    session: str, start: str, end: str, hours: int
-) -> None:
+# Scenario: daily intervals follow dst not fixed 24 hours.
+def test_daily_intervals(session: str, start: str, end: str, hours: int) -> None:
     # Sunday fixtures exercise interval semantics only, not tradable-session validation.
     content = json.dumps(
         {
@@ -157,7 +164,8 @@ def test_daily_intervals_follow_dst_not_fixed_24_hours(
         (b'"DEMO"', b'"UNREQUESTED"'),
     ],
 )
-def test_alpaca_rejects_invalid_bar_semantics(old: bytes, new: bytes) -> None:
+# Scenario: alpaca rejects invalid bar semantics.
+def test_alpaca_invalid(old: bytes, new: bytes) -> None:
     with pytest.raises(ValueError):
         normalize_alpaca(
             alpaca_config(),
@@ -177,7 +185,8 @@ def test_alpaca_rejects_invalid_bar_semantics(old: bytes, new: bytes) -> None:
         (b"00000000-0000-4000-8000-000000000001", b"00000000-0000-0000-0000-000000000000"),
     ],
 )
-def test_current_asset_identity_is_not_inferred(old: bytes, new: bytes) -> None:
+# Scenario: current asset identity is not inferred.
+def test_asset_identity(old: bytes, new: bytes) -> None:
     with pytest.raises(ValueError):
         normalize_alpaca(
             alpaca_config(),
@@ -187,7 +196,8 @@ def test_current_asset_identity_is_not_inferred(old: bytes, new: bytes) -> None:
         )
 
 
-def test_duplicate_bars_are_denied_across_pages() -> None:
+# Scenario: duplicate bars are denied across pages.
+def test_bars_across() -> None:
     content = fixture("alpaca-page-1").replace(b'"fixture-page-2="', b"null")
     with pytest.raises(ValueError, match="duplicate or out-of-order"):
         normalize_alpaca(
@@ -198,7 +208,8 @@ def test_duplicate_bars_are_denied_across_pages() -> None:
         )
 
 
-def test_truncated_pagination_has_no_normalized_batch() -> None:
+# Scenario: truncated pagination has no normalized batch.
+def test_truncated_pagination() -> None:
     with pytest.raises(ValueError, match="incomplete Alpaca pagination"):
         normalize_alpaca(
             alpaca_config(),
@@ -208,7 +219,8 @@ def test_truncated_pagination_has_no_normalized_batch() -> None:
         )
 
 
-def test_asset_lookup_crossing_new_york_date_is_denied() -> None:
+# Scenario: asset lookup crossing new york date is denied.
+def test_asset_crossing() -> None:
     with pytest.raises(FetchError, match="identity_unresolved"):
         normalize_alpaca(
             alpaca_config(),
@@ -219,7 +231,8 @@ def test_asset_lookup_crossing_new_york_date_is_denied() -> None:
 
 
 @pytest.mark.parametrize("token", ["https://elsewhere.invalid", "x" * 1025, "", 17])
-def test_cursors_are_bounded_strings(token: object) -> None:
+# Scenario: cursors are bounded strings.
+def test_cursors_bounded(token: object) -> None:
     content = json.dumps({"bars": {}, "next_page_token": token}).encode()
     with pytest.raises(ValueError):
         page_rows(download("alpaca-page-2", content), ("DEMO",))
@@ -240,12 +253,14 @@ def test_cursors_are_bounded_strings(token: object) -> None:
         b"[" * 1100 + b"]" * 1100,
     ],
 )
-def test_vendor_json_rejects_ambiguous_or_unbounded_values(content: bytes) -> None:
+# Scenario: vendor json rejects ambiguous or unbounded values.
+def test_vendor_json(content: bytes) -> None:
     with pytest.raises(ValueError):
         decode_object(content)
 
 
-def test_exact_json_numbers_never_pass_through_float() -> None:
+# Scenario: exact json numbers never pass through float.
+def test_json_numbers() -> None:
     value = decode_object(b'{"x":9007199254740993.01,"y":1e-18}')
     assert decimal_text(value["x"]) == "9007199254740993.01"
     assert decimal_text(value["y"]) == "0.000000000000000001"
@@ -268,12 +283,14 @@ def test_exact_json_numbers_never_pass_through_float() -> None:
         {"records": 10001},
     ],
 )
-def test_download_budgets_are_always_finite(budget: dict[str, object]) -> None:
+# Scenario: download budgets are always finite.
+def test_download_budgets(budget: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         FetchBudget.model_validate(budget)
 
 
-def test_sec_old_conflicts_are_rejected_in_every_row_order() -> None:
+# Scenario: sec old conflicts are rejected in every row order.
+def test_sec_old() -> None:
     from itertools import permutations
 
     rows = [
@@ -292,7 +309,8 @@ def test_sec_old_conflicts_are_rejected_in_every_row_order() -> None:
             normalize_sec(sec_config(), download("sec-facts", content), download("sec-submissions"))
 
 
-def test_sec_equivalent_decimal_scales_are_not_conflicting() -> None:
+# Scenario: sec equivalent decimal scales are not conflicting.
+def test_sec_equivalent() -> None:
     content = b'{"cik":1234567,"facts":{"us-gaap":{"Assets":{"units":{"USD":['
     row = b'{"end":"2026-06-30","filed":"2026-08-01","accn":"0001234567-26-000001","val":'
     rows = [row + b"1}", row + b"1.0}"]

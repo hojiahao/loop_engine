@@ -123,7 +123,8 @@ struct MalformedPayloadVector {
 }
 
 #[test]
-fn shared_chain_vectors_are_byte_and_digest_exact() {
+// Scenario: shared chain vectors are byte and digest exact.
+fn shared_chain_vectors() {
     let fixture = fixture();
     assert_eq!(fixture.schema, "loop.audit-conformance/v1");
     let chain = chain(&fixture);
@@ -141,7 +142,7 @@ fn shared_chain_vectors_are_byte_and_digest_exact() {
             vector.name
         );
         assert_eq!(
-            canonical_audit_event_bytes(event).unwrap(),
+            audit_event_bytes(event).unwrap(),
             vector.canonical_event_utf8.as_bytes(),
             "{} event bytes",
             vector.name
@@ -157,7 +158,8 @@ fn shared_chain_vectors_are_byte_and_digest_exact() {
 }
 
 #[test]
-fn every_action_and_typed_target_enum_spelling_is_closed() {
+// Scenario: every action and typed target enum spelling is closed.
+fn action_typed_target() {
     let fixture = fixture();
     for action in &fixture.action_values {
         AuditAction::try_from(action.as_str()).unwrap();
@@ -182,7 +184,8 @@ fn every_action_and_typed_target_enum_spelling_is_closed() {
 }
 
 #[test]
-fn shared_action_registry_binds_schema_target_and_subject_before_hashing() {
+// Scenario: shared action registry binds schema target and subject before hashing.
+fn shared_action_registry() {
     let fixture = action_binding_fixture();
     assert_eq!(fixture.schema, "loop.audit-action-binding/v1");
     assert_eq!(fixture.accepted.len(), 12);
@@ -215,7 +218,7 @@ fn shared_action_registry_binds_schema_target_and_subject_before_hashing() {
             vector.name
         );
         assert_eq!(
-            canonical_audit_event_bytes(&event).unwrap(),
+            audit_event_bytes(&event).unwrap(),
             vector.canonical_event_utf8.as_bytes(),
             "{} event bytes",
             vector.name
@@ -297,7 +300,8 @@ fn shared_action_registry_binds_schema_target_and_subject_before_hashing() {
 }
 
 #[test]
-fn hostile_deep_payload_fails_closed_without_panicking() {
+// Scenario: hostile deep payload fails closed without panicking.
+fn hostile_deep_payload() {
     let depth = 512;
     let mut payload = "[".repeat(depth);
     payload.push_str("{}\n");
@@ -311,7 +315,8 @@ fn hostile_deep_payload_fails_closed_without_panicking() {
 }
 
 #[test]
-fn shared_tamper_reorder_genesis_and_cross_ledger_vectors_fail_closed() {
+// Scenario: shared tamper reorder genesis and cross ledger vectors fail closed.
+fn shared_tamper_reorder() {
     let fixture = fixture();
     for negative in &fixture.negative_vectors {
         let mut events = chain(&fixture);
@@ -370,7 +375,8 @@ fn shared_tamper_reorder_genesis_and_cross_ledger_vectors_fail_closed() {
 }
 
 #[test]
-fn shared_boundary_values_are_accepted_and_overruns_are_rejected() {
+// Scenario: shared boundary values are accepted and overruns are rejected.
+fn shared_boundary_values() {
     let fixture = fixture();
     let boundaries = &fixture.boundary_vectors;
     let max_id_bytes: usize = boundaries.max_domain_id_bytes.parse().unwrap();
@@ -418,7 +424,8 @@ fn shared_boundary_values_are_accepted_and_overruns_are_rejected() {
 }
 
 #[test]
-fn payload_registry_rejects_noncanonical_and_unknown_documents() {
+// Scenario: payload registry rejects noncanonical and unknown documents.
+fn payload_registry_noncanonical() {
     for value in [
         br#" {"command":"research.run","request_id":"request.1","summary":"ok"}"#.as_slice(),
         br#"{"request_id":"request.1","command":"research.run","summary":"ok"}"#.as_slice(),
@@ -443,10 +450,11 @@ fn payload_registry_rejects_noncanonical_and_unknown_documents() {
 }
 
 #[test]
-fn holdout_grant_issued_binds_canonical_approval_evidence() {
+// Scenario: holdout grant issued binds canonical approval evidence.
+fn holdout_grant_issued() {
     let first = approval_record_json("approval.01", '1', "actor.risk");
     let second = approval_record_json("approval.02", '2', "actor.security");
-    let canonical = holdout_grant_issued_json(
+    let canonical = grant_issued_json(
         &[first.clone(), second.clone()],
         "holdout_evaluation",
         "authorized",
@@ -483,7 +491,7 @@ fn holdout_grant_issued_binds_canonical_approval_evidence() {
         ],
     ];
     for records in invalid_record_sets {
-        let submitted = holdout_grant_issued_json(&records, "holdout_evaluation", "authorized");
+        let submitted = grant_issued_json(&records, "holdout_evaluation", "authorized");
         assert_eq!(
             canonicalize_audit_payload("loop.audit.holdout_grant_issued", 1, submitted.as_bytes())
                 .unwrap_err()
@@ -496,8 +504,7 @@ fn holdout_grant_issued_binds_canonical_approval_evidence() {
         "{{\"approval_record_sha256\":\"sha256:{}\",\"holdout_approval_record_id\":\"approval.01\",\"approved_by_actor_id\":\"actor.risk\"}}",
         "1".repeat(64)
     );
-    let submitted =
-        holdout_grant_issued_json(&[reordered_record], "holdout_evaluation", "authorized");
+    let submitted = grant_issued_json(&[reordered_record], "holdout_evaluation", "authorized");
     assert_eq!(
         canonicalize_audit_payload("loop.audit.holdout_grant_issued", 1, submitted.as_bytes())
             .unwrap_err()
@@ -507,17 +514,18 @@ fn holdout_grant_issued_binds_canonical_approval_evidence() {
 }
 
 #[test]
-fn holdout_grant_audit_authorization_values_are_closed() {
+// Scenario: holdout grant audit authorization values are closed.
+fn holdout_grant_audit() {
     let record = approval_record_json("approval.01", '1', "actor.risk");
     for submitted in [
-        holdout_grant_issued_json(
+        grant_issued_json(
             std::slice::from_ref(&record),
             "holdout_export",
             "authorized",
         ),
-        holdout_grant_issued_json(&[record], "holdout_evaluation", "denied"),
-        holdout_grant_consumed_json("holdout_export", "authorized"),
-        holdout_grant_consumed_json("holdout_evaluation", "denied"),
+        grant_issued_json(&[record], "holdout_evaluation", "denied"),
+        grant_consumed_json("holdout_export", "authorized"),
+        grant_consumed_json("holdout_evaluation", "denied"),
     ] {
         let schema = if submitted.contains("approval_records") {
             "loop.audit.holdout_grant_issued"
@@ -532,7 +540,7 @@ fn holdout_grant_audit_authorization_values_are_closed() {
         );
     }
 
-    let consumed = holdout_grant_consumed_json("holdout_evaluation", "authorized");
+    let consumed = grant_consumed_json("holdout_evaluation", "authorized");
     assert!(
         canonicalize_audit_payload("loop.audit.holdout_grant_consumed", 1, consumed.as_bytes())
             .is_ok()
@@ -540,7 +548,8 @@ fn holdout_grant_audit_authorization_values_are_closed() {
 }
 
 #[test]
-fn timestamp_and_digest_encodings_are_strict() {
+// Scenario: timestamp and digest encodings are strict.
+fn timestamp_digest_encodings() {
     for timestamp in [
         "2026-02-29T00:00:00.000000000Z",
         "2026-09-05T06:30:60.000000000Z",
@@ -569,7 +578,7 @@ fn approval_record_json(record_id: &str, digest_nibble: char, actor_id: &str) ->
     )
 }
 
-fn holdout_grant_issued_json(
+fn grant_issued_json(
     approval_records: &[String],
     capability_class: &str,
     authorization_decision: &str,
@@ -583,7 +592,7 @@ fn holdout_grant_issued_json(
     )
 }
 
-fn holdout_grant_consumed_json(capability_class: &str, authorization_decision: &str) -> String {
+fn grant_consumed_json(capability_class: &str, authorization_decision: &str) -> String {
     format!(
         "{{\"holdout_grant_id\":\"grant.01\",\"holdout_period_id\":\"sha256:{}\",\"holdout_evaluation_plan_id\":\"sha256:{}\",\"job_batch_id\":\"batch.01\",\"capability_class\":\"{capability_class}\",\"authorization_decision\":\"{authorization_decision}\"}}",
         "a".repeat(64),

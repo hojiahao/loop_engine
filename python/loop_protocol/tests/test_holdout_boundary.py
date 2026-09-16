@@ -29,7 +29,8 @@ def _grant_reference() -> holdout_pb2.HoldoutGrantReference:
     )
 
 
-def test_freeze_manifest_round_trip_pins_complete_evaluation_plan() -> None:
+# Scenario: freeze manifest round trip pins complete evaluation plan.
+def test_freeze_manifest() -> None:
     plan = holdout_pb2.HoldoutEvaluationPlanReference(
         holdout_evaluation_plan_id=common_pb2.HoldoutEvaluationPlanId(value=PLAN_ID),
         canonical_plan=artifact_pb2.ArtifactRef(
@@ -57,7 +58,8 @@ def test_freeze_manifest_round_trip_pins_complete_evaluation_plan() -> None:
     assert decoded.holdout_evaluation_plan.canonical_plan.sha256 == _digest(7)
 
 
-def test_consume_surface_has_no_caller_supplied_specification_or_budget() -> None:
+# Scenario: consume surface has no caller supplied specification or budget.
+def test_surface_caller() -> None:
     request_fields = {
         field.name for field in service_pb2.ConsumeGrantAndEnqueueBacktestRequest.DESCRIPTOR.fields
     }
@@ -84,7 +86,8 @@ def test_consume_surface_has_no_caller_supplied_specification_or_budget() -> Non
     assert decoded.expected_period_revision == 4
 
 
-def test_consume_response_is_a_narrow_batch_and_internal_job_retains_binding() -> None:
+# Scenario: consume response is a narrow batch and internal job retains binding.
+def test_response_narrow() -> None:
     batch = service_pb2.JobBatchHandle(
         job_batch_id=common_pb2.JobBatchId(value="batch.holdout.0001"),
         holdout_grant_id=common_pb2.HoldoutGrantId(value="grant.holdout.0001"),
@@ -122,7 +125,8 @@ def test_consume_response_is_a_narrow_batch_and_internal_job_retains_binding() -
     assert decoded_internal.holdout_evaluation_plan_id.value == PLAN_ID
 
 
-def test_holdout_service_generated_module_has_no_job_or_backtest_dependency() -> None:
+# Scenario: holdout service generated module has no job or backtest dependency.
+def test_holdout_service() -> None:
     assert {dependency.name for dependency in service_pb2.DESCRIPTOR.dependencies} == {
         "google/protobuf/timestamp.proto",
         "loop/v1/artifact.proto",
@@ -131,7 +135,8 @@ def test_holdout_service_generated_module_has_no_job_or_backtest_dependency() ->
     }
 
 
-def test_shared_holdout_surface_vectors_fail_closed() -> None:
+# Scenario: shared holdout surface vectors fail closed.
+def test_shared_holdout() -> None:
     surfaces = {
         "consume_request": service_pb2.ConsumeGrantAndEnqueueBacktestRequest.DESCRIPTOR,
         "consume_response": service_pb2.ConsumeGrantAndEnqueueBacktestResponse.DESCRIPTOR,

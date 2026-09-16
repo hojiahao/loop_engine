@@ -41,7 +41,8 @@ def read(directory: Path, rows: str) -> None:
         directory.chmod(0o700)
 
 
-def test_verified_exposures_retain_live_file_guard(tmp_path: Path) -> None:
+# Scenario: verified exposures retain live file guard.
+def test_exposures_retain(tmp_path: Path) -> None:
     read(tmp_path / "view", ROW)
 
 
@@ -58,6 +59,7 @@ def test_verified_exposures_retain_live_file_guard(tmp_path: Path) -> None:
         "",
     ],
 )
-def test_hashed_exposure_still_needs_valid_observations(tmp_path: Path, rows: str) -> None:
+# Scenario: hashed exposure still needs valid observations.
+def test_hashed_exposure(tmp_path: Path, rows: str) -> None:
     with pytest.raises(ValueError):
         read(tmp_path / "view", rows)

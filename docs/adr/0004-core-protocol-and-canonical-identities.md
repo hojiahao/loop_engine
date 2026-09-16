@@ -38,7 +38,7 @@ expression_id = "sha256:" + lower_hex(
 )
 
 factor_spec_id = "sha256:" + lower_hex(
-  SHA-256(ASCII("loop.factor-spec/v1") || 0x00 || canonical_factor_spec_bytes)
+  SHA-256(ASCII("loop.factor-spec/v1") || 0x00 || factor_spec_bytes)
 )
 ```
 

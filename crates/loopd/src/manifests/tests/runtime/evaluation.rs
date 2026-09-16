@@ -377,7 +377,7 @@ async fn fixture_with_minimum(transformed: bool, minimum: u32) -> Fixture {
     }
     factor.factor_spec_id.as_mut().unwrap().value = format!(
         "sha256:{}",
-        loop_protocol::job::factor_spec_identity_sha256(factor)
+        loop_protocol::job::factor_identity_hash(factor)
             .unwrap()
             .iter()
             .map(|byte| format!("{byte:02x}"))
@@ -521,7 +521,7 @@ fn change_preprocess(fixture: &mut Fixture) {
         .sha256 = Some(model::digest(digest));
     factor.factor_spec_id.as_mut().unwrap().value = format!(
         "sha256:{}",
-        loop_protocol::job::factor_spec_identity_sha256(factor)
+        loop_protocol::job::factor_identity_hash(factor)
             .unwrap()
             .iter()
             .map(|byte| format!("{byte:02x}"))
@@ -593,7 +593,8 @@ fn bind_moving_average(
 }
 
 #[tokio::test]
-async fn numerical_execution_commits_bound_values() {
+// Scenario: numerical execution commits bound values.
+async fn numerical_execution_values() {
     let case = Case::start().await;
     let request = case.request().await;
     let started = std::time::Instant::now();
@@ -636,7 +637,8 @@ async fn numerical_execution_commits_bound_values() {
 }
 
 #[tokio::test]
-async fn completed_evaluation_replays_after_restart() {
+// Scenario: completed evaluation replays after restart.
+async fn completed_evaluation_restart() {
     let mut case = Case::start().await;
     let request = case.request().await;
     let first = case
@@ -661,7 +663,8 @@ async fn completed_evaluation_replays_after_restart() {
 }
 
 #[tokio::test]
-async fn generic_completion_cannot_skip_numerical_evidence() {
+// Scenario: generic completion cannot skip numerical evidence.
+async fn generic_completion_numerical() {
     let case = Case::start().await;
     let request = case.request().await;
     let error = case
@@ -694,7 +697,8 @@ async fn generic_completion_cannot_skip_numerical_evidence() {
 }
 
 #[tokio::test]
-async fn cancelled_lease_cannot_start_computation() {
+// Scenario: cancelled lease cannot start computation.
+async fn cancelled_lease_computation() {
     let case = Case::start().await;
     let request = case.request().await;
     case.store
@@ -723,7 +727,8 @@ async fn cancelled_lease_cannot_start_computation() {
 }
 
 #[tokio::test]
-async fn expired_lease_denies_computation() {
+// Scenario: expired lease denies computation.
+async fn expired_lease_computation() {
     let case = Case::start().await;
     let request = case.request().await;
     case.clock.0.store(120_001, Ordering::SeqCst);
@@ -748,7 +753,8 @@ async fn expired_lease_denies_computation() {
 }
 
 #[tokio::test]
-async fn changed_input_cannot_reach_the_worker() {
+// Scenario: changed input cannot reach the worker.
+async fn changed_input_worker() {
     let case = Case::start().await;
     let request = case.request().await;
     let data: model::Dataset = serde_json::from_slice(
@@ -782,7 +788,8 @@ async fn changed_input_cannot_reach_the_worker() {
 }
 
 #[tokio::test]
-async fn changed_output_cannot_replay_a_successful_receipt() {
+// Scenario: changed output cannot replay a successful receipt.
+async fn changed_output_replay() {
     let case = Case::start().await;
     let request = case.request().await;
     let job = case
@@ -814,7 +821,8 @@ async fn changed_output_cannot_replay_a_successful_receipt() {
 }
 
 #[tokio::test]
-async fn raw_policy_is_not_ignored() {
+// Scenario: raw policy is not ignored.
+async fn raw_policy() {
     let mut fixture = fixture(false).await;
     change_preprocess(&mut fixture);
     let case = Case::open(fixture).await;
@@ -830,7 +838,8 @@ async fn raw_policy_is_not_ignored() {
 }
 
 #[tokio::test]
-async fn transformed_policy_must_match_panel() {
+// Scenario: transformed policy must match panel.
+async fn transformed_policy_panel() {
     let mut fixture = fixture(true).await;
     change_preprocess(&mut fixture);
     let case = Case::open(fixture).await;
@@ -926,7 +935,8 @@ async fn transformed_completion_replays() {
 }
 
 #[tokio::test]
-async fn changed_exposures_block_execution() {
+// Scenario: changed exposures block execution.
+async fn changed_exposures_execution() {
     let case = Case::open(fixture(true).await).await;
     let request = case.request().await;
     let data: model::Dataset = serde_json::from_slice(

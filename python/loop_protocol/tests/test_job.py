@@ -20,17 +20,17 @@ from loop.v1 import (
 from loop_protocol.job import (
     JobValidationCode,
     JobValidationError,
-    canonical_protocol_selection_bytes,
-    factor_spec_identity_sha256,
+    factor_identity_hash,
+    protocol_selection_bytes,
     protocol_selection_sha256,
-    validate_holdout_backtest_plan_entry_binding,
     validate_job_record,
     validate_job_specification,
+    validate_plan_binding,
 )
 from loop_protocol.runtime_validation import (
     RuntimeValidationCode,
     RuntimeValidationError,
-    validate_job_wire_dispatch_candidate,
+    validate_dispatch_candidate,
 )
 
 VECTORS = Path(__file__).parents[3] / "tests" / "contracts" / "job_record_vectors.tsv"
@@ -61,7 +61,8 @@ SHARED_VECTORS = list(csv.DictReader(VECTORS.open(), delimiter="\t"))
 
 
 @pytest.mark.parametrize("missing", ["provenance", "deterministic_seed"])
-def test_factor_execution_identity_requires_a_complete_pair(missing: str) -> None:
+# Scenario: factor execution identity requires a complete pair.
+def test_factor_execution(missing: str) -> None:
     specification = job_pb2.JobSpecification()
     _set_valid_specification(
         specification, {"kind": "factor_evaluation", "input": "factor_evaluation"}
@@ -76,10 +77,11 @@ def test_factor_execution_identity_requires_a_complete_pair(missing: str) -> Non
     assert caught.value.code == JobValidationCode.MISSING_FIELD
 
 
-def test_protocol_selection_producer_matches_shared_golden() -> None:
+# Scenario: protocol selection producer matches shared golden.
+def test_protocol_selection() -> None:
     row = next(csv.DictReader(PROTOCOL_GOLDEN.open(), delimiter="\t"))
     selection = _protocol_selection()
-    assert canonical_protocol_selection_bytes(selection).decode("ascii") == row["canonical_utf8"]
+    assert protocol_selection_bytes(selection).decode("ascii") == row["canonical_utf8"]
     assert protocol_selection_sha256(selection).hex() == row["selection_sha256"]
 
 
@@ -88,7 +90,8 @@ def test_protocol_selection_producer_matches_shared_golden() -> None:
     list(csv.DictReader(PROTOCOL_NEGATIVE.open(), delimiter="\t")),
     ids=lambda vector: vector["name"],
 )
-def test_protocol_selection_shared_negatives_fail_closed(vector: dict[str, str]) -> None:
+# Scenario: protocol selection shared negatives fail closed.
+def test_protocol_shared(vector: dict[str, str]) -> None:
     specification = job_pb2.JobSpecification()
     _set_valid_specification(
         specification,
@@ -127,7 +130,8 @@ def test_protocol_selection_shared_negatives_fail_closed(vector: dict[str, str])
     list(csv.DictReader(HOLDOUT_BINDING.open(), delimiter="\t")),
     ids=lambda vector: vector["name"],
 )
-def test_holdout_job_shared_plan_entry_bindings_fail_closed(vector: dict[str, str]) -> None:
+# Scenario: holdout job shared plan entry bindings fail closed.
+def test_holdout_job(vector: dict[str, str]) -> None:
     input_value, period_bytes, plan_bytes, trusted_backtest, resolved = _holdout_binding_fixture()
     mutation = vector["mutation"]
     if mutation == "plan_identity":
@@ -149,7 +153,7 @@ def test_holdout_job_shared_plan_entry_bindings_fail_closed(vector: dict[str, st
     submitted_at = job_pb2.JobSpecification().submitted_at
     submitted_at.seconds = 5
     if vector["expected"] == "accept":
-        validate_holdout_backtest_plan_entry_binding(
+        validate_plan_binding(
             input_value,
             submitted_at,
             period_bytes,
@@ -159,7 +163,7 @@ def test_holdout_job_shared_plan_entry_bindings_fail_closed(vector: dict[str, st
         )
     else:
         with pytest.raises(JobValidationError) as captured:
-            validate_holdout_backtest_plan_entry_binding(
+            validate_plan_binding(
                 input_value,
                 submitted_at,
                 period_bytes,
@@ -175,7 +179,8 @@ def test_holdout_job_shared_plan_entry_bindings_fail_closed(vector: dict[str, st
     list(csv.DictReader(HOLDOUT_GRANT_LIFETIME.open(), delimiter="\t")),
     ids=lambda vector: vector["name"],
 )
-def test_holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate(
+# Scenario: holdout grant lifetime boundaries cover binder and wire candidate.
+def test_holdout_grant(
     vector: dict[str, str],
 ) -> None:
     submitted_at = job_pb2.JobSpecification().submitted_at
@@ -184,7 +189,7 @@ def test_holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate(
     input_value, period_bytes, plan_bytes, trusted_backtest, resolved = _holdout_binding_fixture()
 
     if vector["expected_binder"] == "accept":
-        validate_holdout_backtest_plan_entry_binding(
+        validate_plan_binding(
             input_value,
             submitted_at,
             period_bytes,
@@ -194,7 +199,7 @@ def test_holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate(
         )
     else:
         with pytest.raises(JobValidationError) as captured:
-            validate_holdout_backtest_plan_entry_binding(
+            validate_plan_binding(
                 input_value,
                 submitted_at,
                 period_bytes,
@@ -212,17 +217,18 @@ def test_holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate(
     specification.submitted_at.CopyFrom(submitted_at)
     if vector["expected_wire"] == "accept":
         assert (
-            validate_job_wire_dispatch_candidate(specification, {job_pb2.JOB_KIND_HOLDOUT_BACKTEST})
+            validate_dispatch_candidate(specification, {job_pb2.JOB_KIND_HOLDOUT_BACKTEST})
             == job_pb2.JOB_KIND_HOLDOUT_BACKTEST
         )
     else:
         with pytest.raises(RuntimeValidationError) as captured:
-            validate_job_wire_dispatch_candidate(specification, {job_pb2.JOB_KIND_HOLDOUT_BACKTEST})
+            validate_dispatch_candidate(specification, {job_pb2.JOB_KIND_HOLDOUT_BACKTEST})
         assert captured.value.code == RuntimeValidationCode(vector["expected_wire"])
 
 
 @pytest.mark.parametrize("vector", SHARED_VECTORS, ids=[v["name"] for v in SHARED_VECTORS])
-def test_shared_job_record_matrix_fails_closed(vector: dict[str, str]) -> None:
+# Scenario: shared job record matrix fails closed.
+def test_shared_job(vector: dict[str, str]) -> None:
     assert len(SHARED_VECTORS) == 109
     record = _record(vector)
     expected = vector["expected"]
@@ -405,7 +411,7 @@ def _valid_factor_spec() -> factor_pb2.FactorSpec:
         getattr(factor.frozen_policy, field_name).CopyFrom(
             _policy(f"policy.{field_name.removesuffix('_policy')}")
         )
-    assert f"sha256:{factor_spec_identity_sha256(factor).hex()}" == FACTOR_ID
+    assert f"sha256:{factor_identity_hash(factor).hex()}" == FACTOR_ID
     factor.factor_spec_id.value = FACTOR_ID
     return factor
 
@@ -606,9 +612,9 @@ def _mutate(record: job_pb2.JobRecord, mutation: str) -> None:
     elif mutation == "lease_invalid_order":
         record.active_lease.heartbeat_at.seconds = 30
     elif mutation == "factor_input_id_missing":
-        _set_input_factor_id(record, None)
+        _input_factor_id(record, None)
     elif mutation == "factor_input_id_malformed":
-        _set_input_factor_id(record, "SHA256:bad")
+        _input_factor_id(record, "SHA256:bad")
     elif mutation == "rejection_id_missing":
         record.outcome.factor_rejection.ClearField("factor_spec_id")
     elif mutation == "rejection_id_malformed":
@@ -721,7 +727,7 @@ def _mutate(record: job_pb2.JobRecord, mutation: str) -> None:
         raise AssertionError(f"unknown mutation {mutation}")
 
 
-def _set_input_factor_id(record: job_pb2.JobRecord, value: str | None) -> None:
+def _input_factor_id(record: job_pb2.JobRecord, value: str | None) -> None:
     input_name = record.specification.WhichOneof("input")
     if input_name == "factor_evaluation":
         target = record.specification.factor_evaluation.factor

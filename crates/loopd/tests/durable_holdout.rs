@@ -80,7 +80,8 @@ async fn replay_survives_reopen() {
 }
 
 #[tokio::test]
-async fn different_key_cannot_replace_period() {
+// Scenario: different key cannot replace period.
+async fn different_key_period() {
     let (_directory, store, _) = setup().await;
     store
         .register_period(&actor(), holdout::command(0, "first"))
@@ -113,7 +114,8 @@ async fn changed_period_conflicts() {
 }
 
 #[tokio::test]
-async fn default_policy_denies_access() {
+// Scenario: default policy denies access.
+async fn default_policy_access() {
     let (_directory, store, _) = fixture().await;
     let request = holdout::command(0, "denied");
     let id = request
@@ -177,7 +179,8 @@ async fn rejects_actor_spoofing() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_period() {
+// Scenario: audit failure rolls back period.
+async fn audit_failure_period() {
     let (directory, store, _) = setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -212,7 +215,8 @@ async fn audit_failure_rolls_back_period() {
 }
 
 #[tokio::test]
-async fn rejects_rehashed_receipt_state() {
+// Scenario: rejects rehashed receipt state.
+async fn rehashed_receipt_state() {
     let (directory, store, _) = setup().await;
     let result = store
         .register_period(&actor(), holdout::command(0, "receipt"))
@@ -243,7 +247,8 @@ async fn rejects_rehashed_receipt_state() {
 }
 
 #[tokio::test]
-async fn clock_regression_blocks_retry() {
+// Scenario: clock regression blocks retry.
+async fn clock_regression_retry() {
     let (_directory, store, clock) = setup().await;
     store
         .register_period(&actor(), holdout::command(0, "clock"))
@@ -260,7 +265,8 @@ async fn clock_regression_blocks_retry() {
 }
 
 #[tokio::test]
-async fn receipt_failure_rolls_back_registration() {
+// Scenario: receipt failure rolls back registration.
+async fn receipt_failure_registration() {
     let (directory, store, _) = setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON holdout_command_receipts FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -282,7 +288,8 @@ async fn receipt_failure_rolls_back_registration() {
 }
 
 #[tokio::test]
-async fn period_and_receipt_history_is_immutable() {
+// Scenario: period and receipt history is immutable.
+async fn period_receipt_history() {
     let (directory, store, _) = setup().await;
     store
         .register_period(&actor(), holdout::command(0, "immutable"))
@@ -310,7 +317,8 @@ async fn period_and_receipt_history_is_immutable() {
 }
 
 #[tokio::test]
-async fn terminal_period_cannot_be_reset() {
+// Scenario: terminal period cannot be reset.
+async fn terminal_period() {
     let (directory, store, _, request) = grant::setup().await;
     let original = store
         .register_period(&actor(), holdout::command(0, "period.0"))
@@ -358,7 +366,8 @@ async fn terminal_period_cannot_be_reset() {
 }
 
 #[tokio::test]
-async fn altered_canonical_content_fails_before_write() {
+// Scenario: altered canonical content fails before write.
+async fn altered_canonical_content() {
     let (_directory, store, _) = setup().await;
     let mut request = holdout::command(0, "altered");
     request.canonical_bytes.push(b' ');
@@ -371,7 +380,8 @@ async fn altered_canonical_content_fails_before_write() {
 }
 
 #[tokio::test]
-async fn future_request_time_is_rejected() {
+// Scenario: future request time is rejected.
+async fn future_request_time() {
     let (_directory, store, _) = setup().await;
     let mut request = holdout::command(0, "future");
     request.context.as_mut().unwrap().requested_at = Some(timestamp(NOW + 1));

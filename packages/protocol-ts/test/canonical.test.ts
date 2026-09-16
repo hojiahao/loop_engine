@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
-  assertPositiveUnsignedDecimal,
-  bindFactorSpec,
+  assert_unsigned_decimal,
+  bind_factor_spec,
   FACTOR_SPEC_POLICY_FIELDS,
   FACTOR_SPEC_SCHEMA,
   type FactorAst,
@@ -12,14 +12,14 @@ import {
   type FactorSpec,
   OperatorPolicyRegistry,
   type OperatorRegistrySnapshot,
-  parseCanonicalExpression,
-  parseCanonicalFactorSpec,
-  parseCanonicalOperatorSemanticContract,
-  prepareExpression,
+  parse_canonical_expression,
+  parse_factor_spec,
+  parse_semantic_contract,
+  prepare_expression,
   type Sha256Id,
-  semanticContractSha256,
-  verifyExpressionIdentity,
-  verifyFactorSpecIdentity,
+  semantic_contract_sha256,
+  verify_expression_identity,
+  verify_factor_identity,
 } from "../src/index.js";
 
 interface ConformanceFixture {
@@ -101,7 +101,7 @@ const fixtureSemanticContracts = new Map<Sha256Id, Uint8Array>(
     new TextEncoder().encode(vector.canonical_utf8),
   ]),
 );
-const fixtureSemanticResolver = (identity: Sha256Id): Uint8Array | undefined =>
+const fixture_semantic_resolver = (identity: Sha256Id): Uint8Array | undefined =>
   fixtureSemanticContracts.get(identity);
 
 type RawOperatorDefinition = Omit<
@@ -109,7 +109,7 @@ type RawOperatorDefinition = Omit<
   "semanticContractSha256"
 >;
 
-function attachSemanticContract(
+function attach_semantic_contract(
   definition: RawOperatorDefinition,
   contracts: Map<Sha256Id, Uint8Array>,
 ): OperatorRegistrySnapshot["operators"][number] {
@@ -148,20 +148,20 @@ function attachSemanticContract(
       numericPolicy,
     }),
   );
-  const identity = semanticContractSha256(bytes);
+  const identity = semantic_contract_sha256(bytes);
   contracts.set(identity, bytes);
   return { ...definition, semanticContractSha256: identity };
 }
 
 const localSemanticContracts = new Map<Sha256Id, Uint8Array>();
-const localOperator = (definition: RawOperatorDefinition) =>
-  attachSemanticContract(definition, localSemanticContracts);
-const localSemanticResolver = (identity: Sha256Id): Uint8Array | undefined =>
+const local_operator = (definition: RawOperatorDefinition) =>
+  attach_semantic_contract(definition, localSemanticContracts);
+const local_semantic_resolver = (identity: Sha256Id): Uint8Array | undefined =>
   localSemanticContracts.get(identity);
 
-function registryForOperatorVector(definition: unknown): OperatorPolicyRegistry {
+function registry_operator_vector(definition: unknown): OperatorPolicyRegistry {
   const contracts = new Map<Sha256Id, Uint8Array>();
-  const complete = attachSemanticContract(definition as RawOperatorDefinition, contracts);
+  const complete = attach_semantic_contract(definition as RawOperatorDefinition, contracts);
   return new OperatorPolicyRegistry(
     {
       fields: [{ field: "market.close", outputType: "series" }],
@@ -182,7 +182,7 @@ const registry = new OperatorPolicyRegistry(
     ],
     enums: [{ enumType: "rank.method", values: ["average", "dense"] }],
     operators: [
-      localOperator({
+      local_operator({
         operator: "arithmetic.add",
         operatorVersion: "1",
         parameters: [],
@@ -193,7 +193,7 @@ const registry = new OperatorPolicyRegistry(
         associative: true,
         commutative: true,
       }),
-      localOperator({
+      local_operator({
         operator: "arithmetic.add",
         operatorVersion: "2",
         parameters: [],
@@ -204,7 +204,7 @@ const registry = new OperatorPolicyRegistry(
         associative: false,
         commutative: false,
       }),
-      localOperator({
+      local_operator({
         operator: "arithmetic.ordered_add",
         operatorVersion: "1",
         parameters: [],
@@ -215,7 +215,7 @@ const registry = new OperatorPolicyRegistry(
         associative: false,
         commutative: false,
       }),
-      localOperator({
+      local_operator({
         operator: "math.abs",
         operatorVersion: "1",
         parameters: [{ type: "series" }],
@@ -223,7 +223,7 @@ const registry = new OperatorPolicyRegistry(
         associative: false,
         commutative: false,
       }),
-      localOperator({
+      local_operator({
         operator: "rolling.mean",
         operatorVersion: "1",
         parameters: [
@@ -238,7 +238,7 @@ const registry = new OperatorPolicyRegistry(
         associative: false,
         commutative: false,
       }),
-      localOperator({
+      local_operator({
         operator: "rank.cross_section",
         operatorVersion: "1",
         parameters: [{ type: "series" }, { type: { enumType: "rank.method" }, literalOnly: true }],
@@ -248,7 +248,7 @@ const registry = new OperatorPolicyRegistry(
       }),
     ],
   },
-  localSemanticResolver,
+  local_semantic_resolver,
 );
 
 const field = (name: string) => ({ node: "field", field: `market.${name}` }) as const;
@@ -259,7 +259,7 @@ const call = (operator: string, version: string, arguments_: readonly unknown[])
   arguments: arguments_,
 });
 
-function expectDomainError(action: () => unknown, code: FactorDomainErrorCode): void {
+function expect_domain_error(action: () => unknown, code: FactorDomainErrorCode): void {
   try {
     action();
   } catch (error) {
@@ -274,7 +274,7 @@ const digest = (fill: number): Sha256Id =>
   `sha256:${fill.toString(16).padStart(64, "0")}` as Sha256Id;
 const operatorRegistryDigest = registry.sha256;
 
-function factorSpec(
+function factor_spec(
   expressionId: Sha256Id,
   direction: FactorSpec["direction"] = "higher_is_better",
 ): FactorSpec {
@@ -303,8 +303,8 @@ describe("factor canonicalization v1", () => {
   it("consumes every shared semantic contract byte and negative vector", () => {
     for (const vector of semanticContractFixture.accepted) {
       const bytes = new TextEncoder().encode(vector.canonical_utf8);
-      const contract = parseCanonicalOperatorSemanticContract(bytes);
-      expect(semanticContractSha256(bytes), vector.name).toBe(vector.sha256);
+      const contract = parse_semantic_contract(bytes);
+      expect(semantic_contract_sha256(bytes), vector.name).toBe(vector.sha256);
       expect(contract.operator, vector.name).toBeTruthy();
     }
     for (const [policy, variants] of Object.entries(semanticContractFixture.policy_variants)) {
@@ -321,25 +321,22 @@ describe("factor canonicalization v1", () => {
           [policy]: variant,
         };
         expect(
-          () =>
-            parseCanonicalOperatorSemanticContract(
-              new TextEncoder().encode(JSON.stringify(contract)),
-            ),
+          () => parse_semantic_contract(new TextEncoder().encode(JSON.stringify(contract))),
           `${policy}=${variant}`,
         ).not.toThrow();
       }
     }
     for (const canonical of semanticContractFixture.rejected_canonical_utf8) {
-      expect(() =>
-        parseCanonicalOperatorSemanticContract(new TextEncoder().encode(canonical)),
-      ).toThrow(FactorDomainError);
+      expect(() => parse_semantic_contract(new TextEncoder().encode(canonical))).toThrow(
+        FactorDomainError,
+      );
     }
     const deeplyNested = `${"[".repeat(semanticContractFixture.deep_nesting)}0${"]".repeat(
       semanticContractFixture.deep_nesting,
     )}`;
-    expect(() =>
-      parseCanonicalOperatorSemanticContract(new TextEncoder().encode(deeplyNested)),
-    ).toThrow(FactorDomainError);
+    expect(() => parse_semantic_contract(new TextEncoder().encode(deeplyNested))).toThrow(
+      FactorDomainError,
+    );
   });
 
   it("fails closed when semantic content cannot prove its address and operator binding", () => {
@@ -359,7 +356,7 @@ describe("factor canonicalization v1", () => {
         new OperatorPolicyRegistry(conformanceFixture.registry, (identity) =>
           identity === first.sha256
             ? new TextEncoder().encode(second.canonical_utf8)
-            : fixtureSemanticResolver(identity),
+            : fixture_semantic_resolver(identity),
         ),
     ).toThrow(FactorDomainError);
 
@@ -373,7 +370,7 @@ describe("factor canonicalization v1", () => {
       () =>
         new OperatorPolicyRegistry(
           { fields: [], enums: [], operators: [mismatched] } as OperatorRegistrySnapshot,
-          fixtureSemanticResolver,
+          fixture_semantic_resolver,
         ),
     ).toThrow(FactorDomainError);
   });
@@ -381,14 +378,14 @@ describe("factor canonicalization v1", () => {
   it("matches the shared canonical operator registry bytes and identity", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
-    expect(fixtureRegistry.canonicalJson).toBe(conformanceFixture.registry_canonical_utf8);
+    expect(fixtureRegistry.canonical_json).toBe(conformanceFixture.registry_canonical_utf8);
     expect(fixtureRegistry.sha256).toBe(conformanceFixture.registry_sha256);
-    expect(fixtureRegistry.toBytes()).toEqual(
+    expect(fixtureRegistry.to_bytes()).toEqual(
       new TextEncoder().encode(conformanceFixture.registry_canonical_utf8),
     );
-    expect(fixtureRegistry.resolveSemanticContract("rolling.mean", "1").nullPolicy).toBe(
+    expect(fixtureRegistry.resolve_semantic_contract("rolling.mean", "1").nullPolicy).toBe(
       "ignore_missing",
     );
   });
@@ -396,10 +393,10 @@ describe("factor canonicalization v1", () => {
   it("matches every shared cross-language expression vector byte for byte", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     for (const vector of conformanceFixture.expression_vectors) {
-      const canonical = prepareExpression(vector.input, fixtureRegistry);
+      const canonical = prepare_expression(vector.input, fixtureRegistry);
       expect(canonical.canonicalJson, vector.name).toBe(vector.canonical_utf8);
       expect(canonical.expressionId, vector.name).toBe(vector.expression_id);
       expect(canonical.ast, vector.name).toEqual(JSON.parse(vector.canonical_utf8) as FactorAst);
@@ -409,10 +406,10 @@ describe("factor canonicalization v1", () => {
   it("matches every shared cross-language FactorSpec vector byte for byte", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     for (const vector of conformanceFixture.factor_spec_vectors) {
-      const canonical = bindFactorSpec(
+      const canonical = bind_factor_spec(
         vector.input,
         vector.expression_canonical_utf8,
         fixtureRegistry,
@@ -420,7 +417,7 @@ describe("factor canonicalization v1", () => {
       expect(canonical.canonicalJson, vector.name).toBe(vector.canonical_utf8);
       expect(canonical.factorSpecId, vector.name).toBe(vector.factor_spec_id);
       expect(
-        parseCanonicalFactorSpec(
+        parse_factor_spec(
           vector.canonical_utf8,
           vector.factor_spec_id,
           vector.expression_canonical_utf8,
@@ -434,14 +431,14 @@ describe("factor canonicalization v1", () => {
   it("rejects a FactorSpec bound against a different registry snapshot", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     const vector = conformanceFixture.factor_spec_vectors[0];
     if (vector === undefined) throw new Error("missing FactorSpec fixture");
     for (const rejection of conformanceFixture.rejected_registry_bindings) {
-      expectDomainError(
+      expect_domain_error(
         () =>
-          bindFactorSpec(
+          bind_factor_spec(
             {
               ...(vector.input as FactorSpec),
               operator_registry_sha256: rejection.operator_registry_sha256,
@@ -457,13 +454,13 @@ describe("factor canonicalization v1", () => {
   it("rejects every shared non-series FactorSpec root", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     const template = conformanceFixture.factor_spec_vectors[0]?.input as FactorSpec;
     for (const vector of conformanceFixture.rejected_factor_bindings) {
-      expectDomainError(
+      expect_domain_error(
         () =>
-          bindFactorSpec(
+          bind_factor_spec(
             { ...template, expression_id: vector.expression_id },
             vector.canonical_expression_utf8,
             fixtureRegistry,
@@ -476,42 +473,40 @@ describe("factor canonicalization v1", () => {
   it("fails closed on every shared scalar and semantic negative vector", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     for (const value of conformanceFixture.accepted_decimals) {
       expect(
-        prepareExpression({ node: "decimal", value }, fixtureRegistry).canonicalJson,
+        prepare_expression({ node: "decimal", value }, fixtureRegistry).canonicalJson,
       ).toContain(value);
     }
     for (const value of conformanceFixture.accepted_positive_integers) {
-      expect(assertPositiveUnsignedDecimal(value, "$fixture"), value).toBe(value);
+      expect(assert_unsigned_decimal(value, "$fixture"), value).toBe(value);
     }
     for (const value of conformanceFixture.rejected_decimals) {
-      expect(() => prepareExpression({ node: "decimal", value }, fixtureRegistry)).toThrow(
+      expect(() => prepare_expression({ node: "decimal", value }, fixtureRegistry)).toThrow(
         FactorDomainError,
       );
     }
     for (const value of conformanceFixture.rejected_positive_integers) {
-      expect(() => assertPositiveUnsignedDecimal(value, "$fixture"), value).toThrow(
-        FactorDomainError,
-      );
+      expect(() => assert_unsigned_decimal(value, "$fixture"), value).toThrow(FactorDomainError);
     }
     for (const value of conformanceFixture.rejected_identifiers) {
-      expect(() => prepareExpression({ node: "field", field: value }, fixtureRegistry)).toThrow(
+      expect(() => prepare_expression({ node: "field", field: value }, fixtureRegistry)).toThrow(
         FactorDomainError,
       );
     }
     for (const vector of conformanceFixture.rejected_expressions) {
       expect(
         () =>
-          prepareExpression(vector.input, fixtureRegistry, {
+          prepare_expression(vector.input, fixtureRegistry, {
             maxDirectArguments: vector.limit_overrides?.max_direct_arguments,
           }),
         vector.name,
       ).toThrow(FactorDomainError);
     }
     for (const canonicalUtf8 of conformanceFixture.rejected_canonical_utf8) {
-      expect(() => parseCanonicalExpression(canonicalUtf8, fixtureRegistry)).toThrow(
+      expect(() => parse_canonical_expression(canonicalUtf8, fixtureRegistry)).toThrow(
         FactorDomainError,
       );
     }
@@ -519,17 +514,17 @@ describe("factor canonicalization v1", () => {
 
   it("uses the shared variadic registry boundary and scalar-type rules", () => {
     for (const vector of conformanceFixture.registry_operator_vectors.accepted) {
-      expect(() => registryForOperatorVector(vector.definition), vector.name).not.toThrow();
+      expect(() => registry_operator_vector(vector.definition), vector.name).not.toThrow();
     }
     for (const vector of conformanceFixture.registry_operator_vectors.rejected) {
-      expect(() => registryForOperatorVector(vector.definition), vector.name).toThrow(
+      expect(() => registry_operator_vector(vector.definition), vector.name).toThrow(
         FactorDomainError,
       );
     }
   });
 
   it("emits fixed canonical bytes and domain-separated expression identity", () => {
-    const canonical = prepareExpression(
+    const canonical = prepare_expression(
       call("arithmetic.add", "1", [field("open"), field("close")]),
       registry,
     );
@@ -540,13 +535,13 @@ describe("factor canonicalization v1", () => {
     expect(canonical.expressionId).toBe(
       "sha256:4a65ce89092ec916ddd9c34d8d9b10d77321d3522c1c0b543c93fb38d42e228d",
     );
-    expect(new TextDecoder().decode(canonical.toBytes())).toBe(canonical.canonicalJson);
+    expect(new TextDecoder().decode(canonical.to_bytes())).toBe(canonical.canonicalJson);
     expect(Object.isFrozen(canonical.ast)).toBe(true);
   });
 
   it("rejects non-canonical decimals and every unsafe identifier family", () => {
     for (const value of ["0", "1", "-1", "0.5", "-0.5", "10.25", "0.0001"]) {
-      expect(prepareExpression({ node: "decimal", value }, registry).canonicalJson).toContain(
+      expect(prepare_expression({ node: "decimal", value }, registry).canonicalJson).toContain(
         value,
       );
     }
@@ -564,8 +559,8 @@ describe("factor canonicalization v1", () => {
       "NaN",
       "Infinity",
     ]) {
-      expectDomainError(
-        () => prepareExpression({ node: "decimal", value }, registry),
+      expect_domain_error(
+        () => prepare_expression({ node: "decimal", value }, registry),
         "invalid_decimal",
       );
     }
@@ -578,8 +573,8 @@ describe("factor canonicalization v1", () => {
       "market.closé",
       `a.${"b".repeat(127)}`,
     ]) {
-      expectDomainError(
-        () => prepareExpression({ node: "field", field: unsafe }, registry),
+      expect_domain_error(
+        () => prepare_expression({ node: "field", field: unsafe }, registry),
         "invalid_identifier",
       );
     }
@@ -595,14 +590,14 @@ describe("factor canonicalization v1", () => {
       field("open"),
       field("high"),
     ]);
-    expect(prepareExpression(nested, registry).expressionId).toBe(
-      prepareExpression(flatPermutation, registry).expressionId,
+    expect(prepare_expression(nested, registry).expressionId).toBe(
+      prepare_expression(flatPermutation, registry).expressionId,
     );
 
     const orderedLeft = call("arithmetic.ordered_add", "1", [field("open"), field("close")]);
     const orderedRight = call("arithmetic.ordered_add", "1", [field("close"), field("open")]);
-    expect(prepareExpression(orderedLeft, registry).expressionId).not.toBe(
-      prepareExpression(orderedRight, registry).expressionId,
+    expect(prepare_expression(orderedLeft, registry).expressionId).not.toBe(
+      prepare_expression(orderedRight, registry).expressionId,
     );
 
     const versionTwoNested = call("arithmetic.add", "2", [
@@ -614,87 +609,89 @@ describe("factor canonicalization v1", () => {
       field("high"),
       field("close"),
     ]);
-    expect(prepareExpression(versionTwoNested, registry).expressionId).not.toBe(
-      prepareExpression(versionTwoFlat, registry).expressionId,
+    expect(prepare_expression(versionTwoNested, registry).expressionId).not.toBe(
+      prepare_expression(versionTwoFlat, registry).expressionId,
     );
-    expect(prepareExpression(orderedLeft, registry).expressionId).not.toBe(
-      prepareExpression(call("arithmetic.add", "2", [field("open"), field("close")]), registry)
+    expect(prepare_expression(orderedLeft, registry).expressionId).not.toBe(
+      prepare_expression(call("arithmetic.add", "2", [field("open"), field("close")]), registry)
         .expressionId,
     );
   });
 
   it("resolves signatures, literal constraints, enum domains, and unknown symbols", () => {
     expect(
-      prepareExpression(
+      prepare_expression(
         call("rolling.mean", "1", [field("close"), { node: "decimal", value: "20" }]),
         registry,
       ).expressionId,
     ).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expectDomainError(
+    expect_domain_error(
       () =>
-        prepareExpression(
+        prepare_expression(
           call("rolling.mean", "1", [field("close"), { node: "decimal", value: "1" }]),
           registry,
         ),
       "invalid_decimal",
     );
-    expectDomainError(
-      () => prepareExpression(call("rolling.mean", "1", [field("close"), field("open")]), registry),
+    expect_domain_error(
+      () =>
+        prepare_expression(call("rolling.mean", "1", [field("close"), field("open")]), registry),
       "type_mismatch",
     );
-    expectDomainError(
-      () => prepareExpression(call("rolling.mean", "9", [field("close")]), registry),
+    expect_domain_error(
+      () => prepare_expression(call("rolling.mean", "9", [field("close")]), registry),
       "unknown_operator",
     );
-    expectDomainError(
-      () => prepareExpression({ node: "field", field: "market.volume" }, registry),
+    expect_domain_error(
+      () => prepare_expression({ node: "field", field: "market.volume" }, registry),
       "unknown_field",
     );
-    expectDomainError(
+    expect_domain_error(
       () =>
-        prepareExpression({ node: "enum", enum_type: "rank.method", value: "ordinal" }, registry),
+        prepare_expression({ node: "enum", enum_type: "rank.method", value: "ordinal" }, registry),
       "unknown_enum",
     );
   });
 
   it("reparses canonical bytes and rejects alternate JSON spellings or identity mismatches", () => {
-    const canonical = prepareExpression(field("close"), registry);
-    expect(parseCanonicalExpression(canonical.toBytes(), registry).ast).toEqual(canonical.ast);
+    const canonical = prepare_expression(field("close"), registry);
+    expect(parse_canonical_expression(canonical.to_bytes(), registry).ast).toEqual(canonical.ast);
     expect(
-      verifyExpressionIdentity(canonical.expressionId, canonical.toBytes(), registry).expressionId,
+      verify_expression_identity(canonical.expressionId, canonical.to_bytes(), registry)
+        .expressionId,
     ).toBe(canonical.expressionId);
 
-    expectDomainError(
-      () => parseCanonicalExpression(' {"node":"field","field":"market.close"}', registry),
+    expect_domain_error(
+      () => parse_canonical_expression(' {"node":"field","field":"market.close"}', registry),
       "non_canonical",
     );
-    expectDomainError(
-      () => parseCanonicalExpression('{"field":"market.close","node":"field"}', registry),
+    expect_domain_error(
+      () => parse_canonical_expression('{"field":"market.close","node":"field"}', registry),
       "non_canonical",
     );
-    expectDomainError(
+    expect_domain_error(
       () =>
-        parseCanonicalExpression(
+        parse_canonical_expression(
           '{"node":"field","field":"market.close","field":"market.close"}',
           registry,
         ),
       "non_canonical",
     );
-    expectDomainError(
-      () => verifyExpressionIdentity(digest(99), canonical.toBytes(), registry),
+    expect_domain_error(
+      () => verify_expression_identity(digest(99), canonical.to_bytes(), registry),
       "identity_mismatch",
     );
   });
 
   it("binds direction and every one of the nine policy digests into FactorSpec identity", () => {
-    const expression = prepareExpression(field("close"), registry);
-    const baselineSpec = factorSpec(expression.expressionId);
-    const baseline = bindFactorSpec(baselineSpec, expression.toBytes(), registry);
+    const expression = prepare_expression(field("close"), registry);
+    const baselineSpec = factor_spec(expression.expressionId);
+    const baseline = bind_factor_spec(baselineSpec, expression.to_bytes(), registry);
     expect(baseline.factorSpecId).toMatch(/^sha256:[0-9a-f]{64}$/);
     expect(
-      bindFactorSpec(
-        factorSpec(expression.expressionId, "lower_is_better"),
-        expression.toBytes(),
+      bind_factor_spec(
+        factor_spec(expression.expressionId, "lower_is_better"),
+        expression.to_bytes(),
         registry,
       ).factorSpecId,
     ).not.toBe(baseline.factorSpecId);
@@ -704,24 +701,24 @@ describe("factor canonicalization v1", () => {
         ...baselineSpec,
         [fieldName]: { ...baselineSpec[fieldName], sha256: digest(100 + index) },
       };
-      expect(bindFactorSpec(changed, expression.toBytes(), registry).factorSpecId).not.toBe(
+      expect(bind_factor_spec(changed, expression.to_bytes(), registry).factorSpecId).not.toBe(
         baseline.factorSpecId,
       );
     });
 
     for (const direction of conformanceFixture.rejected_directions) {
-      expectDomainError(
-        () => bindFactorSpec({ ...baselineSpec, direction }, expression.toBytes(), registry),
+      expect_domain_error(
+        () => bind_factor_spec({ ...baselineSpec, direction }, expression.to_bytes(), registry),
         "invalid_shape",
       );
     }
   });
 
   it("uses the exact FactorSpec field order and verifies stored bytes on read", () => {
-    const expression = prepareExpression(field("close"), registry);
-    const canonical = bindFactorSpec(
-      factorSpec(expression.expressionId),
-      expression.toBytes(),
+    const expression = prepare_expression(field("close"), registry);
+    const canonical = bind_factor_spec(
+      factor_spec(expression.expressionId),
+      expression.to_bytes(),
       registry,
     );
     expect(canonical.factorSpecId).toMatch(/^sha256:[0-9a-f]{64}$/);
@@ -729,33 +726,33 @@ describe("factor canonicalization v1", () => {
       `{"schema":"loop.factor-spec/v1","expression_id":"${expression.expressionId}","operator_registry_sha256":"${operatorRegistryDigest}","direction":"higher_is_better","universe_policy":{"policy_id":"us_common_stock","revision":"1","sha256":"${digest(1)}"},"data_policy":{"policy_id":"pit_market_v1","revision":"1","sha256":"${digest(2)}"},"calendar_policy":{"policy_id":"xnys_xnas","revision":"1","sha256":"${digest(3)}"},"preprocess_policy":{"policy_id":"cross_section_v1","revision":"1","sha256":"${digest(4)}"},"neutralization_policy":{"policy_id":"industry_size_beta","revision":"1","sha256":"${digest(5)}"},"portfolio_policy":{"policy_id":"decile_long_short","revision":"1","sha256":"${digest(6)}"},"execution_policy":{"policy_id":"next_tradable_open","revision":"1","sha256":"${digest(7)}"},"cost_policy":{"policy_id":"us_equities_cost_v1","revision":"1","sha256":"${digest(8)}"},"evaluation_policy":{"policy_id":"factor_admission_v1","revision":"1","sha256":"${digest(9)}"}}`,
     );
     expect(
-      parseCanonicalFactorSpec(
-        canonical.toBytes(),
+      parse_factor_spec(
+        canonical.to_bytes(),
         canonical.factorSpecId,
-        expression.toBytes(),
+        expression.to_bytes(),
         registry,
       ).spec,
     ).toEqual(canonical.spec);
     expect(
-      verifyFactorSpecIdentity(
+      verify_factor_identity(
         canonical.factorSpecId,
-        canonical.toBytes(),
-        expression.toBytes(),
+        canonical.to_bytes(),
+        expression.to_bytes(),
         registry,
       ).factorSpecId,
     ).toBe(canonical.factorSpecId);
-    expectDomainError(
+    expect_domain_error(
       () =>
-        parseCanonicalFactorSpec(
+        parse_factor_spec(
           ` ${canonical.canonicalJson}`,
           canonical.factorSpecId,
-          expression.toBytes(),
+          expression.to_bytes(),
           registry,
         ),
       "non_canonical",
     );
-    expectDomainError(
-      () => bindFactorSpec(factorSpec(digest(99)), expression.toBytes(), registry),
+    expect_domain_error(
+      () => bind_factor_spec(factor_spec(digest(99)), expression.to_bytes(), registry),
       "identity_mismatch",
     );
   });
@@ -763,15 +760,15 @@ describe("factor canonicalization v1", () => {
   it("rejects every shared malformed canonical FactorSpec form", () => {
     const fixtureRegistry = new OperatorPolicyRegistry(
       conformanceFixture.registry,
-      fixtureSemanticResolver,
+      fixture_semantic_resolver,
     );
     const vector = conformanceFixture.factor_spec_vectors[0];
     if (vector === undefined) throw new Error("missing FactorSpec fixture");
     for (const mutation of conformanceFixture.rejected_factor_spec_canonical_mutations) {
-      const malformed = mutateFactorSpec(vector.canonical_utf8, mutation);
+      const malformed = mutate_factor_spec(vector.canonical_utf8, mutation);
       expect(
         () =>
-          parseCanonicalFactorSpec(
+          parse_factor_spec(
             malformed,
             vector.factor_spec_id,
             vector.expression_canonical_utf8,
@@ -784,27 +781,33 @@ describe("factor canonicalization v1", () => {
 
   it("enforces node, depth, direct-argument, byte, and hard limit ceilings", () => {
     const nested = call("math.abs", "1", [call("math.abs", "1", [field("close")])]);
-    expectDomainError(() => prepareExpression(nested, registry, { maxDepth: 2 }), "limit_exceeded");
-    expectDomainError(() => prepareExpression(nested, registry, { maxNodes: 2 }), "limit_exceeded");
-    expectDomainError(
+    expect_domain_error(
+      () => prepare_expression(nested, registry, { maxDepth: 2 }),
+      "limit_exceeded",
+    );
+    expect_domain_error(
+      () => prepare_expression(nested, registry, { maxNodes: 2 }),
+      "limit_exceeded",
+    );
+    expect_domain_error(
       () =>
-        prepareExpression(
+        prepare_expression(
           call("arithmetic.add", "1", [field("close"), field("open"), field("high")]),
           registry,
           { maxDirectArguments: 2 },
         ),
       "limit_exceeded",
     );
-    expectDomainError(
-      () => prepareExpression(field("close"), registry, { maxCanonicalBytes: 20 }),
+    expect_domain_error(
+      () => prepare_expression(field("close"), registry, { maxCanonicalBytes: 20 }),
       "limit_exceeded",
     );
-    expectDomainError(
-      () => prepareExpression(field("close"), registry, { maxDepth: 65 }),
+    expect_domain_error(
+      () => prepare_expression(field("close"), registry, { maxDepth: 65 }),
       "limit_exceeded",
     );
-    expectDomainError(
-      () => prepareExpression(field("close"), registry, { unexpected: 1 } as never),
+    expect_domain_error(
+      () => prepare_expression(field("close"), registry, { unexpected: 1 } as never),
       "limit_exceeded",
     );
   });
@@ -815,11 +818,11 @@ describe("factor canonicalization v1", () => {
       nested = call("math.abs", "1", [nested]);
     }
 
-    expectDomainError(() => prepareExpression(nested, registry), "limit_exceeded");
+    expect_domain_error(() => prepare_expression(nested, registry), "limit_exceeded");
   });
 });
 
-function mutateFactorSpec(canonical: string, mutation: string): string {
+function mutate_factor_spec(canonical: string, mutation: string): string {
   switch (mutation) {
     case "leading_whitespace":
       return ` ${canonical}`;

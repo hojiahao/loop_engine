@@ -8,7 +8,7 @@ loop_cargo_home="${loop_tools_dir}/cargo"
 loop_rust_release_date="2026-02-12"
 loop_rust_dist_mirror="${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
 source "${loop_repo_dir}/scripts/rust-toolchain-common.sh"
-loop_rust_metadata_init "${loop_repo_dir}" "${loop_runtime_root}"
+loop_rust_init "${loop_repo_dir}" "${loop_runtime_root}"
 loop_node_version="24.17.0"
 loop_pnpm_version="11.25.0"
 loop_python_version="3.14.4"
@@ -61,10 +61,10 @@ fi
 
 mkdir -p "${loop_tools_dir}" "${loop_cargo_home}"
 
-loop_system_prefix="$(loop_system_rust_prefix || true)"
-if [[ -n "${loop_system_prefix}" ]] && loop_rust_prefix_is_valid "${loop_system_prefix}"; then
+loop_system_prefix="$(loop_rust_prefix || true)"
+if [[ -n "${loop_system_prefix}" ]] && loop_rust_valid "${loop_system_prefix}"; then
   loop_active_rust_prefix="${loop_system_prefix}"
-elif loop_rust_prefix_is_valid "${loop_rust_local_prefix}"; then
+elif loop_rust_valid "${loop_rust_local_prefix}"; then
   loop_active_rust_prefix="${loop_rust_local_prefix}"
 else
   if [[ -e "${loop_rust_local_prefix}" ]]; then
@@ -102,13 +102,13 @@ else
   done < "${loop_rust_checksums}"
 
   cp "${loop_rust_checksums}" "${loop_install_prefix}/.loop-engine-components.sha256"
-  if ! loop_rust_prefix_is_valid "${loop_install_prefix}"; then
+  if ! loop_rust_valid "${loop_install_prefix}"; then
     echo "installed Rust toolchain failed identity validation" >&2
     exit 2
   fi
   mv "${loop_install_prefix}" "${loop_rust_local_prefix}"
   loop_install_prefix=""
-  if ! loop_rust_prefix_is_valid "${loop_rust_local_prefix}"; then
+  if ! loop_rust_valid "${loop_rust_local_prefix}"; then
     echo "moved Rust toolchain failed identity validation" >&2
     exit 2
   fi
@@ -121,7 +121,7 @@ export COREPACK_HOME="${COREPACK_HOME:-${loop_tools_dir}/corepack}"
 export UV_CACHE_DIR="${loop_tools_dir}/uv-cache"
 export UV_PYTHON_INSTALL_DIR="${loop_tools_dir}/python"
 
-if ! loop_rust_prefix_is_valid "${loop_active_rust_prefix}"; then
+if ! loop_rust_valid "${loop_active_rust_prefix}"; then
   echo "Rust ${loop_rust_version} component identity validation failed" >&2
   exit 2
 fi

@@ -17,7 +17,8 @@ use loop_protocol::wire::v1::{JobId, JobOutcome, JobState, job_outcome};
 use support::{NOW, actor, context};
 
 #[tokio::test]
-async fn bytes_are_checked_before_resolution() {
+// Scenario: bytes are checked before resolution.
+async fn bytes_resolution() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let success = fixture.success();
@@ -47,7 +48,8 @@ async fn bytes_are_checked_before_resolution() {
 }
 
 #[tokio::test]
-async fn preparations_do_not_replace_each_other() {
+// Scenario: preparations do not replace each other.
+async fn preparations() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let success = fixture.success();
@@ -88,7 +90,8 @@ async fn preparations_do_not_replace_each_other() {
 }
 
 #[tokio::test]
-async fn same_size_tampering_is_rejected() {
+// Scenario: same size tampering is rejected.
+async fn size_tampering() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let success = fixture.success();
@@ -115,7 +118,8 @@ async fn same_size_tampering_is_rejected() {
 }
 
 #[tokio::test]
-async fn replacing_a_path_invalidates_its_open_descriptor() {
+// Scenario: replacing a path invalidates its open descriptor.
+async fn path_open_descriptor() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let success = fixture.success();
@@ -136,7 +140,8 @@ async fn replacing_a_path_invalidates_its_open_descriptor() {
 }
 
 #[tokio::test]
-async fn missing_dependency_invalidates_current_context() {
+// Scenario: missing dependency invalidates current context.
+async fn missing_dependency_context() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let success = fixture.success();
@@ -158,7 +163,8 @@ async fn missing_dependency_invalidates_current_context() {
 }
 
 #[tokio::test]
-async fn unknown_and_spoofed_readers_are_denied() {
+// Scenario: unknown and spoofed readers are denied.
+async fn unknown_spoofed_readers() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let prepared = policy
@@ -184,7 +190,8 @@ async fn unknown_and_spoofed_readers_are_denied() {
 }
 
 #[tokio::test]
-async fn catalog_aliases_cannot_rebind_contexts() {
+// Scenario: catalog aliases cannot rebind contexts.
+async fn catalog_aliases_contexts() {
     let mut fixture = Fixture::new();
     fixture.catalog.contexts[0].context_id = "latest".to_owned();
     let reference = fixture.json(&fixture.catalog);
@@ -201,7 +208,8 @@ async fn catalog_aliases_cannot_rebind_contexts() {
 }
 
 #[tokio::test]
-async fn freeze_binds_the_seed() {
+// Scenario: freeze binds the seed.
+async fn freeze_seed() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let mut job = fixture.job.specification.clone();
@@ -214,7 +222,8 @@ async fn freeze_binds_the_seed() {
 }
 
 #[tokio::test]
-async fn catalog_cannot_change_the_frozen_engine() {
+// Scenario: catalog cannot change the frozen engine.
+async fn catalog_frozen_engine() {
     for engine in [
         model::Engine::PrimaryCrossSectional,
         model::Engine::ZiplineValidation,
@@ -261,7 +270,8 @@ async fn catalog_cannot_change_the_frozen_engine() {
 }
 
 #[tokio::test]
-async fn recent_dates_cannot_claim_in_sample_role() {
+// Scenario: recent dates cannot claim in sample role.
+async fn recent_dates_sample() {
     let mut fixture = Fixture::new();
     let mut data: model::Dataset =
         serde_json::from_slice(&std::fs::read(fixture.path(&fixture.context.data)).unwrap())
@@ -283,7 +293,8 @@ async fn recent_dates_cannot_claim_in_sample_role() {
 }
 
 #[tokio::test]
-async fn review_cannot_relax_the_frozen_coverage_policy() {
+// Scenario: review cannot relax the frozen coverage policy.
+async fn review_frozen_coverage() {
     let mut fixture = Fixture::new();
     fixture.review.minimum_coverage_bps = 100;
     fixture.republish_result();
@@ -297,7 +308,8 @@ async fn review_cannot_relax_the_frozen_coverage_policy() {
 }
 
 #[tokio::test]
-async fn family_cannot_perturb_a_non_window_argument() {
+// Scenario: family cannot perturb a non window argument.
+async fn family_window_argument() {
     let mut fixture = Fixture::new();
     let mut family: model::Family = serde_json::from_slice(
         &std::fs::read(fixture.path(fixture.context.family.as_ref().unwrap())).unwrap(),
@@ -321,7 +333,8 @@ async fn family_cannot_perturb_a_non_window_argument() {
 }
 
 #[tokio::test]
-async fn verified_installed_worker_advances_durable_state() {
+// Scenario: verified installed worker advances durable state.
+async fn installed_worker_durable() {
     use crate::research_worker::{PythonPerturber, ResearchBuild};
     use crate::store::PerturbationRepository;
     use serde::Deserialize;
@@ -406,7 +419,8 @@ async fn verified_installed_worker_advances_durable_state() {
 }
 
 #[tokio::test]
-async fn canonical_family_has_real_distinct_factor_ids() {
+// Scenario: canonical family has real distinct factor ids.
+async fn canonical_family_distinct() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let prepared = policy
@@ -445,7 +459,8 @@ async fn canonical_family_has_real_distinct_factor_ids() {
 }
 
 #[tokio::test]
-async fn result_manifest_cannot_name_a_different_job() {
+// Scenario: result manifest cannot name a different job.
+async fn result_manifest_different() {
     let mut fixture = Fixture::new();
     fixture.result.job_id = "job.other".to_owned();
     fixture.republish_result();
@@ -459,7 +474,8 @@ async fn result_manifest_cannot_name_a_different_job() {
 }
 
 #[tokio::test]
-async fn result_engine_must_match_the_freeze() {
+// Scenario: result engine must match the freeze.
+async fn result_engine_freeze() {
     let mut fixture = Fixture::new();
     fixture.result.engine_version = "different-build".to_owned();
     fixture.republish_result();
@@ -473,7 +489,8 @@ async fn result_engine_must_match_the_freeze() {
 }
 
 #[tokio::test]
-async fn output_schema_cannot_be_substituted() {
+// Scenario: output schema cannot be substituted.
+async fn output_schema() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let mut success = fixture.success();
@@ -487,7 +504,8 @@ async fn output_schema_cannot_be_substituted() {
 }
 
 #[tokio::test]
-async fn strict_json_rejects_duplicate_or_unknown_fields() {
+// Scenario: strict json rejects duplicate or unknown fields.
+async fn strict_json_unknown() {
     let directory = tempfile::Builder::new()
         .prefix("loop-manifests-")
         .tempdir()
@@ -507,7 +525,8 @@ async fn strict_json_rejects_duplicate_or_unknown_fields() {
 }
 
 #[tokio::test]
-async fn symlinks_and_special_files_are_rejected() {
+// Scenario: symlinks and special files are rejected.
+async fn symlinks_special_files() {
     use std::os::unix::fs::symlink;
     let directory = tempfile::Builder::new()
         .prefix("loop-manifests-")
@@ -544,7 +563,8 @@ async fn symlinks_and_special_files_are_rejected() {
 }
 
 #[tokio::test]
-async fn traversal_and_oversized_metadata_are_rejected() {
+// Scenario: traversal and oversized metadata are rejected.
+async fn traversal_oversized_metadata() {
     let directory = tempfile::Builder::new()
         .prefix("loop-manifests-")
         .tempdir()
@@ -611,7 +631,8 @@ async fn seed(fixture: &Fixture, store: &PgJobStore) {
 }
 
 #[tokio::test]
-async fn missing_files_do_not_hide_infrastructure_failure() {
+// Scenario: missing files do not hide infrastructure failure.
+async fn missing_files_infrastructure() {
     use loop_protocol::wire::v1::{ErrorCategory, InfrastructureFailure, ServiceError};
     let fixture = Fixture::new();
     let store = fixture
@@ -659,7 +680,8 @@ async fn missing_files_do_not_hide_infrastructure_failure() {
 }
 
 #[tokio::test]
-async fn acquisition_rechecks_files_under_the_lock() {
+// Scenario: acquisition rechecks files under the lock.
+async fn acquisition_files_lock() {
     use std::sync::atomic::{AtomicBool, Ordering};
     struct TamperingClock {
         path: std::path::PathBuf,
@@ -707,7 +729,8 @@ async fn acquisition_rechecks_files_under_the_lock() {
 }
 
 #[tokio::test]
-async fn registered_manifest_survives_restart_and_audited_export() {
+// Scenario: registered manifest survives restart and audited export.
+async fn registered_manifest_restart() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let clock = Arc::new(support::FixtureClock(AtomicI64::new(NOW)));
@@ -744,7 +767,8 @@ async fn registered_manifest_survives_restart_and_audited_export() {
 }
 
 #[tokio::test]
-async fn legacy_review_cannot_create_new_admission() {
+// Scenario: legacy review cannot create new admission.
+async fn review_create_admission() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let store = fixture
@@ -761,7 +785,8 @@ async fn legacy_review_cannot_create_new_admission() {
 }
 
 #[tokio::test]
-async fn corrupted_files_cannot_release_an_export() {
+// Scenario: corrupted files cannot release an export.
+async fn corrupted_files_export() {
     let fixture = Fixture::new();
     let policy = fixture.policy().await;
     let store = fixture
@@ -791,7 +816,8 @@ async fn corrupted_files_cannot_release_an_export() {
 }
 
 #[tokio::test]
-async fn actual_manifest_changes_invalidate_all_six_components() {
+// Scenario: actual manifest changes invalidate all six components.
+async fn manifest_components() {
     use loop_protocol::provenance::{ProvenanceComponent, ProvenanceError};
     let mut fixture = Fixture::new();
     let extra_registry = Arc::new(fixture::registry(true));
@@ -895,7 +921,8 @@ async fn actual_manifest_changes_invalidate_all_six_components() {
 }
 
 #[tokio::test]
-async fn writer_failure_preserves_the_committed_acceptance() {
+// Scenario: writer failure preserves the committed acceptance.
+async fn writer_failure_acceptance() {
     use std::pin::Pin;
     use std::task::{Context, Poll};
     struct Broken;
@@ -943,7 +970,8 @@ async fn writer_failure_preserves_the_committed_acceptance() {
 }
 
 #[tokio::test]
-async fn cancelled_delivery_replays_without_another_acceptance() {
+// Scenario: cancelled delivery replays without another acceptance.
+async fn cancelled_delivery_acceptance() {
     use tokio::io::AsyncReadExt;
     let fixture = Fixture::new();
     let policy = fixture.policy().await;

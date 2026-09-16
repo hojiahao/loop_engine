@@ -109,7 +109,7 @@ interval). Neither interrupted attempt is counted as a passing full-suite gate.
 The local research suite records 734 passed and one failed in 365.06 seconds.
 All 42 new unit-2 cases pass, including actual installed-worker OLS, clipping/
 standardization without exposures, temporal parsing and numerical properties.
-The existing `test_independent_snapshot_writers[8]` exceeds its 90-second process
+The existing `test_independent_writers[8]` exceeds its 90-second process
 exit deadline under host resource pressure, after emitting a snapshot report;
 the 2- and 4-writer cases pass. The timeout remains unchanged and is not treated
 as success. The isolated 8-writer rerun passes in 85.12 seconds, with its original

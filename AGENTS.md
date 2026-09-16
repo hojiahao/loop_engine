@@ -53,6 +53,10 @@ just doctor
   for behavioral tests. Do not claim compliance with unpublished company rules.
 - Prefer concise names within their module context. Keep each test focused on
   one behavior; split unrelated scenarios instead of joining them in a sentence.
+  Handwritten functions and methods use `snake_case` with at most three words,
+  including `test` in Python test names; private/dunder delimiters do not count.
+  Keep detailed scenarios in comments or docstrings. Generated bindings and
+  externally fixed framework names are exceptions, documented in the naming guide.
   Naming and review guidance: `docs/development/rust-style.md`.
 - Handwritten `loopd` code forbids unsafe code. New storage APIs deny missing
   documentation; document authority boundaries, errors, replay semantics, and

@@ -201,7 +201,8 @@ fn process_worker() {
 }
 
 #[tokio::test]
-async fn process_writers_preserve_fencing() {
+// Scenario: process writers preserve fencing.
+async fn process_writers_fencing() {
     for count in [2, 4, 8] {
         for mode in [
             "submit",

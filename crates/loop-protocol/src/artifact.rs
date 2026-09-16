@@ -95,7 +95,7 @@ pub fn validate_artifact_ref(
         ));
     }
     let expected_uri = format!("{CONTENT_ADDRESS_PREFIX}{digest_hex}");
-    if !is_strict_content_address(&reference.uri) {
+    if !is_content_address(&reference.uri) {
         return Err(ArtifactValidationError::new(
             ArtifactValidationCode::InvalidLocator,
             "uri",
@@ -196,7 +196,7 @@ fn require_digest(
         .map_err(|_| ArtifactValidationError::new(ArtifactValidationCode::InvalidDigest, field))
 }
 
-fn is_strict_content_address(uri: &str) -> bool {
+fn is_content_address(uri: &str) -> bool {
     let Some(hex) = uri.strip_prefix(CONTENT_ADDRESS_PREFIX) else {
         return false;
     };
@@ -259,7 +259,8 @@ mod tests {
     }
 
     #[test]
-    fn shared_artifact_vectors_fail_closed() {
+    // Scenario: shared artifact vectors fail closed.
+    fn shared_artifact_vectors() {
         for vector in vectors() {
             let reference = reference(&vector);
             match validate_artifact_ref(&reference) {
@@ -283,7 +284,8 @@ mod tests {
     }
 
     #[test]
-    fn artifact_wire_contract_has_no_inline_payload_field() {
+    // Scenario: artifact wire contract has no inline payload field.
+    fn artifact_wire_contract() {
         let descriptor = FileDescriptorSet::decode(crate::FILE_DESCRIPTOR_SET)
             .expect("committed descriptor must decode");
         let file = descriptor

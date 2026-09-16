@@ -1,7 +1,8 @@
 from loop_research import research_health
 
 
-def test_research_health_is_ready() -> None:
+# Scenario: research health is ready.
+def test_research_health() -> None:
     health = research_health()
     assert health.component == "researchd"
     assert health.status == "ready"

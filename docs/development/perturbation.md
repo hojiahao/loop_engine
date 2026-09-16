@@ -16,7 +16,7 @@ bash scripts/uv-research.sh run --isolated --locked pytest tests/test_perturbati
 bash scripts/postgres-test.sh start
 bash scripts/cargo.sh test -p loopd --test durable_perturbation --locked --offline -- --test-threads=1
 bash scripts/cargo.sh test -p loopd --test durable_processes --locked --offline -- --test-threads=1
-bash scripts/cargo.sh test -p loopd --lib killed_writer_preserves_atomicity --locked --offline -- --test-threads=1
+bash scripts/cargo.sh test -p loopd --lib killed_writer_atomicity --locked --offline -- --test-threads=1
 bash scripts/postgres-test.sh stop
 just check
 ```

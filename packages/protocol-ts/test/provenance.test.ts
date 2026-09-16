@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 import { Sha256DigestSchema } from "../src/generated/loop/v1/common_pb.js";
 import { ResearchProvenanceFingerprintSchema } from "../src/generated/loop/v1/research_common_pb.js";
 import {
-  assessProvenance,
+  assess_provenance,
   PROVENANCE_COMPONENTS,
   ProvenanceError,
   ProvenanceSnapshot,
-  requireCurrentProvenance,
+  require_current_provenance,
 } from "../src/provenance.js";
 
 const wireFields = [
@@ -45,12 +45,12 @@ describe("research provenance", () => {
   it.each(vectors)(
     "shared vector %s",
     (_, recordedMask, frozenMask, currentMask, status, changed) => {
-      const recorded = ProvenanceSnapshot.fromWire(fingerprint(recordedMask));
-      const frozen = ProvenanceSnapshot.fromWire(fingerprint(frozenMask));
+      const recorded = ProvenanceSnapshot.from_wire(fingerprint(recordedMask));
+      const frozen = ProvenanceSnapshot.from_wire(fingerprint(frozenMask));
       const current =
-        currentMask === "-" ? undefined : ProvenanceSnapshot.fromWire(fingerprint(currentMask));
+        currentMask === "-" ? undefined : ProvenanceSnapshot.from_wire(fingerprint(currentMask));
       try {
-        const assessment = assessProvenance(recorded, frozen, current);
+        const assessment = assess_provenance(recorded, frozen, current);
         expect(assessment.status).toBe(status);
         expect(assessment.changed.join(",") || "-").toBe(changed);
       } catch (error) {
@@ -70,7 +70,7 @@ describe("research provenance", () => {
         size === undefined
           ? undefined
           : create(Sha256DigestSchema, { value: new Uint8Array(size) });
-      expect(() => ProvenanceSnapshot.fromWire(value)).toThrowError(
+      expect(() => ProvenanceSnapshot.from_wire(value)).toThrowError(
         new ProvenanceError("invalid_digest", [component]),
       );
     });
@@ -78,10 +78,10 @@ describe("research provenance", () => {
 
   it("detaches immutable snapshots from wire bytes", () => {
     const wire = fingerprint();
-    const snapshot = ProvenanceSnapshot.fromWire(wire);
+    const snapshot = ProvenanceSnapshot.from_wire(wire);
     wire.sourceCodeSha256?.value.fill(255);
-    expect(snapshot.differences(ProvenanceSnapshot.fromWire(fingerprint()))).toEqual([]);
-    expect(snapshot.differences(ProvenanceSnapshot.fromWire(wire))).toEqual(["source_code"]);
+    expect(snapshot.differences(ProvenanceSnapshot.from_wire(fingerprint()))).toEqual([]);
+    expect(snapshot.differences(ProvenanceSnapshot.from_wire(wire))).toEqual(["source_code"]);
     expect(Object.isFrozen(snapshot)).toBe(true);
   });
 
@@ -90,14 +90,14 @@ describe("research provenance", () => {
     ["000010", "stale"],
     ["-", "unresolved_current"],
   ])("only current metrics pass the gate: %s", (mask, status) => {
-    const frozen = ProvenanceSnapshot.fromWire(fingerprint());
-    const current = mask === "-" ? undefined : ProvenanceSnapshot.fromWire(fingerprint(mask));
-    const assessment = assessProvenance(frozen, frozen, current);
+    const frozen = ProvenanceSnapshot.from_wire(fingerprint());
+    const current = mask === "-" ? undefined : ProvenanceSnapshot.from_wire(fingerprint(mask));
+    const assessment = assess_provenance(frozen, frozen, current);
     expect(Object.isFrozen(assessment)).toBe(true);
     expect(Object.isFrozen(assessment.changed)).toBe(true);
-    if (status === "current") requireCurrentProvenance(assessment);
+    if (status === "current") require_current_provenance(assessment);
     else
-      expect(() => requireCurrentProvenance(assessment)).toThrowError(
+      expect(() => require_current_provenance(assessment)).toThrowError(
         new ProvenanceError(
           status === "stale" ? "stale" : "unresolved_current",
           assessment.changed,

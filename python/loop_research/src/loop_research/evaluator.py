@@ -17,7 +17,7 @@ from loop_protocol.canonical import (
     CanonicalFactorSpec,
     DecimalNode,
     FieldNode,
-    parse_canonical_factor_spec,
+    parse_factor_spec,
 )
 from numpy.typing import NDArray
 
@@ -272,7 +272,7 @@ def evaluate(factor: CanonicalFactorSpec, panel: Panel, *, evaluation_start: dat
     """
     if type(evaluation_start) is not date or evaluation_start not in panel.sessions:
         raise ValueError("evaluation boundary must be an exact panel session")
-    bound = parse_canonical_factor_spec(
+    bound = parse_factor_spec(
         factor.canonical_bytes,
         factor.factor_spec_id,
         factor.expression.canonical_bytes,

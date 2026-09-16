@@ -191,7 +191,8 @@ fn evaluation_writer() {
 }
 
 #[tokio::test]
-async fn independent_writers_commit_one_evaluation() {
+// Scenario: independent writers commit one evaluation.
+async fn independent_writers_evaluation() {
     for count in [2, 4, 8] {
         let case = Case::start().await;
         prepare(&case).await;
@@ -227,7 +228,8 @@ async fn independent_writers_commit_one_evaluation() {
 }
 
 #[tokio::test]
-async fn killed_completion_preserves_atomic_evidence() {
+// Scenario: killed completion preserves atomic evidence.
+async fn killed_completion_atomic() {
     for point in ["evaluation_after_insert", "evaluation_after_commit"] {
         let case = Case::start().await;
         prepare(&case).await;

@@ -1,4 +1,4 @@
-use loop_protocol::negotiation::{ProtocolBuildIdentity, validate_protocol_selection_availability};
+use loop_protocol::negotiation::{ProtocolBuildIdentity, validate_selection_availability};
 use loop_protocol::wire::research::v1 as research;
 use loop_protocol::wire::v1::*;
 use loopd::store::{AdmissionPolicy, RoleCommand, StoreError, StoreResult, SubmissionMetadata};
@@ -23,7 +23,7 @@ impl AdmissionPolicy for Admission {
         {
             return Err(StoreError::AdmissionDenied);
         }
-        validate_protocol_selection_availability(
+        validate_selection_availability(
             job.protocol_selection
                 .as_ref()
                 .ok_or(StoreError::AdmissionDenied)?,

@@ -40,7 +40,8 @@ async fn counts(directory: &TempDir) -> (i64, i64, i64, i64) {
 }
 
 #[tokio::test]
-async fn context_key_is_pinned() {
+// Scenario: context key is pinned.
+async fn context_key_pinned() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -101,7 +102,8 @@ async fn rejection_survives_restart() {
 }
 
 #[tokio::test]
-async fn submission_replay_is_not_redispatch() {
+// Scenario: submission replay is not redispatch.
+async fn submission_replay_redispatch() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -120,7 +122,8 @@ async fn submission_replay_is_not_redispatch() {
 }
 
 #[tokio::test]
-async fn queued_duplicate_cannot_acquire() {
+// Scenario: queued duplicate cannot acquire.
+async fn queued() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store.submit(rejection::command(2)).await.unwrap();
@@ -172,7 +175,8 @@ impl AdmissionPolicy for ContextAdmission {
 }
 
 #[tokio::test]
-async fn changed_context_is_not_blacklisted() {
+// Scenario: changed context is not blacklisted.
+async fn changed_context() {
     let (directory, store, clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -219,7 +223,8 @@ async fn changed_context_is_not_blacklisted() {
 }
 
 #[tokio::test]
-async fn new_run_or_budget_does_not_bypass_memory() {
+// Scenario: new run or budget does not bypass memory.
+async fn budget_memory() {
     let (directory, store, clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -245,7 +250,8 @@ async fn new_run_or_budget_does_not_bypass_memory() {
 }
 
 #[tokio::test]
-async fn only_deterministic_codes_block_resubmission() {
+// Scenario: only deterministic codes block resubmission.
+async fn deterministic_codes_resubmission() {
     for code in 2..=9 {
         let (directory, store, _clock) = fixture().await;
         let mut request = rejection::seed(&store).await;
@@ -271,7 +277,8 @@ async fn only_deterministic_codes_block_resubmission() {
 }
 
 #[tokio::test]
-async fn infrastructure_failure_is_not_factor_memory() {
+// Scenario: infrastructure failure is not factor memory.
+async fn infrastructure_failure_factor() {
     let (directory, store, clock) = fixture().await;
     rejection::seed(&store).await;
     clock.0.store(NOW + 30_000, Ordering::SeqCst);
@@ -295,7 +302,8 @@ async fn infrastructure_failure_is_not_factor_memory() {
 }
 
 #[tokio::test]
-async fn cancellation_is_not_factor_memory() {
+// Scenario: cancellation is not factor memory.
+async fn cancellation_factor_memory() {
     let (directory, store, _clock) = fixture().await;
     store.submit(rejection::command(1)).await.unwrap();
     store
@@ -318,7 +326,8 @@ async fn cancellation_is_not_factor_memory() {
 }
 
 #[tokio::test]
-async fn expired_lease_cannot_record_rejection() {
+// Scenario: expired lease cannot record rejection.
+async fn expired_lease_rejection() {
     let (directory, store, clock) = fixture().await;
     let request = rejection::seed(&store).await;
     clock.0.store(NOW + 30_000, Ordering::SeqCst);
@@ -331,7 +340,8 @@ async fn expired_lease_cannot_record_rejection() {
 }
 
 #[tokio::test]
-async fn clock_regression_cannot_record_rejection() {
+// Scenario: clock regression cannot record rejection.
+async fn clock_regression_rejection() {
     let (directory, store, clock) = fixture().await;
     let request = rejection::seed(&store).await;
     clock.0.store(NOW - 1, Ordering::SeqCst);
@@ -344,7 +354,8 @@ async fn clock_regression_cannot_record_rejection() {
 }
 
 #[tokio::test]
-async fn authorization_precedes_history_lookup() {
+// Scenario: authorization precedes history lookup.
+async fn authorization_precedes_history() {
     let (directory, store, clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -370,7 +381,8 @@ async fn authorization_precedes_history_lookup() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_rejection() {
+// Scenario: audit failure rolls back rejection.
+async fn audit_failure_rejection() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     let mut connection = connection(&directory).await;
@@ -405,7 +417,8 @@ async fn audit_failure_rolls_back_rejection() {
 }
 
 #[tokio::test]
-async fn corrupt_source_fails_closed() {
+// Scenario: corrupt source fails closed.
+async fn corrupt_source_closed() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -426,7 +439,8 @@ async fn corrupt_source_fails_closed() {
 }
 
 #[tokio::test]
-async fn corrupt_projection_blocks_replay() {
+// Scenario: corrupt projection blocks replay.
+async fn corrupt_projection_replay() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -454,7 +468,8 @@ async fn corrupt_projection_blocks_replay() {
 }
 
 #[tokio::test]
-async fn rejection_rows_are_immutable() {
+// Scenario: rejection rows are immutable.
+async fn rejection_rows_immutable() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store
@@ -483,7 +498,8 @@ async fn rejection_rows_are_immutable() {
 }
 
 #[tokio::test]
-async fn sql_cannot_skip_rejection_record() {
+// Scenario: sql cannot skip rejection record.
+async fn sql_rejection() {
     let (directory, store, _clock) = fixture().await;
     rejection::seed(&store).await;
     let error = connection(&directory)
@@ -503,7 +519,8 @@ async fn sql_cannot_skip_rejection_record() {
 }
 
 #[tokio::test]
-async fn migration_refuses_unindexed_history() {
+// Scenario: migration refuses unindexed history.
+async fn migration_refuses_unindexed() {
     let (directory, store, _clock) = fixture().await;
     let mut connection = connection(&directory).await;
     connection
@@ -531,7 +548,8 @@ async fn migration_refuses_unindexed_history() {
 }
 
 #[tokio::test]
-async fn missing_projection_blocks_replay() {
+// Scenario: missing projection blocks replay.
+async fn missing_projection_replay() {
     let (directory, store, _clock) = fixture().await;
     let request = rejection::seed(&store).await;
     store

@@ -10,9 +10,8 @@ use std::fmt;
 use thiserror::Error;
 
 pub use canonical::{
-    audit_event_sha256, audit_payload_sha256, canonical_audit_event_bytes,
-    canonicalize_audit_payload, state_transition_payload, verify_audit_chain, verify_audit_event,
-    verify_audit_payload,
+    audit_event_bytes, audit_event_sha256, audit_payload_sha256, canonicalize_audit_payload,
+    state_transition_payload, verify_audit_chain, verify_audit_event, verify_audit_payload,
 };
 
 pub const MAX_AUDIT_PAYLOAD_BYTES: usize = 256 * 1_024;

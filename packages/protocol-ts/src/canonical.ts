@@ -1,11 +1,11 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import {
-  assertSha256Id,
+  assert_sha256_id,
   type CanonicalizationLimitOverrides,
   type CanonicalizationLimits,
-  decodeFactorAst,
-  decodeFactorSpec,
+  decode_factor_ast,
+  decode_factor_spec,
   FACTOR_AST_SCHEMA,
   FACTOR_SPEC_POLICY_FIELDS,
   FACTOR_SPEC_SCHEMA,
@@ -14,7 +14,7 @@ import {
   type FactorSpec,
   type OperatorPolicyRegistry,
   type PolicyRef,
-  resolveCanonicalizationLimits,
+  resolve_canonicalization_limits,
   type Sha256Id,
   type ValueType,
 } from "./domain.js";
@@ -31,7 +31,7 @@ export interface CanonicalExpression {
   readonly valueType: ValueType;
   readonly canonicalJson: string;
   readonly expressionId: ExpressionId;
-  toBytes(): Uint8Array;
+  to_bytes(): Uint8Array;
 }
 
 export interface CanonicalFactorSpec {
@@ -40,7 +40,7 @@ export interface CanonicalFactorSpec {
   readonly expression: CanonicalExpression;
   readonly canonicalJson: string;
   readonly factorSpecId: FactorSpecId;
-  toBytes(): Uint8Array;
+  to_bytes(): Uint8Array;
 }
 
 const encoder = new TextEncoder();
@@ -51,29 +51,29 @@ interface NormalizedNode {
   readonly type: ValueType;
 }
 
-export function prepareExpression(
+export function prepare_expression(
   input: unknown,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalExpression {
-  const limits = resolveCanonicalizationLimits(limitOverrides);
-  const submitted = decodeFactorAst(input, limits);
-  const normalized = normalizeNode(submitted, registry, limits, "$").ast;
-  validateTreeLimits(normalized, limits);
-  const canonicalJson = writeCanonicalExpression(normalized);
-  assertByteLimit(canonicalJson, limits);
+  const limits = resolve_canonicalization_limits(limitOverrides);
+  const submitted = decode_factor_ast(input, limits);
+  const normalized = normalize_node(submitted, registry, limits, "$").ast;
+  validate_tree_limits(normalized, limits);
+  const canonicalJson = write_canonical_expression(normalized);
+  assert_byte_limit(canonicalJson, limits);
 
   // The evaluator-facing value always comes from reparsing the exact identity bytes.
-  return parseCanonicalExpression(encoder.encode(canonicalJson), registry, limits);
+  return parse_canonical_expression(encoder.encode(canonicalJson), registry, limits);
 }
 
-export function parseCanonicalExpression(
+export function parse_canonical_expression(
   input: Uint8Array | string,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalExpression {
-  const limits = resolveCanonicalizationLimits(limitOverrides);
-  const { bytes, text } = decodeUtf8(input, limits, "$expression_bytes");
+  const limits = resolve_canonicalization_limits(limitOverrides);
+  const { bytes, text } = decode_utf8(input, limits, "$expression_bytes");
   let untyped: unknown;
   try {
     untyped = JSON.parse(text);
@@ -85,13 +85,13 @@ export function parseCanonicalExpression(
     );
   }
 
-  const parsed = decodeFactorAst(untyped, limits);
-  const normalizedResult = normalizeNode(parsed, registry, limits, "$");
+  const parsed = decode_factor_ast(untyped, limits);
+  const normalizedResult = normalize_node(parsed, registry, limits, "$");
   const normalized = normalizedResult.ast;
-  validateTreeLimits(normalized, limits);
-  const canonicalJson = writeCanonicalExpression(normalized);
+  validate_tree_limits(normalized, limits);
+  const canonicalJson = write_canonical_expression(normalized);
   const canonicalBytes = encoder.encode(canonicalJson);
-  if (!equalBytes(bytes, canonicalBytes)) {
+  if (!equal_bytes(bytes, canonicalBytes)) {
     throw new FactorDomainError(
       "non_canonical",
       "$expression_bytes",
@@ -99,31 +99,31 @@ export function parseCanonicalExpression(
     );
   }
 
-  const expressionId = hashIdentity(FACTOR_AST_SCHEMA, canonicalBytes) as ExpressionId;
+  const expressionId = hash_identity(FACTOR_AST_SCHEMA, canonicalBytes) as ExpressionId;
   return Object.freeze({
     ast: normalized,
     valueType: normalizedResult.type,
     canonicalJson,
     expressionId,
-    toBytes: () => encoder.encode(canonicalJson),
+    to_bytes: () => encoder.encode(canonicalJson),
   });
 }
 
-export function bindFactorSpec(
+export function bind_factor_spec(
   input: unknown,
   canonicalExpression: Uint8Array | string,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalFactorSpec {
-  const spec = decodeFactorSpec(input);
-  const expression = parseCanonicalExpression(canonicalExpression, registry, limitOverrides);
-  assertIdentityMatches(
-    assertSha256Id(spec.operator_registry_sha256, "$factor_spec.operator_registry_sha256"),
+  const spec = decode_factor_spec(input);
+  const expression = parse_canonical_expression(canonicalExpression, registry, limitOverrides);
+  assert_identity_matches(
+    assert_sha256_id(spec.operator_registry_sha256, "$factor_spec.operator_registry_sha256"),
     registry.sha256,
     "$factor_spec.operator_registry_sha256",
   );
-  assertIdentityMatches(
-    assertSha256Id(spec.expression_id, "$factor_spec.expression_id"),
+  assert_identity_matches(
+    assert_sha256_id(spec.expression_id, "$factor_spec.expression_id"),
     expression.expressionId,
     "$factor_spec.expression_id",
   );
@@ -131,31 +131,31 @@ export function bindFactorSpec(
     throw new FactorDomainError(
       "type_mismatch",
       "$factor_spec.expression_id",
-      `factor root must resolve to series, received ${valueTypeLabel(expression.valueType)}`,
+      `factor root must resolve to series, received ${value_type_label(expression.valueType)}`,
     );
   }
-  const canonicalJson = writeCanonicalFactorSpec(spec);
+  const canonicalJson = write_factor_spec(spec);
   const canonicalBytes = encoder.encode(canonicalJson);
-  const factorSpecId = hashIdentity(FACTOR_SPEC_SCHEMA, canonicalBytes) as FactorSpecId;
+  const factorSpecId = hash_identity(FACTOR_SPEC_SCHEMA, canonicalBytes) as FactorSpecId;
   return Object.freeze({
     [boundFactorSpecBrand]: true as const,
     spec,
     expression,
     canonicalJson,
     factorSpecId,
-    toBytes: () => encoder.encode(canonicalJson),
+    to_bytes: () => encoder.encode(canonicalJson),
   });
 }
 
-export function parseCanonicalFactorSpec(
+export function parse_factor_spec(
   input: Uint8Array | string,
   expectedFactorSpecId: string,
   canonicalExpression: Uint8Array | string,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalFactorSpec {
-  const limits = resolveCanonicalizationLimits(limitOverrides);
-  const { bytes, text } = decodeUtf8(input, limits, "$factor_spec_bytes");
+  const limits = resolve_canonicalization_limits(limitOverrides);
+  const { bytes, text } = decode_utf8(input, limits, "$factor_spec_bytes");
   let untyped: unknown;
   try {
     untyped = JSON.parse(text);
@@ -166,52 +166,52 @@ export function parseCanonicalFactorSpec(
       error instanceof Error ? error.message : "invalid JSON",
     );
   }
-  const spec = decodeFactorSpec(untyped);
-  const canonicalJson = writeCanonicalFactorSpec(spec);
+  const spec = decode_factor_spec(untyped);
+  const canonicalJson = write_factor_spec(spec);
   const canonicalBytes = encoder.encode(canonicalJson);
-  if (!equalBytes(bytes, canonicalBytes)) {
+  if (!equal_bytes(bytes, canonicalBytes)) {
     throw new FactorDomainError(
       "non_canonical",
       "$factor_spec_bytes",
       "bytes differ from the dedicated canonical writer output",
     );
   }
-  const bound = bindFactorSpec(spec, canonicalExpression, registry, limits);
-  assertIdentityMatches(
-    assertSha256Id(expectedFactorSpecId, "$expected_factor_spec_id"),
+  const bound = bind_factor_spec(spec, canonicalExpression, registry, limits);
+  assert_identity_matches(
+    assert_sha256_id(expectedFactorSpecId, "$expected_factor_spec_id"),
     bound.factorSpecId,
     "$expected_factor_spec_id",
   );
   return bound;
 }
 
-export function verifyExpressionIdentity(
+export function verify_expression_identity(
   expected: string,
   input: Uint8Array | string,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalExpression {
-  const expectedId = assertSha256Id(expected, "$expected_expression_id");
-  const canonical = parseCanonicalExpression(input, registry, limitOverrides);
-  assertIdentityMatches(expectedId, canonical.expressionId, "$expected_expression_id");
+  const expectedId = assert_sha256_id(expected, "$expected_expression_id");
+  const canonical = parse_canonical_expression(input, registry, limitOverrides);
+  assert_identity_matches(expectedId, canonical.expressionId, "$expected_expression_id");
   return canonical;
 }
 
-export function verifyFactorSpecIdentity(
+export function verify_factor_identity(
   expected: string,
   input: Uint8Array | string,
   canonicalExpression: Uint8Array | string,
   registry: OperatorPolicyRegistry,
   limitOverrides: CanonicalizationLimitOverrides = {},
 ): CanonicalFactorSpec {
-  return parseCanonicalFactorSpec(input, expected, canonicalExpression, registry, limitOverrides);
+  return parse_factor_spec(input, expected, canonicalExpression, registry, limitOverrides);
 }
 
-function valueTypeLabel(valueType: ValueType): string {
+function value_type_label(valueType: ValueType): string {
   return typeof valueType === "string" ? valueType : `enum:${valueType.enumType}`;
 }
 
-function normalizeNode(
+function normalize_node(
   ast: FactorAst,
   registry: OperatorPolicyRegistry,
   limits: Readonly<CanonicalizationLimits>,
@@ -219,7 +219,7 @@ function normalizeNode(
 ): NormalizedNode {
   switch (ast.node) {
     case "field":
-      return Object.freeze({ ast, type: registry.resolveField(ast.field, `${path}.field`) });
+      return Object.freeze({ ast, type: registry.resolve_field(ast.field, `${path}.field`) });
     case "decimal":
       return Object.freeze({ ast, type: "decimal" });
     case "boolean":
@@ -227,19 +227,19 @@ function normalizeNode(
     case "enum":
       return Object.freeze({
         ast,
-        type: registry.resolveEnum(ast.enum_type, ast.value, path),
+        type: registry.resolve_enum(ast.enum_type, ast.value, path),
       });
     case "call": {
-      const definition = registry.resolveOperator(
+      const definition = registry.resolve_operator(
         ast.operator,
         ast.operator_version,
         `${path}.operator`,
       );
       let arguments_ = ast.arguments.map((argument, index) =>
-        normalizeNode(argument, registry, limits, `${path}.arguments[${index}]`),
+        normalize_node(argument, registry, limits, `${path}.arguments[${index}]`),
       );
       if (!definition.associative) {
-        registry.validateArguments(definition, arguments_, `${path}.arguments`);
+        registry.validate_arguments(definition, arguments_, `${path}.arguments`);
       }
 
       if (definition.associative) {
@@ -267,13 +267,13 @@ function normalizeNode(
       }
       if (definition.commutative) {
         arguments_.sort((left, right) =>
-          compareBytes(
-            encoder.encode(writeCanonicalExpression(left.ast)),
-            encoder.encode(writeCanonicalExpression(right.ast)),
+          compare_bytes(
+            encoder.encode(write_canonical_expression(left.ast)),
+            encoder.encode(write_canonical_expression(right.ast)),
           ),
         );
       }
-      registry.validateArguments(definition, arguments_, `${path}.arguments`);
+      registry.validate_arguments(definition, arguments_, `${path}.arguments`);
       const normalizedAst: FactorAst = Object.freeze({
         node: "call",
         operator: ast.operator,
@@ -285,7 +285,7 @@ function normalizeNode(
   }
 }
 
-function validateTreeLimits(ast: FactorAst, limits: Readonly<CanonicalizationLimits>): void {
+function validate_tree_limits(ast: FactorAst, limits: Readonly<CanonicalizationLimits>): void {
   let nodes = 0;
   const visit = (node: FactorAst, depth: number): void => {
     nodes += 1;
@@ -319,7 +319,7 @@ function validateTreeLimits(ast: FactorAst, limits: Readonly<CanonicalizationLim
   visit(ast, 1);
 }
 
-function writeCanonicalExpression(ast: FactorAst): string {
+function write_canonical_expression(ast: FactorAst): string {
   switch (ast.node) {
     case "field":
       return `{"node":"field","field":"${ast.field}"}`;
@@ -330,24 +330,24 @@ function writeCanonicalExpression(ast: FactorAst): string {
     case "enum":
       return `{"node":"enum","enum_type":"${ast.enum_type}","value":"${ast.value}"}`;
     case "call": {
-      const argumentsJson = ast.arguments.map((argument) => writeCanonicalExpression(argument));
+      const argumentsJson = ast.arguments.map((argument) => write_canonical_expression(argument));
       return `{"node":"call","operator":"${ast.operator}","operator_version":"${ast.operator_version}","arguments":[${argumentsJson.join(",")}]}`;
     }
   }
 }
 
-function writePolicyRef(policy: PolicyRef): string {
+function write_policy_ref(policy: PolicyRef): string {
   return `{"policy_id":"${policy.policy_id}","revision":"${policy.revision}","sha256":"${policy.sha256}"}`;
 }
 
-function writeCanonicalFactorSpec(spec: FactorSpec): string {
+function write_factor_spec(spec: FactorSpec): string {
   const policyFields = FACTOR_SPEC_POLICY_FIELDS.map(
-    (field) => `"${field}":${writePolicyRef(spec[field])}`,
+    (field) => `"${field}":${write_policy_ref(spec[field])}`,
   );
   return `{"schema":"${FACTOR_SPEC_SCHEMA}","expression_id":"${spec.expression_id}","operator_registry_sha256":"${spec.operator_registry_sha256}","direction":"${spec.direction}",${policyFields.join(",")}}`;
 }
 
-function decodeUtf8(
+function decode_utf8(
   input: Uint8Array | string,
   limits: Readonly<CanonicalizationLimits>,
   path: string,
@@ -373,7 +373,7 @@ function decodeUtf8(
   return { bytes, text };
 }
 
-function assertByteLimit(text: string, limits: Readonly<CanonicalizationLimits>): void {
+function assert_byte_limit(text: string, limits: Readonly<CanonicalizationLimits>): void {
   const actual = encoder.encode(text).byteLength;
   if (actual > limits.maxCanonicalBytes) {
     throw new FactorDomainError(
@@ -384,7 +384,7 @@ function assertByteLimit(text: string, limits: Readonly<CanonicalizationLimits>)
   }
 }
 
-function hashIdentity(domain: string, canonicalBytes: Uint8Array): Sha256Id {
+function hash_identity(domain: string, canonicalBytes: Uint8Array): Sha256Id {
   const hash = createHash("sha256");
   hash.update(domain, "ascii");
   hash.update(Uint8Array.of(0));
@@ -392,7 +392,7 @@ function hashIdentity(domain: string, canonicalBytes: Uint8Array): Sha256Id {
   return `sha256:${hash.digest("hex")}` as Sha256Id;
 }
 
-function assertIdentityMatches(expected: Sha256Id, actual: Sha256Id, path: string): void {
+function assert_identity_matches(expected: Sha256Id, actual: Sha256Id, path: string): void {
   const expectedBytes = Buffer.from(expected.slice("sha256:".length), "hex");
   const actualBytes = Buffer.from(actual.slice("sha256:".length), "hex");
   if (!timingSafeEqual(expectedBytes, actualBytes)) {
@@ -404,11 +404,11 @@ function assertIdentityMatches(expected: Sha256Id, actual: Sha256Id, path: strin
   }
 }
 
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
-  return left.byteLength === right.byteLength && compareBytes(left, right) === 0;
+function equal_bytes(left: Uint8Array, right: Uint8Array): boolean {
+  return left.byteLength === right.byteLength && compare_bytes(left, right) === 0;
 }
 
-function compareBytes(left: Uint8Array, right: Uint8Array): number {
+function compare_bytes(left: Uint8Array, right: Uint8Array): number {
   const sharedLength = Math.min(left.byteLength, right.byteLength);
   for (let index = 0; index < sharedLength; index += 1) {
     const leftByte = left[index];

@@ -17,14 +17,14 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use thiserror::Error;
 
 pub use canonical::{
-    bind_factor_spec, canonical_expression_bytes, canonical_factor_spec_bytes,
-    canonical_operator_registry_bytes, canonicalize_expression, expression_id, factor_spec_id,
-    operator_registry_id, parse_canonical_expression, parse_canonical_factor_spec,
+    bind_factor_spec, canonical_expression_bytes, canonicalize_expression, expression_id,
+    factor_spec_bytes, factor_spec_id, operator_registry_bytes, operator_registry_id,
+    parse_canonical_expression, parse_factor_spec,
 };
 pub use semantic::{
     AlignmentPolicy, NullPolicy, NumericPolicy, OPERATOR_SEMANTIC_CONTRACT_SCHEMA,
     OperatorSemanticContract, SemanticContractResolver, TiePolicy, WindowPolicy,
-    parse_canonical_operator_semantic_contract, semantic_contract_sha256,
+    parse_semantic_contract, semantic_contract_sha256,
 };
 
 const MAX_IDENTIFIER_BYTES: usize = 128;
@@ -783,7 +783,7 @@ impl DecimalConstraints {
     }
 
     fn validate_shape(&self, value: &CanonicalDecimal) -> Result<(), RegistryError> {
-        let (precision, scale) = decimal_precision_and_scale(value);
+        let (precision, scale) = decimal_precision_scale(value);
         if precision > self.max_precision {
             return Err(RegistryError::InvalidDecimalConstraints(format!(
                 "decimal precision {precision} exceeds {}",
@@ -800,7 +800,7 @@ impl DecimalConstraints {
     }
 }
 
-fn decimal_precision_and_scale(value: &CanonicalDecimal) -> (usize, usize) {
+fn decimal_precision_scale(value: &CanonicalDecimal) -> (usize, usize) {
     let unsigned = value.as_str().strip_prefix('-').unwrap_or(value.as_str());
     let (integer, fraction) = unsigned.split_once('.').unwrap_or((unsigned, ""));
     (integer.len() + fraction.len(), fraction.len())
@@ -1206,7 +1206,7 @@ impl OperatorPolicyRegistry {
     }
 
     pub fn canonical_bytes(&self) -> Vec<u8> {
-        canonical_operator_registry_bytes(self)
+        operator_registry_bytes(self)
     }
 
     pub fn policy_for(&self, operator: &OperatorRef) -> Option<OperatorPolicy> {
@@ -1225,7 +1225,7 @@ impl OperatorPolicyRegistry {
         self.semantic_contracts.get(&identity)
     }
 
-    pub fn semantic_contract_by_id(
+    pub fn find_semantic_contract(
         &self,
         identity: SemanticContractId,
     ) -> Option<&OperatorSemanticContract> {
@@ -1500,7 +1500,7 @@ impl ExpressionId {
         limits: ValidationLimits,
     ) -> Result<(), IdentityVerificationError> {
         let computed = expression_id(expression, registry, limits)?;
-        if constant_time_digest_eq(self.as_bytes(), computed.as_bytes()) {
+        if digest_eq(self.as_bytes(), computed.as_bytes()) {
             Ok(())
         } else {
             Err(IdentityVerificationError::ExpressionMismatch {
@@ -1519,11 +1519,11 @@ impl FactorSpecId {
         registry: &OperatorPolicyRegistry,
         limits: ValidationLimits,
     ) -> Result<FactorSpec, IdentityVerificationError> {
-        parse_canonical_factor_spec(canonical_spec, self, canonical_expression, registry, limits)
+        parse_factor_spec(canonical_spec, self, canonical_expression, registry, limits)
     }
 }
 
-fn constant_time_digest_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
+fn digest_eq(left: &[u8; 32], right: &[u8; 32]) -> bool {
     left.iter()
         .zip(right)
         .fold(0_u8, |difference, (left, right)| {

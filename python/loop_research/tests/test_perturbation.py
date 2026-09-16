@@ -46,7 +46,8 @@ def run_worker(payload: bytes) -> subprocess.CompletedProcess[bytes]:
     )
 
 
-def test_cold_start_proposes_new_window() -> None:
+# Scenario: cold start proposes new window.
+def test_cold_proposes() -> None:
     request = work()
     before = request.SerializeToString()
     step = advance(request)
@@ -57,7 +58,8 @@ def test_cold_start_proposes_new_window() -> None:
     assert request.SerializeToString() == before
 
 
-def test_gradient_uses_sharpe_history() -> None:
+# Scenario: gradient uses sharpe history.
+def test_gradient_sharpe() -> None:
     request = work()
     request.state.history.append(
         WindowObservation(
@@ -76,7 +78,8 @@ def test_gradient_uses_sharpe_history() -> None:
     assert result.candidate.window == 25
 
 
-def test_restart_matches_continuous_sequence() -> None:
+# Scenario: restart matches continuous sequence.
+def test_restart_continuous() -> None:
     request = work()
     for _ in range(5):
         expected = advance(request)
@@ -90,7 +93,8 @@ def test_restart_matches_continuous_sequence() -> None:
     assert expected.state.random_draws == 4
 
 
-def test_failed_candidates_are_excluded() -> None:
+# Scenario: failed candidates are excluded.
+def test_candidates_excluded() -> None:
     request = work()
     request.failed_factor_ids.extend(
         candidate.factor_spec_id for candidate in request.candidates[1:]
@@ -98,7 +102,8 @@ def test_failed_candidates_are_excluded() -> None:
     assert advance(request).candidate == request.candidates[0]
 
 
-def test_exhaustion_does_not_consume_randomness() -> None:
+# Scenario: exhaustion does not consume randomness.
+def test_exhaustion_randomness() -> None:
     request = work()
     request.failed_factor_ids.extend(candidate.factor_spec_id for candidate in request.candidates)
     result = advance(request)
@@ -107,7 +112,8 @@ def test_exhaustion_does_not_consume_randomness() -> None:
     assert result.state.random_draws == 0
 
 
-def test_same_source_is_observed_once() -> None:
+# Scenario: same source is observed once.
+def test_source_observed() -> None:
     request = work()
     first = advance(request)
     request.state.CopyFrom(first.state)
@@ -117,7 +123,8 @@ def test_same_source_is_observed_once() -> None:
     assert second.state.momentum == first.state.momentum
 
 
-def test_conflicting_source_is_rejected() -> None:
+# Scenario: conflicting source is rejected.
+def test_conflicting_source() -> None:
     request = work()
     request.state.CopyFrom(advance(request).state)
     request.observation.net_sharpe = 2
@@ -126,7 +133,8 @@ def test_conflicting_source_is_rejected() -> None:
 
 
 @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf, 1_000_001.0])
-def test_invalid_sharpe_is_rejected(value: float) -> None:
+# Scenario: invalid sharpe is rejected.
+def test_invalid_sharpe(value: float) -> None:
     request = work()
     request.observation.net_sharpe = value
     with pytest.raises(ValueError):
@@ -135,7 +143,8 @@ def test_invalid_sharpe_is_rejected(value: float) -> None:
 
 @pytest.mark.parametrize("field", ["momentum", "second_moment"])
 @pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
-def test_nonfinite_state_is_rejected(field: str, value: float) -> None:
+# Scenario: nonfinite state is rejected.
+def test_nonfinite_state(field: str, value: float) -> None:
     request = work()
     setattr(request.state, field, value)
     with pytest.raises(ValueError):
@@ -143,7 +152,8 @@ def test_nonfinite_state_is_rejected(field: str, value: float) -> None:
 
 
 @pytest.mark.parametrize("invalid", ["version", "seed", "order", "duplicate", "unknown", "draws"])
-def test_invalid_work_is_rejected(invalid: str) -> None:
+# Scenario: invalid work is rejected.
+def test_invalid_work(invalid: str) -> None:
     request = work()
     if invalid == "version":
         request.state.version = 2
@@ -161,7 +171,8 @@ def test_invalid_work_is_rejected(invalid: str) -> None:
         advance(request)
 
 
-def test_history_budget_is_not_silently_truncated() -> None:
+# Scenario: history budget is not silently truncated.
+def test_history_budget() -> None:
     request = work()
     request.state.history.extend(
         WindowObservation(
@@ -176,7 +187,8 @@ def test_history_budget_is_not_silently_truncated() -> None:
 
 
 @pytest.mark.parametrize("payload", [b"", b"\xff", b"x" * (MAX_BYTES + 1)])
-def test_worker_rejects_invalid_envelopes(payload: bytes) -> None:
+# Scenario: worker rejects invalid envelopes.
+def test_worker_invalid(payload: bytes) -> None:
     result = run_worker(payload)
     assert result.returncode == 2
     assert result.stdout == b""
@@ -184,7 +196,8 @@ def test_worker_rejects_invalid_envelopes(payload: bytes) -> None:
 
 
 @given(st.binary(min_size=32, max_size=32), st.sets(st.integers(0, 4), max_size=5))
-def test_proposals_are_bounded_and_never_repeat(seed: bytes, failures: set[int]) -> None:
+# Scenario: proposals are bounded and never repeat.
+def test_proposals_bounded(seed: bytes, failures: set[int]) -> None:
     request = work()
     request.state.random_seed.value = seed
     request.failed_factor_ids.extend(

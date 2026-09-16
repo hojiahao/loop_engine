@@ -26,7 +26,7 @@ impl Policy {
         reference: &crate::manifests::ObjectRef,
     ) -> Self {
         let original = holdout::command(0, "original");
-        let mut value = canonical::parse_canonical_holdout_period(&original.canonical_bytes)
+        let mut value = canonical::parse_holdout_period(&original.canonical_bytes)
             .unwrap()
             .value;
         value.snapshot_ids = data
@@ -47,9 +47,8 @@ impl Policy {
         });
 
         let mut freeze = grant::resolved(0);
-        let original_period =
-            canonical::parse_canonical_holdout_period(&original.canonical_bytes).unwrap();
-        let mut plan = canonical::parse_canonical_holdout_evaluation_plan(
+        let original_period = canonical::parse_holdout_period(&original.canonical_bytes).unwrap();
+        let mut plan = canonical::parse_holdout_plan(
             &freeze.canonical_plan,
             &original_period,
             &freeze.backtest_schema_sha256,
@@ -66,7 +65,7 @@ impl Policy {
                 .map(|byte| format!("{byte:02x}"))
                 .collect::<String>()
         );
-        let plan = canonical::canonicalize_holdout_evaluation_plan(
+        let plan = canonical::canonicalize_holdout_plan(
             plan,
             &period,
             &freeze.backtest_schema_sha256,

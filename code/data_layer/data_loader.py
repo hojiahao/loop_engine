@@ -98,7 +98,7 @@ def _ensure_year_cache(con: duckdb.DuckDBPyConnection, kind: str, year: int,
     return dst
 
 
-def _ensure_ex_factor_cache(con: duckdb.DuckDBPyConnection, *, use_cache: bool = True) -> Path:
+def _ensure_factor_cache(con: duckdb.DuckDBPyConnection, *, use_cache: bool = True) -> Path:
     """复权因子(单文件、全历史、很小)→ 缓存整张表一次。"""
     if _C_EXF.exists() and use_cache:
         return _C_EXF
@@ -150,7 +150,7 @@ def build_factor_table(start_year: int, end_year: int, *, use_cache: bool = True
                     for y in years]
         cf_files = [_ensure_year_cache(con, "cash_flow", y, use_cache=use_cache, cols=cf_cols)
                     for y in years]
-        exf_file = _ensure_ex_factor_cache(con, use_cache=use_cache)
+        exf_file = _ensure_factor_cache(con, use_cache=use_cache)
 
         # 基本面二期派生比率(2026-08-27):三表跨表 SELECT,分母>0 且分子分母有限;
         # np_margin 允许负值(亏损=差,语义正确)

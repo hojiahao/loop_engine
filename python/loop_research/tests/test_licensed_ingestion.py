@@ -32,7 +32,8 @@ from loop_research.data.licensed_ingestion import fetch_licensed, load_config, r
 from loop_research.data.licensed_records import LicensedReceipt
 
 
-def test_sharadar_acquire_replays_offline(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+# Scenario: sharadar acquire replays offline.
+def test_sharadar_offline(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
     requests: list[httpx.Request] = []
@@ -92,7 +93,8 @@ def test_sharadar_acquire_replays_offline(tmp_path: Path, caplog: pytest.LogCapt
 
 
 @pytest.mark.parametrize("provider", ["sharadar", "wrds", "databento"])
-def test_missing_credentials_deny_before_io(tmp_path: Path, provider: str) -> None:
+# Scenario: missing credentials deny before io.
+def test_missing_credentials(tmp_path: Path, provider: str) -> None:
     config, license = license_config(tmp_path, provider)
     store = cache(tmp_path)
     with pytest.raises(FetchError, match="missing_credentials"):
@@ -112,7 +114,8 @@ def test_missing_credentials_deny_before_io(tmp_path: Path, provider: str) -> No
         {"billing": "pay_as_you_go"},
     ],
 )
-def test_license_denies_before_network(tmp_path: Path, change: dict[str, Any]) -> None:
+# Scenario: license denies before network.
+def test_license_network(tmp_path: Path, change: dict[str, Any]) -> None:
     config, license = license_config(tmp_path, license_changes=change)
     store = cache(tmp_path)
     with pytest.raises(FetchError, match="license_denied"):
@@ -121,7 +124,8 @@ def test_license_denies_before_network(tmp_path: Path, change: dict[str, Any]) -
 
 
 @pytest.mark.parametrize("mutation", ["mode", "digest", "symlink", "duplicate_field"])
-def test_license_file_is_private_and_pinned(tmp_path: Path, mutation: str) -> None:
+# Scenario: license file is private and pinned.
+def test_license_file(tmp_path: Path, mutation: str) -> None:
     config, license = license_config(tmp_path)
     if mutation == "mode":
         license.chmod(0o644)
@@ -141,7 +145,8 @@ def test_license_file_is_private_and_pinned(tmp_path: Path, mutation: str) -> No
     "status,reason",
     [(401, "authentication"), (403, "forbidden"), (429, "rate_limited"), (302, "invalid_response")],
 )
-def test_entitlement_errors_do_not_commit(tmp_path: Path, status: int, reason: str) -> None:
+# Scenario: entitlement errors do not commit.
+def test_entitlement_errors(tmp_path: Path, status: int, reason: str) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
     with pytest.raises(FetchError, match=reason):
@@ -167,7 +172,8 @@ def test_entitlement_errors_do_not_commit(tmp_path: Path, status: int, reason: s
         ("secret", "invalid_response"),
     ],
 )
-def test_bad_pagination_has_no_receipt(tmp_path: Path, variant: str, reason: str) -> None:
+# Scenario: bad pagination has no receipt.
+def test_bad_pagination(tmp_path: Path, variant: str, reason: str) -> None:
     config, license = license_config(
         tmp_path,
         budget={
@@ -198,7 +204,8 @@ def test_bad_pagination_has_no_receipt(tmp_path: Path, variant: str, reason: str
     assert not any(b'"loop.licensed-receipt/v1"' in file.read_bytes() for file in store.iterdir())
 
 
-def test_expiry_during_download_does_not_commit(tmp_path: Path) -> None:
+# Scenario: expiry during download does not commit.
+def test_expiry_download(tmp_path: Path) -> None:
     config, license = license_config(
         tmp_path, license_changes={"expires_at": "2026-09-13T12:00:01Z"}
     )
@@ -224,7 +231,8 @@ def test_expiry_during_download_does_not_commit(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("empty", [False, True])
-def test_databento_does_not_allocate_or_drop_vintages(tmp_path: Path, empty: bool) -> None:
+# Scenario: databento does not allocate or drop vintages.
+def test_databento_allocate(tmp_path: Path, empty: bool) -> None:
     config, license = license_config(tmp_path, "databento")
     store = cache(tmp_path)
     body = b"" if empty else jsonl(reference_row(), reference_row(ts_record="2026-08-30T12:00:00Z"))
@@ -253,7 +261,8 @@ def test_databento_does_not_allocate_or_drop_vintages(tmp_path: Path, empty: boo
 
 
 @pytest.mark.parametrize("target", ["source", "normalized", "request", "missing_page", "license"])
-def test_replay_rechecks_evidence(tmp_path: Path, target: str) -> None:
+# Scenario: replay rechecks evidence.
+def test_replay_evidence(tmp_path: Path, target: str) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
     report = asyncio.run(
@@ -284,7 +293,8 @@ def test_replay_rechecks_evidence(tmp_path: Path, target: str) -> None:
         replay_licensed(store, digest)
 
 
-def test_cancelled_operation_closes_without_receipt(tmp_path: Path) -> None:
+# Scenario: cancelled operation closes without receipt.
+def test_cancelled_operation(tmp_path: Path) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
 
@@ -315,7 +325,8 @@ def test_cancelled_operation_closes_without_receipt(tmp_path: Path) -> None:
     assert not list(store.iterdir())
 
 
-def test_config_and_actual_cli_gate(tmp_path: Path) -> None:
+# Scenario: config and actual cli gate.
+def test_config_cli(tmp_path: Path) -> None:
     config, license = license_config(tmp_path)
     file = tmp_path / "request.toml"
     file.write_text(
@@ -349,7 +360,8 @@ def test_config_and_actual_cli_gate(tmp_path: Path) -> None:
     assert hashlib.sha256(license.read_bytes()).hexdigest() == config.license_sha256[7:]
 
 
-def test_current_metadata_requires_declared_rights(tmp_path: Path) -> None:
+# Scenario: current metadata requires declared rights.
+def test_metadata_rights(tmp_path: Path) -> None:
     config, license = license_config(
         tmp_path, tables=["TICKERS"], license_changes={"current_reference_metadata": False}
     )
@@ -359,7 +371,8 @@ def test_current_metadata_requires_declared_rights(tmp_path: Path) -> None:
         )
 
 
-def test_databento_warning_does_not_silently_accept_partial_data(tmp_path: Path) -> None:
+# Scenario: databento warning does not silently accept partial data.
+def test_databento_warning(tmp_path: Path) -> None:
     config, license = license_config(tmp_path, "databento")
     store = cache(tmp_path)
     with pytest.raises(FetchError, match="invalid_response"):
@@ -378,7 +391,8 @@ def test_databento_warning_does_not_silently_accept_partial_data(tmp_path: Path)
     assert not list(store.iterdir())
 
 
-def test_secret_echo_inside_jsonl_is_not_cached(tmp_path: Path) -> None:
+# Scenario: secret echo inside jsonl is not cached.
+def test_secret_inside(tmp_path: Path) -> None:
     config, license = license_config(tmp_path, "databento")
     store = cache(tmp_path)
     body = jsonl(reference_row(), reference_row(nasdaq_symbol=DB_KEY))
@@ -396,7 +410,8 @@ def test_secret_echo_inside_jsonl_is_not_cached(tmp_path: Path) -> None:
     assert not list(store.iterdir())
 
 
-def test_rehashed_normalization_is_still_checked(tmp_path: Path) -> None:
+# Scenario: rehashed normalization is still checked.
+def test_rehashed_normalization(tmp_path: Path) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
     report = asyncio.run(

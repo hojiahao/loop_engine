@@ -16,9 +16,9 @@ from loop_protocol import (
     AuditTarget,
     AuditTargetKind,
     AuditValidationError,
+    audit_event_bytes,
     audit_event_sha256,
     audit_payload_sha256,
-    canonical_audit_event_bytes,
     canonicalize_audit_payload,
     verify_audit_chain,
     verify_audit_event,
@@ -36,19 +36,21 @@ ACTION_BINDING_FIXTURE_PATH = FIXTURE_PATH.with_name("action_binding_vectors.jso
 ZERO_SHA256 = "sha256:" + "0" * 64
 
 
-def test_shared_chain_vectors_are_byte_and_digest_exact() -> None:
+# Scenario: shared chain vectors are byte and digest exact.
+def test_shared_chain() -> None:
     fixture = _fixture()
     assert fixture["schema"] == "loop.audit-conformance/v1"
     events = _chain(fixture)
     for event, vector in zip(events, fixture["accepted_chain"], strict=True):
         assert event.payload.canonical_bytes == vector["payload"]["canonical_utf8"].encode()
         assert event.payload.payload_sha256 == vector["payload"]["payload_sha256"]
-        assert canonical_audit_event_bytes(event) == vector["canonical_event_utf8"].encode()
+        assert audit_event_bytes(event) == vector["canonical_event_utf8"].encode()
         assert audit_event_sha256(event) == vector["event_sha256"]
     verify_audit_chain(events)
 
 
-def test_every_action_and_typed_target_enum_spelling_is_closed() -> None:
+# Scenario: every action and typed target enum spelling is closed.
+def test_action_typed() -> None:
     fixture = _fixture()
     for value in fixture["action_values"]:
         assert AuditAction(value).value == value
@@ -61,7 +63,8 @@ def test_every_action_and_typed_target_enum_spelling_is_closed() -> None:
         AuditTargetKind("unknown")
 
 
-def test_shared_action_registry_binds_schema_target_and_subject_before_hashing() -> None:
+# Scenario: shared action registry binds schema target and subject before hashing.
+def test_shared_action() -> None:
     fixture = _action_binding_fixture()
     assert fixture["schema"] == "loop.audit-action-binding/v1"
     assert len(fixture["accepted"]) == 12
@@ -79,9 +82,7 @@ def test_shared_action_registry_binds_schema_target_and_subject_before_hashing()
     for index, vector in enumerate(fixture["accepted"]):
         event = _action_event(fixture["event_envelope"], vector)
         assert event.payload.payload_sha256 == vector["payload_sha256"], vector["name"]
-        assert canonical_audit_event_bytes(event) == vector["canonical_event_utf8"].encode(), (
-            vector["name"]
-        )
+        assert audit_event_bytes(event) == vector["canonical_event_utf8"].encode(), vector["name"]
         assert audit_event_sha256(event) == vector["event_sha256"], vector["name"]
         verify_audit_event(replace(event, event_sha256=vector["event_sha256"]))
 
@@ -132,7 +133,8 @@ def test_shared_action_registry_binds_schema_target_and_subject_before_hashing()
         assert captured.value.code is AuditErrorCode(vector["expected_code"]), vector["name"]
 
 
-def test_holdout_grant_audit_rejects_more_than_eight_approval_records() -> None:
+# Scenario: holdout grant audit rejects more than eight approval records.
+def test_holdout_grant() -> None:
     approval_records = [
         {
             "holdout_approval_record_id": f"holdout_approval.{index:02d}",
@@ -159,14 +161,16 @@ def test_holdout_grant_audit_rejects_more_than_eight_approval_records() -> None:
     assert captured.value.code is AuditErrorCode.NON_CANONICAL_PAYLOAD
 
 
-def test_hostile_deep_json_fails_with_stable_audit_error() -> None:
+# Scenario: hostile deep json fails with stable audit error.
+def test_hostile_deep() -> None:
     payload = ("[" * 2_048 + "{}" + "]" * 2_048).encode()
     with pytest.raises(AuditValidationError) as captured:
         canonicalize_audit_payload("loop.audit.command_accepted", 1, payload)
     assert captured.value.code is AuditErrorCode.NON_CANONICAL_PAYLOAD
 
 
-def test_shared_tamper_reorder_genesis_and_cross_ledger_vectors_fail_closed() -> None:
+# Scenario: shared tamper reorder genesis and cross ledger vectors fail closed.
+def test_shared_tamper() -> None:
     fixture = _fixture()
     for negative in fixture["negative_vectors"]:
         events = _chain(fixture)
@@ -211,7 +215,8 @@ def test_shared_tamper_reorder_genesis_and_cross_ledger_vectors_fail_closed() ->
         assert captured.value.code.value == negative["expected_code"], negative["name"]
 
 
-def test_shared_boundaries_are_accepted_and_overruns_are_rejected() -> None:
+# Scenario: shared boundaries are accepted and overruns are rejected.
+def test_shared_boundaries() -> None:
     boundaries = _fixture()["boundary_vectors"]
     max_id_bytes = int(boundaries["max_domain_id_bytes"])
     max_text_bytes = int(boundaries["max_schema_text_bytes"])
@@ -257,7 +262,8 @@ def test_shared_boundaries_are_accepted_and_overruns_are_rejected() -> None:
     assert captured.value.code is AuditErrorCode.INVALID_IDENTIFIER
 
 
-def test_payload_registry_rejects_noncanonical_and_unknown_documents() -> None:
+# Scenario: payload registry rejects noncanonical and unknown documents.
+def test_payload_registry() -> None:
     for value in (
         b' {"command":"research.run","request_id":"request.1","summary":"ok"}',
         b'{"request_id":"request.1","command":"research.run","summary":"ok"}',
@@ -283,14 +289,16 @@ def test_payload_registry_rejects_noncanonical_and_unknown_documents() -> None:
         "0000-01-01T00:00:00.000000000Z",
     ],
 )
-def test_timestamp_is_exact_and_round_trip_safe(occurred_at: str) -> None:
+# Scenario: timestamp is exact and round trip safe.
+def test_timestamp_round(occurred_at: str) -> None:
     event = replace(_chain(_fixture())[0], occurred_at=occurred_at)
     with pytest.raises(AuditValidationError) as captured:
         audit_event_sha256(event)
     assert captured.value.code is AuditErrorCode.INVALID_TIMESTAMP
 
 
-def test_unpaired_surrogate_is_rejected() -> None:
+# Scenario: unpaired surrogate is rejected.
+def test_unpaired_surrogate() -> None:
     event = _chain(_fixture())[0]
     event = replace(event, actor=replace(event.actor, display_name="\ud800"))
     with pytest.raises(AuditValidationError) as captured:

@@ -90,7 +90,7 @@ describe("research public wire boundary", () => {
         throw new Error(`invalid shared research vector: ${line}`);
       }
       expect(
-        Object.hasOwn(surfaces[surface as keyof typeof surfaces], snakeToCamel(member)),
+        Object.hasOwn(surfaces[surface as keyof typeof surfaces], snake_to_camel(member)),
         name,
       ).toBe(expected === "accept");
     }
@@ -120,6 +120,6 @@ describe("research public wire boundary", () => {
   });
 });
 
-function snakeToCamel(value: string): string {
+function snake_to_camel(value: string): string {
   return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
 }

@@ -571,7 +571,7 @@ fn factor(
         &model::Factor {
             schema: "loop.factor-manifest/v1".to_owned(),
             factor_spec_id: id.clone(),
-            specification: put(root, &canonical_factor_spec_bytes(&factor)),
+            specification: put(root, &factor_spec_bytes(&factor)),
             expression: put(root, &canonical),
         },
     );

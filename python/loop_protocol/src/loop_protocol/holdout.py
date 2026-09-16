@@ -161,7 +161,7 @@ def canonicalize_holdout_period(value: HoldoutPeriodValue) -> CanonicalHoldoutPe
     return CanonicalHoldoutPeriod(value, canonical_bytes, digest, _encode_digest(digest))
 
 
-def parse_canonical_holdout_period(value: bytes | str) -> CanonicalHoldoutPeriod:
+def parse_holdout_period(value: bytes | str) -> CanonicalHoldoutPeriod:
     """Strict-parse exact period bytes without discarding JSON structure."""
 
     canonical_bytes, raw_value = _parse_json(value, MAX_HOLDOUT_PERIOD_BYTES, "period")
@@ -195,12 +195,12 @@ def parse_canonical_holdout_period(value: bytes | str) -> CanonicalHoldoutPeriod
     return parsed
 
 
-def verify_holdout_period_identity(
+def verify_period_identity(
     value: bytes | str,
     holdout_period_id: str,
     canonical_period_sha256: bytes,
 ) -> CanonicalHoldoutPeriod:
-    parsed = parse_canonical_holdout_period(value)
+    parsed = parse_holdout_period(value)
     if parsed.holdout_period_id != holdout_period_id or not _equal_digest(
         parsed.canonical_period_sha256, canonical_period_sha256
     ):
@@ -208,7 +208,7 @@ def verify_holdout_period_identity(
     return parsed
 
 
-def canonicalize_holdout_evaluation_plan(
+def canonicalize_holdout_plan(
     value: HoldoutEvaluationPlanValue,
     expected_period: CanonicalHoldoutPeriod,
     trusted_backtest_schema_sha256: bytes,
@@ -234,7 +234,7 @@ def canonicalize_holdout_evaluation_plan(
     )
 
 
-def parse_canonical_holdout_evaluation_plan(
+def parse_holdout_plan(
     value: bytes | str,
     expected_period: CanonicalHoldoutPeriod,
     trusted_backtest_schema_sha256: bytes,
@@ -255,7 +255,7 @@ def parse_canonical_holdout_evaluation_plan(
         _decode_plan_entry(entry, index)
         for index, entry in enumerate(_require_list(raw["entries"], "entries"))
     )
-    parsed = canonicalize_holdout_evaluation_plan(
+    parsed = canonicalize_holdout_plan(
         HoldoutEvaluationPlanValue(
             _require_string(raw["holdout_period_id"], "holdout_period_id"),
             _require_string(raw["canonical_period_sha256"], "canonical_period_sha256"),
@@ -270,7 +270,7 @@ def parse_canonical_holdout_evaluation_plan(
     return parsed
 
 
-def validate_holdout_evaluation_plan_reference(
+def validate_plan_reference(
     reference: EvaluationPlanReference,
     canonical_plan_bytes: bytes,
     expected_period: CanonicalHoldoutPeriod,
@@ -281,7 +281,7 @@ def validate_holdout_evaluation_plan_reference(
     """Resolve and validate every identity repeated by a plan artifact reference."""
 
     _require_raw_digest(trusted_plan_schema_sha256, "trusted_plan_schema_sha256")
-    parsed = parse_canonical_holdout_evaluation_plan(
+    parsed = parse_holdout_plan(
         canonical_plan_bytes,
         expected_period,
         trusted_backtest_schema_sha256,
@@ -319,7 +319,7 @@ def validate_holdout_evaluation_plan_reference(
     return parsed
 
 
-def validate_wire_holdout_period(
+def validate_wire_period(
     wire: holdout_pb2.HoldoutPeriod,
     canonical_period_bytes: bytes,
 ) -> CanonicalHoldoutPeriod:
@@ -331,7 +331,7 @@ def validate_wire_holdout_period(
         wire.canonical_period_sha256 if wire.HasField("canonical_period_sha256") else None,
         "canonical_period_sha256",
     )
-    parsed = verify_holdout_period_identity(
+    parsed = verify_period_identity(
         canonical_period_bytes,
         wire.holdout_period_id.value,
         digest,
@@ -372,7 +372,7 @@ def validate_wire_holdout_period(
     return parsed
 
 
-def validate_wire_holdout_evaluation_plan_reference(
+def validate_wire_plan(
     wire: holdout_pb2.HoldoutEvaluationPlanReference,
     canonical_plan_bytes: bytes,
     expected_period: CanonicalHoldoutPeriod,
@@ -384,12 +384,12 @@ def validate_wire_holdout_evaluation_plan_reference(
 
     if not wire.HasField("canonical_plan"):
         _fail("reference_mismatch", "canonical_plan")
-    artifact = _validate_plan_wire_artifact(wire.canonical_plan)
+    artifact = _validate_plan_artifact(wire.canonical_plan)
     if not wire.HasField("holdout_evaluation_plan_id"):
         _fail("reference_mismatch", "holdout_evaluation_plan_id")
     if not wire.HasField("holdout_period_id"):
         _fail("reference_mismatch", "holdout_period_id")
-    return validate_holdout_evaluation_plan_reference(
+    return validate_plan_reference(
         EvaluationPlanReference(
             wire.holdout_evaluation_plan_id.value,
             artifact,
@@ -412,7 +412,7 @@ def validate_wire_holdout_evaluation_plan_reference(
     )
 
 
-def _validate_plan_wire_artifact(value: ArtifactRef) -> PlanArtifactReference:
+def _validate_plan_artifact(value: ArtifactRef) -> PlanArtifactReference:
     try:
         artifact = validate_artifact_ref(value)
     except ArtifactValidationError:

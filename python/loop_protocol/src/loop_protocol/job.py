@@ -28,8 +28,8 @@ from .artifact import ArtifactValidationError, validate_artifact_ref
 from .holdout import (
     HoldoutJobBudget,
     HoldoutValidationError,
-    parse_canonical_holdout_evaluation_plan,
-    verify_holdout_period_identity,
+    parse_holdout_plan,
+    verify_period_identity,
 )
 from .provenance import ProvenanceError, ProvenanceSnapshot
 
@@ -179,7 +179,7 @@ class ValidatedJobShape(ValidatedJobSpecificationShape):
     state: int
 
 
-def validate_job_specification_shape(
+def validate_job_shape(
     specification: job_pb2.JobSpecification,
 ) -> ValidatedJobSpecificationShape:
     """Classify only protocol v1 kind/input compatibility."""
@@ -207,7 +207,7 @@ def validate_job_specification(
     resolution must verify their roles before persistence or dispatch.
     """
 
-    shape = validate_job_specification_shape(specification)
+    shape = validate_job_shape(specification)
     submitted_at = _validate_job_envelope(specification)
     _validate_job_input(specification, submitted_at)
     return shape
@@ -272,7 +272,7 @@ def _validate_protocol_selection(
         )
 
 
-def canonical_protocol_selection_bytes(
+def protocol_selection_bytes(
     selection: common_pb2.ProtocolSelectionSnapshot,
 ) -> bytes:
     """Emit the normative canonical v1 protocol-selection document."""
@@ -348,7 +348,7 @@ def canonical_protocol_selection_bytes(
 def protocol_selection_sha256(selection: common_pb2.ProtocolSelectionSnapshot) -> bytes:
     """Compute the domain-separated digest claimed by ``selection_sha256``."""
 
-    return _domain_digest(_PROTOCOL_SELECTION_DOMAIN, canonical_protocol_selection_bytes(selection))
+    return _domain_digest(_PROTOCOL_SELECTION_DOMAIN, protocol_selection_bytes(selection))
 
 
 def _validate_protocol_limits(limits: common_pb2.ProtocolLimits) -> None:
@@ -405,7 +405,7 @@ def _validate_job_input(
         value = specification.factor_evaluation
         if not value.HasField("factor"):
             _fail(JobValidationCode.MISSING_FIELD, "specification.input.factor_evaluation.factor")
-        validate_factor_spec_identity_envelope(value.factor)
+        validate_factor_identity(value.factor)
         _validate_development_dataset(value.dataset if value.HasField("dataset") else None)
         if value.HasField("provenance") or value.HasField("deterministic_seed"):
             _validate_provenance(
@@ -468,7 +468,7 @@ def _validate_job_input(
             "specification.input.reconciliation.budget",
         )
     elif input_name == "holdout_backtest":
-        _validate_holdout_backtest_input(specification.holdout_backtest, submitted_at)
+        _validate_holdout_input(specification.holdout_backtest, submitted_at)
     elif input_name == "artifact":
         value = specification.artifact
         if not value.HasField("input"):
@@ -526,7 +526,7 @@ def _validate_policy(policy: common_pb2.PolicyReference | None, field: str) -> N
     _require_digest(policy.sha256 if policy.HasField("sha256") else None, field)
 
 
-def canonical_factor_spec_identity_bytes(factor: factor_pb2.FactorSpec) -> bytes:
+def factor_identity_bytes(factor: factor_pb2.FactorSpec) -> bytes:
     """Emit identity bytes after proving wire AST and canonical JSON agree."""
 
     factor_expression_id = _require_sha256_id(
@@ -567,7 +567,7 @@ def canonical_factor_spec_identity_bytes(factor: factor_pb2.FactorSpec) -> bytes
             JobValidationCode.INVALID_INPUT,
             "specification.input.factor_evaluation.factor.expression.ast",
         )
-    attached_ast = _canonical_wire_factor_ast_bytes(expression.ast)
+    attached_ast = _wire_ast_bytes(expression.ast)
     if not hmac.compare_digest(attached_ast, bytes(expression.canonical_json)):
         _fail(
             JobValidationCode.BINDING_MISMATCH,
@@ -625,7 +625,7 @@ def canonical_factor_spec_identity_bytes(factor: factor_pb2.FactorSpec) -> bytes
     return canonical.encode("ascii")
 
 
-def _canonical_wire_factor_ast_bytes(ast: factor_pb2.FactorAst) -> bytes:
+def _wire_ast_bytes(ast: factor_pb2.FactorAst) -> bytes:
     if ast.schema_version != 1 or not ast.HasField("root"):
         _fail(
             JobValidationCode.INVALID_INPUT,
@@ -633,7 +633,7 @@ def _canonical_wire_factor_ast_bytes(ast: factor_pb2.FactorAst) -> bytes:
         )
     output: list[str] = []
     node_count = [0]
-    _write_wire_factor_ast_node(ast.root, 1, node_count, output)
+    _write_ast_node(ast.root, 1, node_count, output)
     canonical = "".join(output).encode("ascii")
     if len(canonical) > _MAX_PROTOCOL_CANONICAL_AST_BYTES:
         _fail(
@@ -643,7 +643,7 @@ def _canonical_wire_factor_ast_bytes(ast: factor_pb2.FactorAst) -> bytes:
     return canonical
 
 
-def _write_wire_factor_ast_node(
+def _write_ast_node(
     node: factor_pb2.FactorAstNode,
     depth: int,
     node_count: list[int],
@@ -726,7 +726,7 @@ def _write_wire_factor_ast_node(
         for index, argument in enumerate(node.call.arguments):
             if index:
                 output.append(",")
-            _write_wire_factor_ast_node(argument, depth + 1, node_count, output)
+            _write_ast_node(argument, depth + 1, node_count, output)
         output.append("]}")
         return
     _fail(
@@ -747,20 +747,20 @@ def _require_factor_identifier(value: str) -> str:
     return value
 
 
-def factor_spec_identity_sha256(factor: factor_pb2.FactorSpec) -> bytes:
+def factor_identity_hash(factor: factor_pb2.FactorSpec) -> bytes:
     """Compute the domain-separated digest claimed by ``factor_spec_id``."""
 
-    return _domain_digest(_FACTOR_SPEC_DOMAIN, canonical_factor_spec_identity_bytes(factor))
+    return _domain_digest(_FACTOR_SPEC_DOMAIN, factor_identity_bytes(factor))
 
 
-def validate_factor_spec_identity_envelope(factor: factor_pb2.FactorSpec) -> None:
+def validate_factor_identity(factor: factor_pb2.FactorSpec) -> None:
     """Validate both content-addressed identities in an inline factor."""
 
     claimed = _require_sha256_id(
         factor.factor_spec_id.value if factor.HasField("factor_spec_id") else None,
         "specification.input.factor_evaluation.factor.factor_spec_id",
     )
-    computed = _encode_digest(factor_spec_identity_sha256(factor))
+    computed = _encode_digest(factor_identity_hash(factor))
     if not hmac.compare_digest(claimed, computed):
         _fail(
             JobValidationCode.BINDING_MISMATCH,
@@ -923,7 +923,7 @@ def _validate_provenance(
         _fail(JobValidationCode.INVALID_PROVENANCE, field)
 
 
-def _validate_holdout_backtest_input(
+def _validate_holdout_input(
     input_value: job_pb2.HoldoutBacktestJobInput,
     submitted_at: tuple[int, int],
 ) -> None:
@@ -994,14 +994,14 @@ def _validate_holdout_backtest_input(
             JobValidationCode.MISSING_FIELD,
             "specification.input.holdout_backtest.frozen_backtest_spec",
         )
-    _validate_frozen_backtest_spec(input_value.frozen_backtest_spec, grant)
+    _validate_backtest_spec(input_value.frozen_backtest_spec, grant)
     _validate_budget(
         input_value.budget if input_value.HasField("budget") else None,
         "specification.input.holdout_backtest.budget",
     )
 
 
-def validate_holdout_backtest_plan_entry_binding(
+def validate_plan_binding(
     input_value: job_pb2.HoldoutBacktestJobInput,
     submitted_at: _Timestamp,
     canonical_period_bytes: bytes | str,
@@ -1022,7 +1022,7 @@ def validate_holdout_backtest_plan_entry_binding(
     """
 
     validated_submitted_at = _require_timestamp(submitted_at, "specification.submitted_at")
-    _validate_holdout_backtest_input(input_value, validated_submitted_at)
+    _validate_holdout_input(input_value, validated_submitted_at)
     grant = input_value.consumed_grant
     frozen = input_value.frozen_backtest_spec
     budget = input_value.budget
@@ -1043,8 +1043,8 @@ def validate_holdout_backtest_plan_entry_binding(
         "specification.input.holdout_backtest.consumed_grant.canonical_period_sha256",
     )
     try:
-        period = verify_holdout_period_identity(canonical_period_bytes, period_id, period_digest)
-        plan = parse_canonical_holdout_evaluation_plan(
+        period = verify_period_identity(canonical_period_bytes, period_id, period_digest)
+        plan = parse_holdout_plan(
             canonical_plan_bytes,
             period,
             trusted_backtest_schema_sha256,
@@ -1094,7 +1094,7 @@ def validate_holdout_backtest_plan_entry_binding(
         or not hmac.compare_digest(
             _encode_digest(canonical_spec), entry.backtest_spec_artifact.sha256
         )
-        or not _holdout_budget_matches_plan(budget, entry.job_budget)
+        or not _holdout_budget_matches(budget, entry.job_budget)
     ):
         _fail(
             JobValidationCode.BINDING_MISMATCH,
@@ -1102,7 +1102,7 @@ def validate_holdout_backtest_plan_entry_binding(
         )
 
 
-def _holdout_budget_matches_plan(budget: job_pb2.JobBudget, expected: HoldoutJobBudget) -> bool:
+def _holdout_budget_matches(budget: job_pb2.JobBudget, expected: HoldoutJobBudget) -> bool:
     if not budget.HasField("maximum_cost") or not budget.maximum_cost.HasField("amount"):
         return False
     if not budget.HasField("maximum_wall_time"):
@@ -1174,7 +1174,7 @@ def _validate_holdout_grant(
     return issued_at, expires_at
 
 
-def _validate_frozen_backtest_spec(
+def _validate_backtest_spec(
     backtest: backtest_pb2.BacktestSpec, grant: holdout_pb2.HoldoutGrantReference
 ) -> None:
     _require_token_id(
@@ -1511,7 +1511,7 @@ def _validate_factor_rejection(
 ) -> None:
     if kind not in _FACTOR_REJECTION_KINDS:
         _fail(JobValidationCode.REJECTION_NOT_ALLOWED, "outcome.factor_rejection")
-    expected = _factor_id_from_input(specification)
+    expected = _input_factor_id(specification)
     actual = _require_sha256_id(
         rejection.factor_spec_id.value if rejection.HasField("factor_spec_id") else None,
         "outcome.factor_rejection.factor_spec_id",
@@ -1529,7 +1529,7 @@ def _validate_factor_rejection(
     _validate_artifacts(rejection.evidence, "outcome.factor_rejection.evidence")
 
 
-def _factor_id_from_input(specification: job_pb2.JobSpecification) -> str:
+def _input_factor_id(specification: job_pb2.JobSpecification) -> str:
     input_name = specification.WhichOneof("input")
     value: str | None = None
     if input_name == "factor_evaluation" and specification.factor_evaluation.HasField("factor"):

@@ -28,8 +28,8 @@ from loop_protocol import (
     bind_factor_spec,
     canonicalize_expression,
     parse_canonical_ast,
-    parse_canonical_factor_spec,
-    parse_canonical_operator_semantic_contract,
+    parse_factor_spec,
+    parse_semantic_contract,
     semantic_contract_sha256,
 )
 
@@ -156,11 +156,12 @@ def _factor_spec(raw: dict[str, Any]) -> FactorSpec:
     )
 
 
-def test_shared_semantic_contract_vectors_are_exact_and_fail_closed() -> None:
+# Scenario: shared semantic contract vectors are exact and fail closed.
+def test_shared_semantic() -> None:
     fixture = _semantic_fixture()
     for vector in fixture["accepted"]:
         canonical = vector["canonical_utf8"].encode("utf-8")
-        contract = parse_canonical_operator_semantic_contract(canonical)
+        contract = parse_semantic_contract(canonical)
         assert semantic_contract_sha256(canonical) == vector["sha256"], vector["name"]
         assert contract.operator
     for policy, variants in fixture["policy_variants"].items():
@@ -177,18 +178,19 @@ def test_shared_semantic_contract_vectors_are_exact_and_fail_closed() -> None:
             }
             contract[policy] = variant
             canonical = json.dumps(contract, separators=(",", ":")).encode()
-            parse_canonical_operator_semantic_contract(canonical)
+            parse_semantic_contract(canonical)
     for canonical_text in fixture["rejected_canonical_utf8"]:
         with pytest.raises(CanonicalizationError):
-            parse_canonical_operator_semantic_contract(canonical_text.encode("utf-8"))
+            parse_semantic_contract(canonical_text.encode("utf-8"))
 
     nesting = fixture["deep_nesting"]
     deeply_nested = ("[" * nesting + "0" + "]" * nesting).encode()
     with pytest.raises(CanonicalizationError):
-        parse_canonical_operator_semantic_contract(deeply_nested)
+        parse_semantic_contract(deeply_nested)
 
 
-def test_registry_rejects_unresolved_misaddressed_and_misbound_semantics() -> None:
+# Scenario: registry rejects unresolved misaddressed and misbound semantics.
+def test_registry_unresolved() -> None:
     fixture = _fixture()
     semantic_fixture = _semantic_fixture()
     operators = fixture["registry"]["operators"]
@@ -230,7 +232,8 @@ def test_registry_rejects_unresolved_misaddressed_and_misbound_semantics() -> No
         )
 
 
-def test_registry_rejects_mutable_or_invalid_nested_operator_definitions() -> None:
+# Scenario: registry rejects mutable or invalid nested operator definitions.
+def test_registry_invalid() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     identity_before = registry.sha256
@@ -285,7 +288,8 @@ def test_registry_rejects_mutable_or_invalid_nested_operator_definitions() -> No
     assert registry.require_operator("rolling.mean", "1") == definition_before
 
 
-def test_call_node_rejects_mutable_or_invalid_argument_containers() -> None:
+# Scenario: call node rejects mutable or invalid argument containers.
+def test_call_node() -> None:
     close = FieldNode("market.close")
     mutable_arguments = [close]
     with pytest.raises(CanonicalizationError, match="immutable tuple"):
@@ -296,7 +300,8 @@ def test_call_node_rejects_mutable_or_invalid_argument_containers() -> None:
         CallNode("fixture.call", "1", (close, "not-an-ast-node"))
 
 
-def test_shared_expression_vectors_are_byte_and_id_exact() -> None:
+# Scenario: shared expression vectors are byte and id exact.
+def test_shared_expression() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     for vector in fixture["expression_vectors"]:
@@ -306,7 +311,8 @@ def test_shared_expression_vectors_are_byte_and_id_exact() -> None:
         assert result.ast == _node(json.loads(vector["canonical_utf8"])), vector["name"]
 
 
-def test_shared_registry_boundary_and_scalar_type_vectors() -> None:
+# Scenario: shared registry boundary and scalar type vectors.
+def test_shared_registry() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     assert registry.canonical_bytes == fixture["registry_canonical_utf8"].encode("ascii")
@@ -359,7 +365,8 @@ def test_shared_registry_boundary_and_scalar_type_vectors() -> None:
             _registry(raw, contracts)
 
 
-def test_shared_factor_spec_vector_binds_registry_and_all_policies() -> None:
+# Scenario: shared factor spec vector binds registry and all policies.
+def test_shared_factor() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     vector = fixture["factor_spec_vectors"][0]
@@ -369,7 +376,7 @@ def test_shared_factor_spec_vector_binds_registry_and_all_policies() -> None:
     assert result.canonical_bytes == vector["canonical_utf8"].encode("utf-8")
     assert result.factor_spec_id == vector["factor_spec_id"]
     assert (
-        parse_canonical_factor_spec(
+        parse_factor_spec(
             result.canonical_bytes,
             result.factor_spec_id,
             expression_bytes,
@@ -390,7 +397,8 @@ def test_shared_factor_spec_vector_binds_registry_and_all_policies() -> None:
             )
 
 
-def test_shared_non_series_roots_cannot_bind_factor_specs() -> None:
+# Scenario: shared non series roots cannot bind factor specs.
+def test_shared_series() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     template = _factor_spec(fixture["factor_spec_vectors"][0]["input"])
@@ -404,7 +412,8 @@ def test_shared_non_series_roots_cannot_bind_factor_specs() -> None:
             )
 
 
-def test_shared_malformed_canonical_factor_specs_fail_closed() -> None:
+# Scenario: shared malformed canonical factor specs fail closed.
+def test_shared_malformed() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     vector = fixture["factor_spec_vectors"][0]
@@ -412,7 +421,7 @@ def test_shared_malformed_canonical_factor_specs_fail_closed() -> None:
     for mutation in fixture["rejected_factor_spec_canonical_mutations"]:
         malformed = _mutate_factor_spec(vector["canonical_utf8"], mutation).encode("utf-8")
         with pytest.raises(CanonicalizationError):
-            parse_canonical_factor_spec(
+            parse_factor_spec(
                 malformed,
                 vector["factor_spec_id"],
                 expression_bytes,
@@ -474,7 +483,8 @@ def _mutate_factor_spec(canonical: str, mutation: str) -> str:
     raise AssertionError(f"unknown FactorSpec mutation: {mutation}")
 
 
-def test_shared_scalar_and_semantic_negative_vectors_fail_closed() -> None:
+# Scenario: shared scalar and semantic negative vectors fail closed.
+def test_shared_scalar() -> None:
     fixture = _fixture()
     registry = _registry(fixture["registry"])
     for value in fixture["accepted_decimals"]:

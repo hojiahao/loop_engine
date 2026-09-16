@@ -1,6 +1,6 @@
 use chrono::{Datelike, NaiveDate};
 use loop_core::audit::Sha256Digest as CanonicalDigest;
-use loop_core::holdout::{CanonicalHoldoutPeriod, parse_canonical_holdout_period};
+use loop_core::holdout::{CanonicalHoldoutPeriod, parse_holdout_period};
 use loop_protocol::wire::v1::{
     Actor, CivilDate, HoldoutPeriod, HoldoutPeriodId, SampleRole, SampleWindow, Sha256Digest,
     SnapshotId,
@@ -46,7 +46,7 @@ pub fn command(index: usize, key: &str) -> RegisterPeriod {
         .as_str()
         .unwrap()
         .as_bytes();
-    let canonical = parse_canonical_holdout_period(bytes).unwrap();
+    let canonical = parse_holdout_period(bytes).unwrap();
     RegisterPeriod {
         context: Some(context(key)),
         period: Some(HoldoutPeriod {

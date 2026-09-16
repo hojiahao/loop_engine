@@ -7,23 +7,27 @@ from llm import provider as P
 
 # ---------------- MockProvider ----------------
 
-def test_mock_returns_fixed_response():
+# Scenario: mock returns fixed response.
+def test_mock_fixed():
     m = P.MockProvider(response="div(ma(close, 20), std(high, 10))")
     assert m.complete("任意 prompt") == "div(ma(close, 20), std(high, 10))"
 
 
-def test_mock_responder_overrides_response():
+# Scenario: mock responder overrides response.
+def test_mock_responder():
     m = P.MockProvider(responder=lambda prompt: "REJECT: 测试")
     assert m.complete("...").startswith("REJECT")
 
 
 # ---------------- 工厂切换(能切 provider) ----------------
 
-def test_factory_returns_mock():
+# Scenario: factory returns mock.
+def test_factory_mock():
     assert isinstance(P.get_provider("mock"), P.MockProvider)
 
 
-def test_factory_returns_deepseek_with_preset():
+# Scenario: factory returns deepseek with preset.
+def test_factory_deepseek():
     prov = P.get_provider("deepseek", api_key="sk-test")
     assert isinstance(prov, P.OpenAICompatibleProvider)
     assert prov.base_url == "https://api.deepseek.com"
@@ -31,7 +35,8 @@ def test_factory_returns_deepseek_with_preset():
     assert prov.model == "deepseek-chat"
 
 
-def test_factory_returns_kimi_with_preset():
+# Scenario: factory returns kimi with preset.
+def test_factory_kimi():
     prov = P.get_provider("kimi", api_key="sk-kimi-test")
     assert isinstance(prov, P.OpenAICompatibleProvider)
     assert prov.base_url == "https://api.moonshot.cn/v1"
@@ -39,40 +44,46 @@ def test_factory_returns_kimi_with_preset():
     assert prov.model == "kimi-latest"
 
 
-def test_kimi_without_key_raises(monkeypatch):
+# Scenario: kimi without key raises.
+def test_kimi_key(monkeypatch):
     monkeypatch.delenv("KIMI_API_KEY", raising=False)
     with pytest.raises(ValueError):
         P.get_provider("kimi")
 
 
-def test_kimi_reads_env_key(monkeypatch):
+# Scenario: kimi reads env key.
+def test_kimi_env(monkeypatch):
     monkeypatch.setenv("KIMI_API_KEY", "sk-kimi-from-env")
     prov = P.get_provider("kimi")
     assert prov.api_key == "sk-kimi-from-env"
     assert prov.model == "kimi-latest"
 
 
-def test_factory_returns_glm_with_preset():
+# Scenario: factory returns glm with preset.
+def test_factory_glm():
     prov = P.get_provider("glm", api_key="glm-test")
     assert isinstance(prov, P.OpenAICompatibleProvider)
     assert prov.base_url == "https://open.bigmodel.cn/api/paas/v4"
     assert prov.model == "glm-4-plus"
 
 
-def test_factory_unknown_raises():
+# Scenario: factory unknown raises.
+def test_factory_unknown():
     with pytest.raises(ValueError):
         P.get_provider("nope")
 
 
 # ---------------- key 缺失 ----------------
 
-def test_deepseek_without_key_raises(monkeypatch):
+# Scenario: deepseek without key raises.
+def test_deepseek_key(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises(ValueError):
         P.get_provider("deepseek")
 
 
-def test_deepseek_reads_env_key(monkeypatch):
+# Scenario: deepseek reads env key.
+def test_deepseek_env(monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "from-env")
     prov = P.get_provider("deepseek")
     assert prov.api_key == "from-env"
@@ -92,7 +103,8 @@ class _FakeResp:
         return self._payload
 
 
-def test_openai_compat_request_shape(monkeypatch):
+# Scenario: openai compat request shape.
+def test_openai_compat(monkeypatch):
     captured = {}
     def fake_post(url, headers=None, json=None, timeout=None):
         captured["url"] = url
@@ -115,7 +127,8 @@ def test_openai_compat_request_shape(monkeypatch):
 
 # ---------------- 429 限流退避(2026-08-19,kimi org RPM=3) ----------------
 
-def test_429_retry_then_success(monkeypatch):
+# Scenario: 429 retry then success.
+def test_429_retry(monkeypatch):
     calls = []
     def fake_post(url, headers=None, json=None, timeout=None):
         calls.append(url)
@@ -132,7 +145,8 @@ def test_429_retry_then_success(monkeypatch):
     assert prov._429_waits >= 5.0
 
 
-def test_429_exhausts_retries_raises(monkeypatch):
+# Scenario: 429 exhausts retries raises.
+def test_429_exhausts(monkeypatch):
     def fake_post(url, headers=None, json=None, timeout=None):
         return _FakeResp({"error": {"message": "rate limited"}}, status_code=429)
     monkeypatch.setattr(P.requests, "post", fake_post)
@@ -142,7 +156,8 @@ def test_429_exhausts_retries_raises(monkeypatch):
         prov.complete("hi")
 
 
-def test_kimi_preset_builtin_throttle():
+# Scenario: kimi preset builtin throttle.
+def test_kimi_preset():
     prov = P.get_provider("kimi", api_key="sk-kimi-x")
     assert prov.fixed_temperature == 1.0
     assert prov.min_interval >= 25.0

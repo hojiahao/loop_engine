@@ -5,7 +5,7 @@ use std::sync::{
 
 use loop_core::audit::Sha256Digest as CanonicalDigest;
 use loop_core::holdout::{CanonicalHoldoutPeriod, HoldoutEvaluationPlanEntry};
-use loop_protocol::negotiation::{ProtocolBuildIdentity, validate_protocol_selection_availability};
+use loop_protocol::negotiation::{ProtocolBuildIdentity, validate_selection_availability};
 use loop_protocol::wire::holdout::v1::{
     ConsumeGrantAndEnqueueBacktestRequest, RecordHoldoutApprovalRequest,
 };
@@ -163,7 +163,7 @@ impl AdmissionPolicy for Admission {
         {
             return Err(StoreError::AdmissionDenied);
         }
-        validate_protocol_selection_availability(
+        validate_selection_availability(
             job.protocol_selection
                 .as_ref()
                 .ok_or(StoreError::AdmissionDenied)?,

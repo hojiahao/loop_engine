@@ -31,7 +31,8 @@ fn registry(identities: Vec<Identity>) -> Result<RuntimeAuthority, StoreError> {
 }
 
 #[test]
-fn certificate_aliases_are_denied() {
+// Scenario: certificate aliases are denied.
+fn certificate_aliases() {
     let first = identity();
     let mut alias = first.clone();
     alias.actor_id = "alias".to_owned();
@@ -40,7 +41,8 @@ fn certificate_aliases_are_denied() {
 }
 
 #[test]
-fn subject_aliases_are_not_independent_identities() {
+// Scenario: subject aliases are not independent identities.
+fn subject_aliases_independent() {
     let first = identity();
     let mut alias = first.clone();
     alias.actor_id = "alias".to_owned();
@@ -49,7 +51,8 @@ fn subject_aliases_are_not_independent_identities() {
 }
 
 #[test]
-fn unpinned_job_envelopes_are_denied() {
+// Scenario: unpinned job envelopes are denied.
+fn unpinned_job_envelopes() {
     assert!(matches!(
         registry(vec![identity()])
             .unwrap()
@@ -90,7 +93,8 @@ fn request(token: MetadataValue<tonic::metadata::Binary>) -> Request<()> {
 }
 
 #[test]
-fn capability_is_bound_to_subject() {
+// Scenario: capability is bound to subject.
+fn capability_subject() {
     let (mut principal, job) = leased();
     let capabilities = Capabilities::new();
     let request = request(capabilities.issue(&principal, &job, NOW).unwrap());
@@ -103,7 +107,8 @@ fn capability_is_bound_to_subject() {
 }
 
 #[test]
-fn capability_is_bound_to_job() {
+// Scenario: capability is bound to job.
+fn capability_job() {
     let (principal, mut job) = leased();
     let capabilities = Capabilities::new();
     let request = request(capabilities.issue(&principal, &job, NOW).unwrap());
@@ -122,7 +127,8 @@ fn capability_is_bound_to_job() {
 }
 
 #[test]
-fn capability_does_not_follow_a_replacement_lease() {
+// Scenario: capability does not follow a replacement lease.
+fn capability_replacement_lease() {
     let (principal, mut job) = leased();
     let capabilities = Capabilities::new();
     let request = request(capabilities.issue(&principal, &job, NOW).unwrap());
@@ -141,7 +147,8 @@ fn capability_does_not_follow_a_replacement_lease() {
 }
 
 #[test]
-fn capability_expiry_is_exclusive() {
+// Scenario: capability expiry is exclusive.
+fn capability_expiry_exclusive() {
     let (principal, job) = leased();
     let capabilities = Capabilities::new();
     let token = capabilities.issue(&principal, &job, NOW).unwrap();
@@ -160,7 +167,8 @@ fn capability_expiry_is_exclusive() {
 }
 
 #[test]
-fn terminal_retry_does_not_authorize_data() {
+// Scenario: terminal retry does not authorize data.
+fn terminal_retry_authorize() {
     let (principal, mut job) = leased();
     let capabilities = Capabilities::new();
     let request = request(capabilities.issue(&principal, &job, NOW).unwrap());
@@ -184,7 +192,8 @@ fn terminal_retry_does_not_authorize_data() {
 }
 
 #[test]
-fn operational_errors_have_typed_redacted_details() {
+// Scenario: operational errors have typed redacted details.
+fn operational_errors_typed() {
     use loop_protocol::runtime_validation::{RichStatusDetail, validate_operational_failure};
     use prost::Message;
     let status = super::service::status(StoreError::Corrupt("private path or secret"));

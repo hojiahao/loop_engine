@@ -1,12 +1,12 @@
 import { createServer, type Server } from "node:http";
 
-import { providerHealth } from "./health.js";
+import { provider_health } from "./health.js";
 
-export function createProviderServer(): Server {
+export function create_provider_server(): Server {
   return createServer((request, response) => {
     if (request.method === "GET" && request.url === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify(providerHealth()));
+      response.end(JSON.stringify(provider_health()));
       return;
     }
     response.writeHead(404, { "content-type": "application/json" });

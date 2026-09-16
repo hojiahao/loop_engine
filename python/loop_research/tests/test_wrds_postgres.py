@@ -114,7 +114,8 @@ def connector_for(database: str, connections: list[psycopg.AsyncConnection[Any]]
         ("compustat_fundq_v1", ["123456"], 1),
     ],
 )
-def test_actual_sql_acquisition_replays(
+# Scenario: actual sql acquisition replays.
+def test_sql_acquisition(
     tmp_path: Path, database: str, profile: str, identifiers: list[str], count: int
 ) -> None:
     config, license = license_config(tmp_path, "wrds", profile=profile, identifiers=identifiers)
@@ -145,7 +146,8 @@ def test_actual_sql_acquisition_replays(
     assert validate_snapshot(store, snapshot.snapshot.sha256) == snapshot
 
 
-def test_row_limit_rolls_back_and_closes(tmp_path: Path, database: str) -> None:
+# Scenario: row limit rolls back and closes.
+def test_row_limit(tmp_path: Path, database: str) -> None:
     config, license = license_config(tmp_path, "wrds", budget={"records": 1, "timeout_seconds": 10})
     store = cache(tmp_path)
     connections: list[psycopg.AsyncConnection[Any]] = []
@@ -163,9 +165,8 @@ def test_row_limit_rolls_back_and_closes(tmp_path: Path, database: str) -> None:
     assert connections[0].closed and not list(store.iterdir())
 
 
-def test_read_only_session_rejects_writes(
-    tmp_path: Path, database: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: read only session rejects writes.
+def test_session(tmp_path: Path, database: str, monkeypatch: pytest.MonkeyPatch) -> None:
     config, license = license_config(tmp_path, "wrds")
     connections: list[psycopg.AsyncConnection[Any]] = []
 
@@ -194,7 +195,8 @@ def test_read_only_session_rejects_writes(
 
 
 @pytest.mark.parametrize("cancel", [False, True])
-def test_timeout_and_cancel_close_query(
+# Scenario: timeout and cancel close query.
+def test_timeout_cancel(
     tmp_path: Path, database: str, monkeypatch: pytest.MonkeyPatch, cancel: bool
 ) -> None:
     config, license = license_config(
@@ -234,9 +236,8 @@ def test_timeout_and_cancel_close_query(
     assert connections[0].closed and not list(store.iterdir())
 
 
-def test_missing_projection_fails_without_fallback(
-    tmp_path: Path, database: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: missing projection fails without fallback.
+def test_missing_projection(tmp_path: Path, database: str, monkeypatch: pytest.MonkeyPatch) -> None:
     config, license = license_config(tmp_path, "wrds")
     connections: list[psycopg.AsyncConnection[Any]] = []
     monkeypatch.setattr(

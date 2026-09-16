@@ -16,8 +16,8 @@ import {
 import {
   RuntimeValidationError,
   SERVICE_ERROR_TYPE_URL,
-  validateJobWireDispatchCandidate,
-  validateOperationalFailure,
+  validate_dispatch_candidate,
+  validate_operational_failure,
 } from "../src/runtime-validation.js";
 
 const REPOSITORY_ROOT = new URL("../../../", import.meta.url);
@@ -38,13 +38,13 @@ interface OperationalFixture {
   };
 }
 
-function operationalFixture(): OperationalFixture {
+function operational_fixture(): OperationalFixture {
   return JSON.parse(
     readFileSync(new URL("tests/contracts/operational_failure.json", REPOSITORY_ROOT), "ascii"),
   ) as OperationalFixture;
 }
 
-function expectValidationCode(operation: () => unknown, code: string): void {
+function expect_validation_code(operation: () => unknown, code: string): void {
   try {
     operation();
     throw new Error(`expected runtime validation error ${code}`);
@@ -56,12 +56,12 @@ function expectValidationCode(operation: () => unknown, code: string): void {
 
 describe("operational failure validation", () => {
   it("validates the shared ServiceError rich-status fixture", () => {
-    const fixture = operationalFixture();
+    const fixture = operational_fixture();
     const detail = fixture.details[0];
     if (detail === undefined) {
       throw new Error("operational fixture detail is required");
     }
-    const validated = validateOperationalFailure(
+    const validated = validate_operational_failure(
       fixture.grpc_status_code,
       Buffer.from(fixture.response_body_base64, "base64"),
       [{ typeUrl: detail.type_url, value: Buffer.from(detail.value_base64, "base64") }],
@@ -74,7 +74,7 @@ describe("operational failure validation", () => {
   });
 
   it("fails closed for forged types, OK status, and a non-empty body", () => {
-    const fixture = operationalFixture();
+    const fixture = operational_fixture();
     const detail = fixture.details[0];
     if (detail === undefined) {
       throw new Error("operational fixture detail is required");
@@ -84,24 +84,24 @@ describe("operational failure validation", () => {
       "type.googleapis.com/loop.v1.FactorRejection",
       "type.googleapis.com/vendor.FutureError",
     ]) {
-      expectValidationCode(
+      expect_validation_code(
         () =>
-          validateOperationalFailure(fixture.grpc_status_code, new Uint8Array(), [
+          validate_operational_failure(fixture.grpc_status_code, new Uint8Array(), [
             { typeUrl, value },
           ]),
         "unexpected_detail",
       );
     }
-    expectValidationCode(
+    expect_validation_code(
       () =>
-        validateOperationalFailure(0, new Uint8Array(), [
+        validate_operational_failure(0, new Uint8Array(), [
           { typeUrl: SERVICE_ERROR_TYPE_URL, value },
         ]),
       "invalid_status",
     );
-    expectValidationCode(
+    expect_validation_code(
       () =>
-        validateOperationalFailure(fixture.grpc_status_code, Uint8Array.of(1), [
+        validate_operational_failure(fixture.grpc_status_code, Uint8Array.of(1), [
           { typeUrl: SERVICE_ERROR_TYPE_URL, value },
         ]),
       "unexpected_response_body",
@@ -125,10 +125,10 @@ describe("operational failure validation", () => {
         }),
       ],
     });
-    expect(() => validateServiceErrorBytes(valid)).not.toThrow();
+    expect(() => service_error_bytes(valid)).not.toThrow();
 
-    expectValidationCode(
-      () => validateServiceErrorBytes(create(ServiceErrorSchema, { ...baseline, category: 999 })),
+    expect_validation_code(
+      () => service_error_bytes(create(ServiceErrorSchema, { ...baseline, category: 999 })),
       "unsupported_enum",
     );
 
@@ -180,13 +180,13 @@ describe("operational failure validation", () => {
       }),
     ];
     for (const serviceError of invalid) {
-      expectValidationCode(() => validateServiceErrorBytes(serviceError), "invalid_service_error");
+      expect_validation_code(() => service_error_bytes(serviceError), "invalid_service_error");
     }
   });
 });
 
-function validateServiceErrorBytes(serviceError: Parameters<typeof toBinary>[1]): void {
-  validateOperationalFailure(14, new Uint8Array(), [
+function service_error_bytes(serviceError: Parameters<typeof toBinary>[1]): void {
+  validate_operational_failure(14, new Uint8Array(), [
     {
       typeUrl: SERVICE_ERROR_TYPE_URL,
       value: toBinary(ServiceErrorSchema, serviceError),
@@ -202,8 +202,8 @@ describe("job dispatch validation", () => {
     );
     expect(unknownEnum.kind).toBe(127);
     expect(unknownEnum.input.case).toBe("discovery");
-    expectValidationCode(
-      () => validateJobWireDispatchCandidate(unknownEnum, new Set([JobKind.DISCOVERY])),
+    expect_validation_code(
+      () => validate_dispatch_candidate(unknownEnum, new Set([JobKind.DISCOVERY])),
       "unsupported_enum",
     );
 
@@ -213,8 +213,8 @@ describe("job dispatch validation", () => {
     );
     expect(unknownOneof.kind).toBe(JobKind.REPORT);
     expect(unknownOneof.input.case).toBeUndefined();
-    expectValidationCode(
-      () => validateJobWireDispatchCandidate(unknownOneof, new Set([JobKind.REPORT])),
+    expect_validation_code(
+      () => validate_dispatch_candidate(unknownOneof, new Set([JobKind.REPORT])),
       "unsupported_oneof",
     );
   });
@@ -224,8 +224,8 @@ describe("job dispatch validation", () => {
       kind: JobKind.DISCOVERY,
       input: { case: "discovery", value: create(DiscoveryJobInputSchema) },
     });
-    expectValidationCode(
-      () => validateJobWireDispatchCandidate(valid, new Set([JobKind.DISCOVERY])),
+    expect_validation_code(
+      () => validate_dispatch_candidate(valid, new Set([JobKind.DISCOVERY])),
       "invalid_specification",
     );
 
@@ -233,8 +233,8 @@ describe("job dispatch validation", () => {
       kind: JobKind.DISCOVERY,
       input: { case: "artifact", value: create(ArtifactJobInputSchema) },
     });
-    expectValidationCode(
-      () => validateJobWireDispatchCandidate(mismatched, new Set([JobKind.DISCOVERY])),
+    expect_validation_code(
+      () => validate_dispatch_candidate(mismatched, new Set([JobKind.DISCOVERY])),
       "incompatible_variant",
     );
 
@@ -242,8 +242,8 @@ describe("job dispatch validation", () => {
       kind: JobKind.PROSPECTIVE_OBSERVATION,
       input: { case: "artifact", value: create(ArtifactJobInputSchema) },
     });
-    expectValidationCode(
-      () => validateJobWireDispatchCandidate(disabled, new Set([JobKind.DISCOVERY])),
+    expect_validation_code(
+      () => validate_dispatch_candidate(disabled, new Set([JobKind.DISCOVERY])),
       "invalid_specification",
     );
   });

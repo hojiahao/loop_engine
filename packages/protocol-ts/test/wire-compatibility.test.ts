@@ -42,7 +42,7 @@ function fixture(name: string): Uint8Array {
   return readFileSync(new URL(name, FIXTURE_DIRECTORY));
 }
 
-function expectProjection(wire: Uint8Array): void {
+function expect_projection(wire: Uint8Array): void {
   const decoded = fromBinary(ProtocolInfoSchema, wire);
   expect(decoded.supportedPackages).toEqual(SUPPORTED_PACKAGES);
   expect(decoded.features).toEqual(FEATURES);
@@ -87,12 +87,12 @@ describe("ProtocolInfo wire compatibility", () => {
 
   it("decodes and re-encodes every producer fixture semantically", () => {
     for (const name of PRODUCER_FIXTURES) {
-      expectProjection(fixture(name));
+      expect_projection(fixture(name));
     }
   });
 
   it("tolerates an additive unknown field as an old reader", () => {
-    expectProjection(fixture("protocol_info_v1_unknown_field.binpb"));
+    expect_projection(fixture("protocol_info_v1_unknown_field.binpb"));
     // Unknown-field preservation and byte equality are deliberately not part
     // of this contract. A lossless forwarder retains the original envelope.
   });

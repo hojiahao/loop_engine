@@ -1,8 +1,7 @@
 use loop_protocol::{
     job::protocol_selection_sha256,
     negotiation::{
-        ProtocolBuildIdentity, negotiate_protocol_availability,
-        validate_protocol_selection_availability,
+        ProtocolBuildIdentity, negotiate_protocol_availability, validate_selection_availability,
     },
     wire::v1::{ProtocolInfo, ProtocolLimits, ProtocolSelectionSnapshot, Sha256Digest},
 };
@@ -13,7 +12,8 @@ const REQUIRED_PACKAGE: &str = "loop.research.v1";
 const REQUIRED_FEATURES: &[&str] = &["jobs.envelope.v1"];
 
 #[test]
-fn shared_protocol_negotiation_matrix_fails_closed() {
+// Scenario: shared protocol negotiation matrix fails closed.
+fn shared_protocol_negotiation() {
     let rows = VECTORS.lines().skip(1).collect::<Vec<_>>();
     assert_eq!(rows.len(), 15, "all shared rows must execute");
     for row in rows {
@@ -127,7 +127,7 @@ fn run_selection_validation(mutation: &str) -> Result<(), &'static str> {
                 .to_vec(),
         });
     }
-    validate_protocol_selection_availability(
+    validate_selection_availability(
         &selection,
         &local,
         &retained_builds,

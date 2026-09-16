@@ -298,7 +298,7 @@ class OperatorSemanticContract:
 
     @property
     def canonical_bytes(self) -> bytes:
-        return _write_operator_semantic_contract(self).encode("ascii")
+        return _write_semantic_contract(self).encode("ascii")
 
     @property
     def sha256(self) -> str:
@@ -444,7 +444,7 @@ class OperatorRegistry:
                 raise CanonicalizationError(
                     "semantic contract digest does not match resolved content"
                 )
-            contract = parse_canonical_operator_semantic_contract(contract_bytes)
+            contract = parse_semantic_contract(contract_bytes)
             if (contract.operator, contract.operator_version) != key:
                 raise CanonicalizationError(
                     "semantic contract operator identity does not match registry definition"
@@ -715,7 +715,7 @@ def bind_factor_spec(
         raise CanonicalizationError(
             f"canonical FactorSpec exceeds {limits.max_canonical_bytes} bytes"
         )
-    return _new_bound_factor_spec(
+    return _new_factor_spec(
         spec,
         expression,
         canonical_bytes,
@@ -723,7 +723,7 @@ def bind_factor_spec(
     )
 
 
-def parse_canonical_factor_spec(
+def parse_factor_spec(
     canonical_spec_bytes: bytes,
     expected_factor_spec_id: str,
     canonical_expression_bytes: bytes,
@@ -778,14 +778,14 @@ def verify_expression_id(
     )
 
 
-def verify_factor_spec_id(
+def verify_factor_identity(
     factor_spec_id: str,
     canonical_spec_bytes: bytes,
     canonical_expression_bytes: bytes,
     registry: OperatorRegistry,
     limit_overrides: CanonicalizationLimits | CanonicalizationLimitOverrides | None = None,
 ) -> CanonicalFactorSpec:
-    return parse_canonical_factor_spec(
+    return parse_factor_spec(
         canonical_spec_bytes,
         factor_spec_id,
         canonical_expression_bytes,
@@ -794,7 +794,7 @@ def verify_factor_spec_id(
     )
 
 
-def _new_bound_factor_spec(
+def _new_factor_spec(
     spec: FactorSpec,
     expression: CanonicalExpression,
     canonical_bytes: bytes,
@@ -911,7 +911,7 @@ def _validate_argument(
             f"type mismatch for {definition.operator}@{definition.operator_version} "
             f"argument {index}"
         )
-    if argument.literal_only and not _is_literal_of_type(node, argument.value_type):
+    if argument.literal_only and not _is_typed_literal(node, argument.value_type):
         raise CanonicalizationError(
             f"argument {index} for {definition.operator}@{definition.operator_version} "
             "must be literal"
@@ -920,7 +920,7 @@ def _validate_argument(
         argument.decimal.validate(node.value)
 
 
-def _is_literal_of_type(node: AstNode, value_type: ValueType) -> bool:
+def _is_typed_literal(node: AstNode, value_type: ValueType) -> bool:
     if value_type == ScalarValueType.DECIMAL:
         return isinstance(node, DecimalNode)
     if value_type == ScalarValueType.BOOLEAN:
@@ -1082,7 +1082,7 @@ def _write_operator_registry(
     operators: dict[tuple[str, str], OperatorDefinition],
 ) -> str:
     field_json = ",".join(
-        f'{{"field":"{field}","outputType":{_write_registry_value_type(output_type)}}}'
+        f'{{"field":"{field}","outputType":{_write_registry_type(output_type)}}}'
         for field, output_type in sorted(fields.items())
     )
     enum_json = ",".join(
@@ -1108,14 +1108,14 @@ def _write_operator_registry(
     )
 
 
-def _write_registry_value_type(value_type: ValueType) -> str:
+def _write_registry_type(value_type: ValueType) -> str:
     if isinstance(value_type, ScalarValueType):
         return f'"{value_type.value}"'
     return f'{{"enumType":"{value_type.enum_type}"}}'
 
 
 def _write_registry_argument(argument: ArgumentDefinition) -> str:
-    output = f'{{"type":{_write_registry_value_type(argument.value_type)}'
+    output = f'{{"type":{_write_registry_type(argument.value_type)}'
     if argument.literal_only:
         output += ',"literalOnly":true'
     if argument.decimal is not None:
@@ -1145,13 +1145,13 @@ def _write_registry_operator(definition: OperatorDefinition) -> str:
     associative = "true" if definition.associative else "false"
     commutative = "true" if definition.commutative else "false"
     output += (
-        f',"outputType":{_write_registry_value_type(definition.output_type)},'
+        f',"outputType":{_write_registry_type(definition.output_type)},'
         f'"associative":{associative},"commutative":{commutative}}}'
     )
     return output
 
 
-def _write_operator_semantic_contract(contract: OperatorSemanticContract) -> str:
+def _write_semantic_contract(contract: OperatorSemanticContract) -> str:
     return (
         f'{{"schema":"{OPERATOR_SEMANTIC_CONTRACT_SCHEMA}",'
         f'"operator":"{contract.operator}",'
@@ -1164,7 +1164,7 @@ def _write_operator_semantic_contract(contract: OperatorSemanticContract) -> str
     )
 
 
-def parse_canonical_operator_semantic_contract(
+def parse_semantic_contract(
     canonical_bytes: bytes,
 ) -> OperatorSemanticContract:
     if not isinstance(canonical_bytes, bytes) or len(canonical_bytes) > 4_096:

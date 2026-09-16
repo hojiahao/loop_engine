@@ -93,7 +93,7 @@ def main() -> None:
     descriptor = FileDescriptorSet.FromString(Path(sys.argv[1]).read_bytes())
     files = {file.name: file for file in descriptor.file}
 
-    assert_development_dataset_leaf(files)
+    assert_dataset_leaf(files)
     assert_artifact_delivery(files)
 
     provider = require_file(files, PROVIDER_FILE)
@@ -121,8 +121,8 @@ def main() -> None:
         },
     )
     assert dependency_closure(files, PROVIDER_FILE) == PROVIDER_FILE_ALLOWLIST
-    assert_provider_message_graph(descriptor, provider)
-    assert_provider_language_exports()
+    assert_provider_graph(descriptor, provider)
+    assert_provider_exports()
     provider_response = next(
         message for message in provider.message_type if message.name == "InvokeModelResponse"
     )
@@ -151,8 +151,8 @@ def main() -> None:
     )
     assert dependency_closure(files, DISCOVERY_FILE) == DISCOVERY_FILE_ALLOWLIST
     assert "loop/v1/data.proto" not in dependency_closure(files, DISCOVERY_FILE)
-    assert_discovery_message_graph(descriptor, discovery)
-    assert_discovery_language_exports()
+    assert_discovery_graph(descriptor, discovery)
+    assert_discovery_exports()
 
     research = require_file(files, RESEARCH_FILE)
     assert set(research.dependency) == {
@@ -183,10 +183,10 @@ def main() -> None:
     )
     assert dependency_closure(files, RESEARCH_FILE) == RESEARCH_FILE_ALLOWLIST
     assert "loop/v1/data.proto" not in dependency_closure(files, RESEARCH_FILE)
-    assert_research_message_graph(descriptor, research)
-    assert_research_language_exports()
-    assert_holdout_plan_boundary(descriptor, files)
-    assert_holdout_language_exports()
+    assert_research_graph(descriptor, research)
+    assert_research_exports()
+    assert_plan_boundary(descriptor, files)
+    assert_holdout_exports()
 
     for service_file in (provider, discovery, research):
         surface = "\n".join(
@@ -216,7 +216,7 @@ def main() -> None:
     assert field_names.isdisjoint(forbidden_inline_names)
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in reference.field)
 
-    verify_operational_failure_fixture(Path(__file__).with_name("operational_failure.json"))
+    verify_failure_fixture(Path(__file__).with_name("operational_failure.json"))
 
     print(
         "Protocol service imports, discovery/research role reachability, method "
@@ -299,7 +299,7 @@ def dependency_closure(files: dict[str, FileDescriptorProto], root: str) -> set[
     return visited
 
 
-def assert_development_dataset_leaf(files: dict[str, FileDescriptorProto]) -> None:
+def assert_dataset_leaf(files: dict[str, FileDescriptorProto]) -> None:
     leaf = require_file(files, DEVELOPMENT_DATA_FILE)
     assert set(leaf.dependency) == {COMMON_FILE}
     assert not leaf.enum_type
@@ -316,7 +316,7 @@ def assert_development_dataset_leaf(files: dict[str, FileDescriptorProto]) -> No
     }
 
 
-def assert_discovery_message_graph(
+def assert_discovery_graph(
     descriptor: FileDescriptorSet, discovery_file: FileDescriptorProto
 ) -> None:
     messages: dict[str, Any] = {}
@@ -362,7 +362,7 @@ def assert_discovery_message_graph(
     )
 
 
-def assert_provider_message_graph(
+def assert_provider_graph(
     descriptor: FileDescriptorSet, provider_file: FileDescriptorProto
 ) -> None:
     messages = descriptor_messages(descriptor)
@@ -390,7 +390,7 @@ def assert_provider_message_graph(
     assert ".loop.v1.HoldoutGrantReference" not in reachable
 
 
-def assert_provider_language_exports() -> None:
+def assert_provider_exports() -> None:
     repository = Path(__file__).parents[2]
     typescript_entrypoint = repository / "packages/protocol-ts/src/wire/provider.ts"
     typescript_source = typescript_entrypoint.read_text(encoding="utf-8").lower()
@@ -422,7 +422,7 @@ def assert_provider_language_exports() -> None:
         assert token not in generated_python
 
 
-def assert_discovery_language_exports() -> None:
+def assert_discovery_exports() -> None:
     repository = Path(__file__).parents[2]
     typescript_entrypoint = repository / "packages/protocol-ts/src/wire/discovery.ts"
     typescript_source = typescript_entrypoint.read_text(encoding="utf-8")
@@ -448,7 +448,7 @@ def assert_discovery_language_exports() -> None:
     assert "loop_dot_v1_dot_development__data__pb2" in generated_python
 
 
-def assert_research_message_graph(
+def assert_research_graph(
     descriptor: FileDescriptorSet, research_file: FileDescriptorProto
 ) -> None:
     messages = descriptor_messages(descriptor)
@@ -495,7 +495,7 @@ def assert_research_message_graph(
     }
 
 
-def assert_research_language_exports() -> None:
+def assert_research_exports() -> None:
     repository = Path(__file__).parents[2]
     typescript_entrypoint = repository / "packages/protocol-ts/src/wire/research.ts"
     typescript_source = typescript_entrypoint.read_text(encoding="utf-8").lower()
@@ -564,7 +564,7 @@ def assert_research_language_exports() -> None:
         assert forbidden_type not in generated_rust_code
 
 
-def assert_holdout_language_exports() -> None:
+def assert_holdout_exports() -> None:
     repository = Path(__file__).parents[2]
     typescript_entrypoint = repository / "packages/protocol-ts/src/wire/holdout.ts"
     typescript_source = typescript_entrypoint.read_text(encoding="utf-8").lower()
@@ -603,7 +603,7 @@ def assert_holdout_language_exports() -> None:
         assert forbidden_token not in generated_python
 
 
-def assert_holdout_plan_boundary(
+def assert_plan_boundary(
     descriptor: FileDescriptorSet, files: dict[str, FileDescriptorProto]
 ) -> None:
     service_file = require_file(files, HOLDOUT_SERVICE_FILE)
@@ -866,7 +866,7 @@ def assert_plan_binding(
     )
 
 
-def verify_operational_failure_fixture(path: Path) -> None:
+def verify_failure_fixture(path: Path) -> None:
     fixture = json.loads(path.read_text(encoding="ascii"))
     assert fixture["contract"] == "loop.rpc-operational-failure/v1"
     assert fixture["rpc"] == "/loop.provider.v1.ProviderService/InvokeModel"
@@ -874,7 +874,7 @@ def verify_operational_failure_fixture(path: Path) -> None:
     assert fixture["grpc_status_name"] == "UNAVAILABLE"
     assert fixture["response_body_base64"] == ""
 
-    service_error = decode_service_error_detail(fixture)
+    service_error = decode_error_detail(fixture)
     expected = fixture["expected"]
     assert service_error.category == ERROR_CATEGORY_DEPENDENCY
     assert service_error.category == ErrorCategory.Value(expected["category"])
@@ -888,14 +888,14 @@ def verify_operational_failure_fixture(path: Path) -> None:
     forged: dict[str, Any] = {**fixture, "details": [dict(fixture["details"][0])]}
     forged["details"][0]["type_url"] = "type.googleapis.com/loop.v1.FactorRejection"
     try:
-        decode_service_error_detail(forged)
+        decode_error_detail(forged)
     except AssertionError:
         pass
     else:
         raise AssertionError("an operational failure was accepted as FactorRejection")
 
 
-def decode_service_error_detail(fixture: dict[str, Any]) -> ServiceError:
+def decode_error_detail(fixture: dict[str, Any]) -> ServiceError:
     assert fixture["grpc_status_code"] != 0, "operational failure must use non-OK gRPC status"
     assert fixture["response_body_base64"] == "", "non-OK RPC must not return an app response"
     details = fixture["details"]

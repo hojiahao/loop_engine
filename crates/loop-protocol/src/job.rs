@@ -12,7 +12,7 @@ use std::fmt::{self, Display, Formatter};
 use sha2::{Digest, Sha256};
 
 use loop_core::factor::{CanonicalDecimal, Identifier, PositiveInteger};
-use loop_core::holdout::{parse_canonical_holdout_evaluation_plan, verify_holdout_period_identity};
+use loop_core::holdout::{parse_holdout_plan, verify_period_identity};
 
 use crate::artifact::validate_artifact_ref;
 use crate::provenance::ProvenanceSnapshot;
@@ -158,7 +158,7 @@ struct GrantValidityWindow {
 /// This deliberately performs no envelope or input validation. Security
 /// boundaries call [`validate_job_specification`]; this narrower classifier is
 /// retained so unknown discriminants can be reported without dispatching them.
-pub fn validate_job_specification_shape(
+pub fn validate_job_shape(
     specification: &JobSpecification,
 ) -> Result<ValidatedJobSpecificationShape, JobValidationError> {
     let kind = JobKind::try_from(specification.kind).map_err(|_| {
@@ -216,7 +216,7 @@ pub fn validate_job_specification_shape(
 pub fn validate_job_specification(
     specification: &JobSpecification,
 ) -> Result<ValidatedJobSpecificationShape, JobValidationError> {
-    let shape = validate_job_specification_shape(specification)?;
+    let shape = validate_job_shape(specification)?;
     let submitted_at = validate_job_envelope(specification)?;
     let input = specification
         .input
@@ -286,12 +286,12 @@ fn validate_protocol_selection(
     selection: &ProtocolSelectionSnapshot,
     submitted_at: (i64, i32),
 ) -> Result<(), JobValidationError> {
-    let canonical = canonical_protocol_selection_bytes(selection)?;
+    let canonical = protocol_selection_bytes(selection)?;
     let actual = require_digest(
         selection.selection_sha256.as_ref(),
         "specification.protocol_selection.selection_sha256",
     )?;
-    let expected = protocol_selection_domain_digest(&canonical);
+    let expected = protocol_domain_digest(&canonical);
     if !constant_time_eq(&actual, &expected) {
         return invalid_protocol_selection("specification.protocol_selection.selection_sha256");
     }
@@ -310,7 +310,7 @@ fn validate_protocol_selection(
 /// `selection_sha256` is deliberately excluded. Callers that construct a new
 /// selection hash the returned bytes with the documented domain separator;
 /// ordinary job validation additionally verifies the claimed digest.
-pub fn canonical_protocol_selection_bytes(
+pub fn protocol_selection_bytes(
     selection: &ProtocolSelectionSnapshot,
 ) -> Result<Vec<u8>, JobValidationError> {
     if !is_protocol_package(&selection.selected_package) {
@@ -403,11 +403,10 @@ pub fn canonical_protocol_selection_bytes(
 pub fn protocol_selection_sha256(
     selection: &ProtocolSelectionSnapshot,
 ) -> Result<[u8; 32], JobValidationError> {
-    canonical_protocol_selection_bytes(selection)
-        .map(|bytes| protocol_selection_domain_digest(&bytes))
+    protocol_selection_bytes(selection).map(|bytes| protocol_domain_digest(&bytes))
 }
 
-fn protocol_selection_domain_digest(canonical: &[u8]) -> [u8; 32] {
+fn protocol_domain_digest(canonical: &[u8]) -> [u8; 32] {
     domain_digest(PROTOCOL_SELECTION_DOMAIN, canonical)
 }
 
@@ -474,7 +473,7 @@ fn validate_job_input(
                     "specification.input.factor_evaluation.factor",
                 )
             })?;
-            validate_factor_spec_identity_envelope(factor)?;
+            validate_factor_identity(factor)?;
             validate_development_dataset(value.dataset.as_ref())?;
             if value.provenance.is_some() || value.deterministic_seed.is_some() {
                 validate_provenance(
@@ -543,7 +542,7 @@ fn validate_job_input(
             )
         }
         job_specification::Input::HoldoutBacktest(value) => {
-            validate_holdout_backtest_input(value, submitted_at)
+            validate_holdout_input(value, submitted_at)
         }
         job_specification::Input::Artifact(value) => {
             let artifact = value.input.as_ref().ok_or_else(|| {
@@ -628,9 +627,7 @@ fn validate_policy_reference(
 /// input-local identity invariant. This proves the attached wire AST is the
 /// exact tree encoded by `canonical_json`; registry resolution and semantic
 /// normalization remain mandatory at the domain binding boundary.
-pub fn canonical_factor_spec_identity_bytes(
-    factor: &FactorSpec,
-) -> Result<Vec<u8>, JobValidationError> {
+pub fn factor_identity_bytes(factor: &FactorSpec) -> Result<Vec<u8>, JobValidationError> {
     let factor_expression_id = require_sha256_id(
         factor
             .expression_id
@@ -674,7 +671,7 @@ pub fn canonical_factor_spec_identity_bytes(
     if ast.schema_version != 1 || ast.root.as_ref().is_none_or(|root| root.node.is_none()) {
         return invalid_input("specification.input.factor_evaluation.factor.expression.ast");
     }
-    let attached_ast = canonical_wire_factor_ast_bytes(ast)?;
+    let attached_ast = wire_ast_bytes(ast)?;
     if !constant_time_eq(&attached_ast, &expression.canonical_json) {
         return binding_mismatch("specification.input.factor_evaluation.factor.expression.ast");
     }
@@ -761,7 +758,7 @@ pub fn canonical_factor_spec_identity_bytes(
     Ok(output.into_bytes())
 }
 
-fn canonical_wire_factor_ast_bytes(ast: &FactorAst) -> Result<Vec<u8>, JobValidationError> {
+fn wire_ast_bytes(ast: &FactorAst) -> Result<Vec<u8>, JobValidationError> {
     if ast.schema_version != 1 {
         return invalid_input("specification.input.factor_evaluation.factor.expression.ast");
     }
@@ -802,7 +799,7 @@ impl WireFactorAstWriter {
             )
         })? {
             factor_ast_node::Node::Field(field) => {
-                validate_wire_factor_identifier(&field.field)?;
+                validate_factor_identifier(&field.field)?;
                 self.output
                     .extend_from_slice(b"{\"node\":\"field\",\"field\":\"");
                 self.output.extend_from_slice(field.field.as_bytes());
@@ -834,8 +831,8 @@ impl WireFactorAstWriter {
                         });
                     }
                     factor_literal::Value::Enumeration(value) => {
-                        validate_wire_factor_identifier(&value.enum_type)?;
-                        validate_wire_factor_identifier(&value.value)?;
+                        validate_factor_identifier(&value.enum_type)?;
+                        validate_factor_identifier(&value.value)?;
                         self.output
                             .extend_from_slice(b"{\"node\":\"enum\",\"enum_type\":\"");
                         self.output.extend_from_slice(value.enum_type.as_bytes());
@@ -852,7 +849,7 @@ impl WireFactorAstWriter {
                         "specification.input.factor_evaluation.factor.expression.ast.call.operator",
                     )
                 })?;
-                validate_wire_factor_identifier(&operator.operator)?;
+                validate_factor_identifier(&operator.operator)?;
                 PositiveInteger::new(operator.operator_version.clone()).map_err(|_| {
                     JobValidationError::new(
                         JobValidationCode::InvalidInput,
@@ -884,7 +881,7 @@ impl WireFactorAstWriter {
     }
 }
 
-fn validate_wire_factor_identifier(value: &str) -> Result<(), JobValidationError> {
+fn validate_factor_identifier(value: &str) -> Result<(), JobValidationError> {
     Identifier::new(value.to_owned()).map(|_| ()).map_err(|_| {
         JobValidationError::new(
             JobValidationCode::InvalidInput,
@@ -894,15 +891,12 @@ fn validate_wire_factor_identifier(value: &str) -> Result<(), JobValidationError
 }
 
 /// Compute the domain-separated digest claimed by an inline `factor_spec_id`.
-pub fn factor_spec_identity_sha256(factor: &FactorSpec) -> Result<[u8; 32], JobValidationError> {
-    canonical_factor_spec_identity_bytes(factor)
-        .map(|canonical| domain_digest(FACTOR_SPEC_DOMAIN, &canonical))
+pub fn factor_identity_hash(factor: &FactorSpec) -> Result<[u8; 32], JobValidationError> {
+    factor_identity_bytes(factor).map(|canonical| domain_digest(FACTOR_SPEC_DOMAIN, &canonical))
 }
 
 /// Validate the two content-addressed identities carried by an inline factor.
-pub fn validate_factor_spec_identity_envelope(
-    factor: &FactorSpec,
-) -> Result<(), JobValidationError> {
+pub fn validate_factor_identity(factor: &FactorSpec) -> Result<(), JobValidationError> {
     let claimed = require_sha256_id(
         factor
             .factor_spec_id
@@ -910,7 +904,7 @@ pub fn validate_factor_spec_identity_envelope(
             .map(|value| value.value.as_str()),
         "specification.input.factor_evaluation.factor.factor_spec_id",
     )?;
-    let computed = factor_spec_identity_sha256(factor)?;
+    let computed = factor_identity_hash(factor)?;
     if !constant_time_eq(claimed.as_bytes(), encode_digest(&computed).as_bytes()) {
         return binding_mismatch("specification.input.factor_evaluation.factor.factor_spec_id");
     }
@@ -1116,7 +1110,7 @@ fn validate_provenance(
         .map_err(|_| JobValidationError::new(JobValidationCode::InvalidProvenance, field))
 }
 
-fn validate_holdout_backtest_input(
+fn validate_holdout_input(
     input: &HoldoutBacktestJobInput,
     submitted_at: (i64, i32),
 ) -> Result<(), JobValidationError> {
@@ -1192,7 +1186,7 @@ fn validate_holdout_backtest_input(
             "specification.input.holdout_backtest.frozen_backtest_spec",
         )
     })?;
-    validate_frozen_backtest_spec(frozen, grant)?;
+    validate_backtest_spec(frozen, grant)?;
     validate_budget(
         input.budget.as_ref(),
         "specification.input.holdout_backtest.budget",
@@ -1212,7 +1206,7 @@ fn validate_holdout_backtest_input(
 /// `frozen_backtest_spec` and bind its sample, snapshots, return definition,
 /// provenance, seed, and other fields. Persisted grant resolution and runtime
 /// authorization remain external Phase 4 gates.
-pub fn validate_holdout_backtest_plan_entry_binding(
+pub fn validate_plan_binding(
     input: &HoldoutBacktestJobInput,
     submitted_at: &prost_types::Timestamp,
     canonical_period_bytes: &[u8],
@@ -1221,7 +1215,7 @@ pub fn validate_holdout_backtest_plan_entry_binding(
     resolved_backtest_artifacts: &BTreeMap<String, Vec<u8>>,
 ) -> Result<(), JobValidationError> {
     let submitted_at = require_timestamp(Some(submitted_at), "specification.submitted_at")?;
-    validate_holdout_backtest_input(input, submitted_at)?;
+    validate_holdout_input(input, submitted_at)?;
     let grant = input
         .consumed_grant
         .as_ref()
@@ -1252,13 +1246,13 @@ pub fn validate_holdout_backtest_plan_entry_binding(
             "specification.input.holdout_backtest.resolved_plan",
         )
     };
-    let period = verify_holdout_period_identity(
+    let period = verify_period_identity(
         canonical_period_bytes,
         grant_period_id,
         &grant_period_digest,
     )
     .map_err(|_| plan_binding_error())?;
-    let plan = parse_canonical_holdout_evaluation_plan(
+    let plan = parse_holdout_plan(
         canonical_plan_bytes,
         &period,
         trusted_backtest_schema_sha256,
@@ -1312,7 +1306,7 @@ pub fn validate_holdout_backtest_plan_entry_binding(
             encode_digest(&canonical_spec).as_bytes(),
             entry.backtest_spec_artifact.sha256.as_bytes(),
         )
-        || !holdout_budget_matches_plan(
+        || !holdout_budget_matches(
             input.budget.as_ref().expect("validated holdout budget"),
             &entry.job_budget,
         )
@@ -1322,7 +1316,7 @@ pub fn validate_holdout_backtest_plan_entry_binding(
     Ok(())
 }
 
-fn holdout_budget_matches_plan(
+fn holdout_budget_matches(
     budget: &JobBudget,
     expected: &loop_core::holdout::HoldoutJobBudget,
 ) -> bool {
@@ -1407,7 +1401,7 @@ fn validate_holdout_grant(
     })
 }
 
-fn validate_frozen_backtest_spec(
+fn validate_backtest_spec(
     backtest: &BacktestSpec,
     grant: &HoldoutGrantReference,
 ) -> Result<(), JobValidationError> {
@@ -1590,7 +1584,7 @@ fn is_protocol_package(value: &str) -> bool {
             }) {
                 return false;
             }
-        } else if !is_lower_identifier_segment(part) {
+        } else if !is_identifier_segment(part) {
             return false;
         }
     }
@@ -1630,7 +1624,7 @@ fn is_build_version(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'+' | b'_' | b'-'))
 }
 
-fn is_lower_identifier_segment(value: &str) -> bool {
+fn is_identifier_segment(value: &str) -> bool {
     let mut bytes = value.bytes();
     bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
@@ -1948,7 +1942,7 @@ fn validate_factor_rejection(
             "outcome.factor_rejection",
         ));
     }
-    let expected = factor_id_from_input(specification)?;
+    let expected = input_factor_id(specification)?;
     let actual = require_sha256_id(
         rejection
             .factor_spec_id
@@ -1987,7 +1981,7 @@ fn validate_factor_rejection(
     validate_artifacts(&rejection.evidence, "outcome.factor_rejection.evidence")
 }
 
-fn factor_id_from_input(specification: &JobSpecification) -> Result<&str, JobValidationError> {
+fn input_factor_id(specification: &JobSpecification) -> Result<&str, JobValidationError> {
     let value = match specification.input.as_ref() {
         Some(job_specification::Input::FactorEvaluation(input)) => input
             .factor
@@ -2045,9 +2039,7 @@ pub(crate) fn validate_service_error(error: &ServiceError) -> Result<(), JobVali
             "outcome.infrastructure_failure.error.category",
         ));
     }
-    if !is_stable_error_code(&error.code)
-        || !is_bounded_text(&error.message, MAX_ERROR_MESSAGE_BYTES)
-    {
+    if !is_error_code(&error.code) || !is_bounded_text(&error.message, MAX_ERROR_MESSAGE_BYTES) {
         return Err(JobValidationError::new(
             JobValidationCode::InvalidTerminalPayload,
             "outcome.infrastructure_failure.error",
@@ -2060,8 +2052,8 @@ pub(crate) fn validate_service_error(error: &ServiceError) -> Result<(), JobVali
         ));
     }
     for detail in &error.details {
-        if !is_bounded_field_path(&detail.field_path)
-            || !is_stable_error_code(&detail.code)
+        if !is_field_path(&detail.field_path)
+            || !is_error_code(&detail.code)
             || !is_bounded_text(&detail.message, MAX_ERROR_MESSAGE_BYTES)
         {
             return Err(JobValidationError::new(
@@ -2261,7 +2253,7 @@ fn is_bounded_text(value: &str, maximum_bytes: usize) -> bool {
         && !value.bytes().any(|byte| byte.is_ascii_control())
 }
 
-fn is_stable_error_code(value: &str) -> bool {
+fn is_error_code(value: &str) -> bool {
     if value.is_empty() || value.len() > MAX_ERROR_CODE_BYTES {
         return false;
     }
@@ -2272,7 +2264,7 @@ fn is_stable_error_code(value: &str) -> bool {
         })
 }
 
-fn is_bounded_field_path(value: &str) -> bool {
+fn is_field_path(value: &str) -> bool {
     !value.trim().is_empty()
         && value.len() <= MAX_ERROR_FIELD_PATH_BYTES
         && !value.bytes().any(|byte| byte.is_ascii_control())

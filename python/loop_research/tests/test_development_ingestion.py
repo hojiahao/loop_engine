@@ -69,7 +69,8 @@ def run_cli(directory: Path, *arguments: str) -> subprocess.CompletedProcess[str
 
 
 @pytest.mark.parametrize("provider", ["sec", "alpaca"])
-def test_acquisition_replays_through_installed_cli(tmp_path: Path, provider: str) -> None:
+# Scenario: acquisition replays through installed cli.
+def test_acquisition_installed(tmp_path: Path, provider: str) -> None:
     config = sec_config() if provider == "sec" else alpaca_config()
     requests: list[httpx.Request] = []
     report = acquire(tmp_path, config, fixture_handler(requests))
@@ -99,7 +100,8 @@ def test_acquisition_replays_through_installed_cli(tmp_path: Path, provider: str
         assert secret not in completed.stdout + completed.stderr
 
 
-def test_requests_pin_feed_pages_and_current_identity(tmp_path: Path) -> None:
+# Scenario: requests pin feed pages and current identity.
+def test_requests_pin(tmp_path: Path) -> None:
     requests: list[httpx.Request] = []
     report = acquire(tmp_path, alpaca_config(), fixture_handler(requests))
     assert requests[0].url == "https://paper-api.alpaca.markets/v2/assets/DEMO"
@@ -117,7 +119,8 @@ def test_requests_pin_feed_pages_and_current_identity(tmp_path: Path) -> None:
     assert report.recent_sip == "response_permitted"
 
 
-def test_sec_user_agent_and_no_credential_headers(tmp_path: Path) -> None:
+# Scenario: sec user agent and no credential headers.
+def test_sec_user(tmp_path: Path) -> None:
     requests: list[httpx.Request] = []
     acquire(tmp_path, sec_config(), fixture_handler(requests))
     assert len(requests) == 2
@@ -126,7 +129,8 @@ def test_sec_user_agent_and_no_credential_headers(tmp_path: Path) -> None:
         assert "APCA-API-KEY-ID" not in request.headers
 
 
-def test_recent_sip_denial_does_not_deny_completed_historical_request(tmp_path: Path) -> None:
+# Scenario: recent sip denial does not deny completed historical request.
+def test_recent_sip(tmp_path: Path) -> None:
     requests: list[httpx.Request] = []
     original = fixture_handler(requests)
 
@@ -142,7 +146,8 @@ def test_recent_sip_denial_does_not_deny_completed_historical_request(tmp_path: 
 
 
 @pytest.mark.parametrize("status", [401, 403, 429, 503])
-def test_historical_denial_never_falls_back_feed(tmp_path: Path, status: int) -> None:
+# Scenario: historical denial never falls back feed.
+def test_historical_denial(tmp_path: Path, status: int) -> None:
     requests: list[httpx.Request] = []
     original = fixture_handler(requests)
     denied: list[httpx.Request] = []
@@ -160,7 +165,8 @@ def test_historical_denial_never_falls_back_feed(tmp_path: Path, status: int) ->
     assert not any(b"loop.development-receipt" in path.read_bytes() for path in tmp_path.iterdir())
 
 
-def test_empty_data_is_not_authentication_failure(tmp_path: Path) -> None:
+# Scenario: empty data is not authentication failure.
+def test_empty_data(tmp_path: Path) -> None:
     original = fixture_handler([])
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -174,7 +180,8 @@ def test_empty_data_is_not_authentication_failure(tmp_path: Path) -> None:
     assert replay_data(tmp_path, report.receipt.sha256) == report
 
 
-def test_missing_credentials_fail_before_io(tmp_path: Path) -> None:
+# Scenario: missing credentials fail before io.
+def test_missing_credentials(tmp_path: Path) -> None:
     calls: list[httpx.Request] = []
     with pytest.raises(FetchError, match="missing_credentials"):
         asyncio.run(
@@ -189,7 +196,8 @@ def test_missing_credentials_fail_before_io(tmp_path: Path) -> None:
     assert not calls and not list(tmp_path.iterdir())
 
 
-def test_cli_missing_credentials_is_redacted(tmp_path: Path) -> None:
+# Scenario: cli missing credentials is redacted.
+def test_cli_missing(tmp_path: Path) -> None:
     result = run_cli(
         tmp_path,
         "data-fetch",
@@ -202,7 +210,8 @@ def test_cli_missing_credentials_is_redacted(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-def test_reflected_credential_cannot_enter_cache(tmp_path: Path) -> None:
+# Scenario: reflected credential cannot enter cache.
+def test_reflected_credential(tmp_path: Path) -> None:
     secret = ENVIRONMENT["LOOP_TEST_SECRET"].encode()
     with pytest.raises(FetchError, match="invalid_response"):
         acquire(tmp_path, alpaca_config(), lambda _: response(b'{"detail":"' + secret + b'"}'))
@@ -216,15 +225,15 @@ def test_reflected_credential_cannot_enter_cache(tmp_path: Path) -> None:
         ({"records": 1}, "record_budget"),
     ],
 )
-def test_partial_pagination_cannot_complete(
-    tmp_path: Path, budget: dict[str, int], reason: str
-) -> None:
+# Scenario: partial pagination cannot complete.
+def test_pagination(tmp_path: Path, budget: dict[str, int], reason: str) -> None:
     with pytest.raises(FetchError, match=reason):
         acquire(tmp_path, alpaca_config(budget=budget), fixture_handler([]))
     assert not any(b"loop.development-receipt" in path.read_bytes() for path in tmp_path.iterdir())
 
 
-def test_repeated_page_token_cannot_loop(tmp_path: Path) -> None:
+# Scenario: repeated page token cannot loop.
+def test_repeated_page(tmp_path: Path) -> None:
     original = fixture_handler([])
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -239,7 +248,8 @@ def test_repeated_page_token_cannot_loop(tmp_path: Path) -> None:
     assert not any(b"loop.development-receipt" in path.read_bytes() for path in tmp_path.iterdir())
 
 
-def test_data_fetch_cancellation_preserves_only_captured_evidence(tmp_path: Path) -> None:
+# Scenario: data fetch cancellation preserves only captured evidence.
+def test_data_fetch(tmp_path: Path) -> None:
     async def run() -> None:
         waiting = asyncio.Event()
 
@@ -279,7 +289,8 @@ def test_data_fetch_cancellation_preserves_only_captured_evidence(tmp_path: Path
 
 
 @pytest.mark.parametrize("part", ["config", "normalized", "source", "receipt"])
-def test_corrupted_cache_is_not_repaired(tmp_path: Path, part: str) -> None:
+# Scenario: corrupted cache is not repaired.
+def test_corrupted_cache(tmp_path: Path, part: str) -> None:
     report = acquire(tmp_path, sec_config(), fixture_handler([]))
     metadata = receipt(tmp_path, report)
     reference = {
@@ -296,7 +307,8 @@ def test_corrupted_cache_is_not_repaired(tmp_path: Path, part: str) -> None:
     assert path.read_bytes() == original + b" "
 
 
-def test_replay_verifies_request_semantics_not_just_hashes(tmp_path: Path) -> None:
+# Scenario: replay verifies request semantics not just hashes.
+def test_replay_verifies(tmp_path: Path) -> None:
     report = acquire(tmp_path, alpaca_config(), fixture_handler([]))
     metadata = receipt(tmp_path, report).model_dump(mode="json", by_alias=True)
     metadata["responses"][1]["url"] = metadata["responses"][1]["url"].replace(
@@ -308,7 +320,8 @@ def test_replay_verifies_request_semantics_not_just_hashes(tmp_path: Path) -> No
     assert replay_data(tmp_path, report.receipt.sha256) == report
 
 
-def test_replay_recomputes_normalized_values(tmp_path: Path) -> None:
+# Scenario: replay recomputes normalized values.
+def test_replay_recomputes(tmp_path: Path) -> None:
     report = acquire(tmp_path, sec_config(), fixture_handler([]))
     metadata = receipt(tmp_path, report).model_dump(mode="json", by_alias=True)
     normalized = read_cached(tmp_path, receipt(tmp_path, report).normalized)
@@ -319,14 +332,16 @@ def test_replay_recomputes_normalized_values(tmp_path: Path) -> None:
         replay_data(tmp_path, forged.sha256)
 
 
-def test_identical_capture_reuses_objects_without_overwrite(tmp_path: Path) -> None:
+# Scenario: identical capture reuses objects without overwrite.
+def test_identical_capture(tmp_path: Path) -> None:
     report = acquire(tmp_path, sec_config(), fixture_handler([]))
     before = {path.name: path.stat().st_ino for path in tmp_path.iterdir()}
     assert acquire(tmp_path, sec_config(), fixture_handler([])) == report
     assert before == {path.name: path.stat().st_ino for path in tmp_path.iterdir()}
 
 
-def test_cache_publication_detects_existing_corruption(tmp_path: Path) -> None:
+# Scenario: cache publication detects existing corruption.
+def test_cache_publication(tmp_path: Path) -> None:
     report = acquire(tmp_path, sec_config(), fixture_handler([]))
     path = tmp_path / receipt(tmp_path, report).responses[0].content.sha256[7:]
     path.write_bytes(b"corrupt")
@@ -336,7 +351,8 @@ def test_cache_publication_detects_existing_corruption(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("kind", ["permissions", "symlink"])
-def test_cache_requires_private_canonical_directory(tmp_path: Path, kind: str) -> None:
+# Scenario: cache requires private canonical directory.
+def test_cache_private(tmp_path: Path, kind: str) -> None:
     store = tmp_path / "cache"
     store.mkdir(mode=0o700)
     if kind == "permissions":
@@ -351,7 +367,8 @@ def test_cache_requires_private_canonical_directory(tmp_path: Path, kind: str) -
     assert not requests
 
 
-def test_current_incomplete_day_is_not_downloaded(tmp_path: Path) -> None:
+# Scenario: current incomplete day is not downloaded.
+def test_incomplete_day(tmp_path: Path) -> None:
     requests: list[httpx.Request] = []
     with pytest.raises(FetchError, match="invalid_configuration"):
         acquire(tmp_path, sec_config(end="2026-09-13"), fixture_handler(requests))
@@ -359,7 +376,8 @@ def test_current_incomplete_day_is_not_downloaded(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("name", ["sec-development", "alpaca-development"])
-def test_shipped_toml_config_is_executable(name: str) -> None:
+# Scenario: shipped toml config is executable.
+def test_shipped_toml(name: str) -> None:
     config = load_fetch_config(REPOSITORY / ("config/data/" + name + ".toml"))
     assert config.end.isoformat() == "2026-08-31"
 
@@ -373,7 +391,8 @@ def test_shipped_toml_config_is_executable(name: str) -> None:
         b"x=" + b" " * (64 * 1024),
     ],
 )
-def test_bad_configuration_is_redacted(tmp_path: Path, body: bytes) -> None:
+# Scenario: bad configuration is redacted.
+def test_bad_configuration(tmp_path: Path, body: bytes) -> None:
     path = tmp_path / "bad.toml"
     path.write_bytes(body)
     with pytest.raises(FetchError, match="invalid_configuration") as caught:
@@ -381,7 +400,8 @@ def test_bad_configuration_is_redacted(tmp_path: Path, body: bytes) -> None:
     assert "fixture-secret" not in str(caught.value)
 
 
-def test_escaped_credential_echo_is_not_persisted(tmp_path: Path) -> None:
+# Scenario: escaped credential echo is not persisted.
+def test_escaped_credential(tmp_path: Path) -> None:
     secret = ENVIRONMENT["LOOP_TEST_SECRET"]
     escaped = "".join("\\u" + format(ord(char), "04x") for char in secret)
     body = ('{"detail":"' + escaped + '"}').encode()
@@ -391,9 +411,8 @@ def test_escaped_credential_echo_is_not_persisted(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-def test_failed_publish_never_emits_a_receipt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: failed publish never emits a receipt.
+def test_emits_receipt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import loop_research.data.ingestion as ingestion
 
     real_publish = ingestion.publish
@@ -411,7 +430,8 @@ def test_failed_publish_never_emits_a_receipt(
 
 
 @pytest.mark.parametrize("kind", ["symlink", "fifo", "directory"])
-def test_configuration_rejects_special_files(tmp_path: Path, kind: str) -> None:
+# Scenario: configuration rejects special files.
+def test_configuration_special(tmp_path: Path, kind: str) -> None:
     path = tmp_path / "config"
     if kind == "symlink":
         path.symlink_to(REPOSITORY / "config/data/sec-development.toml")

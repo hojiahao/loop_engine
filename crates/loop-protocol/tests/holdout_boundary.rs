@@ -76,7 +76,8 @@ fn grant_reference() -> HoldoutGrantReference {
 }
 
 #[test]
-fn frozen_plan_and_narrow_batch_round_trip() {
+// Scenario: frozen plan and narrow batch round trip.
+fn frozen_plan_narrow() {
     let freeze = FreezeManifestReference {
         holdout_evaluation_plan: Some(plan_reference()),
         ..Default::default()
@@ -142,7 +143,8 @@ fn frozen_plan_and_narrow_batch_round_trip() {
 }
 
 #[test]
-fn internal_job_repeats_frozen_plan_identity_and_entry_index() {
+// Scenario: internal job repeats frozen plan identity and entry index.
+fn internal_job_frozen() {
     let job = HoldoutBacktestJobInput {
         consumed_grant: Some(grant_reference()),
         consumed_grant_revision: 4,
@@ -170,7 +172,8 @@ fn internal_job_repeats_frozen_plan_identity_and_entry_index() {
 }
 
 #[test]
-fn shared_holdout_surface_vectors_fail_closed() {
+// Scenario: shared holdout surface vectors fail closed.
+fn shared_holdout_surface() {
     let descriptor = FileDescriptorSet::decode(loop_protocol::FILE_DESCRIPTOR_SET)
         .expect("committed descriptor must decode");
     for line in BOUNDARY_VECTORS.lines() {

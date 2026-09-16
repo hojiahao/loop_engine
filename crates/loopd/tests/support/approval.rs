@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
 
 use loop_core::audit::Sha256Digest as CanonicalDigest;
-use loop_core::holdout::{CanonicalHoldoutPeriod, parse_canonical_holdout_evaluation_plan};
+use loop_core::holdout::{CanonicalHoldoutPeriod, parse_holdout_plan};
 use loop_protocol::wire::holdout::v1::RecordHoldoutApprovalRequest;
 use loop_protocol::wire::v1::{Actor, ActorId, ActorKind, HoldoutEvaluationPlanId, Sha256Digest};
 use loopd::store::{HoldoutPolicy, HoldoutRepository, PgJobStore, StoreError, StoreResult};
@@ -81,7 +81,7 @@ impl HoldoutPolicy for Policy {
             })
             .collect();
         // These opaque BacktestSpec fixtures test storage bindings, not Phase 7 semantics.
-        let plan = parse_canonical_holdout_evaluation_plan(
+        let plan = parse_holdout_plan(
             fixture["plans"][index]["canonical_json"]
                 .as_str()
                 .unwrap()

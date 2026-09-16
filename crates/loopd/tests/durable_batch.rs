@@ -7,7 +7,7 @@ use std::sync::{
 use std::time::Duration;
 
 use loop_core::audit::{AuditAction, verify_audit_chain};
-use loop_protocol::job::validate_holdout_backtest_plan_entry_binding;
+use loop_protocol::job::validate_plan_binding;
 use loop_protocol::wire::jobs::v1::CancelJobRequest;
 use loop_protocol::wire::v1::{
     HoldoutGrantState, HoldoutPeriodState, JobKind, RequestId, job_specification,
@@ -22,7 +22,8 @@ use sqlx::Connection;
 use support::*;
 
 #[tokio::test]
-async fn consumes_complete_frozen_plan() {
+// Scenario: consumes complete frozen plan.
+async fn consumes_frozen_plan() {
     let (_directory, store, _, issued, request) = batch::setup().await;
     let result = store
         .consume_grant(&actor(), request, research::metadata())
@@ -51,7 +52,7 @@ async fn consumes_complete_frozen_plan() {
         assert_eq!(input.job_batch_id, handle.job_batch_id);
         assert_eq!(input.evaluation_plan_entry_index, index as u32 + 1);
         assert_eq!(input.consumed_grant_revision, 2);
-        validate_holdout_backtest_plan_entry_binding(
+        validate_plan_binding(
             &input,
             spec.submitted_at.as_ref().unwrap(),
             &holdout::command(0, "fixture").canonical_bytes,
@@ -77,7 +78,8 @@ async fn consumes_complete_frozen_plan() {
 }
 
 #[tokio::test]
-async fn replay_survives_restart_and_expiry() {
+// Scenario: replay survives restart and expiry.
+async fn replay_restart_expiry() {
     let (directory, store, clock, _, mut request) = batch::setup().await;
     let original = store
         .consume_grant(&actor(), request.clone(), research::metadata())
@@ -104,7 +106,8 @@ async fn replay_survives_restart_and_expiry() {
 }
 
 #[tokio::test]
-async fn changed_run_cannot_reuse_receipt() {
+// Scenario: changed run cannot reuse receipt.
+async fn changed_reuse_receipt() {
     let (_directory, store, _, _, request) = batch::setup().await;
     store
         .consume_grant(&actor(), request.clone(), research::metadata())
@@ -120,7 +123,8 @@ async fn changed_run_cannot_reuse_receipt() {
 }
 
 #[tokio::test]
-async fn different_key_cannot_consume_twice() {
+// Scenario: different key cannot consume twice.
+async fn different_key_twice() {
     let (_directory, store, _, _, mut request) = batch::setup().await;
     store
         .consume_grant(&actor(), request.clone(), research::metadata())
@@ -145,7 +149,8 @@ async fn different_key_cannot_consume_twice() {
 }
 
 #[tokio::test]
-async fn expired_grant_cannot_consume() {
+// Scenario: expired grant cannot consume.
+async fn expired_grant() {
     let (_directory, store, clock, _, request) = batch::setup().await;
     clock.0.store(NOW + 60_000, Ordering::SeqCst);
     assert!(matches!(
@@ -159,7 +164,8 @@ async fn expired_grant_cannot_consume() {
 }
 
 #[tokio::test]
-async fn revoked_grant_cannot_consume() {
+// Scenario: revoked grant cannot consume.
+async fn revoked_grant() {
     let (_directory, store, _, issued, mut request) = batch::setup().await;
     store
         .close_grant(
@@ -180,7 +186,8 @@ async fn revoked_grant_cannot_consume() {
 }
 
 #[tokio::test]
-async fn rejects_materializer_binding_changes() {
+// Scenario: rejects materializer binding changes.
+async fn materializer() {
     for field in [
         "factor",
         "sample",
@@ -210,7 +217,8 @@ async fn rejects_materializer_binding_changes() {
 }
 
 #[tokio::test]
-async fn unavailable_parser_is_infrastructure_failure() {
+// Scenario: unavailable parser is infrastructure failure.
+async fn unavailable_parser_infrastructure() {
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let policy = batch::Policy {
         wrong_field: Some("unavailable"),
@@ -228,7 +236,8 @@ async fn unavailable_parser_is_infrastructure_failure() {
 }
 
 #[tokio::test]
-async fn default_authority_denies_consumption() {
+// Scenario: default authority denies consumption.
+async fn default_authority_consumption() {
     let (directory, store, clock, _, request) = batch::setup().await;
     store.close().await;
     let mut config = options(&directory.path().join("state"), clock);
@@ -245,7 +254,8 @@ async fn default_authority_denies_consumption() {
 }
 
 #[tokio::test]
-async fn job_admission_remains_independent() {
+// Scenario: job admission remains independent.
+async fn job_admission_independent() {
     let (directory, store, clock, issued, request) = batch::setup().await;
     store.close().await;
     let mut config = options(&directory.path().join("state"), clock);
@@ -263,7 +273,8 @@ async fn job_admission_remains_independent() {
 }
 
 #[tokio::test]
-async fn changed_grant_reference_is_rejected() {
+// Scenario: changed grant reference is rejected.
+async fn changed_grant_reference() {
     let (_directory, store, _, _, mut request) = batch::setup().await;
     request
         .grant_reference
@@ -280,7 +291,8 @@ async fn changed_grant_reference_is_rejected() {
 }
 
 #[tokio::test]
-async fn actor_spoofing_is_rejected() {
+// Scenario: actor spoofing is rejected.
+async fn actor_spoofing() {
     let (_directory, store, _, _, mut request) = batch::setup().await;
     request
         .context
@@ -300,7 +312,8 @@ async fn actor_spoofing_is_rejected() {
 }
 
 #[tokio::test]
-async fn second_job_failure_rolls_back_batch() {
+// Scenario: second job failure rolls back batch.
+async fn second_job_failure() {
     let (directory, store, _, issued, request) = batch::setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE FUNCTION reject_second_job() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN
@@ -320,7 +333,8 @@ async fn second_job_failure_rolls_back_batch() {
 }
 
 #[tokio::test]
-async fn receipt_failure_rolls_back_all_jobs() {
+// Scenario: receipt failure rolls back all jobs.
+async fn receipt_failure_jobs() {
     let (directory, store, _, issued, request) = batch::setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON holdout_command_receipts FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -337,7 +351,8 @@ async fn receipt_failure_rolls_back_all_jobs() {
 }
 
 #[tokio::test]
-async fn grant_expiry_during_materialization_rolls_back() {
+// Scenario: grant expiry during materialization rolls back.
+async fn grant_expiry_materialization() {
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let policy = batch::Policy {
         advance_clock: Some((clock.clone(), NOW + 60_000)),
@@ -355,7 +370,8 @@ async fn grant_expiry_during_materialization_rolls_back() {
 }
 
 #[tokio::test]
-async fn clock_regression_during_command_rolls_back() {
+// Scenario: clock regression during command rolls back.
+async fn clock_regression_command() {
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let policy = batch::Policy {
         advance_clock: Some((clock.clone(), NOW - 1)),
@@ -373,7 +389,8 @@ async fn clock_regression_during_command_rolls_back() {
 }
 
 #[tokio::test]
-async fn cancellation_preserves_issued_grant() {
+// Scenario: cancellation preserves issued grant.
+async fn cancellation_issued_grant() {
     let (directory, store, _, issued, request) = batch::setup().await;
     let mut database = connection(&directory).await;
     let mut transaction = database.begin().await.unwrap();
@@ -403,7 +420,8 @@ async fn cancellation_preserves_issued_grant() {
 }
 
 #[tokio::test]
-async fn replay_tolerates_job_lifecycle_changes() {
+// Scenario: replay tolerates job lifecycle changes.
+async fn replay_job_lifecycle() {
     let (_directory, store, _, _, request) = batch::setup().await;
     let original = store
         .consume_grant(&actor(), request.clone(), research::metadata())
@@ -432,7 +450,8 @@ async fn replay_tolerates_job_lifecycle_changes() {
 }
 
 #[tokio::test]
-async fn rehashed_batch_receipt_cannot_change_order() {
+// Scenario: rehashed batch receipt cannot change order.
+async fn rehashed_batch_receipt() {
     let (directory, store, _, _, request) = batch::setup().await;
     let mut response = store
         .consume_grant(&actor(), request.clone(), research::metadata())
@@ -459,7 +478,8 @@ async fn rehashed_batch_receipt_cannot_change_order() {
 }
 
 #[tokio::test]
-async fn database_protects_batch_membership() {
+// Scenario: database protects batch membership.
+async fn database_protects_batch() {
     let (directory, store, _, _, request) = batch::setup().await;
     store
         .consume_grant(&actor(), request, research::metadata())

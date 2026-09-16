@@ -48,7 +48,7 @@ function fixture(t) {
     requests() {
       return existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : [];
     },
-    assertClean() {
+    assert_clean() {
       assert.deepEqual(
         readdirSync(directory).filter((name) => name.includes(".part.")),
         [],
@@ -66,7 +66,7 @@ test("primary failure falls back to verified official bytes", (t) => {
     `https://static.rust-lang.org/${archive}`,
   ]);
   assert.equal(readFileSync(f.output, "utf8"), content);
-  f.assertClean();
+  f.assert_clean();
 });
 
 test("official primary has a distinct secondary source", (t) => {
@@ -76,7 +76,7 @@ test("official primary has a distinct secondary source", (t) => {
     `https://static.rust-lang.org/${archive}`,
     `https://rsproxy.cn/${archive}`,
   ]);
-  f.assertClean();
+  f.assert_clean();
 });
 
 test("valid cache avoids every network request", (t) => {
@@ -84,7 +84,7 @@ test("valid cache avoids every network request", (t) => {
   writeFileSync(f.output, content);
   assert.equal(f.run("unavailable").status, 0);
   assert.deepEqual(f.requests(), []);
-  f.assertClean();
+  f.assert_clean();
 });
 
 test("checksum mismatch fails before fallback or replacement", (t) => {
@@ -95,7 +95,7 @@ test("checksum mismatch fails before fallback or replacement", (t) => {
   assert.match(result.stderr, /checksum mismatch/);
   assert.equal(f.requests().length, 1);
   assert.equal(readFileSync(f.output, "utf8"), "old cache");
-  f.assertClean();
+  f.assert_clean();
 });
 
 test("all transports fail within a finite source list", (t) => {
@@ -104,14 +104,14 @@ test("all transports fail within a finite source list", (t) => {
   assert.equal(f.requests().length, 3);
   assert.equal(new Set(f.requests()).size, 3);
   assert.equal(existsSync(f.output), false);
-  f.assertClean();
+  f.assert_clean();
 });
 
 test("transport cancellation removes partial bytes", (t) => {
   const f = fixture(t);
   assert.equal(f.run("interrupt").status, 143);
   assert.equal(existsSync(f.output), false);
-  f.assertClean();
+  f.assert_clean();
 });
 
 for (const [mirror, hash, path] of [
@@ -123,7 +123,7 @@ for (const [mirror, hash, path] of [
     const f = fixture(t);
     assert.equal(f.run("success", mirror, hash, path).status, 2);
     assert.deepEqual(f.requests(), []);
-    f.assertClean();
+    f.assert_clean();
   });
 }
 

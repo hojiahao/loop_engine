@@ -260,7 +260,7 @@ function fail(code: FactorDomainErrorCode, path: string, message: string): never
   throw new FactorDomainError(code, path, message);
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+function is_plain_object(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
@@ -268,8 +268,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return prototype === Object.prototype || prototype === null;
 }
 
-function requireObject(value: unknown, path: string): Record<string, unknown> {
-  if (!isPlainObject(value)) {
+function require_object(value: unknown, path: string): Record<string, unknown> {
+  if (!is_plain_object(value)) {
     fail("invalid_shape", path, "expected a plain object");
   }
   if (Object.getOwnPropertySymbols(value).length !== 0) {
@@ -278,7 +278,7 @@ function requireObject(value: unknown, path: string): Record<string, unknown> {
   return value;
 }
 
-function requireExactKeys(
+function require_exact_keys(
   value: Record<string, unknown>,
   expected: readonly string[],
   path: string,
@@ -297,45 +297,45 @@ function requireExactKeys(
   }
 }
 
-function requireString(value: unknown, path: string): string {
+function require_string(value: unknown, path: string): string {
   if (typeof value !== "string") {
     fail("invalid_shape", path, "expected a string");
   }
   return value;
 }
 
-function requireBoolean(value: unknown, path: string): boolean {
+function require_boolean(value: unknown, path: string): boolean {
   if (typeof value !== "boolean") {
     fail("invalid_shape", path, "expected a boolean");
   }
   return value;
 }
 
-function requireBooleanDefinition(value: unknown, path: string): boolean {
+function require_boolean_definition(value: unknown, path: string): boolean {
   if (typeof value !== "boolean") {
     fail("invalid_registry", path, "must be an explicit boolean");
   }
   return value;
 }
 
-function requirePositiveInteger(value: unknown, path: string, maximum: number): number {
+function require_positive_integer(value: unknown, path: string, maximum: number): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1 || value > maximum) {
     fail("invalid_registry", path, `must be an integer from 1 through ${maximum}`);
   }
   return value;
 }
 
-function requireNonNegativeInteger(value: unknown, path: string, maximum: number): number {
+function require_nonnegative_integer(value: unknown, path: string, maximum: number): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > maximum) {
     fail("invalid_registry", path, `must be an integer from 0 through ${maximum}`);
   }
   return value;
 }
 
-export function resolveCanonicalizationLimits(
+export function resolve_canonicalization_limits(
   overrides: CanonicalizationLimitOverrides = {},
 ): Readonly<CanonicalizationLimits> {
-  const object = requireObject(overrides, "$limits");
+  const object = require_object(overrides, "$limits");
   const permitted = new Set(Object.keys(V1_HARD_LIMITS));
   for (const key of Object.keys(object)) {
     if (!permitted.has(key)) {
@@ -359,8 +359,8 @@ export function resolveCanonicalizationLimits(
   return Object.freeze(resolved);
 }
 
-export function assertIdentifier(value: unknown, path: string): string {
-  const identifier = requireString(value, path);
+export function assert_identifier(value: unknown, path: string): string {
+  const identifier = require_string(value, path);
   const byteLength = textEncoder.encode(identifier).byteLength;
   if (byteLength < 1 || byteLength > 128 || !IDENTIFIER_PATTERN.test(identifier)) {
     fail(
@@ -372,8 +372,8 @@ export function assertIdentifier(value: unknown, path: string): string {
   return identifier;
 }
 
-export function assertPolicyId(value: unknown, path: string): string {
-  const policyId = requireString(value, path);
+export function assert_policy_id(value: unknown, path: string): string {
+  const policyId = require_string(value, path);
   const byteLength = textEncoder.encode(policyId).byteLength;
   if (byteLength < 1 || byteLength > 128 || !POLICY_ID_PATTERN.test(policyId)) {
     fail("invalid_identifier", path, "must match ^[a-z][a-z0-9_.-]{0,127}$ in ASCII");
@@ -381,8 +381,8 @@ export function assertPolicyId(value: unknown, path: string): string {
   return policyId;
 }
 
-export function assertPositiveUnsignedDecimal(value: unknown, path: string): string {
-  const revision = requireString(value, path);
+export function assert_unsigned_decimal(value: unknown, path: string): string {
+  const revision = require_string(value, path);
   if (
     !POSITIVE_UNSIGNED_DECIMAL_PATTERN.test(revision) ||
     revision.length > 20 ||
@@ -393,16 +393,16 @@ export function assertPositiveUnsignedDecimal(value: unknown, path: string): str
   return revision;
 }
 
-export function assertCanonicalDecimal(value: unknown, path: string): string {
-  const decimal = requireString(value, path);
+export function assert_canonical_decimal(value: unknown, path: string): string {
+  const decimal = require_string(value, path);
   if (decimal === "-0" || !CANONICAL_DECIMAL_PATTERN.test(decimal)) {
     fail("invalid_decimal", path, "must be a normalized fixed-point decimal string");
   }
   return decimal;
 }
 
-export function assertSha256Id(value: unknown, path: string): Sha256Id {
-  const digest = requireString(value, path);
+export function assert_sha256_id(value: unknown, path: string): Sha256Id {
+  const digest = require_string(value, path);
   if (!SHA256_PATTERN.test(digest)) {
     fail("invalid_digest", path, "must be sha256: followed by 64 lowercase hexadecimal digits");
   }
@@ -414,15 +414,15 @@ interface DecodeState {
   readonly limits: Readonly<CanonicalizationLimits>;
 }
 
-export function decodeFactorAst(
+export function decode_factor_ast(
   input: unknown,
   limits: Readonly<CanonicalizationLimits>,
 ): FactorAst {
   const state: DecodeState = { nodes: 0, limits };
-  return decodeFactorNode(input, "$", state, 1);
+  return decode_factor_node(input, "$", state, 1);
 }
 
-function decodeFactorNode(
+function decode_factor_node(
   input: unknown,
   path: string,
   state: DecodeState,
@@ -436,40 +436,40 @@ function decodeFactorNode(
     fail("limit_exceeded", path, `AST exceeds ${state.limits.maxNodes} nodes`);
   }
 
-  const object = requireObject(input, path);
-  const node = requireString(object.node, `${path}.node`);
+  const object = require_object(input, path);
+  const node = require_string(object.node, `${path}.node`);
   switch (node) {
     case "field": {
-      requireExactKeys(object, ["node", "field"], path);
+      require_exact_keys(object, ["node", "field"], path);
       return Object.freeze({
         node,
-        field: assertIdentifier(object.field, `${path}.field`),
+        field: assert_identifier(object.field, `${path}.field`),
       });
     }
     case "decimal": {
-      requireExactKeys(object, ["node", "value"], path);
+      require_exact_keys(object, ["node", "value"], path);
       return Object.freeze({
         node,
-        value: assertCanonicalDecimal(object.value, `${path}.value`),
+        value: assert_canonical_decimal(object.value, `${path}.value`),
       });
     }
     case "boolean": {
-      requireExactKeys(object, ["node", "value"], path);
+      require_exact_keys(object, ["node", "value"], path);
       return Object.freeze({
         node,
-        value: requireBoolean(object.value, `${path}.value`),
+        value: require_boolean(object.value, `${path}.value`),
       });
     }
     case "enum": {
-      requireExactKeys(object, ["node", "enum_type", "value"], path);
+      require_exact_keys(object, ["node", "enum_type", "value"], path);
       return Object.freeze({
         node,
-        enum_type: assertIdentifier(object.enum_type, `${path}.enum_type`),
-        value: assertIdentifier(object.value, `${path}.value`),
+        enum_type: assert_identifier(object.enum_type, `${path}.enum_type`),
+        value: assert_identifier(object.value, `${path}.value`),
       });
     }
     case "call": {
-      requireExactKeys(object, ["node", "operator", "operator_version", "arguments"], path);
+      require_exact_keys(object, ["node", "operator", "operator_version", "arguments"], path);
       if (!Array.isArray(object.arguments)) {
         fail("invalid_shape", `${path}.arguments`, "expected an array");
       }
@@ -481,12 +481,12 @@ function decodeFactorNode(
         );
       }
       const arguments_ = object.arguments.map((argument, index) =>
-        decodeFactorNode(argument, `${path}.arguments[${index}]`, state, depth + 1),
+        decode_factor_node(argument, `${path}.arguments[${index}]`, state, depth + 1),
       );
       return Object.freeze({
         node,
-        operator: assertIdentifier(object.operator, `${path}.operator`),
-        operator_version: assertPositiveUnsignedDecimal(
+        operator: assert_identifier(object.operator, `${path}.operator`),
+        operator_version: assert_unsigned_decimal(
           object.operator_version,
           `${path}.operator_version`,
         ),
@@ -498,9 +498,9 @@ function decodeFactorNode(
   }
 }
 
-export function decodeFactorSpec(input: unknown): FactorSpec {
-  const object = requireObject(input, "$factor_spec");
-  requireExactKeys(
+export function decode_factor_spec(input: unknown): FactorSpec {
+  const object = require_object(input, "$factor_spec");
+  require_exact_keys(
     object,
     [
       "schema",
@@ -520,48 +520,54 @@ export function decodeFactorSpec(input: unknown): FactorSpec {
 
   return Object.freeze({
     schema: FACTOR_SPEC_SCHEMA,
-    expression_id: assertSha256Id(object.expression_id, "$factor_spec.expression_id"),
-    operator_registry_sha256: assertSha256Id(
+    expression_id: assert_sha256_id(object.expression_id, "$factor_spec.expression_id"),
+    operator_registry_sha256: assert_sha256_id(
       object.operator_registry_sha256,
       "$factor_spec.operator_registry_sha256",
     ),
     direction: object.direction,
-    universe_policy: decodePolicyRef(object.universe_policy, "$factor_spec.universe_policy"),
-    data_policy: decodePolicyRef(object.data_policy, "$factor_spec.data_policy"),
-    calendar_policy: decodePolicyRef(object.calendar_policy, "$factor_spec.calendar_policy"),
-    preprocess_policy: decodePolicyRef(object.preprocess_policy, "$factor_spec.preprocess_policy"),
-    neutralization_policy: decodePolicyRef(
+    universe_policy: decode_policy_ref(object.universe_policy, "$factor_spec.universe_policy"),
+    data_policy: decode_policy_ref(object.data_policy, "$factor_spec.data_policy"),
+    calendar_policy: decode_policy_ref(object.calendar_policy, "$factor_spec.calendar_policy"),
+    preprocess_policy: decode_policy_ref(
+      object.preprocess_policy,
+      "$factor_spec.preprocess_policy",
+    ),
+    neutralization_policy: decode_policy_ref(
       object.neutralization_policy,
       "$factor_spec.neutralization_policy",
     ),
-    portfolio_policy: decodePolicyRef(object.portfolio_policy, "$factor_spec.portfolio_policy"),
-    execution_policy: decodePolicyRef(object.execution_policy, "$factor_spec.execution_policy"),
-    cost_policy: decodePolicyRef(object.cost_policy, "$factor_spec.cost_policy"),
-    evaluation_policy: decodePolicyRef(object.evaluation_policy, "$factor_spec.evaluation_policy"),
+    portfolio_policy: decode_policy_ref(object.portfolio_policy, "$factor_spec.portfolio_policy"),
+    execution_policy: decode_policy_ref(object.execution_policy, "$factor_spec.execution_policy"),
+    cost_policy: decode_policy_ref(object.cost_policy, "$factor_spec.cost_policy"),
+    evaluation_policy: decode_policy_ref(
+      object.evaluation_policy,
+      "$factor_spec.evaluation_policy",
+    ),
   });
 }
 
-function decodePolicyRef(input: unknown, path: string): PolicyRef {
-  const object = requireObject(input, path);
-  requireExactKeys(object, ["policy_id", "revision", "sha256"], path);
+function decode_policy_ref(input: unknown, path: string): PolicyRef {
+  const object = require_object(input, path);
+  require_exact_keys(object, ["policy_id", "revision", "sha256"], path);
   return Object.freeze({
-    policy_id: assertPolicyId(object.policy_id, `${path}.policy_id`),
-    revision: assertPositiveUnsignedDecimal(object.revision, `${path}.revision`),
-    sha256: assertSha256Id(object.sha256, `${path}.sha256`),
+    policy_id: assert_policy_id(object.policy_id, `${path}.policy_id`),
+    revision: assert_unsigned_decimal(object.revision, `${path}.revision`),
+    sha256: assert_sha256_id(object.sha256, `${path}.sha256`),
   });
 }
 
-function normalizeValueType(input: unknown, path: string): ValueType {
+function normalize_value_type(input: unknown, path: string): ValueType {
   if (input === "series" || input === "decimal" || input === "boolean") {
     return input;
   }
-  const object = requireObject(input, path);
-  requireExactKeys(object, ["enumType"], path);
-  return Object.freeze({ enumType: assertIdentifier(object.enumType, `${path}.enumType`) });
+  const object = require_object(input, path);
+  require_exact_keys(object, ["enumType"], path);
+  return Object.freeze({ enumType: assert_identifier(object.enumType, `${path}.enumType`) });
 }
 
-function normalizeDecimalConstraints(input: unknown, path: string): DecimalConstraints {
-  const object = requireObject(input, path);
+function normalize_decimal_constraints(input: unknown, path: string): DecimalConstraints {
+  const object = require_object(input, path);
   const permitted = ["maxPrecision", "maxScale", "minimum", "maximum"] as const;
   for (const key of Object.keys(object)) {
     if (!permitted.includes(key as (typeof permitted)[number])) {
@@ -573,21 +579,21 @@ function normalizeDecimalConstraints(input: unknown, path: string): DecimalConst
       fail("invalid_registry", `${path}.${key}`, "missing required constraint");
     }
   }
-  const maxPrecision = requirePositiveInteger(object.maxPrecision, `${path}.maxPrecision`, 4_096);
-  const maxScale = requireNonNegativeInteger(object.maxScale, `${path}.maxScale`, maxPrecision);
-  const minimum = assertCanonicalDecimal(object.minimum, `${path}.minimum`);
-  const maximum = assertCanonicalDecimal(object.maximum, `${path}.maximum`);
-  if (compareDecimals(minimum, maximum) > 0) {
+  const maxPrecision = require_positive_integer(object.maxPrecision, `${path}.maxPrecision`, 4_096);
+  const maxScale = require_nonnegative_integer(object.maxScale, `${path}.maxScale`, maxPrecision);
+  const minimum = assert_canonical_decimal(object.minimum, `${path}.minimum`);
+  const maximum = assert_canonical_decimal(object.maximum, `${path}.maximum`);
+  if (compare_decimals(minimum, maximum) > 0) {
     fail("invalid_registry", path, "minimum must not exceed maximum");
   }
   const shapeConstraints = { maxPrecision, maxScale, minimum: undefined, maximum: undefined };
-  validateDecimalConstraints(minimum, shapeConstraints, `${path}.minimum`);
-  validateDecimalConstraints(maximum, shapeConstraints, `${path}.maximum`);
+  validate_decimal_constraints(minimum, shapeConstraints, `${path}.minimum`);
+  validate_decimal_constraints(maximum, shapeConstraints, `${path}.maximum`);
   return Object.freeze({ maxPrecision, maxScale, minimum, maximum });
 }
 
-function normalizeArgumentDefinition(input: unknown, path: string): ArgumentDefinition {
-  const object = requireObject(input, path);
+function normalize_argument_definition(input: unknown, path: string): ArgumentDefinition {
+  const object = require_object(input, path);
   const permitted = ["type", "literalOnly", "decimal"] as const;
   for (const key of Object.keys(object)) {
     if (!permitted.includes(key as (typeof permitted)[number])) {
@@ -597,15 +603,15 @@ function normalizeArgumentDefinition(input: unknown, path: string): ArgumentDefi
   if (!Object.hasOwn(object, "type")) {
     fail("invalid_registry", `${path}.type`, "missing required field");
   }
-  const type = normalizeValueType(object.type, `${path}.type`);
+  const type = normalize_value_type(object.type, `${path}.type`);
   const literalOnly =
     object.literalOnly === undefined
       ? false
-      : requireBooleanDefinition(object.literalOnly, `${path}.literalOnly`);
+      : require_boolean_definition(object.literalOnly, `${path}.literalOnly`);
   const decimal =
     object.decimal === undefined
       ? undefined
-      : normalizeDecimalConstraints(object.decimal, `${path}.decimal`);
+      : normalize_decimal_constraints(object.decimal, `${path}.decimal`);
   if (type === "decimal" && decimal === undefined) {
     fail(
       "invalid_registry",
@@ -619,16 +625,16 @@ function normalizeArgumentDefinition(input: unknown, path: string): ArgumentDefi
   return Object.freeze({ type, literalOnly, decimal });
 }
 
-function valueTypesEqual(left: ValueType, right: ValueType): boolean {
+function value_types_equal(left: ValueType, right: ValueType): boolean {
   if (typeof left === "string" || typeof right === "string") {
     return left === right;
   }
   return left.enumType === right.enumType;
 }
 
-function argumentDefinitionsEqual(left: ArgumentDefinition, right: ArgumentDefinition): boolean {
+function argument_definitions_equal(left: ArgumentDefinition, right: ArgumentDefinition): boolean {
   if (
-    !valueTypesEqual(left.type, right.type) ||
+    !value_types_equal(left.type, right.type) ||
     (left.literalOnly ?? false) !== (right.literalOnly ?? false)
   ) {
     return false;
@@ -644,46 +650,46 @@ function argumentDefinitionsEqual(left: ArgumentDefinition, right: ArgumentDefin
   );
 }
 
-function valueTypeLabel(type: ValueType): string {
+function value_type_label(type: ValueType): string {
   return typeof type === "string" ? type : `enum:${type.enumType}`;
 }
 
-function operatorKey(operator: string, version: string): string {
+function operator_key(operator: string, version: string): string {
   return `${operator}\u0000${version}`;
 }
 
-function normalizeFieldDefinition(input: unknown, path: string): FieldDefinition {
-  const object = requireObject(input, path);
-  requireExactKeys(object, ["field", "outputType"], path);
+function normalize_field_definition(input: unknown, path: string): FieldDefinition {
+  const object = require_object(input, path);
+  require_exact_keys(object, ["field", "outputType"], path);
   return Object.freeze({
-    field: assertIdentifier(object.field, `${path}.field`),
-    outputType: normalizeValueType(object.outputType, `${path}.outputType`),
+    field: assert_identifier(object.field, `${path}.field`),
+    outputType: normalize_value_type(object.outputType, `${path}.outputType`),
   });
 }
 
-function normalizeEnumDefinition(input: unknown, path: string): EnumDefinition {
-  const object = requireObject(input, path);
-  requireExactKeys(object, ["enumType", "values"], path);
+function normalize_enum_definition(input: unknown, path: string): EnumDefinition {
+  const object = require_object(input, path);
+  require_exact_keys(object, ["enumType", "values"], path);
   if (!Array.isArray(object.values) || object.values.length === 0) {
     fail("invalid_registry", `${path}.values`, "must be a non-empty array");
   }
   const values = object.values.map((value, index) =>
-    assertIdentifier(value, `${path}.values[${index}]`),
+    assert_identifier(value, `${path}.values[${index}]`),
   );
   if (new Set(values).size !== values.length) {
     fail("invalid_registry", `${path}.values`, "must not contain duplicate values");
   }
   return Object.freeze({
-    enumType: assertIdentifier(object.enumType, `${path}.enumType`),
+    enumType: assert_identifier(object.enumType, `${path}.enumType`),
     values: Object.freeze(values),
   });
 }
 
-function normalizeOperatorDefinition(
+function normalize_operator_definition(
   input: unknown,
   path: string,
 ): Omit<ResolvedOperatorDefinition, "semanticContract"> {
-  const object = requireObject(input, path);
+  const object = require_object(input, path);
   const permitted = [
     "operator",
     "operatorVersion",
@@ -722,12 +728,12 @@ function normalizeOperatorDefinition(
   }
 
   const parameters = object.parameters.map((parameter, index) =>
-    normalizeArgumentDefinition(parameter, `${path}.parameters[${index}]`),
+    normalize_argument_definition(parameter, `${path}.parameters[${index}]`),
   );
   const variadic =
     object.variadic === undefined
       ? undefined
-      : normalizeArgumentDefinition(object.variadic, `${path}.variadic`);
+      : normalize_argument_definition(object.variadic, `${path}.variadic`);
   let minArguments: number;
   let maxArguments: number;
   if (variadic === undefined) {
@@ -743,7 +749,7 @@ function normalizeOperatorDefinition(
     minArguments =
       object.minArguments === undefined
         ? Math.max(parameters.length, 1)
-        : requirePositiveInteger(
+        : require_positive_integer(
             object.minArguments,
             `${path}.minArguments`,
             V1_HARD_LIMITS.maxDirectArguments,
@@ -751,7 +757,7 @@ function normalizeOperatorDefinition(
     maxArguments =
       object.maxArguments === undefined
         ? V1_HARD_LIMITS.maxDirectArguments
-        : requirePositiveInteger(
+        : require_positive_integer(
             object.maxArguments,
             `${path}.maxArguments`,
             V1_HARD_LIMITS.maxDirectArguments,
@@ -761,9 +767,9 @@ function normalizeOperatorDefinition(
     }
   }
 
-  const outputType = normalizeValueType(object.outputType, `${path}.outputType`);
-  const associative = requireBooleanDefinition(object.associative, `${path}.associative`);
-  const commutative = requireBooleanDefinition(object.commutative, `${path}.commutative`);
+  const outputType = normalize_value_type(object.outputType, `${path}.outputType`);
+  const associative = require_boolean_definition(object.associative, `${path}.associative`);
+  const commutative = require_boolean_definition(object.commutative, `${path}.commutative`);
   if (associative && variadic === undefined) {
     fail("invalid_registry", path, "associative operators must have a variadic signature");
   }
@@ -774,10 +780,10 @@ function normalizeOperatorDefinition(
     }
     const firstDefinition = argumentDefinitions[0];
     if (
-      argumentDefinitions.some((definition) => !valueTypesEqual(definition.type, outputType)) ||
+      argumentDefinitions.some((definition) => !value_types_equal(definition.type, outputType)) ||
       (firstDefinition !== undefined &&
         argumentDefinitions.some(
-          (definition) => !argumentDefinitionsEqual(definition, firstDefinition),
+          (definition) => !argument_definitions_equal(definition, firstDefinition),
         ))
     ) {
       fail(
@@ -789,12 +795,9 @@ function normalizeOperatorDefinition(
   }
 
   return {
-    operator: assertIdentifier(object.operator, `${path}.operator`),
-    operatorVersion: assertPositiveUnsignedDecimal(
-      object.operatorVersion,
-      `${path}.operatorVersion`,
-    ),
-    semanticContractSha256: assertSha256Id(
+    operator: assert_identifier(object.operator, `${path}.operator`),
+    operatorVersion: assert_unsigned_decimal(object.operatorVersion, `${path}.operatorVersion`),
+    semanticContractSha256: assert_sha256_id(
       object.semanticContractSha256,
       `${path}.semanticContractSha256`,
     ),
@@ -808,19 +811,19 @@ function normalizeOperatorDefinition(
   };
 }
 
-function requireEnumValue<const T extends readonly string[]>(
+function require_enum_value<const T extends readonly string[]>(
   value: unknown,
   allowed: T,
   path: string,
 ): T[number] {
-  const text = requireString(value, path);
+  const text = require_string(value, path);
   if (!(allowed as readonly string[]).includes(text)) {
     fail("invalid_registry", path, `unsupported semantic policy ${text}`);
   }
   return text as T[number];
 }
 
-function writeOperatorSemanticContract(contract: OperatorSemanticContract): string {
+function write_semantic_contract(contract: OperatorSemanticContract): string {
   return (
     `{"schema":"${OPERATOR_SEMANTIC_CONTRACT_SCHEMA}","operator":"${contract.operator}",` +
     `"operatorVersion":"${contract.operatorVersion}","nullPolicy":"${contract.nullPolicy}",` +
@@ -829,9 +832,7 @@ function writeOperatorSemanticContract(contract: OperatorSemanticContract): stri
   );
 }
 
-export function parseCanonicalOperatorSemanticContract(
-  bytes: Uint8Array,
-): OperatorSemanticContract {
+export function parse_semantic_contract(bytes: Uint8Array): OperatorSemanticContract {
   if (!(bytes instanceof Uint8Array) || bytes.byteLength > 4_096) {
     fail("invalid_registry", "$semantic_contract", "must be at most 4096 bytes");
   }
@@ -843,8 +844,8 @@ export function parseCanonicalOperatorSemanticContract(
   } catch {
     fail("invalid_registry", "$semantic_contract", "must be valid UTF-8 JSON");
   }
-  const object = requireObject(parsed, "$semantic_contract");
-  requireExactKeys(
+  const object = require_object(parsed, "$semantic_contract");
+  require_exact_keys(
     object,
     [
       "schema",
@@ -863,36 +864,40 @@ export function parseCanonicalOperatorSemanticContract(
   }
   const contract = Object.freeze({
     schema: OPERATOR_SEMANTIC_CONTRACT_SCHEMA,
-    operator: assertIdentifier(object.operator, "$semantic_contract.operator"),
-    operatorVersion: assertPositiveUnsignedDecimal(
+    operator: assert_identifier(object.operator, "$semantic_contract.operator"),
+    operatorVersion: assert_unsigned_decimal(
       object.operatorVersion,
       "$semantic_contract.operatorVersion",
     ),
-    nullPolicy: requireEnumValue(object.nullPolicy, NULL_POLICIES, "$semantic_contract.nullPolicy"),
-    windowPolicy: requireEnumValue(
+    nullPolicy: require_enum_value(
+      object.nullPolicy,
+      NULL_POLICIES,
+      "$semantic_contract.nullPolicy",
+    ),
+    windowPolicy: require_enum_value(
       object.windowPolicy,
       WINDOW_POLICIES,
       "$semantic_contract.windowPolicy",
     ),
-    tiePolicy: requireEnumValue(object.tiePolicy, TIE_POLICIES, "$semantic_contract.tiePolicy"),
-    alignmentPolicy: requireEnumValue(
+    tiePolicy: require_enum_value(object.tiePolicy, TIE_POLICIES, "$semantic_contract.tiePolicy"),
+    alignmentPolicy: require_enum_value(
       object.alignmentPolicy,
       ALIGNMENT_POLICIES,
       "$semantic_contract.alignmentPolicy",
     ),
-    numericPolicy: requireEnumValue(
+    numericPolicy: require_enum_value(
       object.numericPolicy,
       NUMERIC_POLICIES,
       "$semantic_contract.numericPolicy",
     ),
   });
-  if (writeOperatorSemanticContract(contract) !== text) {
+  if (write_semantic_contract(contract) !== text) {
     fail("invalid_registry", "$semantic_contract", "bytes are not canonical v1 JSON");
   }
   return contract;
 }
 
-export function semanticContractSha256(bytes: Uint8Array): Sha256Id {
+export function semantic_contract_sha256(bytes: Uint8Array): Sha256Id {
   const hash = createHash("sha256");
   hash.update(bytes);
   return `sha256:${hash.digest("hex")}` as Sha256Id;
@@ -906,8 +911,8 @@ export class OperatorPolicyRegistry {
   readonly #sha256: Sha256Id;
 
   public constructor(snapshot: OperatorRegistrySnapshot, resolver: SemanticContractResolver) {
-    const object = requireObject(snapshot, "$registry");
-    requireExactKeys(object, ["fields", "enums", "operators"], "$registry");
+    const object = require_object(snapshot, "$registry");
+    require_exact_keys(object, ["fields", "enums", "operators"], "$registry");
     if (
       !Array.isArray(object.fields) ||
       !Array.isArray(object.enums) ||
@@ -918,7 +923,7 @@ export class OperatorPolicyRegistry {
 
     const fields = new Map<string, ValueType>();
     object.fields.forEach((input, index) => {
-      const definition = normalizeFieldDefinition(input, `$registry.fields[${index}]`);
+      const definition = normalize_field_definition(input, `$registry.fields[${index}]`);
       if (fields.has(definition.field)) {
         fail("invalid_registry", `$registry.fields[${index}].field`, "duplicate field definition");
       }
@@ -927,7 +932,7 @@ export class OperatorPolicyRegistry {
 
     const enums = new Map<string, ReadonlySet<string>>();
     object.enums.forEach((input, index) => {
-      const definition = normalizeEnumDefinition(input, `$registry.enums[${index}]`);
+      const definition = normalize_enum_definition(input, `$registry.enums[${index}]`);
       if (enums.has(definition.enumType)) {
         fail("invalid_registry", `$registry.enums[${index}].enumType`, "duplicate enum definition");
       }
@@ -936,7 +941,7 @@ export class OperatorPolicyRegistry {
 
     const operators = new Map<string, ResolvedOperatorDefinition>();
     object.operators.forEach((input, index) => {
-      const normalized = normalizeOperatorDefinition(input, `$registry.operators[${index}]`);
+      const normalized = normalize_operator_definition(input, `$registry.operators[${index}]`);
       const bytes = resolver(normalized.semanticContractSha256);
       if (bytes === undefined) {
         fail(
@@ -945,7 +950,7 @@ export class OperatorPolicyRegistry {
           "semantic contract was not resolved",
         );
       }
-      const computed = semanticContractSha256(bytes);
+      const computed = semantic_contract_sha256(bytes);
       if (computed !== normalized.semanticContractSha256) {
         fail(
           "invalid_registry",
@@ -953,7 +958,7 @@ export class OperatorPolicyRegistry {
           `semantic contract content digest is ${computed}`,
         );
       }
-      const semanticContract = parseCanonicalOperatorSemanticContract(bytes);
+      const semanticContract = parse_semantic_contract(bytes);
       if (
         semanticContract.operator !== normalized.operator ||
         semanticContract.operatorVersion !== normalized.operatorVersion
@@ -965,7 +970,7 @@ export class OperatorPolicyRegistry {
         );
       }
       const definition = Object.freeze({ ...normalized, semanticContract });
-      const key = operatorKey(definition.operator, definition.operatorVersion);
+      const key = operator_key(definition.operator, definition.operatorVersion);
       if (operators.has(key)) {
         fail("invalid_registry", `$registry.operators[${index}]`, "duplicate operator version");
       }
@@ -989,12 +994,12 @@ export class OperatorPolicyRegistry {
     this.#fields = fields;
     this.#enums = enums;
     this.#operators = operators;
-    this.#canonicalJson = writeCanonicalOperatorRegistry(fields, enums, operators);
-    this.#sha256 = hashOperatorRegistry(new TextEncoder().encode(this.#canonicalJson));
+    this.#canonicalJson = write_operator_registry(fields, enums, operators);
+    this.#sha256 = hash_operator_registry(new TextEncoder().encode(this.#canonicalJson));
     Object.freeze(this);
   }
 
-  public get canonicalJson(): string {
+  public get canonical_json(): string {
     return this.#canonicalJson;
   }
 
@@ -1002,13 +1007,13 @@ export class OperatorPolicyRegistry {
     return this.#sha256;
   }
 
-  public resolveSemanticContract(
+  public resolve_semantic_contract(
     operator: string,
     operatorVersion: string,
   ): OperatorSemanticContract {
-    const key = operatorKey(
-      assertIdentifier(operator, "$operator"),
-      assertPositiveUnsignedDecimal(operatorVersion, "$operatorVersion"),
+    const key = operator_key(
+      assert_identifier(operator, "$operator"),
+      assert_unsigned_decimal(operatorVersion, "$operatorVersion"),
     );
     const definition = this.#operators.get(key);
     if (definition === undefined) {
@@ -1017,11 +1022,11 @@ export class OperatorPolicyRegistry {
     return definition.semanticContract;
   }
 
-  public toBytes(): Uint8Array {
+  public to_bytes(): Uint8Array {
     return new TextEncoder().encode(this.#canonicalJson);
   }
 
-  public resolveField(field: string, path: string): ValueType {
+  public resolve_field(field: string, path: string): ValueType {
     const type = this.#fields.get(field);
     if (type === undefined) {
       fail("unknown_field", path, `field ${field} is not present in this registry snapshot`);
@@ -1029,7 +1034,7 @@ export class OperatorPolicyRegistry {
     return type;
   }
 
-  public resolveEnum(enumType: string, value: string, path: string): ValueType {
+  public resolve_enum(enumType: string, value: string, path: string): ValueType {
     const values = this.#enums.get(enumType);
     if (values === undefined || !values.has(value)) {
       fail("unknown_enum", path, `enum value ${enumType}.${value} is not registered`);
@@ -1037,12 +1042,12 @@ export class OperatorPolicyRegistry {
     return Object.freeze({ enumType });
   }
 
-  public resolveOperator(
+  public resolve_operator(
     operator: string,
     operatorVersion: string,
     path: string,
   ): ResolvedOperatorDefinition {
-    const definition = this.#operators.get(operatorKey(operator, operatorVersion));
+    const definition = this.#operators.get(operator_key(operator, operatorVersion));
     if (definition === undefined) {
       fail(
         "unknown_operator",
@@ -1053,7 +1058,7 @@ export class OperatorPolicyRegistry {
     return definition;
   }
 
-  public validateArguments(
+  public validate_arguments(
     definition: ResolvedOperatorDefinition,
     arguments_: readonly ResolvedArgument[],
     path: string,
@@ -1074,61 +1079,61 @@ export class OperatorPolicyRegistry {
       if (expected === undefined) {
         fail("arity_mismatch", `${path}[${index}]`, "unexpected argument");
       }
-      if (!valueTypesEqual(argument.type, expected.type)) {
+      if (!value_types_equal(argument.type, expected.type)) {
         fail(
           "type_mismatch",
           `${path}[${index}]`,
-          `expected ${valueTypeLabel(expected.type)}, received ${valueTypeLabel(argument.type)}`,
+          `expected ${value_type_label(expected.type)}, received ${value_type_label(argument.type)}`,
         );
       }
-      if (expected.literalOnly && !isLiteralOfType(argument.ast, expected.type)) {
+      if (expected.literalOnly && !is_typed_literal(argument.ast, expected.type)) {
         fail("type_mismatch", `${path}[${index}]`, "argument must be a literal");
       }
       if (expected.decimal !== undefined && argument.ast.node === "decimal") {
-        validateDecimalConstraints(argument.ast.value, expected.decimal, `${path}[${index}]`);
+        validate_decimal_constraints(argument.ast.value, expected.decimal, `${path}[${index}]`);
       }
     });
     return definition.outputType;
   }
 }
 
-function writeCanonicalOperatorRegistry(
+function write_operator_registry(
   fields: ReadonlyMap<string, ValueType>,
   enums: ReadonlyMap<string, ReadonlySet<string>>,
   operators: ReadonlyMap<string, ResolvedOperatorDefinition>,
 ): string {
   const fieldJson = [...fields.entries()]
-    .sort(([left], [right]) => compareAscii(left, right))
+    .sort(([left], [right]) => compare_ascii(left, right))
     .map(
       ([field, outputType]) =>
-        `{"field":"${field}","outputType":${writeRegistryValueType(outputType)}}`,
+        `{"field":"${field}","outputType":${write_registry_type(outputType)}}`,
     );
   const enumJson = [...enums.entries()]
-    .sort(([left], [right]) => compareAscii(left, right))
+    .sort(([left], [right]) => compare_ascii(left, right))
     .map(([enumType, values]) => {
       const valueJson = [...values]
-        .sort(compareAscii)
+        .sort(compare_ascii)
         .map((value) => `"${value}"`)
         .join(",");
       return `{"enumType":"${enumType}","values":[${valueJson}]}`;
     });
   const operatorJson = [...operators.values()]
     .sort((left, right) => {
-      const name = compareAscii(left.operator, right.operator);
+      const name = compare_ascii(left.operator, right.operator);
       return name === 0
-        ? comparePositiveInteger(left.operatorVersion, right.operatorVersion)
+        ? compare_positive_integer(left.operatorVersion, right.operatorVersion)
         : name;
     })
-    .map(writeRegistryOperator);
+    .map(write_registry_operator);
   return `{"schema":"${OPERATOR_REGISTRY_SCHEMA}","fields":[${fieldJson.join(",")}],"enums":[${enumJson.join(",")}],"operators":[${operatorJson.join(",")}]}`;
 }
 
-function writeRegistryValueType(valueType: ValueType): string {
+function write_registry_type(valueType: ValueType): string {
   return typeof valueType === "string" ? `"${valueType}"` : `{"enumType":"${valueType.enumType}"}`;
 }
 
-function writeRegistryArgument(argument: ArgumentDefinition): string {
-  let output = `{"type":${writeRegistryValueType(argument.type)}`;
+function write_registry_argument(argument: ArgumentDefinition): string {
+  let output = `{"type":${write_registry_type(argument.type)}`;
   if (argument.literalOnly === true) {
     output += ',"literalOnly":true';
   }
@@ -1141,25 +1146,25 @@ function writeRegistryArgument(argument: ArgumentDefinition): string {
   return `${output}}`;
 }
 
-function writeRegistryOperator(definition: ResolvedOperatorDefinition): string {
-  const parameters = definition.parameters.map(writeRegistryArgument).join(",");
+function write_registry_operator(definition: ResolvedOperatorDefinition): string {
+  const parameters = definition.parameters.map(write_registry_argument).join(",");
   let output =
     `{"operator":"${definition.operator}","operatorVersion":"${definition.operatorVersion}",` +
     `"semanticContractSha256":"${definition.semanticContractSha256}",` +
     `"parameters":[${parameters}]`;
   if (definition.variadic !== undefined) {
     output +=
-      `,"variadic":${writeRegistryArgument(definition.variadic)}` +
+      `,"variadic":${write_registry_argument(definition.variadic)}` +
       `,"minArguments":"${definition.minArguments}",` +
       `"maxArguments":"${definition.maxArguments}"`;
   }
   output +=
-    `,"outputType":${writeRegistryValueType(definition.outputType)}` +
+    `,"outputType":${write_registry_type(definition.outputType)}` +
     `,"associative":${definition.associative},"commutative":${definition.commutative}}`;
   return output;
 }
 
-function hashOperatorRegistry(canonicalBytes: Uint8Array): Sha256Id {
+function hash_operator_registry(canonicalBytes: Uint8Array): Sha256Id {
   const hash = createHash("sha256");
   hash.update(OPERATOR_REGISTRY_SCHEMA, "ascii");
   hash.update(Uint8Array.of(0));
@@ -1167,15 +1172,15 @@ function hashOperatorRegistry(canonicalBytes: Uint8Array): Sha256Id {
   return `sha256:${hash.digest("hex")}` as Sha256Id;
 }
 
-function compareAscii(left: string, right: string): number {
+function compare_ascii(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function comparePositiveInteger(left: string, right: string): number {
-  return left.length === right.length ? compareAscii(left, right) : left.length - right.length;
+function compare_positive_integer(left: string, right: string): number {
+  return left.length === right.length ? compare_ascii(left, right) : left.length - right.length;
 }
 
-function isLiteralOfType(ast: FactorAst, type: ValueType): boolean {
+function is_typed_literal(ast: FactorAst, type: ValueType): boolean {
   if (type === "decimal") {
     return ast.node === "decimal";
   }
@@ -1188,7 +1193,7 @@ function isLiteralOfType(ast: FactorAst, type: ValueType): boolean {
   return false;
 }
 
-function decimalParts(value: string): {
+function decimal_parts(value: string): {
   readonly negative: boolean;
   readonly integer: string;
   readonly fraction: string;
@@ -1199,9 +1204,9 @@ function decimalParts(value: string): {
   return { negative, integer, fraction };
 }
 
-function compareDecimals(left: string, right: string): number {
-  const leftParts = decimalParts(left);
-  const rightParts = decimalParts(right);
+function compare_decimals(left: string, right: string): number {
+  const leftParts = decimal_parts(left);
+  const rightParts = decimal_parts(right);
   const scale = Math.max(leftParts.fraction.length, rightParts.fraction.length);
   const leftMagnitude = BigInt(`${leftParts.integer}${leftParts.fraction.padEnd(scale, "0")}`);
   const rightMagnitude = BigInt(`${rightParts.integer}${rightParts.fraction.padEnd(scale, "0")}`);
@@ -1213,12 +1218,12 @@ function compareDecimals(left: string, right: string): number {
 type DecimalValidationConstraints = Pick<DecimalConstraints, "maxPrecision" | "maxScale"> &
   Partial<Pick<DecimalConstraints, "minimum" | "maximum">>;
 
-function validateDecimalConstraints(
+function validate_decimal_constraints(
   value: string,
   constraints: DecimalValidationConstraints,
   path: string,
 ): void {
-  const parts = decimalParts(value);
+  const parts = decimal_parts(value);
   const precision = parts.integer.length + parts.fraction.length;
   if (precision > constraints.maxPrecision) {
     fail("invalid_decimal", path, `precision exceeds ${constraints.maxPrecision}`);
@@ -1226,10 +1231,10 @@ function validateDecimalConstraints(
   if (parts.fraction.length > constraints.maxScale) {
     fail("invalid_decimal", path, `scale exceeds ${constraints.maxScale}`);
   }
-  if (constraints.minimum !== undefined && compareDecimals(value, constraints.minimum) < 0) {
+  if (constraints.minimum !== undefined && compare_decimals(value, constraints.minimum) < 0) {
     fail("invalid_decimal", path, `value is below minimum ${constraints.minimum}`);
   }
-  if (constraints.maximum !== undefined && compareDecimals(value, constraints.maximum) > 0) {
+  if (constraints.maximum !== undefined && compare_decimals(value, constraints.maximum) > 0) {
     fail("invalid_decimal", path, `value is above maximum ${constraints.maximum}`);
   }
 }

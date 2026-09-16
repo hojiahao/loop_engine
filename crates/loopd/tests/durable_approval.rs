@@ -12,7 +12,8 @@ use sqlx::{Connection, Row};
 use support::{approval::*, *};
 
 #[tokio::test]
-async fn canonical_record_matches_golden() {
+// Scenario: canonical record matches golden.
+async fn canonical_golden() {
     let (directory, store, _) = setup().await;
     let result = store
         .record_approval(&human(1), approval::command(0, "golden", &human(1)))
@@ -94,7 +95,8 @@ async fn records_authenticated_approval() {
 }
 
 #[tokio::test]
-async fn expired_retry_preserves_original_record() {
+// Scenario: expired retry preserves original record.
+async fn expired_retry_original() {
     let (directory, store, clock) = setup().await;
     let result = store
         .record_approval(&human(1), approval::command(0, "approve", &human(1)))
@@ -136,7 +138,8 @@ async fn changed_reason_conflicts() {
 }
 
 #[tokio::test]
-async fn principals_have_independent_receipts() {
+// Scenario: principals have independent receipts.
+async fn principals_independent_receipts() {
     let (_directory, store, _) = setup().await;
     let mut ids = vec![];
     for principal in [human(1), human(2)] {
@@ -164,7 +167,8 @@ async fn rejects_spoofed_actor() {
 }
 
 #[tokio::test]
-async fn rejects_non_human_principals() {
+// Scenario: rejects non human principals.
+async fn human_principals() {
     let (_directory, store, _) = setup().await;
     for kind in [
         ActorKind::Agent,
@@ -186,7 +190,8 @@ async fn rejects_non_human_principals() {
 }
 
 #[tokio::test]
-async fn unresolved_references_fail_closed() {
+// Scenario: unresolved references fail closed.
+async fn unresolved_references_closed() {
     let (_directory, store, _) = setup().await;
     for field in ["freeze", "plan", "count", "evidence"] {
         let mut request = approval::command(0, "unresolved", &human(1));
@@ -246,7 +251,8 @@ async fn rejects_invalid_envelopes() {
 }
 
 #[tokio::test]
-async fn default_policy_denies_approval() {
+// Scenario: default policy denies approval.
+async fn default_policy_approval() {
     let (_directory, store, _) = fixture().await;
     assert!(matches!(
         store
@@ -262,7 +268,8 @@ async fn default_policy_denies_approval() {
 }
 
 #[tokio::test]
-async fn read_requires_protected_authority() {
+// Scenario: read requires protected authority.
+async fn protected_authority() {
     let (_directory, store, _) = setup().await;
     let result = store
         .record_approval(&human(1), approval::command(0, "approve", &human(1)))
@@ -284,7 +291,8 @@ async fn read_requires_protected_authority() {
 }
 
 #[tokio::test]
-async fn clock_regression_blocks_approval() {
+// Scenario: clock regression blocks approval.
+async fn clock_regression_approval() {
     let (_directory, store, clock) = setup().await;
     clock.0.store(NOW - 1, Ordering::SeqCst);
     assert!(matches!(
@@ -297,7 +305,8 @@ async fn clock_regression_blocks_approval() {
 }
 
 #[tokio::test]
-async fn expiry_is_bounded_by_store() {
+// Scenario: expiry is bounded by store.
+async fn expiry_bounded_store() {
     for validity_ms in [-1, 0, 604_800_001] {
         let (directory, store, clock) = setup().await;
         store.close().await;
@@ -316,7 +325,8 @@ async fn expiry_is_bounded_by_store() {
 }
 
 #[tokio::test]
-async fn dependent_failure_rolls_back_approval() {
+// Scenario: dependent failure rolls back approval.
+async fn dependent_failure_approval() {
     for table in ["audit_events", "holdout_command_receipts"] {
         let (directory, store, _) = setup().await;
         let mut database = connection(&directory).await;
@@ -344,7 +354,8 @@ async fn dependent_failure_rolls_back_approval() {
 }
 
 #[tokio::test]
-async fn approval_history_is_immutable() {
+// Scenario: approval history is immutable.
+async fn approval_history_immutable() {
     let (directory, store, _) = setup().await;
     store
         .record_approval(&human(1), approval::command(0, "immutable", &human(1)))
@@ -363,7 +374,8 @@ async fn approval_history_is_immutable() {
 }
 
 #[tokio::test]
-async fn rehashed_record_cannot_change_attestation() {
+// Scenario: rehashed record cannot change attestation.
+async fn rehashed_attestation() {
     let (directory, store, _) = setup().await;
     let result = store
         .record_approval(&human(1), approval::command(0, "corrupt", &human(1)))
@@ -404,7 +416,8 @@ async fn rehashed_record_cannot_change_attestation() {
 }
 
 #[tokio::test]
-async fn rehashed_receipt_cannot_change_actor() {
+// Scenario: rehashed receipt cannot change actor.
+async fn rehashed_receipt_actor() {
     let (directory, store, _) = setup().await;
     let result = store
         .record_approval(&human(1), approval::command(0, "corrupt", &human(1)))
@@ -431,7 +444,8 @@ async fn rehashed_receipt_cannot_change_actor() {
 }
 
 #[tokio::test]
-async fn issued_period_rejects_new_approval() {
+// Scenario: issued period rejects new approval.
+async fn issued_period_approval() {
     let (_directory, store, _, grant_request) = grant::setup().await;
     let request = approval::command(0, "approval.1", &human(1));
     let original = store
@@ -453,7 +467,8 @@ async fn issued_period_rejects_new_approval() {
 }
 
 #[tokio::test]
-async fn cancellation_does_not_leave_an_approval() {
+// Scenario: cancellation does not leave an approval.
+async fn cancellation_approval() {
     let (directory, store, _) = setup().await;
     let mut database = connection(&directory).await;
     let mut transaction = database.begin().await.unwrap();

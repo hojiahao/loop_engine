@@ -8,15 +8,15 @@ import {
   type AuditPayload,
   type AuditTarget,
   AuditValidationError,
-  assertActorKind,
-  assertAuditAction,
-  assertAuditTargetKind,
-  auditEventSha256,
-  auditPayloadSha256,
-  canonicalAuditEventBytes,
-  canonicalizeAuditPayload,
-  verifyAuditChain,
-  verifyAuditEvent,
+  assert_actor_kind,
+  assert_audit_action,
+  assert_target_kind,
+  audit_event_bytes,
+  audit_event_sha256,
+  audit_payload_sha256,
+  canonicalize_audit_payload,
+  verify_audit_chain,
+  verify_audit_event,
 } from "../src/index.js";
 
 interface Fixture {
@@ -137,24 +137,24 @@ describe("audit canonicalization v1", () => {
         vector?.payload.canonical_utf8,
       );
       expect(event.payload.payloadSha256, vector?.name).toBe(vector?.payload.payload_sha256);
-      expect(decoder.decode(canonicalAuditEventBytes(event)), vector?.name).toBe(
+      expect(decoder.decode(audit_event_bytes(event)), vector?.name).toBe(
         vector?.canonical_event_utf8,
       );
-      expect(auditEventSha256(event), vector?.name).toBe(vector?.event_sha256);
+      expect(audit_event_sha256(event), vector?.name).toBe(vector?.event_sha256);
     }
-    expect(() => verifyAuditChain(events)).not.toThrow();
+    expect(() => verify_audit_chain(events)).not.toThrow();
   });
 
   it("closes every action and typed target enum spelling", () => {
     for (const action of fixture.action_values) {
-      expect(assertAuditAction(action)).toBe(action);
+      expect(assert_audit_action(action)).toBe(action);
     }
-    expectAuditError(() => assertAuditAction("unknown"), "invalid_enum");
+    expect_audit_error(() => assert_audit_action("unknown"), "invalid_enum");
 
     for (const target of fixture.target_vectors) {
-      expect(assertAuditTargetKind(target.kind)).toBe(target.kind);
+      expect(assert_target_kind(target.kind)).toBe(target.kind);
     }
-    expectAuditError(() => assertAuditTargetKind("unknown"), "invalid_target");
+    expect_audit_error(() => assert_target_kind("unknown"), "invalid_target");
   });
 
   it("binds all 11 actions to exact schemas, targets, and payload subjects before hashing", () => {
@@ -176,20 +176,20 @@ describe("audit canonicalization v1", () => {
       expect(malformedNames.has(required), `missing ${required} vector`).toBe(true);
     }
     for (const [index, vector] of actionBindingFixture.accepted.entries()) {
-      const event = actionEvent(actionBindingFixture.event_envelope, vector);
+      const event = action_event(actionBindingFixture.event_envelope, vector);
       expect(event.payload.payloadSha256, `${vector.name} payload digest`).toBe(
         vector.payload_sha256,
       );
-      expect(decoder.decode(canonicalAuditEventBytes(event)), `${vector.name} event bytes`).toBe(
+      expect(decoder.decode(audit_event_bytes(event)), `${vector.name} event bytes`).toBe(
         vector.canonical_event_utf8,
       );
-      expect(auditEventSha256(event), `${vector.name} event digest`).toBe(vector.event_sha256);
+      expect(audit_event_sha256(event), `${vector.name} event digest`).toBe(vector.event_sha256);
       const sealed = { ...event, eventSha256: vector.event_sha256 };
-      expect(() => verifyAuditEvent(sealed), vector.name).not.toThrow();
+      expect(() => verify_audit_event(sealed), vector.name).not.toThrow();
 
       for (const value of vector.invalid_target_values ?? []) {
-        expectAuditError(
-          () => auditEventSha256({ ...event, target: { ...event.target, value } }),
+        expect_audit_error(
+          () => audit_event_sha256({ ...event, target: { ...event.target, value } }),
           "invalid_target",
           `${vector.name} invalid target ${value}`,
         );
@@ -198,13 +198,13 @@ describe("audit canonicalization v1", () => {
       const wrongAction =
         actionBindingFixture.accepted[(index + 1) % actionBindingFixture.accepted.length];
       expect(wrongAction).toBeDefined();
-      expectAuditError(
+      expect_audit_error(
         () =>
-          auditEventSha256({
+          audit_event_sha256({
             ...event,
-            action: assertAuditAction(wrongAction?.action ?? ""),
+            action: assert_audit_action(wrongAction?.action ?? ""),
             target: {
-              kind: assertAuditTargetKind(wrongAction?.target.kind ?? ""),
+              kind: assert_target_kind(wrongAction?.target.kind ?? ""),
               value: wrongAction?.target.value ?? "",
             },
           }),
@@ -212,12 +212,12 @@ describe("audit canonicalization v1", () => {
         `${vector.name} wrong action/schema`,
       );
 
-      expectAuditError(
+      expect_audit_error(
         () =>
-          auditEventSha256({
+          audit_event_sha256({
             ...event,
             target: {
-              kind: assertAuditTargetKind(vector.forbidden_target.kind),
+              kind: assert_target_kind(vector.forbidden_target.kind),
               value: vector.forbidden_target.value,
             },
           }),
@@ -226,9 +226,9 @@ describe("audit canonicalization v1", () => {
       );
 
       if (vector.mismatched_target_value !== undefined) {
-        expectAuditError(
+        expect_audit_error(
           () =>
-            auditEventSha256({
+            audit_event_sha256({
               ...event,
               target: { ...event.target, value: vector.mismatched_target_value ?? "" },
             }),
@@ -239,8 +239,8 @@ describe("audit canonicalization v1", () => {
     }
 
     for (const vector of actionBindingFixture.malformed_payloads) {
-      expectAuditError(
-        () => canonicalizeAuditPayload(vector.payload_schema, 1, vector.canonical_payload),
+      expect_audit_error(
+        () => canonicalize_audit_payload(vector.payload_schema, 1, vector.canonical_payload),
         vector.expected_code,
         vector.name,
       );
@@ -248,33 +248,33 @@ describe("audit canonicalization v1", () => {
   });
 
   it("validates holdout grant authorization evidence and canonical approval ordering", () => {
-    const first = approvalRecord("01", "1", "actor.approver-a");
-    const second = approvalRecord("02", "2", "actor.approver-b");
+    const first = approval_record("01", "1", "actor.approver-a");
+    const second = approval_record("02", "2", "actor.approver-b");
     const maximum = Array.from({ length: 8 }, (_, index) =>
-      approvalRecord(
+      approval_record(
         index.toString().padStart(2, "0"),
         (index + 1).toString(16),
         `actor.approver-${index.toString().padStart(2, "0")}`,
       ),
     );
     expect(() =>
-      canonicalizeAuditPayload(
+      canonicalize_audit_payload(
         "loop.audit.holdout_grant_issued",
         1,
-        holdoutGrantIssuedPayload([first, second]),
+        holdout_grant_issued([first, second]),
       ),
     ).not.toThrow();
     expect(() =>
-      canonicalizeAuditPayload(
+      canonicalize_audit_payload(
         "loop.audit.holdout_grant_issued",
         1,
-        holdoutGrantIssuedPayload(maximum),
+        holdout_grant_issued(maximum),
       ),
     ).not.toThrow();
 
     for (const [name, records] of [
       ["empty", []],
-      ["over limit", [...maximum, approvalRecord("08", "9", "actor.approver-08")]],
+      ["over limit", [...maximum, approval_record("08", "9", "actor.approver-08")]],
       ["unsorted", [second, first]],
       [
         "duplicate record ID",
@@ -289,12 +289,12 @@ describe("audit canonicalization v1", () => {
         [first, { ...second, approved_by_actor_id: first.approved_by_actor_id }],
       ],
     ] satisfies readonly (readonly [string, readonly HoldoutApprovalRecordInput[]])[]) {
-      expectAuditError(
+      expect_audit_error(
         () =>
-          canonicalizeAuditPayload(
+          canonicalize_audit_payload(
             "loop.audit.holdout_grant_issued",
             1,
-            holdoutGrantIssuedPayload(records),
+            holdout_grant_issued(records),
           ),
         "non_canonical_payload",
         name,
@@ -305,72 +305,68 @@ describe("audit canonicalization v1", () => {
       ["invalid approval record ID", { ...first, holdout_approval_record_id: "bad id" }],
       ["invalid approver actor ID", { ...first, approved_by_actor_id: "bad id" }],
     ] satisfies readonly (readonly [string, HoldoutApprovalRecordInput])[]) {
-      expectAuditError(
+      expect_audit_error(
         () =>
-          canonicalizeAuditPayload(
+          canonicalize_audit_payload(
             "loop.audit.holdout_grant_issued",
             1,
-            holdoutGrantIssuedPayload([record]),
+            holdout_grant_issued([record]),
           ),
         "invalid_identifier",
         name,
       );
     }
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.holdout_grant_issued",
           1,
-          holdoutGrantIssuedPayload([{ ...first, approval_record_sha256: "sha256:ABC" }]),
+          holdout_grant_issued([{ ...first, approval_record_sha256: "sha256:ABC" }]),
         ),
       "invalid_digest",
       "invalid approval record digest",
     );
 
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.holdout_grant_issued",
           1,
-          holdoutGrantIssuedPayload([first], "privileged", "authorized"),
+          holdout_grant_issued([first], "privileged", "authorized"),
         ),
       "invalid_enum",
       "issued capability class",
     );
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.holdout_grant_issued",
           1,
-          holdoutGrantIssuedPayload([first], "holdout_evaluation", "denied"),
+          holdout_grant_issued([first], "holdout_evaluation", "denied"),
         ),
       "invalid_enum",
       "issued authorization decision",
     );
 
     expect(() =>
-      canonicalizeAuditPayload(
-        "loop.audit.holdout_grant_consumed",
-        1,
-        holdoutGrantConsumedPayload(),
-      ),
+      canonicalize_audit_payload("loop.audit.holdout_grant_consumed", 1, holdout_grant_consumed()),
     ).not.toThrow();
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.holdout_grant_consumed",
           1,
-          holdoutGrantConsumedPayload("privileged", "authorized"),
+          holdout_grant_consumed("privileged", "authorized"),
         ),
       "invalid_enum",
       "consumed capability class",
     );
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.holdout_grant_consumed",
           1,
-          holdoutGrantConsumedPayload("holdout_evaluation", "denied"),
+          holdout_grant_consumed("holdout_evaluation", "denied"),
         ),
       "invalid_enum",
       "consumed authorization decision",
@@ -379,8 +375,8 @@ describe("audit canonicalization v1", () => {
 
   it("fails closed on hostile deep JSON without leaking a native exception", () => {
     const payload = `${"[".repeat(512)}{}${"]".repeat(512)}`;
-    expectAuditError(
-      () => canonicalizeAuditPayload("loop.audit.command_accepted", 1, payload),
+    expect_audit_error(
+      () => canonicalize_audit_payload("loop.audit.command_accepted", 1, payload),
       "non_canonical_payload",
     );
   });
@@ -442,7 +438,7 @@ describe("audit canonicalization v1", () => {
         default:
           throw new Error(`unknown negative mutation ${negative.mutation}`);
       }
-      expectAuditError(() => verifyAuditChain(events), negative.expected_code, negative.name);
+      expect_audit_error(() => verify_audit_chain(events), negative.expected_code, negative.name);
     }
   });
 
@@ -462,23 +458,25 @@ describe("audit canonicalization v1", () => {
       sequence: maxSequence,
       actor: { ...base.actor, displayName: "x".repeat(maxTextBytes) },
     } as AuditEvent);
-    expect(() => verifyAuditEvent(boundaryEvent)).not.toThrow();
+    expect(() => verify_audit_event(boundaryEvent)).not.toThrow();
 
     const summary = "x".repeat(maxTextBytes);
     const payload = `{"command":"research.run","request_id":"request.1","summary":"${summary}"}`;
-    expect(() => canonicalizeAuditPayload("loop.audit.command_accepted", 1, payload)).not.toThrow();
-    expectAuditError(
+    expect(() =>
+      canonicalize_audit_payload("loop.audit.command_accepted", 1, payload),
+    ).not.toThrow();
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.command_accepted",
           1,
           payload.replace(summary, "x".repeat(maxTextBytes + 1)),
         ),
       "invalid_text",
     );
-    expectAuditError(
+    expect_audit_error(
       () =>
-        canonicalizeAuditPayload(
+        canonicalize_audit_payload(
           "loop.audit.command_accepted",
           1,
           new Uint8Array(maxPayloadBytes + 1),
@@ -486,11 +484,11 @@ describe("audit canonicalization v1", () => {
       "size_limit",
     );
     expect(
-      auditPayloadSha256("loop.audit.command_accepted", maxSchemaVersion, new Uint8Array()),
+      audit_payload_sha256("loop.audit.command_accepted", maxSchemaVersion, new Uint8Array()),
     ).toMatch(/^sha256:[0-9a-f]{64}$/);
-    expectAuditError(
+    expect_audit_error(
       () =>
-        auditEventSha256({
+        audit_event_sha256({
           ...base,
           auditLedgerId: "a".repeat(maxIdBytes + 1),
         } as AuditEvent),
@@ -505,13 +503,13 @@ describe("audit canonicalization v1", () => {
       '{"command":"research.run","request_id":"request.1","summary":"ok","extra":"x"}',
       '{"command":"research.run","command":"research.run","request_id":"request.1","summary":"ok"}',
     ]) {
-      expectAuditError(
-        () => canonicalizeAuditPayload("loop.audit.command_accepted", 1, value),
+      expect_audit_error(
+        () => canonicalize_audit_payload("loop.audit.command_accepted", 1, value),
         "non_canonical_payload",
       );
     }
-    expectAuditError(
-      () => canonicalizeAuditPayload("loop.audit.unknown", 1, "{}"),
+    expect_audit_error(
+      () => canonicalize_audit_payload("loop.audit.unknown", 1, "{}"),
       "unsupported_schema",
     );
 
@@ -523,30 +521,30 @@ describe("audit canonicalization v1", () => {
       "2026-09-05T06:30:00.00000000Z",
       "2026-09-05T06:30:00.000000000+00:00",
     ]) {
-      expectAuditError(
-        () => auditEventSha256({ ...base, occurredAt } as AuditEvent),
+      expect_audit_error(
+        () => audit_event_sha256({ ...base, occurredAt } as AuditEvent),
         "invalid_timestamp",
       );
     }
-    expectAuditError(
+    expect_audit_error(
       () =>
-        auditEventSha256({
+        audit_event_sha256({
           ...base,
           actor: { ...base.actor, displayName: "\ud800" },
         } as AuditEvent),
       "invalid_text",
     );
-    expect(assertActorKind("scheduler")).toBe("scheduler");
-    expectAuditError(() => assertActorKind("unknown"), "invalid_enum");
+    expect(assert_actor_kind("scheduler")).toBe("scheduler");
+    expect_audit_error(() => assert_actor_kind("unknown"), "invalid_enum");
   });
 });
 
 function chain(): AuditEvent[] {
-  return fixture.accepted_chain.map(toEvent);
+  return fixture.accepted_chain.map(to_event);
 }
 
-function toEvent(vector: AcceptedVector): AuditEvent {
-  const payload = canonicalizeAuditPayload(
+function to_event(vector: AcceptedVector): AuditEvent {
+  const payload = canonicalize_audit_payload(
     vector.payload.schema_name,
     Number(vector.payload.schema_version),
     vector.payload.canonical_utf8,
@@ -554,12 +552,12 @@ function toEvent(vector: AcceptedVector): AuditEvent {
   expect(payload.payloadSha256, vector.name).toBe(vector.payload.payload_sha256);
   const actor: AuditActor = {
     actorId: vector.event.actor.actor_id,
-    kind: assertActorKind(vector.event.actor.kind),
+    kind: assert_actor_kind(vector.event.actor.kind),
     displayName: vector.event.actor.display_name,
     authenticatedSubject: vector.event.actor.authenticated_subject,
   };
   const target: AuditTarget = {
-    kind: assertAuditTargetKind(vector.event.target.kind),
+    kind: assert_target_kind(vector.event.target.kind),
     value: vector.event.target.value,
   };
   return {
@@ -571,14 +569,14 @@ function toEvent(vector: AcceptedVector): AuditEvent {
     correlationId: vector.event.correlation_id,
     causationId: vector.event.causation_id,
     actor,
-    action: assertAuditAction(vector.event.action),
+    action: assert_audit_action(vector.event.action),
     target,
     payload,
     eventSha256: vector.event_sha256,
   };
 }
 
-function actionEvent(envelope: ActionEventEnvelope, vector: ActionBindingVector): AuditEvent {
+function action_event(envelope: ActionEventEnvelope, vector: ActionBindingVector): AuditEvent {
   return {
     auditLedgerId: envelope.audit_ledger_id,
     sequence: BigInt(envelope.sequence),
@@ -589,23 +587,23 @@ function actionEvent(envelope: ActionEventEnvelope, vector: ActionBindingVector)
     causationId: envelope.causation_id,
     actor: {
       actorId: envelope.actor.actor_id,
-      kind: assertActorKind(envelope.actor.kind),
+      kind: assert_actor_kind(envelope.actor.kind),
       displayName: envelope.actor.display_name,
       authenticatedSubject: envelope.actor.authenticated_subject,
     },
-    action: assertAuditAction(vector.action),
+    action: assert_audit_action(vector.action),
     target: {
-      kind: assertAuditTargetKind(vector.target.kind),
+      kind: assert_target_kind(vector.target.kind),
       value: vector.target.value,
     },
-    payload: canonicalizeAuditPayload(vector.payload_schema, 1, vector.canonical_payload),
+    payload: canonicalize_audit_payload(vector.payload_schema, 1, vector.canonical_payload),
     eventSha256: zeros,
   };
 }
 
 function seal(event: Omit<AuditEvent, "eventSha256"> | AuditEvent): AuditEvent {
   const candidate = { ...event, eventSha256: zeros } as AuditEvent;
-  return { ...candidate, eventSha256: auditEventSha256(candidate) };
+  return { ...candidate, eventSha256: audit_event_sha256(candidate) };
 }
 
 interface HoldoutApprovalRecordInput {
@@ -614,7 +612,7 @@ interface HoldoutApprovalRecordInput {
   readonly approved_by_actor_id: string;
 }
 
-function approvalRecord(
+function approval_record(
   suffix: string,
   digestDigit: string,
   actorId: string,
@@ -626,7 +624,7 @@ function approvalRecord(
   };
 }
 
-function holdoutGrantIssuedPayload(
+function holdout_grant_issued(
   approvalRecords: readonly HoldoutApprovalRecordInput[],
   capabilityClass = "holdout_evaluation",
   authorizationDecision = "authorized",
@@ -642,7 +640,7 @@ function holdoutGrantIssuedPayload(
   });
 }
 
-function holdoutGrantConsumedPayload(
+function holdout_grant_consumed(
   capabilityClass = "holdout_evaluation",
   authorizationDecision = "authorized",
 ): string {
@@ -656,7 +654,7 @@ function holdoutGrantConsumedPayload(
   });
 }
 
-function expectAuditError(action: () => unknown, code: AuditErrorCode, name = code): void {
+function expect_audit_error(action: () => unknown, code: AuditErrorCode, name = code): void {
   try {
     action();
   } catch (error) {

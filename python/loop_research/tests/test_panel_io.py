@@ -70,7 +70,8 @@ def manifest(view: Path, document: dict[str, Any]) -> ContentRef:
     return publish(view, json.dumps(document, separators=(",", ":")).encode("ascii"))
 
 
-def test_actual_read_only_files_form_the_exact_panel(view: Path) -> None:
+# Scenario: actual read only files form the exact panel.
+def test_files_form(view: Path) -> None:
     reference = manifest(view, declaration(view))
     loaded = load_panel(view, reference, sample_start=START, sample_end=END)
     np.testing.assert_array_equal(loaded.panel.fields["market.close"], [[8, 8], [10, 10], [12, 12]])
@@ -79,7 +80,8 @@ def test_actual_read_only_files_form_the_exact_panel(view: Path) -> None:
     loaded.check()
 
 
-def test_csv_missingness_does_not_become_zero(view: Path) -> None:
+# Scenario: csv missingness does not become zero.
+def test_csv_missingness(view: Path) -> None:
     data = rows()
     data[0][3:] = ["", ""]
     loaded = load_panel(
@@ -90,7 +92,8 @@ def test_csv_missingness_does_not_become_zero(view: Path) -> None:
 
 
 @pytest.mark.parametrize("token", ["nan", "inf", "-inf", " 1", "1_0", "1e400"])
-def test_invalid_observations_fail_closed(view: Path, token: str) -> None:
+# Scenario: invalid observations fail closed.
+def test_invalid_observations(view: Path, token: str) -> None:
     data = rows()
     data[0][-1] = token
     with pytest.raises(ValueError, match="observation"):
@@ -99,7 +102,8 @@ def test_invalid_observations_fail_closed(view: Path, token: str) -> None:
         )
 
 
-def test_future_observation_is_rejected(view: Path) -> None:
+# Scenario: future observation is rejected.
+def test_future_observation(view: Path) -> None:
     data = rows()
     data[0][3] = str(timestamp(4) + 1)
     with pytest.raises(ValueError, match="unavailable"):
@@ -108,7 +112,8 @@ def test_future_observation_is_rejected(view: Path) -> None:
         )
 
 
-def test_observation_without_visibility_is_rejected(view: Path) -> None:
+# Scenario: observation without visibility is rejected.
+def test_observation_visibility(view: Path) -> None:
     data = rows()
     data[0][3] = ""
     with pytest.raises(ValueError, match="visibility"):
@@ -118,7 +123,8 @@ def test_observation_without_visibility_is_rejected(view: Path) -> None:
 
 
 @pytest.mark.parametrize("change", ["missing", "duplicate", "reordered", "additional"])
-def test_grid_mismatch_cannot_change_coverage(view: Path, change: str) -> None:
+# Scenario: grid mismatch cannot change coverage.
+def test_grid_mismatch(view: Path, change: str) -> None:
     data = rows()
     if change == "missing":
         data.pop()
@@ -134,21 +140,24 @@ def test_grid_mismatch_cannot_change_coverage(view: Path, change: str) -> None:
         )
 
 
-def test_manifest_cannot_expand_a_frozen_sample(view: Path) -> None:
+# Scenario: manifest cannot expand a frozen sample.
+def test_manifest_expand(view: Path) -> None:
     with pytest.raises(ValueError, match="evaluation window"):
         load_panel(
             view, manifest(view, declaration(view)), sample_start=START, sample_end=date(2010, 1, 5)
         )
 
 
-def test_manifest_cannot_trim_a_frozen_sample(view: Path) -> None:
+# Scenario: manifest cannot trim a frozen sample.
+def test_manifest_trim(view: Path) -> None:
     with pytest.raises(ValueError, match="complete frozen"):
         load_panel(
             view, manifest(view, declaration(view)), sample_start=START, sample_end=date(2010, 1, 7)
         )
 
 
-def test_protected_samples_are_not_development_inputs(view: Path) -> None:
+# Scenario: protected samples are not development inputs.
+def test_protected_samples(view: Path) -> None:
     with pytest.raises(ValueError, match="development sample"):
         load_panel(
             view,
@@ -158,14 +167,16 @@ def test_protected_samples_are_not_development_inputs(view: Path) -> None:
         )
 
 
-def test_production_quality_cannot_be_claimed(view: Path) -> None:
+# Scenario: production quality cannot be claimed.
+def test_production_quality(view: Path) -> None:
     document = declaration(view)
     document["quality"] = "production"
     with pytest.raises(ValueError):
         load_panel(view, manifest(view, document), sample_start=START, sample_end=END)
 
 
-def test_corrupted_bytes_are_not_loaded(view: Path) -> None:
+# Scenario: corrupted bytes are not loaded.
+def test_corrupted_bytes(view: Path) -> None:
     document = declaration(view)
     reference = manifest(view, document)
     payload = view / document["values"]["sha256"][7:]
@@ -176,7 +187,8 @@ def test_corrupted_bytes_are_not_loaded(view: Path) -> None:
         load_panel(view, reference, sample_start=START, sample_end=END)
 
 
-def test_changed_file_invalidates_loaded_input(view: Path) -> None:
+# Scenario: changed file invalidates loaded input.
+def test_changed_file(view: Path) -> None:
     document = declaration(view)
     loaded = load_panel(view, manifest(view, document), sample_start=START, sample_end=END)
     payload = view / document["values"]["sha256"][7:]
@@ -185,7 +197,8 @@ def test_changed_file_invalidates_loaded_input(view: Path) -> None:
         loaded.check()
 
 
-def test_symlink_payload_is_rejected(view: Path) -> None:
+# Scenario: symlink payload is rejected.
+def test_symlink_payload(view: Path) -> None:
     document = declaration(view)
     reference = manifest(view, document)
     payload = view / document["values"]["sha256"][7:]
@@ -198,7 +211,8 @@ def test_symlink_payload_is_rejected(view: Path) -> None:
         load_panel(view, reference, sample_start=START, sample_end=END)
 
 
-def test_fifo_payload_is_rejected_without_blocking(view: Path) -> None:
+# Scenario: fifo payload is rejected without blocking.
+def test_fifo_payload(view: Path) -> None:
     document = declaration(view)
     reference = manifest(view, document)
     payload = view / document["values"]["sha256"][7:]
@@ -210,24 +224,28 @@ def test_fifo_payload_is_rejected_without_blocking(view: Path) -> None:
         load_panel(view, reference, sample_start=START, sample_end=END)
 
 
-def test_read_write_view_is_not_a_prepared_worker_mount(view: Path) -> None:
+# Scenario: read write view is not a prepared worker mount.
+def test_view_prepared(view: Path) -> None:
     reference = manifest(view, declaration(view))
     view.chmod(0o755)
     with pytest.raises(ValueError, match="read-only"):
         load_panel(view, reference, sample_start=START, sample_end=END)
 
 
-def test_decision_before_close_is_rejected() -> None:
+# Scenario: decision before close is rejected.
+def test_decision_close() -> None:
     with pytest.raises(ValueError, match="precedes"):
         require_session_decisions((START,), (timestamp(4) - 6 * 60_000,))
 
 
-def test_half_day_uses_real_scheduled_close() -> None:
+# Scenario: half day uses real scheduled close.
+def test_half_day() -> None:
     session = date(2010, 11, 26)
     decision = int(datetime(2010, 11, 26, 18, 5, tzinfo=UTC).timestamp()) * 1000
     assert require_session_decisions((session,), (decision,)).name == "XNYS"
 
 
-def test_next_day_decision_cannot_hide_future_data() -> None:
+# Scenario: next day decision cannot hide future data.
+def test_next_day() -> None:
     with pytest.raises(ValueError, match="another session"):
         require_session_decisions((START,), (timestamp(5),))

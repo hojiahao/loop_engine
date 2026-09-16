@@ -73,7 +73,7 @@ def validate_operational_failure(
     return service_error
 
 
-def validate_job_wire_dispatch_candidate(
+def validate_dispatch_candidate(
     specification: job_pb2.JobSpecification, enabled_job_kinds: Set[int]
 ) -> int:
     """Validate only a necessary wire-level dispatch candidate.

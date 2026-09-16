@@ -29,7 +29,8 @@ CLOSE = FieldNode("market.close")
 VOLUME = FieldNode("market.volume")
 
 
-def test_installed_registry_matches_the_rust_contract() -> None:
+# Scenario: installed registry matches the rust contract.
+def test_installed_registry() -> None:
     assert operator_registry().sha256 == (
         "sha256:1e61b2328c791e46a58bf61232307c14a7100973d4540a7061f87a6df7480c34"
     )
@@ -74,14 +75,16 @@ def output(node: AstNode, data: Panel) -> NDArray[np.float64]:
     return evaluate(factor(node), data, evaluation_start=data.sessions[0]).values
 
 
-def test_partial_window_skew_matches_scipy() -> None:
+# Scenario: partial window skew matches scipy.
+def test_window_skew() -> None:
     data = panel([[2], [np.nan], [4], [5], [6]])
     result = output(rolling("skew"), data)
     assert result[-1, 0] == pytest.approx(stats.skew([2, 4, 5, 6], bias=False), abs=1e-12)
     assert result[-1, 0] == pytest.approx(-0.7528371991317256)
 
 
-def test_constant_skew_is_missing_coverage() -> None:
+# Scenario: constant skew is missing coverage.
+def test_constant_skew() -> None:
     data = panel([[3], [3], [3], [3], [3]])
     result = evaluate(factor(rolling("skew")), data, evaluation_start=data.sessions[2])
     assert np.isnan(result.values).all()
@@ -90,7 +93,8 @@ def test_constant_skew_is_missing_coverage() -> None:
 
 
 @pytest.mark.parametrize("name", ["ma", "std", "min", "max"])
-def test_missing_target_preserves_valid_rolling_history(name: str) -> None:
+# Scenario: missing target preserves valid rolling history.
+def test_missing_target(name: str) -> None:
     data = panel([[2], [4], [6], [np.nan]])
     result = output(rolling(name, 4, 3), data)
     expected = {"ma": 4, "std": 2, "min": 2, "max": 6}
@@ -98,35 +102,42 @@ def test_missing_target_preserves_valid_rolling_history(name: str) -> None:
 
 
 @pytest.mark.parametrize("minimum", [1, 2])
-def test_skew_requires_three_valid_observations(minimum: int) -> None:
+# Scenario: skew requires three valid observations.
+def test_skew_three(minimum: int) -> None:
     data = panel([[1], [2], [3]])
     with pytest.raises(ValueError, match="width/minimum"):
         output(rolling("skew", 3, minimum), data)
 
 
-def test_minimum_cannot_exceed_width() -> None:
+# Scenario: minimum cannot exceed width.
+def test_minimum_exceed() -> None:
     with pytest.raises(ValueError, match="width/minimum"):
         output(rolling("ma", 3, 4), panel([[1], [2], [3]]))
 
 
-def test_rank_ts_preserves_missing_target() -> None:
+# Scenario: rank ts preserves missing target.
+def test_rank_missing() -> None:
     assert np.isnan(output(rolling("rank_ts", 4, 3), panel([[2], [4], [6], [np.nan]]))[-1, 0])
 
 
-def test_rank_ts_uses_stable_last_ties() -> None:
+# Scenario: rank ts uses stable last ties.
+def test_rank_stable() -> None:
     assert output(rolling("rank_ts", 4, 3), panel([[2], [4], [4], [4]]))[-1, 0] == 1
 
 
-def test_rank_ts_constant_is_midpoint() -> None:
+# Scenario: rank ts constant is midpoint.
+def test_rank_ts() -> None:
     assert output(rolling("rank_ts", 3, 3), panel([[4], [4], [4]]))[-1, 0] == 0.5
 
 
-def test_rank_cs_uses_average_valid_ranks() -> None:
+# Scenario: rank cs uses average valid ranks.
+def test_rank_cs() -> None:
     data = panel([[3, 1, 1, np.nan]])
     assert_allclose(output(CallNode("rank_cs", VERSION, (CLOSE,)), data), [[1, 0.5, 0.5, np.nan]])
 
 
-def test_zscore_uses_sample_deviation_and_missingness() -> None:
+# Scenario: zscore uses sample deviation and missingness.
+def test_zscore_sample() -> None:
     data = panel([[1, 2, 3, np.nan], [3, 3, 3, np.nan]])
     assert_allclose(
         output(CallNode("zscore", VERSION, (CLOSE,)), data),
@@ -135,7 +146,8 @@ def test_zscore_uses_sample_deviation_and_missingness() -> None:
 
 
 @pytest.mark.parametrize("name", ["roc", "delta"])
-def test_lag_has_no_fill_or_future_data(name: str) -> None:
+# Scenario: lag has no fill or future data.
+def test_lag_fill(name: str) -> None:
     data = panel([[2], [np.nan], [6], [8]])
     expected = [[np.nan], [np.nan], [2 if name == "roc" else 4], [np.nan]]
     assert_allclose(output(CallNode(name, VERSION, (CLOSE, DecimalNode("2"))), data), expected)
@@ -146,31 +158,36 @@ def test_binary_operator(name: str, expected: float) -> None:
     assert_allclose(output(CallNode(name, VERSION, (CLOSE, VOLUME)), panel([[3]])), [[expected]])
 
 
-def test_division_by_zero_is_missing() -> None:
+# Scenario: division by zero is missing.
+def test_division_zero() -> None:
     data = panel([[0], [2]])
     assert_allclose(output(CallNode("div", VERSION, (VOLUME, CLOSE)), data), [[np.nan], [1]])
 
 
-def test_overflow_does_not_poison_other_cells() -> None:
+# Scenario: overflow does not poison other cells.
+def test_overflow_poison() -> None:
     data = panel([[np.finfo(np.float64).max, 2]])
     assert_allclose(output(CallNode("mul", VERSION, (CLOSE, VOLUME)), data), [[np.nan, 4]])
 
 
-def test_eligibility_masks_values_and_coverage() -> None:
+# Scenario: eligibility masks values and coverage.
+def test_eligibility_masks() -> None:
     data = panel([[1, 1000], [2, 10]], eligible=np.array([[True, False], [True, True]]))
     result = evaluate(factor(rolling("ma", 2, 2)), data, evaluation_start=data.sessions[1])
     assert_allclose(result.values, [[1.5, np.nan]])
     assert (result.eligible_observations, result.valid_observations) == (2, 1)
 
 
-def test_warmup_is_excluded_from_result_counts() -> None:
+# Scenario: warmup is excluded from result counts.
+def test_warmup_excluded() -> None:
     data = panel([[1], [2], [3]])
     result = evaluate(factor(rolling("ma", 3, 3)), data, evaluation_start=data.sessions[2])
     assert_allclose(result.values, [[2]])
     assert (result.eligible_observations, result.valid_observations) == (1, 1)
 
 
-def test_direction_is_not_reselected_or_applied_to_raw_values() -> None:
+# Scenario: direction is not reselected or applied to raw values.
+def test_direction_reselected() -> None:
     data = panel([[1], [2]])
     upper = evaluate(factor(CLOSE), data, evaluation_start=data.sessions[0])
     lower = evaluate(factor(CLOSE, lower=True), data, evaluation_start=data.sessions[0])
@@ -178,7 +195,8 @@ def test_direction_is_not_reselected_or_applied_to_raw_values() -> None:
     assert_array_equal(upper.values, lower.values)
 
 
-def test_panel_copies_inputs_and_has_immutable_arrays() -> None:
+# Scenario: panel copies inputs and has immutable arrays.
+def test_panel_copies() -> None:
     data = panel([[1], [2]])
     with pytest.raises(ValueError):
         data.fields["market.close"].setflags(write=True)
@@ -187,38 +205,45 @@ def test_panel_copies_inputs_and_has_immutable_arrays() -> None:
 
 
 @pytest.mark.parametrize("securities", [("same", "same"), ("z", "a"), ("a", "../b")])
-def test_security_axes_cannot_be_silently_joined(securities: tuple[str, ...]) -> None:
+# Scenario: security axes cannot be silently joined.
+def test_security_axes(securities: tuple[str, ...]) -> None:
     with pytest.raises(ValueError, match="axes"):
         replace(panel([[1, 2]]), securities=securities)
 
 
-def test_duplicate_sessions_are_rejected() -> None:
+# Scenario: duplicate sessions are rejected.
+def test_sessions() -> None:
     data = panel([[1], [2]])
     with pytest.raises(ValueError, match="axes"):
         replace(data, sessions=(data.sessions[0], data.sessions[0]))
 
 
-def test_shifted_field_shape_is_rejected() -> None:
+# Scenario: shifted field shape is rejected.
+def test_shifted_field() -> None:
     with pytest.raises(ValueError, match="same axes"):
         replace(panel([[1], [2]]), fields={"market.close": np.array([[1.0]])})
 
 
-def test_infinite_input_is_not_silently_cleaned() -> None:
+# Scenario: infinite input is not silently cleaned.
+def test_infinite_input() -> None:
     with pytest.raises(ValueError, match="finite-or-NaN"):
         panel([[np.inf]])
 
 
-def test_absent_field_fails_closed() -> None:
+# Scenario: absent field fails closed.
+def test_absent_field() -> None:
     with pytest.raises(ValueError, match="absent"):
         output(FieldNode("market.open"), panel([[1]]))
 
 
-def test_old_semantics_are_not_implicitly_executable() -> None:
+# Scenario: old semantics are not implicitly executable.
+def test_old_semantics() -> None:
     with pytest.raises(CanonicalizationError, match="unknown operator"):
         factor(CallNode("skew", "1", (CLOSE, DecimalNode("5"))))
 
 
-def test_floating_point_parentheses_remain_distinct() -> None:
+# Scenario: floating point parentheses remain distinct.
+def test_floating_point() -> None:
     left = CallNode("add", VERSION, (CallNode("add", VERSION, (CLOSE, VOLUME)), CLOSE))
     right = CallNode("add", VERSION, (CLOSE, CallNode("add", VERSION, (VOLUME, CLOSE))))
     # These differ only by commuting the outer operands and are equivalent.
@@ -227,7 +252,8 @@ def test_floating_point_parentheses_remain_distinct() -> None:
     assert factor(left).expression.expression_id != factor(other).expression.expression_id
 
 
-def test_operator_contracts_are_closed_and_versioned() -> None:
+# Scenario: operator contracts are closed and versioned.
+def test_operator_contracts() -> None:
     registry = operator_registry()
     contracts = semantic_contracts()
     assert len(contracts) == 14
@@ -238,7 +264,8 @@ def test_operator_contracts_are_closed_and_versioned() -> None:
 
 @given(st.lists(st.integers(-1000, 1000), min_size=5, max_size=20))
 @settings(max_examples=30, deadline=None, derandomize=True)
-def test_future_changes_cannot_change_earlier_values(values: list[int]) -> None:
+# Scenario: future changes cannot change earlier values.
+def test_future_earlier(values: list[int]) -> None:
     data = panel([[float(value)] for value in values])
     changed = panel([[float(value)] for value in values[:-1]] + [[1e20]])
     node = CallNode("rank_cs", VERSION, (rolling("skew"),))
@@ -247,7 +274,8 @@ def test_future_changes_cannot_change_earlier_values(values: list[int]) -> None:
 
 @given(st.lists(st.one_of(st.none(), st.integers(-10000, 10000)), min_size=3, max_size=25))
 @settings(max_examples=40, deadline=None, derandomize=True)
-def test_missing_skew_matches_independent_reference(values: list[int | None]) -> None:
+# Scenario: missing skew matches independent reference.
+def test_missing_skew(values: list[int | None]) -> None:
     data = panel([[float(value) if value is not None else np.nan] for value in values])
     valid = np.array([value for value in values if value is not None], dtype=np.float64)
     result = output(rolling("skew", len(values), 3), data)[-1, 0]

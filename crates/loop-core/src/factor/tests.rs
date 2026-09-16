@@ -229,7 +229,8 @@ fn bind_test_draft(
 }
 
 #[test]
-fn identifiers_enforce_dot_qualified_ascii_grammar() {
+// Scenario: identifiers enforce dot qualified ascii grammar.
+fn identifiers_dot_qualified() {
     for valid in [
         "a",
         "market.close",
@@ -256,7 +257,8 @@ fn identifiers_enforce_dot_qualified_ascii_grammar() {
 }
 
 #[test]
-fn policy_ids_use_the_separate_declared_grammar() {
+// Scenario: policy ids use the separate declared grammar.
+fn policy_ids_separate() {
     for valid in ["a", "us_common_stock", "policy.v1", "policy-v1"] {
         assert_eq!(PolicyId::new(valid).unwrap().as_str(), valid);
     }
@@ -267,7 +269,8 @@ fn policy_ids_use_the_separate_declared_grammar() {
 }
 
 #[test]
-fn serde_cannot_bypass_validated_scalar_constructors() {
+// Scenario: serde cannot bypass validated scalar constructors.
+fn serde_validated_scalar() {
     assert!(serde_json::from_str::<Identifier>(r#""UPPER""#).is_err());
     assert!(serde_json::from_str::<CanonicalDecimal>(r#""1.0""#).is_err());
     assert!(serde_json::from_str::<PositiveInteger>(r#""01""#).is_err());
@@ -275,7 +278,8 @@ fn serde_cannot_bypass_validated_scalar_constructors() {
 }
 
 #[test]
-fn decimals_have_one_exact_fixed_point_spelling() {
+// Scenario: decimals have one exact fixed point spelling.
+fn decimals_fixed_point() {
     for valid in ["0", "1", "-1", "0.5", "-0.5", "10.25", "0.0001"] {
         assert_eq!(CanonicalDecimal::new(valid).unwrap().as_str(), valid);
     }
@@ -291,7 +295,8 @@ fn decimals_have_one_exact_fixed_point_spelling() {
 }
 
 #[test]
-fn positive_integers_are_canonical_u64_text() {
+// Scenario: positive integers are canonical u64 text.
+fn positive_integers_canonical() {
     for valid in ["1", "20", "18446744073709551615"] {
         assert_eq!(PositiveInteger::new(valid).unwrap().as_str(), valid);
     }
@@ -315,7 +320,8 @@ fn positive_integers_are_canonical_u64_text() {
 }
 
 #[test]
-fn every_ast_variant_has_the_exact_documented_bytes() {
+// Scenario: every ast variant has the exact documented bytes.
+fn ast_variant_documented() {
     let registry = register(&[("rolling.mean", 1, OperatorPolicy::ORDERED)]).unwrap();
     let vectors = [
         (
@@ -353,7 +359,8 @@ fn every_ast_variant_has_the_exact_documented_bytes() {
 }
 
 #[test]
-fn canonical_expression_hash_has_a_fixed_cross_language_vector() {
+// Scenario: canonical expression hash has a fixed cross language vector.
+fn canonical_expression_hash() {
     let expression = call(
         "rolling.mean",
         1,
@@ -369,7 +376,8 @@ fn canonical_expression_hash_has_a_fixed_cross_language_vector() {
 }
 
 #[test]
-fn canonical_factor_spec_matches_the_closed_field_order() {
+// Scenario: canonical factor spec matches the closed field order.
+fn canonical_factor_spec() {
     let expression = call(
         "rolling.mean",
         1,
@@ -377,12 +385,12 @@ fn canonical_factor_spec_matches_the_closed_field_order() {
     );
     let registry = register(&[("rolling.mean", 1, OperatorPolicy::ORDERED)]).unwrap();
     let spec = bind_test_spec(&expression, &registry, FactorDirection::HigherIsBetter);
-    let actual = String::from_utf8(canonical_factor_spec_bytes(&spec)).unwrap();
+    let actual = String::from_utf8(factor_spec_bytes(&spec)).unwrap();
     assert!(actual.starts_with(r#"{"schema":"loop.factor-spec/v1","expression_id":"sha256:"#));
     assert!(actual.contains(r#""direction":"higher_is_better","universe_policy":"#));
     let expression_bytes =
         canonical_expression_bytes(&expression, &registry, ValidationLimits::default()).unwrap();
-    let parsed = parse_canonical_factor_spec(
+    let parsed = parse_factor_spec(
         actual.as_bytes(),
         factor_spec_id(&spec),
         &expression_bytes,
@@ -394,7 +402,8 @@ fn canonical_factor_spec_matches_the_closed_field_order() {
 }
 
 #[test]
-fn declared_commutativity_converges_all_argument_permutations() {
+// Scenario: declared commutativity converges all argument permutations.
+fn commutativity_converges_argument() {
     let registry = register(&[("arithmetic.add", 1, OperatorPolicy::COMMUTATIVE)]).unwrap();
     let permutations = [
         ["market.close", "market.open", "market.volume"],
@@ -421,7 +430,8 @@ fn declared_commutativity_converges_all_argument_permutations() {
 }
 
 #[test]
-fn ordered_missing_value_sensitive_operator_preserves_argument_order() {
+// Scenario: ordered missing value sensitive operator preserves argument order.
+fn ordered_missing_value() {
     let registry = register(&[("arithmetic.subtract", 1, OperatorPolicy::ORDERED)]).unwrap();
     let left = call(
         "arithmetic.subtract",
@@ -440,7 +450,8 @@ fn ordered_missing_value_sensitive_operator_preserves_argument_order() {
 }
 
 #[test]
-fn associativity_is_scoped_to_the_exact_operator_version() {
+// Scenario: associativity is scoped to the exact operator version.
+fn associativity_scoped_operator() {
     let registry = register(&[
         ("arithmetic.add", 1, OperatorPolicy::COMMUTATIVE_ASSOCIATIVE),
         ("arithmetic.add", 2, OperatorPolicy::ORDERED),
@@ -500,7 +511,8 @@ fn associativity_is_scoped_to_the_exact_operator_version() {
 }
 
 #[test]
-fn unknown_operator_or_version_fails_closed() {
+// Scenario: unknown operator or version fails closed.
+fn unknown_operator_version() {
     let expression = call("rolling.mean", 2, vec![field("market.close")]);
     let registry = register(&[("rolling.mean", 1, OperatorPolicy::ORDERED)]).unwrap();
     assert!(matches!(
@@ -512,7 +524,8 @@ fn unknown_operator_or_version_fails_closed() {
 }
 
 #[test]
-fn direction_and_each_policy_component_are_identity_material() {
+// Scenario: direction and each policy component are identity material.
+fn direction_policy_component() {
     let expression = field("market.close");
     let registry = register(&[]).unwrap();
     let canonical =
@@ -579,7 +592,8 @@ fn direction_and_each_policy_component_are_identity_material() {
 }
 
 #[test]
-fn depth_node_argument_and_byte_limits_fail_closed() {
+// Scenario: depth node argument and byte limits fail closed.
+fn depth_node_argument() {
     let registry = register(&[
         ("math.abs", 1, OperatorPolicy::ORDERED),
         ("arithmetic.add", 1, OperatorPolicy::ORDERED),
@@ -639,7 +653,8 @@ fn depth_node_argument_and_byte_limits_fail_closed() {
 }
 
 #[test]
-fn normalized_tree_is_revalidated_after_associative_flattening() {
+// Scenario: normalized tree is revalidated after associative flattening.
+fn normalized_tree_associative() {
     let registry =
         register(&[("arithmetic.add", 1, OperatorPolicy::COMMUTATIVE_ASSOCIATIVE)]).unwrap();
     let expression = call(
@@ -667,7 +682,8 @@ fn normalized_tree_is_revalidated_after_associative_flattening() {
 }
 
 #[test]
-fn deployments_can_lower_but_not_raise_v1_safety_limits() {
+// Scenario: deployments can lower but not raise v1 safety limits.
+fn deployments_lower_raise() {
     assert!(ValidationLimits::new(0, 1, 1, 1).is_err());
     assert!(ValidationLimits::new(65, 1, 1, 1).is_err());
     assert!(ValidationLimits::new(1, 4_097, 1, 1).is_err());
@@ -676,7 +692,8 @@ fn deployments_can_lower_but_not_raise_v1_safety_limits() {
 }
 
 #[test]
-fn supplied_ids_require_prefix_lowercase_hex_and_exact_recomputation() {
+// Scenario: supplied ids require prefix lowercase hex and exact recomputation.
+fn ids_prefix_lowercase() {
     let expression = field("market.close");
     let registry = register(&[]).unwrap();
     let correct = expression_id(&expression, &registry, ValidationLimits::default()).unwrap();
@@ -700,7 +717,7 @@ fn supplied_ids_require_prefix_lowercase_hex_and_exact_recomputation() {
     let expression_bytes =
         canonical_expression_bytes(&expression, &registry, ValidationLimits::default()).unwrap();
     let spec = bind_test_spec(&expression, &registry, FactorDirection::HigherIsBetter);
-    let spec_bytes = canonical_factor_spec_bytes(&spec);
+    let spec_bytes = factor_spec_bytes(&spec);
     let correct_spec_id = factor_spec_id(&spec);
     FactorSpecId::parse(&correct_spec_id.to_external())
         .unwrap()
@@ -723,7 +740,8 @@ fn supplied_ids_require_prefix_lowercase_hex_and_exact_recomputation() {
 }
 
 #[test]
-fn a_registry_entry_cannot_be_silently_redefined() {
+// Scenario: a registry entry cannot be silently redefined.
+fn registry_entry() {
     let (mut registry, _) =
         register_builder(&[("arithmetic.add", 1, OperatorPolicy::COMMUTATIVE)]).unwrap();
     let contract = semantic_contract("arithmetic.add", 1);
@@ -931,11 +949,12 @@ fn semantic_conformance_fixture() -> serde_json::Value {
 }
 
 #[test]
-fn shared_semantic_contract_vectors_are_exact_and_fail_closed() {
+// Scenario: shared semantic contract vectors are exact and fail closed.
+fn shared_semantic_contract() {
     let fixture = semantic_conformance_fixture();
     for vector in fixture["accepted"].as_array().unwrap() {
         let bytes = vector["canonical_utf8"].as_str().unwrap().as_bytes();
-        let contract = parse_canonical_operator_semantic_contract(bytes).unwrap();
+        let contract = parse_semantic_contract(bytes).unwrap();
         assert_eq!(
             semantic_contract_sha256(bytes).to_string(),
             vector["sha256"].as_str().unwrap(),
@@ -963,24 +982,22 @@ fn shared_semantic_contract_vectors_are_exact_and_fail_closed() {
                 "{{\"schema\":\"loop.operator-semantic-contract/v1\",\"operator\":\"fixture.semantic\",\"operatorVersion\":\"1\",\"nullPolicy\":\"{null_policy}\",\"windowPolicy\":\"{window_policy}\",\"tiePolicy\":\"{tie_policy}\",\"alignmentPolicy\":\"{alignment_policy}\",\"numericPolicy\":\"{numeric_policy}\"}}"
             );
             assert!(
-                parse_canonical_operator_semantic_contract(canonical.as_bytes()).is_ok(),
+                parse_semantic_contract(canonical.as_bytes()).is_ok(),
                 "rejected {policy}={variant}"
             );
         }
     }
     for rejected in fixture["rejected_canonical_utf8"].as_array().unwrap() {
-        assert!(
-            parse_canonical_operator_semantic_contract(rejected.as_str().unwrap().as_bytes())
-                .is_err()
-        );
+        assert!(parse_semantic_contract(rejected.as_str().unwrap().as_bytes()).is_err());
     }
     let depth = fixture["deep_nesting"].as_u64().unwrap() as usize;
     let deep = format!("{}0{}", "[".repeat(depth), "]".repeat(depth));
-    assert!(parse_canonical_operator_semantic_contract(deep.as_bytes()).is_err());
+    assert!(parse_semantic_contract(deep.as_bytes()).is_err());
 }
 
 #[test]
-fn registry_fails_closed_on_unresolved_misaddressed_and_misbound_semantics() {
+// Scenario: registry fails closed on unresolved misaddressed and misbound semantics.
+fn registry_closed_unresolved() {
     let (builder, contracts) =
         register_builder(&[("arithmetic.add", 1, OperatorPolicy::COMMUTATIVE_ASSOCIATIVE)])
             .unwrap();
@@ -1085,7 +1102,7 @@ fn fixture_policy(raw: &serde_json::Value) -> PolicyRef {
     )
 }
 
-fn fixture_factor_spec_draft(raw: &serde_json::Value) -> FactorSpecDraft {
+fn fixture_factor_draft(raw: &serde_json::Value) -> FactorSpecDraft {
     FactorSpecDraft::new(
         ExpressionId::parse(raw["expression_id"].as_str().unwrap()).unwrap(),
         fixture_digest(raw["operator_registry_sha256"].as_str().unwrap()),
@@ -1107,7 +1124,8 @@ fn fixture_factor_spec_draft(raw: &serde_json::Value) -> FactorSpecDraft {
 }
 
 #[test]
-fn shared_expression_vectors_are_byte_and_id_exact() {
+// Scenario: shared expression vectors are byte and id exact.
+fn shared_expression_vectors() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
     for vector in fixture["expression_vectors"].as_array().unwrap() {
@@ -1137,7 +1155,8 @@ fn shared_expression_vectors_are_byte_and_id_exact() {
 }
 
 #[test]
-fn shared_registry_boundary_and_scalar_type_vectors() {
+// Scenario: shared registry boundary and scalar type vectors.
+fn shared_registry_boundary() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
     assert_eq!(
@@ -1177,7 +1196,8 @@ fn shared_registry_boundary_and_scalar_type_vectors() {
 }
 
 #[test]
-fn shared_factor_spec_vector_binds_registry_and_all_policies() {
+// Scenario: shared factor spec vector binds registry and all policies.
+fn shared_factor_spec() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
     let vector = &fixture["factor_spec_vectors"][0];
@@ -1185,17 +1205,17 @@ fn shared_factor_spec_vector_binds_registry_and_all_policies() {
         .as_str()
         .unwrap()
         .as_bytes();
-    let draft = fixture_factor_spec_draft(&vector["input"]);
+    let draft = fixture_factor_draft(&vector["input"]);
     let spec = bind_test_draft(draft.clone(), expression_bytes, &registry);
     assert_eq!(
-        canonical_factor_spec_bytes(&spec),
+        factor_spec_bytes(&spec),
         vector["canonical_utf8"].as_str().unwrap().as_bytes()
     );
     assert_eq!(
         factor_spec_id(&spec).to_external(),
         vector["factor_spec_id"].as_str().unwrap()
     );
-    let parsed = parse_canonical_factor_spec(
+    let parsed = parse_factor_spec(
         vector["canonical_utf8"].as_str().unwrap().as_bytes(),
         FactorSpecId::parse(vector["factor_spec_id"].as_str().unwrap()).unwrap(),
         expression_bytes,
@@ -1227,10 +1247,11 @@ fn shared_factor_spec_vector_binds_registry_and_all_policies() {
 }
 
 #[test]
-fn shared_non_series_roots_cannot_bind_factor_specs() {
+// Scenario: shared non series roots cannot bind factor specs.
+fn shared_series_roots() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
-    let template = fixture_factor_spec_draft(&fixture["factor_spec_vectors"][0]["input"]);
+    let template = fixture_factor_draft(&fixture["factor_spec_vectors"][0]["input"]);
     for vector in fixture["rejected_factor_bindings"].as_array().unwrap() {
         let mut draft = template.clone();
         draft.expression_id =
@@ -1258,7 +1279,8 @@ fn shared_non_series_roots_cannot_bind_factor_specs() {
 }
 
 #[test]
-fn canonical_factor_spec_parser_rejects_every_shared_malformed_form() {
+// Scenario: canonical factor spec parser rejects every shared malformed form.
+fn canonical_factor_parser() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
     let vector = &fixture["factor_spec_vectors"][0];
@@ -1274,7 +1296,7 @@ fn canonical_factor_spec_parser_rejects_every_shared_malformed_form() {
     {
         let mutated = mutate_factor_spec(canonical, mutation.as_str().unwrap());
         assert!(
-            parse_canonical_factor_spec(
+            parse_factor_spec(
                 mutated.as_bytes(),
                 expected_id,
                 expression_bytes,
@@ -1337,7 +1359,8 @@ fn mutate_factor_spec(canonical: &str, mutation: &str) -> String {
 }
 
 #[test]
-fn shared_scalar_and_semantic_negative_vectors_fail_closed() {
+// Scenario: shared scalar and semantic negative vectors fail closed.
+fn shared_scalar_semantic() {
     let fixture = conformance_fixture();
     let registry = fixture_registry(&fixture["registry"]);
     for value in fixture["accepted_decimals"].as_array().unwrap() {

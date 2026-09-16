@@ -211,7 +211,8 @@ fn crash_worker() {
 }
 
 #[tokio::test]
-async fn killed_writer_preserves_atomicity() {
+// Scenario: killed writer preserves atomicity.
+async fn killed_writer_atomicity() {
     for point in [
         "before_commit",
         "after_commit",

@@ -8,7 +8,7 @@ from loop.v1.common_pb2 import CivilDate, JobId, LeaseId, Sha256Digest
 from loop.v1.evaluation_pb2 import FactorEvaluationWork
 from loop.v1.factor_pb2 import FACTOR_DIRECTION_HIGHER_IS_BETTER, FactorSpec
 from loop_protocol.canonical import FieldNode, canonicalize_expression
-from loop_protocol.job import factor_spec_identity_sha256
+from loop_protocol.job import factor_identity_hash
 from loop_protocol.provenance import PROVENANCE_COMPONENTS
 from panel_helpers import Case, change
 
@@ -91,7 +91,7 @@ def work(
     factor.frozen_policy.neutralization_policy.sha256.value = bytes.fromhex(
         manifest.transform.neutralization.digest()[7:]
     )
-    factor.factor_spec_id.value = "sha256:" + factor_spec_identity_sha256(factor).hex()
+    factor.factor_spec_id.value = "sha256:" + factor_identity_hash(factor).hex()
     request = FactorEvaluationWork(
         job_id=JobId(value="job.transform.01"),
         lease_id=LeaseId(value="lease.transform.01"),

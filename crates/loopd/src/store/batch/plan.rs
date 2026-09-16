@@ -1,5 +1,5 @@
 use loop_core::audit::Sha256Digest as CanonicalDigest;
-use loop_core::holdout::{HoldoutJobBudget, parse_canonical_holdout_evaluation_plan};
+use loop_core::holdout::{HoldoutJobBudget, parse_holdout_plan};
 use loop_protocol::holdout::validate_holdout_period;
 use loop_protocol::wire::v1::{BacktestSpec, ExactDecimal, JobBudget, Money};
 
@@ -19,7 +19,7 @@ pub(super) async fn materialize(
         .as_ref()
         .ok_or(StoreError::Corrupt("batch period"))?;
     let canonical = validate_holdout_period(period, &grant.period.canonical_bytes)?;
-    let plan = parse_canonical_holdout_evaluation_plan(
+    let plan = parse_holdout_plan(
         &resolved.canonical_plan,
         &canonical,
         &resolved.backtest_schema_sha256,

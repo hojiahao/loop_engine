@@ -1,6 +1,7 @@
 
 
-def test_forced_budget_explore_llm():
+# Scenario: forced budget explore llm.
+def test_forced_budget():
     """强制预算(2026-08-26 用户:指定轮全探索+LLM上调):探索偏置+LLM占比覆盖,和为1。"""
     from adaptive import forced_budget, budget_mode
     cfg, reason = forced_budget("explore", 0.4)

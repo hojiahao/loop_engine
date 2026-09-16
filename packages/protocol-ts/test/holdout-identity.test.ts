@@ -26,12 +26,12 @@ import {
   type EvaluationPlanReference,
   HoldoutValidationError,
   type PlanArtifactReference,
-  parseCanonicalHoldoutEvaluationPlan,
-  parseCanonicalHoldoutPeriod,
-  validateHoldoutEvaluationPlanReference,
-  validateWireHoldoutEvaluationPlanReference,
-  validateWireHoldoutPeriod,
-  verifyHoldoutPeriodIdentity,
+  parse_holdout_period,
+  parse_holdout_plan,
+  validate_plan_reference,
+  validate_wire_period,
+  validate_wire_plan,
+  verify_period_identity,
 } from "../src/holdout-identity.js";
 
 interface GoldenFixture {
@@ -84,8 +84,8 @@ const negativeVectors = readFileSync(
   "utf8",
 );
 const encoder = new TextEncoder();
-const trustedPlan = decodeDigest(fixture.trusted_plan_schema_sha256);
-const trustedBacktest = decodeDigest(fixture.trusted_backtest_schema_sha256);
+const trustedPlan = decode_digest(fixture.trusted_plan_schema_sha256);
+const trustedBacktest = decode_digest(fixture.trusted_backtest_schema_sha256);
 const resolved = new Map(
   fixture.backtest_artifacts.map((artifact) => [artifact.sha256, encoder.encode(artifact.content)]),
 );
@@ -93,11 +93,11 @@ const resolved = new Map(
 describe("holdout canonical identity v1", () => {
   it("matches every shared period and plan golden byte for byte", () => {
     for (const periodFixture of fixture.periods) {
-      const period = parseCanonicalHoldoutPeriod(periodFixture.canonical_json);
+      const period = parse_holdout_period(periodFixture.canonical_json);
       expect(new TextDecoder().decode(period.canonicalBytes), periodFixture.name).toBe(
         periodFixture.canonical_json,
       );
-      expect(encodeDigest(period.canonicalPeriodSha256), periodFixture.name).toBe(
+      expect(encode_digest(period.canonicalPeriodSha256), periodFixture.name).toBe(
         periodFixture.canonical_sha256,
       );
       expect(period.holdoutPeriodId, periodFixture.name).toBe(periodFixture.holdout_period_id);
@@ -105,7 +105,7 @@ describe("holdout canonical identity v1", () => {
       for (const planFixture of fixture.plans.filter(
         (candidate) => candidate.period === periodFixture.name,
       )) {
-        const plan = parseCanonicalHoldoutEvaluationPlan(
+        const plan = parse_holdout_plan(
           planFixture.canonical_json,
           period,
           trustedBacktest,
@@ -114,13 +114,13 @@ describe("holdout canonical identity v1", () => {
         expect(new TextDecoder().decode(plan.canonicalBytes), planFixture.name).toBe(
           planFixture.canonical_json,
         );
-        expect(encodeDigest(plan.planSha256), planFixture.name).toBe(planFixture.plan_sha256);
+        expect(encode_digest(plan.planSha256), planFixture.name).toBe(planFixture.plan_sha256);
         expect(plan.holdoutEvaluationPlanId, planFixture.name).toBe(
           planFixture.holdout_evaluation_plan_id,
         );
         expect(
-          validateHoldoutEvaluationPlanReference(
-            domainReference(plan, period, planFixture.entry_count),
+          validate_plan_reference(
+            domain_reference(plan, period, planFixture.entry_count),
             plan.canonicalBytes,
             period,
             trustedPlan,
@@ -133,15 +133,10 @@ describe("holdout canonical identity v1", () => {
   });
 
   it("validates generated period and plan references as exact canonical projections", () => {
-    const periodFixture = requireItem(fixture.periods, 0);
-    const planFixture = requireItem(fixture.plans, 0);
-    const period = parseCanonicalHoldoutPeriod(periodFixture.canonical_json);
-    const plan = parseCanonicalHoldoutEvaluationPlan(
-      planFixture.canonical_json,
-      period,
-      trustedBacktest,
-      resolved,
-    );
+    const periodFixture = require_item(fixture.periods, 0);
+    const planFixture = require_item(fixture.plans, 0);
+    const period = parse_holdout_period(periodFixture.canonical_json);
+    const plan = parse_holdout_plan(planFixture.canonical_json, period, trustedBacktest, resolved);
     const periodJson = JSON.parse(periodFixture.canonical_json) as {
       sample: { role: string; start_inclusive: string; end_inclusive: string };
       snapshot_ids: string[];
@@ -151,18 +146,18 @@ describe("holdout canonical identity v1", () => {
       holdoutPeriodId: create(HoldoutPeriodIdSchema, { value: period.holdoutPeriodId }),
       sample: create(SampleWindowSchema, {
         role: SampleRole.FIRST_LOCKED_CONFIRMATION,
-        startInclusive: civilDate(periodJson.sample.start_inclusive),
-        endInclusive: civilDate(periodJson.sample.end_inclusive),
+        startInclusive: civil_date(periodJson.sample.start_inclusive),
+        endInclusive: civil_date(periodJson.sample.end_inclusive),
       }),
       snapshotIds: periodJson.snapshot_ids.map((value) => create(SnapshotIdSchema, { value })),
-      snapshotManifestSha256: wireDigest(decodeDigest(periodJson.snapshot_manifest_sha256)),
-      canonicalPeriodSha256: wireDigest(period.canonicalPeriodSha256),
+      snapshotManifestSha256: wire_digest(decode_digest(periodJson.snapshot_manifest_sha256)),
+      canonicalPeriodSha256: wire_digest(period.canonicalPeriodSha256),
     });
-    expect(validateWireHoldoutPeriod(wirePeriod, period.canonicalBytes).holdoutPeriodId).toBe(
+    expect(validate_wire_period(wirePeriod, period.canonicalBytes).holdoutPeriodId).toBe(
       period.holdoutPeriodId,
     );
 
-    const reference = domainReference(plan, period, planFixture.entry_count);
+    const reference = domain_reference(plan, period, planFixture.entry_count);
     const wirePlan = create(HoldoutEvaluationPlanReferenceSchema, {
       holdoutEvaluationPlanId: create(HoldoutEvaluationPlanIdSchema, {
         value: reference.holdoutEvaluationPlanId,
@@ -170,23 +165,23 @@ describe("holdout canonical identity v1", () => {
       canonicalPlan: create(ArtifactRefSchema, {
         artifactId: create(ArtifactIdSchema, { value: reference.canonicalPlan.artifactId }),
         uri: reference.canonicalPlan.uri,
-        sha256: wireDigest(reference.canonicalPlan.sha256),
+        sha256: wire_digest(reference.canonicalPlan.sha256),
         schema: create(ArtifactSchemaReferenceSchema, {
           name: reference.canonicalPlan.schemaName,
           version: reference.canonicalPlan.schemaVersion,
-          schemaSha256: wireDigest(reference.canonicalPlan.schemaSha256),
+          schemaSha256: wire_digest(reference.canonicalPlan.schemaSha256),
         }),
         mediaType: reference.canonicalPlan.mediaType,
         byteSize: reference.canonicalPlan.byteSize,
         createdAt: create(TimestampSchema, { seconds: 1n }),
       }),
-      planSha256: wireDigest(reference.planSha256),
+      planSha256: wire_digest(reference.planSha256),
       entryCount: reference.entryCount,
       holdoutPeriodId: create(HoldoutPeriodIdSchema, { value: reference.holdoutPeriodId }),
-      canonicalPeriodSha256: wireDigest(reference.canonicalPeriodSha256),
+      canonicalPeriodSha256: wire_digest(reference.canonicalPeriodSha256),
     });
     expect(
-      validateWireHoldoutEvaluationPlanReference(
+      validate_wire_plan(
         wirePlan,
         plan.canonicalBytes,
         period,
@@ -199,7 +194,7 @@ describe("holdout canonical identity v1", () => {
     if (wirePlan.canonicalPlan === undefined) throw new Error("wire plan artifact is required");
     wirePlan.canonicalPlan.createdAt = undefined;
     expect(() =>
-      validateWireHoldoutEvaluationPlanReference(
+      validate_wire_plan(
         wirePlan,
         plan.canonicalBytes,
         period,
@@ -211,7 +206,7 @@ describe("holdout canonical identity v1", () => {
     wirePlan.canonicalPlan.createdAt = create(TimestampSchema, { seconds: 1n });
     wirePlan.canonicalPlan.rowCount = 1n;
     expect(() =>
-      validateWireHoldoutEvaluationPlanReference(
+      validate_wire_plan(
         wirePlan,
         plan.canonicalBytes,
         period,
@@ -223,15 +218,10 @@ describe("holdout canonical identity v1", () => {
   });
 
   it("executes every shared negative vector and fails closed", () => {
-    const periodFixture = requireItem(fixture.periods, 0);
-    const planFixture = requireItem(fixture.plans, 0);
-    const period = parseCanonicalHoldoutPeriod(periodFixture.canonical_json);
-    const plan = parseCanonicalHoldoutEvaluationPlan(
-      planFixture.canonical_json,
-      period,
-      trustedBacktest,
-      resolved,
-    );
+    const periodFixture = require_item(fixture.periods, 0);
+    const planFixture = require_item(fixture.plans, 0);
+    const period = parse_holdout_period(periodFixture.canonical_json);
+    const plan = parse_holdout_plan(planFixture.canonical_json, period, trustedBacktest, resolved);
     for (const line of negativeVectors.split("\n")) {
       if (line.length === 0 || line.startsWith("#")) continue;
       const [name, target, mutation, extra] = line.split("\t");
@@ -245,7 +235,7 @@ describe("holdout canonical identity v1", () => {
       }
       expect(
         () =>
-          executeNegative(
+          execute_negative(
             target,
             mutation,
             periodFixture.canonical_json,
@@ -259,7 +249,7 @@ describe("holdout canonical identity v1", () => {
   });
 });
 
-function executeNegative(
+function execute_negative(
   target: string,
   mutation: string,
   periodSource: string,
@@ -268,13 +258,13 @@ function executeNegative(
   plan: CanonicalHoldoutEvaluationPlan,
 ): void {
   if (target === "period") {
-    parseCanonicalHoldoutPeriod(mutatePeriod(periodSource, mutation));
+    parse_holdout_period(mutate_period(periodSource, mutation));
     return;
   }
   if (target === "period_reference") {
-    verifyHoldoutPeriodIdentity(
+    verify_period_identity(
       periodSource,
-      mutation === "period_id_mismatch" ? digestText(238) : period.holdoutPeriodId,
+      mutation === "period_id_mismatch" ? digest_text(238) : period.holdoutPeriodId,
       mutation === "period_digest_mismatch"
         ? new Uint8Array(32).fill(238)
         : period.canonicalPeriodSha256,
@@ -282,8 +272,8 @@ function executeNegative(
     return;
   }
   if (target === "plan") {
-    const mutationResult = mutatePlan(planSource, mutation);
-    parseCanonicalHoldoutEvaluationPlan(
+    const mutationResult = mutate_plan(planSource, mutation);
+    parse_holdout_plan(
       mutationResult.source,
       period,
       mutationResult.trustedBacktest ?? trustedBacktest,
@@ -292,11 +282,11 @@ function executeNegative(
     return;
   }
   if (target === "plan_reference") {
-    const reference = mutateReference(
-      domainReference(plan, period, plan.value.entries.length),
+    const reference = mutate_reference(
+      domain_reference(plan, period, plan.value.entries.length),
       mutation,
     );
-    validateHoldoutEvaluationPlanReference(
+    validate_plan_reference(
       reference,
       plan.canonicalBytes,
       period,
@@ -309,7 +299,7 @@ function executeNegative(
   throw new Error(`unimplemented negative target ${target}`);
 }
 
-function mutatePeriod(source: string, mutation: string): string {
+function mutate_period(source: string, mutation: string): string {
   const parsed = JSON.parse(source) as Record<string, unknown>;
   switch (mutation) {
     case "unknown_field":
@@ -365,13 +355,13 @@ function mutatePeriod(source: string, mutation: string): string {
   }
 }
 
-function mutatePlan(
+function mutate_plan(
   source: string,
   mutation: string,
 ): { source: string; trustedBacktest?: Uint8Array; resolved?: ReadonlyMap<string, Uint8Array> } {
   const parsed = JSON.parse(source) as MutablePlanJson;
-  const first = requireItem(parsed.entries, 0);
-  const second = requireItem(parsed.entries, 1);
+  const first = require_item(parsed.entries, 0);
+  const second = require_item(parsed.entries, 1);
   const artifact = first.backtest_spec_artifact;
   const budget = first.job_budget;
   switch (mutation) {
@@ -400,10 +390,10 @@ function mutatePlan(
       parsed.schema = "loop.holdout-evaluation-plan/v2";
       break;
     case "period_id_mismatch":
-      parsed.holdout_period_id = digestText(225);
+      parsed.holdout_period_id = digest_text(225);
       break;
     case "period_digest_mismatch":
-      parsed.canonical_period_sha256 = digestText(226);
+      parsed.canonical_period_sha256 = digest_text(226);
       break;
     case "empty_entries":
       parsed.entries = [];
@@ -430,7 +420,7 @@ function mutatePlan(
       artifact.schema_version = "2";
       break;
     case "wrong_backtest_schema_digest":
-      artifact.schema_sha256 = digestText(227);
+      artifact.schema_sha256 = digest_text(227);
       break;
     case "wrong_media_type":
       artifact.media_type = "application/octet-stream";
@@ -492,7 +482,7 @@ function mutatePlan(
   return { source: JSON.stringify(parsed) };
 }
 
-function mutateReference(
+function mutate_reference(
   reference: EvaluationPlanReference,
   mutation: string,
 ): EvaluationPlanReference {
@@ -502,11 +492,11 @@ function mutateReference(
     case "plan_sha256_mismatch":
       return { ...changed, planSha256: new Uint8Array(32).fill(230) };
     case "plan_id_mismatch":
-      return { ...changed, holdoutEvaluationPlanId: digestText(231) };
+      return { ...changed, holdoutEvaluationPlanId: digest_text(231) };
     case "entry_count_mismatch":
       return { ...changed, entryCount: changed.entryCount + 1 };
     case "period_id_mismatch":
-      return { ...changed, holdoutPeriodId: digestText(232) };
+      return { ...changed, holdoutPeriodId: digest_text(232) };
     case "period_digest_mismatch":
       return { ...changed, canonicalPeriodSha256: new Uint8Array(32).fill(233) };
     case "plan_artifact_schema_mismatch":
@@ -527,12 +517,12 @@ function mutateReference(
   return { ...changed, canonicalPlan };
 }
 
-function domainReference(
+function domain_reference(
   plan: CanonicalHoldoutEvaluationPlan,
   period: CanonicalHoldoutPeriod,
   entryCount: number,
 ): EvaluationPlanReference {
-  const raw = encodeDigest(plan.planSha256);
+  const raw = encode_digest(plan.planSha256);
   return {
     holdoutEvaluationPlanId: plan.holdoutEvaluationPlanId,
     canonicalPlan: {
@@ -554,28 +544,28 @@ function domainReference(
   };
 }
 
-function civilDate(value: string) {
+function civil_date(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return create(CivilDateSchema, { year, month, day });
 }
 
-function wireDigest(value: Uint8Array) {
+function wire_digest(value: Uint8Array) {
   return create(Sha256DigestSchema, { value });
 }
 
-function decodeDigest(value: string): Uint8Array {
+function decode_digest(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value.slice(7), "hex"));
 }
 
-function encodeDigest(value: Uint8Array): string {
+function encode_digest(value: Uint8Array): string {
   return `sha256:${Buffer.from(value).toString("hex")}`;
 }
 
-function digestText(byte: number): string {
+function digest_text(byte: number): string {
   return `sha256:${byte.toString(16).padStart(2, "0").repeat(32)}`;
 }
 
-function requireItem<T>(values: readonly T[], index: number): T {
+function require_item<T>(values: readonly T[], index: number): T {
   const value = values[index];
   if (value === undefined) throw new Error(`missing fixture item ${index}`);
   return value;

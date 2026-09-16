@@ -352,7 +352,7 @@ pub fn canonicalize_audit_payload(
                 &payload.holdout_evaluation_plan_id,
                 "payload.holdout_evaluation_plan_id",
             )?;
-            validate_holdout_approval_records(&payload.approval_records)?;
+            validate_approval_records(&payload.approval_records)?;
             validate_closed_enum(
                 &payload.capability_class,
                 &["holdout_evaluation"],
@@ -364,7 +364,7 @@ pub fn canonicalize_audit_payload(
                 "payload.authorization_decision",
             )?;
             RegisteredPayload {
-                rewritten: write_holdout_grant_issued_payload(&payload),
+                rewritten: write_grant_payload(&payload),
             }
         }
         ("loop.audit.holdout_grant_consumed", 1) => {
@@ -521,7 +521,7 @@ pub fn verify_audit_payload(payload: &AuditPayload) -> Result<(), AuditError> {
     Ok(())
 }
 
-pub fn canonical_audit_event_bytes(event: &AuditEvent) -> Result<Vec<u8>, AuditError> {
+pub fn audit_event_bytes(event: &AuditEvent) -> Result<Vec<u8>, AuditError> {
     verify_audit_payload(&event.payload)?;
     validate_event_fields(event)?;
 
@@ -567,7 +567,7 @@ pub fn canonical_audit_event_bytes(event: &AuditEvent) -> Result<Vec<u8>, AuditE
 }
 
 pub fn audit_event_sha256(event: &AuditEvent) -> Result<Sha256Digest, AuditError> {
-    let canonical = canonical_audit_event_bytes(event)?;
+    let canonical = audit_event_bytes(event)?;
     let mut hasher = Sha256::new();
     hasher.update(EVENT_DOMAIN);
     hasher.update(canonical);
@@ -820,9 +820,7 @@ fn validate_timestamp_field(value: &str, field: &'static str) -> Result<(), Audi
     })
 }
 
-fn validate_holdout_approval_records(
-    records: &[HoldoutGrantApprovalRecord],
-) -> Result<(), AuditError> {
+fn validate_approval_records(records: &[HoldoutGrantApprovalRecord]) -> Result<(), AuditError> {
     if records.is_empty() || records.len() > MAX_HOLDOUT_APPROVAL_RECORDS {
         return Err(AuditError::new(
             AuditErrorCode::NonCanonicalPayload,
@@ -873,7 +871,7 @@ fn validate_holdout_approval_records(
     Ok(())
 }
 
-fn write_holdout_grant_issued_payload(payload: &HoldoutGrantIssuedPayload) -> Vec<u8> {
+fn write_grant_payload(payload: &HoldoutGrantIssuedPayload) -> Vec<u8> {
     let mut output = Vec::new();
     output.extend_from_slice(b"{\"holdout_grant_id\":");
     write_json_string(&mut output, &payload.holdout_grant_id);

@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
 use loop_protocol::job::{
-    canonical_protocol_selection_bytes, factor_spec_identity_sha256, protocol_selection_sha256,
-    validate_holdout_backtest_plan_entry_binding, validate_job_record, validate_job_specification,
+    factor_identity_hash, protocol_selection_bytes, protocol_selection_sha256, validate_job_record,
+    validate_job_specification, validate_plan_binding,
 };
-use loop_protocol::runtime_validation::validate_job_wire_dispatch_candidate;
+use loop_protocol::runtime_validation::validate_dispatch_candidate;
 use loop_protocol::wire::v1::{
     Actor, ActorId, ActorKind, ArtifactId, ArtifactJobInput, ArtifactRef, ArtifactSchemaReference,
     BacktestId, BacktestJobInput, BacktestSpec, BudgetExhaustion, CanonicalFactorAst, CausationId,
@@ -53,7 +53,8 @@ struct Vector<'a> {
 }
 
 #[test]
-fn factor_execution_identity_requires_a_complete_pair() {
+// Scenario: factor execution identity requires a complete pair.
+fn factor_execution_identity() {
     let vector = vectors()
         .find(|entry| entry.input == "factor_evaluation" && entry.expected == "accept")
         .unwrap();
@@ -86,7 +87,8 @@ fn factor_execution_identity_requires_a_complete_pair() {
 }
 
 #[test]
-fn shared_job_record_matrix_fails_closed() {
+// Scenario: shared job record matrix fails closed.
+fn shared_job_matrix() {
     let vectors = vectors().collect::<Vec<_>>();
     assert_eq!(vectors.len(), 109, "all shared rows must execute");
     for vector in vectors {
@@ -99,7 +101,8 @@ fn shared_job_record_matrix_fails_closed() {
 }
 
 #[test]
-fn protocol_selection_producer_matches_shared_golden() {
+// Scenario: protocol selection producer matches shared golden.
+fn protocol_selection_producer() {
     let fields: Vec<_> = PROTOCOL_GOLDEN
         .lines()
         .nth(1)
@@ -109,7 +112,7 @@ fn protocol_selection_producer_matches_shared_golden() {
     assert_eq!(fields.len(), 3);
     let selection = protocol_selection();
     assert_eq!(
-        canonical_protocol_selection_bytes(&selection).unwrap(),
+        protocol_selection_bytes(&selection).unwrap(),
         fields[1].as_bytes()
     );
     assert_eq!(
@@ -119,7 +122,8 @@ fn protocol_selection_producer_matches_shared_golden() {
 }
 
 #[test]
-fn protocol_selection_shared_negatives_fail_closed() {
+// Scenario: protocol selection shared negatives fail closed.
+fn protocol_selection_shared() {
     for line in PROTOCOL_NEGATIVE.lines().skip(1) {
         let fields: Vec<_> = line.split('\t').collect();
         let vector = Vector {
@@ -165,7 +169,8 @@ fn protocol_selection_shared_negatives_fail_closed() {
 }
 
 #[test]
-fn holdout_job_shared_plan_entry_bindings_fail_closed() {
+// Scenario: holdout job shared plan entry bindings fail closed.
+fn holdout_job_shared() {
     for line in HOLDOUT_BINDING.lines().skip(1) {
         let fields: Vec<_> = line.split('\t').collect();
         let mut fixture = holdout_binding_fixture();
@@ -204,7 +209,7 @@ fn holdout_job_shared_plan_entry_bindings_fail_closed() {
             "canonical_period_tampered" => fixture.canonical_period_bytes.push(b' '),
             other => panic!("unknown holdout binding mutation {other}"),
         }
-        match validate_holdout_backtest_plan_entry_binding(
+        match validate_plan_binding(
             &fixture.input,
             &timestamp(5),
             &fixture.canonical_period_bytes,
@@ -219,7 +224,8 @@ fn holdout_job_shared_plan_entry_bindings_fail_closed() {
 }
 
 #[test]
-fn holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate() {
+// Scenario: holdout grant lifetime boundaries cover binder and wire candidate.
+fn holdout_grant_lifetime() {
     let rows = HOLDOUT_GRANT_LIFETIME.lines().skip(1).collect::<Vec<_>>();
     assert_eq!(rows.len(), 6, "all shared grant lifetime rows must execute");
     for line in rows {
@@ -230,7 +236,7 @@ fn holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate() {
             nanos: fields[4].parse().unwrap(),
         };
         let fixture = holdout_binding_fixture();
-        match validate_holdout_backtest_plan_entry_binding(
+        match validate_plan_binding(
             &fixture.input,
             &submitted_at,
             &fixture.canonical_period_bytes,
@@ -255,7 +261,7 @@ fn holdout_grant_lifetime_boundaries_cover_binder_and_wire_candidate() {
         };
         let mut specification = valid_specification(&vector);
         specification.submitted_at = Some(submitted_at);
-        match validate_job_wire_dispatch_candidate(&specification, &[JobKind::HoldoutBacktest]) {
+        match validate_dispatch_candidate(&specification, &[JobKind::HoldoutBacktest]) {
             Ok(kind) => {
                 assert_eq!(fields[2], "accept", "{} wire candidate", fields[0]);
                 assert_eq!(kind, JobKind::HoldoutBacktest, "{}", fields[0]);
@@ -366,8 +372,8 @@ fn mutate(record: &mut JobRecord, mutation: &str) {
         "lease_invalid_order" => {
             record.active_lease.as_mut().unwrap().heartbeat_at = Some(timestamp(30))
         }
-        "factor_input_id_missing" => set_input_factor_id(record, None),
-        "factor_input_id_malformed" => set_input_factor_id(record, Some("SHA256:bad")),
+        "factor_input_id_missing" => input_factor_id(record, None),
+        "factor_input_id_malformed" => input_factor_id(record, Some("SHA256:bad")),
         "rejection_id_missing" => rejection(record).factor_spec_id = None,
         "rejection_id_malformed" => {
             rejection(record).factor_spec_id = Some(factor_id("SHA256:bad"))
@@ -805,7 +811,7 @@ fn valid_factor_spec() -> FactorSpec {
         }),
         operator_registry_sha256: Some(digest(2)),
     };
-    let computed = factor_spec_identity_sha256(&factor).unwrap();
+    let computed = factor_identity_hash(&factor).unwrap();
     assert_eq!(format!("sha256:{}", hex(&computed)), FACTOR_ID);
     factor.factor_spec_id = Some(factor_id(FACTOR_ID));
     factor
@@ -1088,7 +1094,7 @@ fn specification_budget(specification: &JobSpecification) -> Option<&JobBudget> 
     }
 }
 
-fn set_input_factor_id(record: &mut JobRecord, value: Option<&str>) {
+fn input_factor_id(record: &mut JobRecord, value: Option<&str>) {
     let identity = value.map(factor_id);
     match record
         .specification

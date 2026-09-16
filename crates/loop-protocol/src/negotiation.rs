@@ -166,7 +166,7 @@ pub fn negotiate_protocol_availability(
 ///
 /// The current local build is always considered available. Both peer builds
 /// and the schema descriptor must otherwise occur in the retained stores.
-pub fn validate_protocol_selection_availability(
+pub fn validate_selection_availability(
     selection: &ProtocolSelectionSnapshot,
     local: &ProtocolInfo,
     retained_builds: &[ProtocolBuildIdentity],
@@ -423,7 +423,7 @@ fn is_protocol_package(value: &str) -> bool {
             }) {
                 return false;
             }
-        } else if !is_lower_identifier_segment(part) {
+        } else if !is_identifier_segment(part) {
             return false;
         }
     }
@@ -463,7 +463,7 @@ fn is_build_version(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'+' | b'_' | b'-'))
 }
 
-fn is_lower_identifier_segment(value: &str) -> bool {
+fn is_identifier_segment(value: &str) -> bool {
     let mut bytes = value.bytes();
     bytes.next().is_some_and(|byte| byte.is_ascii_lowercase())
         && bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')

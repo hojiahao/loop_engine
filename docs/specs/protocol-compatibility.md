@@ -143,7 +143,7 @@ Every Rust, TypeScript, and Python DTO boundary applies the same closed
 `JobKind`/`JobSpecification.input` matrix. All seven v1 kinds, including
 `REPORT` and `PROSPECTIVE_OBSERVATION`, are structurally valid only with their
 declared input variant. Structural validity does not enable execution. Phase 2
-exposes `validate_job_wire_dispatch_candidate`, a necessary but insufficient
+exposes `validate_dispatch_candidate`, a necessary but insufficient
 wire gate: it validates the complete inline envelope and requires the selected
 kind to be present in that process's explicit enabled-handler set, but its
 returned kind neither selects nor authorizes a handler. FactorSpec registry
@@ -188,9 +188,9 @@ the record attempt, and can never be reinterpreted as `FactorRejection`.
 The shared matrix in `tests/contracts/job_record_vectors.tsv` is executed in all
 three languages and covers every declared kind, state/lease/outcome transitions,
 factor-ID binding, terminal payload minima, collection limits, and unknown
-enums. `validate_job_specification_shape` only classifies the closed kind/input
+enums. `validate_job_shape` only classifies the closed kind/input
 matrix. `validate_job_specification` adds all inline wire checks, and
-`validate_job_wire_dispatch_candidate` maps those failures for a runtime
+`validate_dispatch_candidate` maps those failures for a runtime
 candidate boundary. None replaces the external gates above.
 
 ## Typed model content

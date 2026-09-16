@@ -109,14 +109,14 @@ export interface AuditEvent {
   readonly eventSha256: string;
 }
 
-export function canonicalizeAuditPayload(
+export function canonicalize_audit_payload(
   schemaName: string,
   schemaVersion: number,
   submitted: Uint8Array | string,
 ): Readonly<AuditPayload> {
-  validateSchemaName(schemaName);
-  validateSchemaVersion(schemaVersion);
-  const { bytes, text } = decodeCanonicalBytes(submitted);
+  validate_schema_name(schemaName);
+  validate_schema_version(schemaVersion);
+  const { bytes, text } = decode_canonical_bytes(submitted);
   if (bytes.byteLength > MAX_AUDIT_PAYLOAD_BYTES) {
     fail("size_limit", "payload.canonical_bytes", "canonical payload exceeds 256 KiB");
   }
@@ -132,10 +132,10 @@ export function canonicalizeAuditPayload(
     );
   }
 
-  const { rewritten } = canonicalizeRegisteredPayload(schemaName, schemaVersion, raw);
+  const { rewritten } = canonicalize_registered_payload(schemaName, schemaVersion, raw);
 
   const rewrittenBytes = encoder.encode(rewritten);
-  if (!equalBytes(bytes, rewrittenBytes)) {
+  if (!equal_bytes(bytes, rewrittenBytes)) {
     fail(
       "non_canonical_payload",
       "payload.canonical_bytes",
@@ -146,17 +146,17 @@ export function canonicalizeAuditPayload(
     schemaName,
     schemaVersion,
     canonicalBytes: rewrittenBytes,
-    payloadSha256: auditPayloadSha256(schemaName, schemaVersion, rewrittenBytes),
+    payloadSha256: audit_payload_sha256(schemaName, schemaVersion, rewrittenBytes),
   });
 }
 
-export function auditPayloadSha256(
+export function audit_payload_sha256(
   schemaName: string,
   schemaVersion: number,
   canonicalPayloadBytes: Uint8Array,
 ): string {
-  validateSchemaName(schemaName);
-  validateSchemaVersion(schemaVersion);
+  validate_schema_name(schemaName);
+  validate_schema_version(schemaVersion);
   const hash = createHash("sha256");
   hash.update(PAYLOAD_DOMAIN, "ascii");
   hash.update(Uint8Array.of(0));
@@ -168,9 +168,9 @@ export function auditPayloadSha256(
   return `sha256:${hash.digest("hex")}`;
 }
 
-export function verifyAuditPayload(payload: AuditPayload): void {
-  validateSha256(payload.payloadSha256, "payload.payload_sha256");
-  const verified = canonicalizeAuditPayload(
+export function verify_audit_payload(payload: AuditPayload): void {
+  validate_sha256(payload.payloadSha256, "payload.payload_sha256");
+  const verified = canonicalize_audit_payload(
     payload.schemaName,
     payload.schemaVersion,
     payload.canonicalBytes,
@@ -184,35 +184,35 @@ export function verifyAuditPayload(payload: AuditPayload): void {
   }
 }
 
-export function canonicalAuditEventBytes(event: AuditEvent): Uint8Array {
-  verifyAuditPayload(event.payload);
-  validateEvent(event);
+export function audit_event_bytes(event: AuditEvent): Uint8Array {
+  verify_audit_payload(event.payload);
+  validate_event(event);
   const canonical =
-    `{"schema":"${EVENT_SCHEMA}","audit_ledger_id":${writeJsonString(event.auditLedgerId)},` +
+    `{"schema":"${EVENT_SCHEMA}","audit_ledger_id":${write_json_string(event.auditLedgerId)},` +
     `"sequence":"${event.sequence.toString()}","previous_event_sha256":"${event.previousEventSha256}",` +
-    `"audit_event_id":${writeJsonString(event.auditEventId)},"occurred_at":${writeJsonString(event.occurredAt)},` +
-    `"correlation_id":${writeJsonString(event.correlationId)},"causation_id":${writeJsonString(event.causationId)},` +
-    `"actor":{"actor_id":${writeJsonString(event.actor.actorId)},"kind":"${event.actor.kind}",` +
-    `"display_name":${writeJsonString(event.actor.displayName)},` +
-    `"authenticated_subject":${writeJsonString(event.actor.authenticatedSubject)}},` +
+    `"audit_event_id":${write_json_string(event.auditEventId)},"occurred_at":${write_json_string(event.occurredAt)},` +
+    `"correlation_id":${write_json_string(event.correlationId)},"causation_id":${write_json_string(event.causationId)},` +
+    `"actor":{"actor_id":${write_json_string(event.actor.actorId)},"kind":"${event.actor.kind}",` +
+    `"display_name":${write_json_string(event.actor.displayName)},` +
+    `"authenticated_subject":${write_json_string(event.actor.authenticatedSubject)}},` +
     `"action":"${event.action}","target":{"kind":"${event.target.kind}",` +
-    `"value":${writeJsonString(event.target.value)}},"payload":{"schema_name":"${event.payload.schemaName}",` +
+    `"value":${write_json_string(event.target.value)}},"payload":{"schema_name":"${event.payload.schemaName}",` +
     `"schema_version":"${event.payload.schemaVersion.toString()}",` +
     `"payload_sha256":"${event.payload.payloadSha256}"}}`;
   return encoder.encode(canonical);
 }
 
-export function auditEventSha256(event: AuditEvent): string {
+export function audit_event_sha256(event: AuditEvent): string {
   const hash = createHash("sha256");
   hash.update(EVENT_DOMAIN, "ascii");
   hash.update(Uint8Array.of(0));
-  hash.update(canonicalAuditEventBytes(event));
+  hash.update(audit_event_bytes(event));
   return `sha256:${hash.digest("hex")}`;
 }
 
-export function verifyAuditEvent(event: AuditEvent): void {
-  validateSha256(event.eventSha256, "event_sha256");
-  const computed = auditEventSha256(event);
+export function verify_audit_event(event: AuditEvent): void {
+  validate_sha256(event.eventSha256, "event_sha256");
+  const computed = audit_event_sha256(event);
   if (computed !== event.eventSha256) {
     fail(
       "event_digest_mismatch",
@@ -222,14 +222,14 @@ export function verifyAuditEvent(event: AuditEvent): void {
   }
 }
 
-export function verifyAuditChain(events: readonly AuditEvent[]): void {
+export function verify_audit_chain(events: readonly AuditEvent[]): void {
   if (events.length === 0) return;
   const ledgerId = events[0]?.auditLedgerId;
   let previous = ZERO_SHA256;
   let expectedSequence = 1n;
   const eventIds = new Set<string>();
   for (const event of events) {
-    verifyAuditEvent(event);
+    verify_audit_event(event);
     if (event.auditLedgerId !== ledgerId) {
       fail(
         "ledger_mismatch",
@@ -260,14 +260,14 @@ export function verifyAuditChain(events: readonly AuditEvent[]): void {
   }
 }
 
-export function assertActorKind(value: string): ActorKind {
+export function assert_actor_kind(value: string): ActorKind {
   if (value === "human" || value === "service" || value === "agent" || value === "scheduler") {
     return value;
   }
   fail("invalid_enum", "actor.kind", "unknown actor kind");
 }
 
-export function assertAuditAction(value: string): AuditAction {
+export function assert_audit_action(value: string): AuditAction {
   if (
     value === "command_accepted" ||
     value === "state_transitioned" ||
@@ -286,7 +286,7 @@ export function assertAuditAction(value: string): AuditAction {
   fail("invalid_enum", "action", "unknown audit action");
 }
 
-export function assertAuditTargetKind(value: string): AuditTargetKind {
+export function assert_target_kind(value: string): AuditTargetKind {
   if (
     value === "run_id" ||
     value === "job_id" ||
@@ -314,7 +314,7 @@ interface HoldoutApprovalAuditRecord {
   readonly approvedByActorId: string;
 }
 
-function canonicalizeRegisteredPayload(
+function canonicalize_registered_payload(
   schemaName: string,
   schemaVersion: number,
   raw: unknown,
@@ -327,15 +327,15 @@ function canonicalizeRegisteredPayload(
     );
   }
   if (schemaName === "loop.audit.command_accepted") {
-    const payload = requireExactObject(raw, ["command", "request_id", "summary"]);
-    const command = requireString(payload.command, "payload.command");
-    const requestId = requireString(payload.request_id, "payload.request_id");
-    const summary = requireString(payload.summary, "payload.summary");
-    validateSchemaIdentifier(command, "payload.command");
-    validateDomainId(requestId, "payload.request_id");
-    validateText(summary, "payload.summary", true);
+    const payload = require_exact_object(raw, ["command", "request_id", "summary"]);
+    const command = require_string(payload.command, "payload.command");
+    const requestId = require_string(payload.request_id, "payload.request_id");
+    const summary = require_string(payload.summary, "payload.summary");
+    validate_schema_identifier(command, "payload.command");
+    validate_domain_id(requestId, "payload.request_id");
+    validate_text(summary, "payload.summary", true);
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["command", command],
         ["request_id", requestId],
         ["summary", summary],
@@ -343,15 +343,15 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.state_transitioned") {
-    const payload = requireExactObject(raw, ["from", "to", "reason"]);
-    const from = requireString(payload.from, "payload.from");
-    const to = requireString(payload.to, "payload.to");
-    const reason = requireString(payload.reason, "payload.reason");
-    validateSchemaIdentifier(from, "payload.from");
-    validateSchemaIdentifier(to, "payload.to");
-    validateText(reason, "payload.reason", true);
+    const payload = require_exact_object(raw, ["from", "to", "reason"]);
+    const from = require_string(payload.from, "payload.from");
+    const to = require_string(payload.to, "payload.to");
+    const reason = require_string(payload.reason, "payload.reason");
+    validate_schema_identifier(from, "payload.from");
+    validate_schema_identifier(to, "payload.to");
+    validate_text(reason, "payload.reason", true);
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["from", from],
         ["to", to],
         ["reason", reason],
@@ -359,18 +359,22 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.factor_admitted") {
-    const payload = requireExactObject(raw, ["factor_spec_id", "decision", "evidence_artifact_id"]);
-    const factorSpecId = requireString(payload.factor_spec_id, "payload.factor_spec_id");
-    const decision = requireString(payload.decision, "payload.decision");
-    const evidenceArtifactId = requireString(
+    const payload = require_exact_object(raw, [
+      "factor_spec_id",
+      "decision",
+      "evidence_artifact_id",
+    ]);
+    const factorSpecId = require_string(payload.factor_spec_id, "payload.factor_spec_id");
+    const decision = require_string(payload.decision, "payload.decision");
+    const evidenceArtifactId = require_string(
       payload.evidence_artifact_id,
       "payload.evidence_artifact_id",
     );
-    validateSha256(factorSpecId, "payload.factor_spec_id");
-    validateClosedEnum(decision, ["admitted"], "payload.decision");
-    validateSha256(evidenceArtifactId, "payload.evidence_artifact_id");
+    validate_sha256(factorSpecId, "payload.factor_spec_id");
+    validate_closed_enum(decision, ["admitted"], "payload.decision");
+    validate_sha256(evidenceArtifactId, "payload.evidence_artifact_id");
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["factor_spec_id", factorSpecId],
         ["decision", decision],
         ["evidence_artifact_id", evidenceArtifactId],
@@ -379,21 +383,21 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.factor_rejected") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "factor_spec_id",
       "rejection_code",
       "reason",
       "evidence_artifact_id",
     ]);
-    const factorSpecId = requireString(payload.factor_spec_id, "payload.factor_spec_id");
-    const rejectionCode = requireString(payload.rejection_code, "payload.rejection_code");
-    const reason = requireString(payload.reason, "payload.reason");
-    const evidenceArtifactId = requireString(
+    const factorSpecId = require_string(payload.factor_spec_id, "payload.factor_spec_id");
+    const rejectionCode = require_string(payload.rejection_code, "payload.rejection_code");
+    const reason = require_string(payload.reason, "payload.reason");
+    const evidenceArtifactId = require_string(
       payload.evidence_artifact_id,
       "payload.evidence_artifact_id",
     );
-    validateSha256(factorSpecId, "payload.factor_spec_id");
-    validateClosedEnum(
+    validate_sha256(factorSpecId, "payload.factor_spec_id");
+    validate_closed_enum(
       rejectionCode,
       [
         "duplicate",
@@ -407,10 +411,10 @@ function canonicalizeRegisteredPayload(
       ],
       "payload.rejection_code",
     );
-    validateText(reason, "payload.reason", true);
-    validateSha256(evidenceArtifactId, "payload.evidence_artifact_id");
+    validate_text(reason, "payload.reason", true);
+    validate_sha256(evidenceArtifactId, "payload.evidence_artifact_id");
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["factor_spec_id", factorSpecId],
         ["rejection_code", rejectionCode],
         ["reason", reason],
@@ -420,7 +424,7 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.override_authorized") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "factor_spec_id",
       "override_kind",
       "authorized_by_actor_id",
@@ -428,33 +432,33 @@ function canonicalizeRegisteredPayload(
       "approval_reference",
       "evidence_artifact_id",
     ]);
-    const factorSpecId = requireString(payload.factor_spec_id, "payload.factor_spec_id");
-    const overrideKind = requireString(payload.override_kind, "payload.override_kind");
-    const authorizedByActorId = requireString(
+    const factorSpecId = require_string(payload.factor_spec_id, "payload.factor_spec_id");
+    const overrideKind = require_string(payload.override_kind, "payload.override_kind");
+    const authorizedByActorId = require_string(
       payload.authorized_by_actor_id,
       "payload.authorized_by_actor_id",
     );
-    const reason = requireString(payload.reason, "payload.reason");
-    const approvalReference = requireString(
+    const reason = require_string(payload.reason, "payload.reason");
+    const approvalReference = require_string(
       payload.approval_reference,
       "payload.approval_reference",
     );
-    const evidenceArtifactId = requireString(
+    const evidenceArtifactId = require_string(
       payload.evidence_artifact_id,
       "payload.evidence_artifact_id",
     );
-    validateSha256(factorSpecId, "payload.factor_spec_id");
-    validateClosedEnum(
+    validate_sha256(factorSpecId, "payload.factor_spec_id");
+    validate_closed_enum(
       overrideKind,
       ["force_admission", "readmission", "policy_exception"],
       "payload.override_kind",
     );
-    validateDomainId(authorizedByActorId, "payload.authorized_by_actor_id");
-    validateText(reason, "payload.reason", true);
-    validateDomainId(approvalReference, "payload.approval_reference");
-    validateSha256(evidenceArtifactId, "payload.evidence_artifact_id");
+    validate_domain_id(authorizedByActorId, "payload.authorized_by_actor_id");
+    validate_text(reason, "payload.reason", true);
+    validate_domain_id(approvalReference, "payload.approval_reference");
+    validate_sha256(evidenceArtifactId, "payload.evidence_artifact_id");
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["factor_spec_id", factorSpecId],
         ["override_kind", overrideKind],
         ["authorized_by_actor_id", authorizedByActorId],
@@ -466,28 +470,28 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.readmission_requested") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "factor_spec_id",
       "original_rejection_event_id",
       "requested_by_actor_id",
       "reason",
     ]);
-    const factorSpecId = requireString(payload.factor_spec_id, "payload.factor_spec_id");
-    const originalRejectionEventId = requireString(
+    const factorSpecId = require_string(payload.factor_spec_id, "payload.factor_spec_id");
+    const originalRejectionEventId = require_string(
       payload.original_rejection_event_id,
       "payload.original_rejection_event_id",
     );
-    const requestedByActorId = requireString(
+    const requestedByActorId = require_string(
       payload.requested_by_actor_id,
       "payload.requested_by_actor_id",
     );
-    const reason = requireString(payload.reason, "payload.reason");
-    validateSha256(factorSpecId, "payload.factor_spec_id");
-    validateDomainId(originalRejectionEventId, "payload.original_rejection_event_id");
-    validateDomainId(requestedByActorId, "payload.requested_by_actor_id");
-    validateText(reason, "payload.reason", true);
+    const reason = require_string(payload.reason, "payload.reason");
+    validate_sha256(factorSpecId, "payload.factor_spec_id");
+    validate_domain_id(originalRejectionEventId, "payload.original_rejection_event_id");
+    validate_domain_id(requestedByActorId, "payload.requested_by_actor_id");
+    validate_text(reason, "payload.reason", true);
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["factor_spec_id", factorSpecId],
         ["original_rejection_event_id", originalRejectionEventId],
         ["requested_by_actor_id", requestedByActorId],
@@ -497,31 +501,35 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.readmission_decided") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "factor_spec_id",
       "original_rejection_event_id",
       "disposition",
       "decided_by_actor_id",
       "reason",
     ]);
-    const factorSpecId = requireString(payload.factor_spec_id, "payload.factor_spec_id");
-    const originalRejectionEventId = requireString(
+    const factorSpecId = require_string(payload.factor_spec_id, "payload.factor_spec_id");
+    const originalRejectionEventId = require_string(
       payload.original_rejection_event_id,
       "payload.original_rejection_event_id",
     );
-    const disposition = requireString(payload.disposition, "payload.disposition");
-    const decidedByActorId = requireString(
+    const disposition = require_string(payload.disposition, "payload.disposition");
+    const decidedByActorId = require_string(
       payload.decided_by_actor_id,
       "payload.decided_by_actor_id",
     );
-    const reason = requireString(payload.reason, "payload.reason");
-    validateSha256(factorSpecId, "payload.factor_spec_id");
-    validateDomainId(originalRejectionEventId, "payload.original_rejection_event_id");
-    validateClosedEnum(disposition, ["admitted", "rejected", "quarantined"], "payload.disposition");
-    validateDomainId(decidedByActorId, "payload.decided_by_actor_id");
-    validateText(reason, "payload.reason", true);
+    const reason = require_string(payload.reason, "payload.reason");
+    validate_sha256(factorSpecId, "payload.factor_spec_id");
+    validate_domain_id(originalRejectionEventId, "payload.original_rejection_event_id");
+    validate_closed_enum(
+      disposition,
+      ["admitted", "rejected", "quarantined"],
+      "payload.disposition",
+    );
+    validate_domain_id(decidedByActorId, "payload.decided_by_actor_id");
+    validate_text(reason, "payload.reason", true);
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["factor_spec_id", factorSpecId],
         ["original_rejection_event_id", originalRejectionEventId],
         ["disposition", disposition],
@@ -532,7 +540,7 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.holdout_grant_issued") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "holdout_grant_id",
       "holdout_period_id",
       "freeze_manifest_sha256",
@@ -541,30 +549,30 @@ function canonicalizeRegisteredPayload(
       "capability_class",
       "authorization_decision",
     ]);
-    const holdoutGrantId = requireString(payload.holdout_grant_id, "payload.holdout_grant_id");
-    const holdoutPeriodId = requireString(payload.holdout_period_id, "payload.holdout_period_id");
-    const freezeManifestSha256 = requireString(
+    const holdoutGrantId = require_string(payload.holdout_grant_id, "payload.holdout_grant_id");
+    const holdoutPeriodId = require_string(payload.holdout_period_id, "payload.holdout_period_id");
+    const freezeManifestSha256 = require_string(
       payload.freeze_manifest_sha256,
       "payload.freeze_manifest_sha256",
     );
-    const holdoutEvaluationPlanId = requireString(
+    const holdoutEvaluationPlanId = require_string(
       payload.holdout_evaluation_plan_id,
       "payload.holdout_evaluation_plan_id",
     );
-    const approvalRecords = requireHoldoutApprovalRecords(payload.approval_records);
-    const capabilityClass = requireString(payload.capability_class, "payload.capability_class");
-    const authorizationDecision = requireString(
+    const approvalRecords = require_approval_records(payload.approval_records);
+    const capabilityClass = require_string(payload.capability_class, "payload.capability_class");
+    const authorizationDecision = require_string(
       payload.authorization_decision,
       "payload.authorization_decision",
     );
-    validateDomainId(holdoutGrantId, "payload.holdout_grant_id");
-    validateSha256(holdoutPeriodId, "payload.holdout_period_id");
-    validateSha256(freezeManifestSha256, "payload.freeze_manifest_sha256");
-    validateSha256(holdoutEvaluationPlanId, "payload.holdout_evaluation_plan_id");
-    validateClosedEnum(capabilityClass, ["holdout_evaluation"], "payload.capability_class");
-    validateClosedEnum(authorizationDecision, ["authorized"], "payload.authorization_decision");
+    validate_domain_id(holdoutGrantId, "payload.holdout_grant_id");
+    validate_sha256(holdoutPeriodId, "payload.holdout_period_id");
+    validate_sha256(freezeManifestSha256, "payload.freeze_manifest_sha256");
+    validate_sha256(holdoutEvaluationPlanId, "payload.holdout_evaluation_plan_id");
+    validate_closed_enum(capabilityClass, ["holdout_evaluation"], "payload.capability_class");
+    validate_closed_enum(authorizationDecision, ["authorized"], "payload.authorization_decision");
     return {
-      rewritten: writeHoldoutGrantIssuedPayload(
+      rewritten: write_grant_payload(
         holdoutGrantId,
         holdoutPeriodId,
         freezeManifestSha256,
@@ -577,7 +585,7 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.holdout_grant_consumed") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "holdout_grant_id",
       "holdout_period_id",
       "holdout_evaluation_plan_id",
@@ -585,26 +593,26 @@ function canonicalizeRegisteredPayload(
       "capability_class",
       "authorization_decision",
     ]);
-    const holdoutGrantId = requireString(payload.holdout_grant_id, "payload.holdout_grant_id");
-    const holdoutPeriodId = requireString(payload.holdout_period_id, "payload.holdout_period_id");
-    const holdoutEvaluationPlanId = requireString(
+    const holdoutGrantId = require_string(payload.holdout_grant_id, "payload.holdout_grant_id");
+    const holdoutPeriodId = require_string(payload.holdout_period_id, "payload.holdout_period_id");
+    const holdoutEvaluationPlanId = require_string(
       payload.holdout_evaluation_plan_id,
       "payload.holdout_evaluation_plan_id",
     );
-    const jobBatchId = requireString(payload.job_batch_id, "payload.job_batch_id");
-    const capabilityClass = requireString(payload.capability_class, "payload.capability_class");
-    const authorizationDecision = requireString(
+    const jobBatchId = require_string(payload.job_batch_id, "payload.job_batch_id");
+    const capabilityClass = require_string(payload.capability_class, "payload.capability_class");
+    const authorizationDecision = require_string(
       payload.authorization_decision,
       "payload.authorization_decision",
     );
-    validateDomainId(holdoutGrantId, "payload.holdout_grant_id");
-    validateSha256(holdoutPeriodId, "payload.holdout_period_id");
-    validateSha256(holdoutEvaluationPlanId, "payload.holdout_evaluation_plan_id");
-    validateDomainId(jobBatchId, "payload.job_batch_id");
-    validateClosedEnum(capabilityClass, ["holdout_evaluation"], "payload.capability_class");
-    validateClosedEnum(authorizationDecision, ["authorized"], "payload.authorization_decision");
+    validate_domain_id(holdoutGrantId, "payload.holdout_grant_id");
+    validate_sha256(holdoutPeriodId, "payload.holdout_period_id");
+    validate_sha256(holdoutEvaluationPlanId, "payload.holdout_evaluation_plan_id");
+    validate_domain_id(jobBatchId, "payload.job_batch_id");
+    validate_closed_enum(capabilityClass, ["holdout_evaluation"], "payload.capability_class");
+    validate_closed_enum(authorizationDecision, ["authorized"], "payload.authorization_decision");
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["holdout_grant_id", holdoutGrantId],
         ["holdout_period_id", holdoutPeriodId],
         ["holdout_evaluation_plan_id", holdoutEvaluationPlanId],
@@ -616,30 +624,30 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.artifact_exported") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "artifact_id",
       "export_class",
       "policy_id",
       "destination_class",
     ]);
-    const artifactId = requireString(payload.artifact_id, "payload.artifact_id");
-    const exportClass = requireString(payload.export_class, "payload.export_class");
-    const policyId = requireString(payload.policy_id, "payload.policy_id");
-    const destinationClass = requireString(payload.destination_class, "payload.destination_class");
-    validateSha256(artifactId, "payload.artifact_id");
-    validateClosedEnum(
+    const artifactId = require_string(payload.artifact_id, "payload.artifact_id");
+    const exportClass = require_string(payload.export_class, "payload.export_class");
+    const policyId = require_string(payload.policy_id, "payload.policy_id");
+    const destinationClass = require_string(payload.destination_class, "payload.destination_class");
+    validate_sha256(artifactId, "payload.artifact_id");
+    validate_closed_enum(
       exportClass,
       ["research_report", "audit_bundle", "data_snapshot", "factor_values"],
       "payload.export_class",
     );
-    validateSha256(policyId, "payload.policy_id");
-    validateClosedEnum(
+    validate_sha256(policyId, "payload.policy_id");
+    validate_closed_enum(
       destinationClass,
       ["local_managed", "approved_object_store", "user_download"],
       "payload.destination_class",
     );
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["artifact_id", artifactId],
         ["export_class", exportClass],
         ["policy_id", policyId],
@@ -649,34 +657,34 @@ function canonicalizeRegisteredPayload(
     };
   }
   if (schemaName === "loop.audit.holdout_approval_recorded") {
-    const payload = requireExactObject(raw, [
+    const payload = require_exact_object(raw, [
       "holdout_approval_record_id",
       "holdout_period_id",
       "freeze_manifest_sha256",
       "approved_by_actor_id",
       "expires_at",
     ]);
-    const holdoutApprovalRecordId = requireString(
+    const holdoutApprovalRecordId = require_string(
       payload.holdout_approval_record_id,
       "payload.holdout_approval_record_id",
     );
-    const holdoutPeriodId = requireString(payload.holdout_period_id, "payload.holdout_period_id");
-    const freezeManifestSha256 = requireString(
+    const holdoutPeriodId = require_string(payload.holdout_period_id, "payload.holdout_period_id");
+    const freezeManifestSha256 = require_string(
       payload.freeze_manifest_sha256,
       "payload.freeze_manifest_sha256",
     );
-    const approvedByActorId = requireString(
+    const approvedByActorId = require_string(
       payload.approved_by_actor_id,
       "payload.approved_by_actor_id",
     );
-    const expiresAt = requireString(payload.expires_at, "payload.expires_at");
-    validateDomainId(holdoutApprovalRecordId, "payload.holdout_approval_record_id");
-    validateSha256(holdoutPeriodId, "payload.holdout_period_id");
-    validateSha256(freezeManifestSha256, "payload.freeze_manifest_sha256");
-    validateDomainId(approvedByActorId, "payload.approved_by_actor_id");
-    validateTimestampField(expiresAt, "payload.expires_at");
+    const expiresAt = require_string(payload.expires_at, "payload.expires_at");
+    validate_domain_id(holdoutApprovalRecordId, "payload.holdout_approval_record_id");
+    validate_sha256(holdoutPeriodId, "payload.holdout_period_id");
+    validate_sha256(freezeManifestSha256, "payload.freeze_manifest_sha256");
+    validate_domain_id(approvedByActorId, "payload.approved_by_actor_id");
+    validate_timestamp_field(expiresAt, "payload.expires_at");
     return {
-      rewritten: writePayloadFields([
+      rewritten: write_payload_fields([
         ["holdout_approval_record_id", holdoutApprovalRecordId],
         ["holdout_period_id", holdoutPeriodId],
         ["freeze_manifest_sha256", freezeManifestSha256],
@@ -693,22 +701,22 @@ function canonicalizeRegisteredPayload(
   );
 }
 
-function validateEvent(event: AuditEvent): void {
-  validateDomainId(event.auditLedgerId, "audit_ledger_id");
+function validate_event(event: AuditEvent): void {
+  validate_domain_id(event.auditLedgerId, "audit_ledger_id");
   if (event.sequence <= 0n || event.sequence > 18_446_744_073_709_551_615n) {
     fail("invalid_sequence", "sequence", "event sequence must be a positive uint64");
   }
-  validateSha256(event.previousEventSha256, "previous_event_sha256");
-  validateDomainId(event.auditEventId, "audit_event_id");
-  validateTimestamp(event.occurredAt);
-  validateDomainId(event.correlationId, "correlation_id");
-  validateDomainId(event.causationId, "causation_id");
-  validateDomainId(event.actor.actorId, "actor.actor_id");
-  assertActorKind(event.actor.kind);
-  validateText(event.actor.displayName, "actor.display_name", false);
-  validateText(event.actor.authenticatedSubject, "actor.authenticated_subject", true);
-  assertAuditAction(event.action);
-  assertAuditTargetKind(event.target.kind);
+  validate_sha256(event.previousEventSha256, "previous_event_sha256");
+  validate_domain_id(event.auditEventId, "audit_event_id");
+  validate_timestamp(event.occurredAt);
+  validate_domain_id(event.correlationId, "correlation_id");
+  validate_domain_id(event.causationId, "causation_id");
+  validate_domain_id(event.actor.actorId, "actor.actor_id");
+  assert_actor_kind(event.actor.kind);
+  validate_text(event.actor.displayName, "actor.display_name", false);
+  validate_text(event.actor.authenticatedSubject, "actor.authenticated_subject", true);
+  assert_audit_action(event.action);
+  assert_target_kind(event.target.kind);
   if (
     event.target.kind === "factor_spec_id" ||
     event.target.kind === "artifact_id" ||
@@ -723,15 +731,15 @@ function validateEvent(event: AuditEvent): void {
     }
   } else {
     try {
-      validateDomainId(event.target.value, "target.value");
+      validate_domain_id(event.target.value, "target.value");
     } catch {
       fail("invalid_target", "target.value", "target value does not satisfy its typed ID encoding");
     }
   }
-  validateActionBinding(event);
+  validate_action_binding(event);
 }
 
-function validateActionBinding(event: AuditEvent): void {
+function validate_action_binding(event: AuditEvent): void {
   const binding: Readonly<{
     schemaName: string;
     allowedTargets: readonly AuditTargetKind[];
@@ -807,7 +815,7 @@ function validateActionBinding(event: AuditEvent): void {
       error instanceof Error ? error.message : "payload is not JSON",
     );
   }
-  const { subject } = canonicalizeRegisteredPayload(
+  const { subject } = canonicalize_registered_payload(
     event.payload.schemaName,
     event.payload.schemaVersion,
     raw,
@@ -821,23 +829,23 @@ function validateActionBinding(event: AuditEvent): void {
   }
 }
 
-function validateSchemaName(value: string): void {
-  validateSchemaIdentifier(value, "payload.schema_name");
+function validate_schema_name(value: string): void {
+  validate_schema_identifier(value, "payload.schema_name");
 }
 
-function validateSchemaIdentifier(value: string, field: string): void {
+function validate_schema_identifier(value: string, field: string): void {
   if (!SCHEMA_PATTERN.test(value) || encoder.encode(value).byteLength > MAX_AUDIT_ID_BYTES) {
     fail("invalid_schema", field, "value must be a dot-qualified lowercase ASCII identifier");
   }
 }
 
-function validateSchemaVersion(value: number): void {
+function validate_schema_version(value: number): void {
   if (!Number.isInteger(value) || value < 1 || value > 4_294_967_295) {
     fail("invalid_schema", "payload.schema_version", "schema version must be a positive uint32");
   }
 }
 
-function validateDomainId(value: string, field: string): void {
+function validate_domain_id(value: string, field: string): void {
   if (!DOMAIN_ID_PATTERN.test(value) || encoder.encode(value).byteLength > MAX_AUDIT_ID_BYTES) {
     fail(
       "invalid_identifier",
@@ -847,8 +855,8 @@ function validateDomainId(value: string, field: string): void {
   }
 }
 
-function validateText(value: string, field: string, requireNonempty: boolean): void {
-  validateUnicodeScalar(value, field);
+function validate_text(value: string, field: string, requireNonempty: boolean): void {
+  validate_unicode_scalar(value, field);
   if (
     (requireNonempty && value.length === 0) ||
     encoder.encode(value).byteLength > MAX_AUDIT_TEXT_BYTES
@@ -857,7 +865,7 @@ function validateText(value: string, field: string, requireNonempty: boolean): v
   }
 }
 
-function validateUnicodeScalar(value: string, field: string): void {
+function validate_unicode_scalar(value: string, field: string): void {
   for (let index = 0; index < value.length; index += 1) {
     const unit = value.charCodeAt(index);
     if (unit >= 0xd800 && unit <= 0xdbff) {
@@ -872,9 +880,9 @@ function validateUnicodeScalar(value: string, field: string): void {
   }
 }
 
-function validateTimestamp(value: string): void {
+function validate_timestamp(value: string): void {
   const match = TIMESTAMP_PATTERN.exec(value);
-  if (match === null) invalidTimestamp();
+  if (match === null) invalid_timestamp();
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
@@ -886,16 +894,16 @@ function validateTimestamp(value: string): void {
     month < 1 ||
     month > 12 ||
     day < 1 ||
-    day > daysInMonth(year, month) ||
+    day > days_in_month(year, month) ||
     hour > 23 ||
     minute > 59 ||
     second > 59
   ) {
-    invalidTimestamp();
+    invalid_timestamp();
   }
 }
 
-function invalidTimestamp(): never {
+function invalid_timestamp(): never {
   fail(
     "invalid_timestamp",
     "occurred_at",
@@ -903,14 +911,14 @@ function invalidTimestamp(): never {
   );
 }
 
-function daysInMonth(year: number, month: number): number {
+function days_in_month(year: number, month: number): number {
   if (month === 2) {
     return year % 400 === 0 || (year % 4 === 0 && year % 100 !== 0) ? 29 : 28;
   }
   return [4, 6, 9, 11].includes(month) ? 30 : 31;
 }
 
-function decodeCanonicalBytes(input: Uint8Array | string): {
+function decode_canonical_bytes(input: Uint8Array | string): {
   readonly bytes: Uint8Array;
   readonly text: string;
 } {
@@ -929,7 +937,7 @@ function decodeCanonicalBytes(input: Uint8Array | string): {
   }
 }
 
-function requireExactObject(raw: unknown, keys: readonly string[]): Record<string, unknown> {
+function require_exact_object(raw: unknown, keys: readonly string[]): Record<string, unknown> {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     fail("non_canonical_payload", "payload.canonical_bytes", "payload must be an object");
   }
@@ -944,15 +952,15 @@ function requireExactObject(raw: unknown, keys: readonly string[]): Record<strin
   return raw as Record<string, unknown>;
 }
 
-function requireString(value: unknown, field: string): string {
+function require_string(value: unknown, field: string): string {
   if (typeof value !== "string") {
     fail("non_canonical_payload", field, "payload field must be a string");
   }
-  validateUnicodeScalar(value, field);
+  validate_unicode_scalar(value, field);
   return value;
 }
 
-function requireHoldoutApprovalRecords(value: unknown): readonly HoldoutApprovalAuditRecord[] {
+function require_approval_records(value: unknown): readonly HoldoutApprovalAuditRecord[] {
   if (!Array.isArray(value)) {
     fail("non_canonical_payload", "payload.approval_records", "field must be an array");
   }
@@ -972,26 +980,26 @@ function requireHoldoutApprovalRecords(value: unknown): readonly HoldoutApproval
 
   for (const [index, raw] of value.entries()) {
     const prefix = `payload.approval_records[${index}]`;
-    const record = requireExactObject(raw, [
+    const record = require_exact_object(raw, [
       "holdout_approval_record_id",
       "approval_record_sha256",
       "approved_by_actor_id",
     ]);
-    const holdoutApprovalRecordId = requireString(
+    const holdoutApprovalRecordId = require_string(
       record.holdout_approval_record_id,
       `${prefix}.holdout_approval_record_id`,
     );
-    const approvalRecordSha256 = requireString(
+    const approvalRecordSha256 = require_string(
       record.approval_record_sha256,
       `${prefix}.approval_record_sha256`,
     );
-    const approvedByActorId = requireString(
+    const approvedByActorId = require_string(
       record.approved_by_actor_id,
       `${prefix}.approved_by_actor_id`,
     );
-    validateDomainId(holdoutApprovalRecordId, `${prefix}.holdout_approval_record_id`);
-    validateSha256(approvalRecordSha256, `${prefix}.approval_record_sha256`);
-    validateDomainId(approvedByActorId, `${prefix}.approved_by_actor_id`);
+    validate_domain_id(holdoutApprovalRecordId, `${prefix}.holdout_approval_record_id`);
+    validate_sha256(approvalRecordSha256, `${prefix}.approval_record_sha256`);
+    validate_domain_id(approvedByActorId, `${prefix}.approved_by_actor_id`);
 
     if (
       recordIds.has(holdoutApprovalRecordId) ||
@@ -1021,21 +1029,21 @@ function requireHoldoutApprovalRecords(value: unknown): readonly HoldoutApproval
   return records;
 }
 
-function validateSha256(value: string, field: string): void {
+function validate_sha256(value: string, field: string): void {
   if (!SHA256_PATTERN.test(value)) {
     fail("invalid_digest", field, "digest must use sha256: and 64 lowercase hexadecimal digits");
   }
 }
 
-function validateClosedEnum(value: string, allowed: readonly string[], field: string): void {
+function validate_closed_enum(value: string, allowed: readonly string[], field: string): void {
   if (!allowed.includes(value)) {
     fail("invalid_enum", field, "value is not registered in the closed audit payload enum");
   }
 }
 
-function validateTimestampField(value: string, field: string): void {
+function validate_timestamp_field(value: string, field: string): void {
   try {
-    validateTimestamp(value);
+    validate_timestamp(value);
   } catch {
     fail(
       "invalid_timestamp",
@@ -1045,11 +1053,11 @@ function validateTimestampField(value: string, field: string): void {
   }
 }
 
-function writePayloadFields(fields: readonly (readonly [string, string])[]): string {
-  return `{${fields.map(([name, value]) => `"${name}":${writeJsonString(value)}`).join(",")}}`;
+function write_payload_fields(fields: readonly (readonly [string, string])[]): string {
+  return `{${fields.map(([name, value]) => `"${name}":${write_json_string(value)}`).join(",")}}`;
 }
 
-function writeHoldoutGrantIssuedPayload(
+function write_grant_payload(
   holdoutGrantId: string,
   holdoutPeriodId: string,
   freezeManifestSha256: string,
@@ -1060,7 +1068,7 @@ function writeHoldoutGrantIssuedPayload(
 ): string {
   const records = approvalRecords
     .map((record) =>
-      writePayloadFields([
+      write_payload_fields([
         ["holdout_approval_record_id", record.holdoutApprovalRecordId],
         ["approval_record_sha256", record.approvalRecordSha256],
         ["approved_by_actor_id", record.approvedByActorId],
@@ -1068,18 +1076,18 @@ function writeHoldoutGrantIssuedPayload(
     )
     .join(",");
   return (
-    `{"holdout_grant_id":${writeJsonString(holdoutGrantId)},` +
-    `"holdout_period_id":${writeJsonString(holdoutPeriodId)},` +
-    `"freeze_manifest_sha256":${writeJsonString(freezeManifestSha256)},` +
-    `"holdout_evaluation_plan_id":${writeJsonString(holdoutEvaluationPlanId)},` +
+    `{"holdout_grant_id":${write_json_string(holdoutGrantId)},` +
+    `"holdout_period_id":${write_json_string(holdoutPeriodId)},` +
+    `"freeze_manifest_sha256":${write_json_string(freezeManifestSha256)},` +
+    `"holdout_evaluation_plan_id":${write_json_string(holdoutEvaluationPlanId)},` +
     `"approval_records":[${records}],` +
-    `"capability_class":${writeJsonString(capabilityClass)},` +
-    `"authorization_decision":${writeJsonString(authorizationDecision)}}`
+    `"capability_class":${write_json_string(capabilityClass)},` +
+    `"authorization_decision":${write_json_string(authorizationDecision)}}`
   );
 }
 
-function writeJsonString(value: string): string {
-  validateUnicodeScalar(value, "json_string");
+function write_json_string(value: string): string {
+  validate_unicode_scalar(value, "json_string");
   let output = '"';
   for (const character of value) {
     switch (character) {
@@ -1117,7 +1125,7 @@ function writeJsonString(value: string): string {
   return `${output}"`;
 }
 
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+function equal_bytes(left: Uint8Array, right: Uint8Array): boolean {
   if (left.byteLength !== right.byteLength) return false;
   return left.every((byte, index) => byte === right[index]);
 }

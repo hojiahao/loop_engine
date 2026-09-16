@@ -22,7 +22,8 @@ def case(tmp_path: Path) -> Case:
     return make_case(tmp_path)
 
 
-def test_generated_panel_matches_worker_contract(case: Case) -> None:
+# Scenario: generated panel matches worker contract.
+def test_generated_panel(case: Case) -> None:
     case.request = change(
         case.request,
         fields=sorted(
@@ -64,7 +65,8 @@ def test_generated_panel_matches_worker_contract(case: Case) -> None:
     assert not (case.output / case.request.capture.sha256[7:]).exists()
 
 
-def test_missing_session_stays_in_the_grid(case: Case) -> None:
+# Scenario: missing session stays in the grid.
+def test_missing_session(case: Case) -> None:
     capture = case.capture()
     capture["bars"] = [bar for bar in capture["bars"] if bar["session"] != "2010-01-05"]
     case.replace_capture(capture)
@@ -74,7 +76,8 @@ def test_missing_session_stays_in_the_grid(case: Case) -> None:
     assert [row["market.close"] for row in rows] == ["8", "8", "", "", "12", "12"]
 
 
-def test_warmup_does_not_inflate_evaluation_coverage(case: Case) -> None:
+# Scenario: warmup does not inflate evaluation coverage.
+def test_warmup_inflate(case: Case) -> None:
     case.request = change(case.request, sample_start="2010-01-05")
     result = case.build()
     assert (result.eligible_rows, result.evaluation_eligible_rows) == (6, 4)
@@ -89,9 +92,8 @@ def test_warmup_does_not_inflate_evaluation_coverage(case: Case) -> None:
         ("2010-11-26", "14:30", "18:00"),
     ],
 )
-def test_decisions_follow_dst_and_early_closes(
-    case: Case, day: str, opening: str, closing: str
-) -> None:
+# Scenario: decisions follow dst and early closes.
+def test_decisions_dst(case: Case, day: str, opening: str, closing: str) -> None:
     capture = case.capture()
     bar = capture["bars"][0]
     close = datetime.fromisoformat(f"{day}T{closing}:00+00:00")
@@ -116,7 +118,8 @@ def test_decisions_follow_dst_and_early_closes(
     assert result.observed_rows == 1
 
 
-def test_capture_must_reach_the_exact_last_decision(case: Case) -> None:
+# Scenario: capture must reach the exact last decision.
+def test_capture_last(case: Case) -> None:
     capture = case.capture()
     cutoff = datetime(2010, 1, 6, 21, 5, tzinfo=UTC) - timedelta(microseconds=1)
     capture["captured_at"] = cutoff.isoformat()
@@ -128,7 +131,8 @@ def test_capture_must_reach_the_exact_last_decision(case: Case) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_late_revision_cannot_rewrite_prior_observation(case: Case) -> None:
+# Scenario: late revision cannot rewrite prior observation.
+def test_late_revision(case: Case) -> None:
     before = case.build()
     capture = case.capture()
     capture["bars"].append(
@@ -147,14 +151,16 @@ def test_late_revision_cannot_rewrite_prior_observation(case: Case) -> None:
         ("2010-01-04T21:05:00.000001Z", "8"),
     ],
 )
-def test_revision_uses_exact_decision_cutoff(case: Case, known: str, expected: str) -> None:
+# Scenario: revision uses exact decision cutoff.
+def test_revision_decision(case: Case, known: str, expected: str) -> None:
     capture = case.capture()
     capture["bars"].append({**capture["bars"][0], "known_at": known, "close": "9"})
     case.replace_capture(capture)
     assert case.rows(case.build())[0]["market.close"] == expected
 
 
-def test_unknown_at_close_is_missing(case: Case) -> None:
+# Scenario: unknown at close is missing.
+def test_unknown_close(case: Case) -> None:
     capture = case.capture()
     capture["bars"][0]["known_at"] = "2010-01-04T21:05:00.000001Z"
     case.replace_capture(capture)
@@ -163,7 +169,8 @@ def test_unknown_at_close_is_missing(case: Case) -> None:
     assert result.eligible_rows == 6 and result.observed_rows == 5
 
 
-def test_delisting_changes_eligibility_without_filling(case: Case) -> None:
+# Scenario: delisting changes eligibility without filling.
+def test_delisting_eligibility(case: Case) -> None:
     capture = case.capture()
     capture["securities"].append(
         {
@@ -179,7 +186,8 @@ def test_delisting_changes_eligibility_without_filling(case: Case) -> None:
     assert result.eligible_rows == result.observed_rows == 4
 
 
-def test_ticker_reuse_keeps_security_axes_distinct(case: Case) -> None:
+# Scenario: ticker reuse keeps security axes distinct.
+def test_ticker_reuse(case: Case) -> None:
     capture = case.capture()
     capture["securities"][0]["effective_until"] = "2010-01-05T14:30:00Z"
     capture["securities"][1].update(
@@ -190,7 +198,8 @@ def test_ticker_reuse_keeps_security_axes_distinct(case: Case) -> None:
 
 
 @pytest.mark.parametrize("kind", ["adr", "etf", "preferred", "spac", "unknown"])
-def test_excluded_instrument_is_not_an_observation(case: Case, kind: str) -> None:
+# Scenario: excluded instrument is not an observation.
+def test_excluded_instrument(case: Case, kind: str) -> None:
     capture = case.capture()
     capture["securities"][0]["kind"] = kind
     case.replace_capture(capture)
@@ -198,7 +207,8 @@ def test_excluded_instrument_is_not_an_observation(case: Case, kind: str) -> Non
     assert result.eligible_rows == result.observed_rows == 3
 
 
-def test_ambiguous_listing_fails_before_publication(case: Case) -> None:
+# Scenario: ambiguous listing fails before publication.
+def test_ambiguous_listing(case: Case) -> None:
     capture = case.capture()
     capture["securities"][1].update(ticker="SYNTHA", venue="XNYS")
     case.replace_capture(capture)
@@ -210,7 +220,8 @@ def test_ambiguous_listing_fails_before_publication(case: Case) -> None:
 @pytest.mark.parametrize(
     "currency,start", [("CAD", "2010-01-04T14:30:00Z"), ("USD", "2010-01-04T15:00:00Z")]
 )
-def test_wrong_currency_or_partial_bar_is_rejected(case: Case, currency: str, start: str) -> None:
+# Scenario: wrong currency or partial bar is rejected.
+def test_wrong_currency(case: Case, currency: str, start: str) -> None:
     capture = case.capture()
     capture["bars"][0].update(currency=currency, interval_start=start)
     case.replace_capture(capture)
@@ -218,7 +229,8 @@ def test_wrong_currency_or_partial_bar_is_rejected(case: Case, currency: str, st
         case.build()
 
 
-def test_volume_does_not_silently_lose_integer_precision(case: Case) -> None:
+# Scenario: volume does not silently lose integer precision.
+def test_volume_lose(case: Case) -> None:
     capture = case.capture()
     capture["bars"][0]["volume"] = 2**53 + 1
     case.replace_capture(capture)
@@ -237,13 +249,15 @@ def test_volume_does_not_silently_lose_integer_precision(case: Case) -> None:
         {"close_delay_ms": True},
     ],
 )
-def test_unsupported_selection_is_rejected(case: Case, changes: dict[str, object]) -> None:
+# Scenario: unsupported selection is rejected.
+def test_unsupported_selection(case: Case, changes: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         change(case.request, **changes)
     assert not list(case.output.iterdir())
 
 
-def test_unresolved_raw_reference_is_rejected(case: Case) -> None:
+# Scenario: unresolved raw reference is rejected.
+def test_unresolved_raw(case: Case) -> None:
     capture = case.capture()
     capture["securities"][0]["source"]["raw_sha256"] = "sha256:" + "0" * 64
     case.replace_capture(capture)
@@ -252,14 +266,16 @@ def test_unresolved_raw_reference_is_rejected(case: Case) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_corrupt_capture_is_rejected(case: Case) -> None:
+# Scenario: corrupt capture is rejected.
+def test_corrupt_capture(case: Case) -> None:
     path = case.sources / case.request.capture.sha256[7:]
     path.write_bytes(b"!" * case.request.capture.byte_size)
     with pytest.raises(ValueError, match="digest"):
         case.build()
 
 
-def test_symlink_input_is_rejected(case: Case) -> None:
+# Scenario: symlink input is rejected.
+def test_symlink_input(case: Case) -> None:
     path = case.sources / case.request.capture.sha256[7:]
     path.unlink()
     path.symlink_to(FIXTURES / "capture.json")
@@ -267,12 +283,14 @@ def test_symlink_input_is_rejected(case: Case) -> None:
         case.build()
 
 
-def test_source_store_cannot_be_worker_output(case: Case) -> None:
+# Scenario: source store cannot be worker output.
+def test_source_store(case: Case) -> None:
     with pytest.raises(ValueError, match="separate"):
         build_panel(case.sources, case.sources, case.request)
 
 
-def test_replay_is_read_only_and_deterministic(case: Case) -> None:
+# Scenario: replay is read only and deterministic.
+def test_replay_deterministic(case: Case) -> None:
     first = case.build()
     before = {
         path: path.stat().st_mtime_ns
@@ -288,7 +306,8 @@ def test_replay_is_read_only_and_deterministic(case: Case) -> None:
     }
 
 
-def test_modified_output_fails_replay(case: Case) -> None:
+# Scenario: modified output fails replay.
+def test_modified_output(case: Case) -> None:
     first = case.build()
     receipt = PanelReceipt.model_validate_json(read_cached(case.sources, first.receipt))
     path = case.output / receipt.values.sha256[7:]
@@ -300,7 +319,8 @@ def test_modified_output_fails_replay(case: Case) -> None:
 @pytest.mark.parametrize(
     "ticks,reason", [([10.0, 10.0, 9.0], "regression"), ([0.0, 0.0, 181.0], "deadline")]
 )
-def test_clock_failures_leave_no_output(case: Case, ticks: list[float], reason: str) -> None:
+# Scenario: clock failures leave no output.
+def test_clock_failures(case: Case, ticks: list[float], reason: str) -> None:
     clock = iter(ticks)
     with pytest.raises(ValueError, match=reason):
         build_panel(case.sources, case.output, case.request, monotonic=lambda: next(clock))
@@ -310,7 +330,8 @@ def test_clock_failures_leave_no_output(case: Case, ticks: list[float], reason: 
 @pytest.mark.parametrize(
     "limit,reason", [("MAX_CELLS", "cell budget"), ("MAX_WORK", "work budget")]
 )
-def test_selection_budgets_block_publication(
+# Scenario: selection budgets block publication.
+def test_selection_budgets(
     case: Case, monkeypatch: pytest.MonkeyPatch, limit: str, reason: str
 ) -> None:
     monkeypatch.setattr("loop_research.panel_builder." + limit, 1)
@@ -319,9 +340,8 @@ def test_selection_budgets_block_publication(
     assert not list(case.output.iterdir())
 
 
-def test_cancelled_final_receipt_is_recoverable(
-    case: Case, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: cancelled final receipt is recoverable.
+def test_cancelled_final(case: Case, monkeypatch: pytest.MonkeyPatch) -> None:
     import loop_research.panel_builder as builder
 
     def interrupted(store: Path, content: bytes):
@@ -340,7 +360,8 @@ def test_cancelled_final_receipt_is_recoverable(
     assert validate_panel(case.sources, case.output, first.receipt.sha256) == first
 
 
-def test_installed_panel_commands(case: Case) -> None:
+# Scenario: installed panel commands.
+def test_installed_panel(case: Case) -> None:
     command = [sys.executable, "-I", "-m", "loop_research.cli"]
     result = subprocess.run(
         [
@@ -379,7 +400,8 @@ def test_installed_panel_commands(case: Case) -> None:
 
 @given(st.integers(min_value=20, max_value=10000))
 @settings(max_examples=12, deadline=None)
-def test_future_values_do_not_change_the_grid(value: int) -> None:
+# Scenario: future values do not change the grid.
+def test_future_values(value: int) -> None:
     from tempfile import TemporaryDirectory
 
     with TemporaryDirectory(prefix="loop-engine-panel-property-") as directory:

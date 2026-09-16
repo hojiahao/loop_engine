@@ -356,7 +356,7 @@ def canonicalize_audit_payload(
         holdout_evaluation_plan_id = _require_string(
             values["holdout_evaluation_plan_id"], "payload.holdout_evaluation_plan_id"
         )
-        approval_records = _require_holdout_approval_records(values["approval_records"])
+        approval_records = _require_approval_records(values["approval_records"])
         capability_class = _require_string(values["capability_class"], "payload.capability_class")
         authorization_decision = _require_string(
             values["authorization_decision"], "payload.authorization_decision"
@@ -369,7 +369,7 @@ def canonicalize_audit_payload(
         _validate_closed_enum(
             authorization_decision, ("authorized",), "payload.authorization_decision"
         )
-        rewritten = _write_holdout_grant_issued_payload(
+        rewritten = _write_grant_payload(
             holdout_grant_id,
             holdout_period_id,
             freeze_manifest_sha256,
@@ -542,7 +542,7 @@ def verify_audit_payload(payload: AuditPayload) -> None:
         )
 
 
-def canonical_audit_event_bytes(event: AuditEvent) -> bytes:
+def audit_event_bytes(event: AuditEvent) -> bytes:
     verify_audit_payload(event.payload)
     _validate_event(event)
     canonical = (
@@ -569,7 +569,7 @@ def canonical_audit_event_bytes(event: AuditEvent) -> bytes:
 
 
 def audit_event_sha256(event: AuditEvent) -> str:
-    digest = hashlib.sha256(_EVENT_DOMAIN + canonical_audit_event_bytes(event)).hexdigest()
+    digest = hashlib.sha256(_EVENT_DOMAIN + audit_event_bytes(event)).hexdigest()
     return f"sha256:{digest}"
 
 
@@ -807,7 +807,7 @@ def _require_exact_object(raw: Any, keys: tuple[str, ...]) -> dict[str, Any]:
     return dict(raw)
 
 
-def _require_holdout_approval_records(raw: Any) -> tuple[tuple[str, str, str], ...]:
+def _require_approval_records(raw: Any) -> tuple[tuple[str, str, str], ...]:
     if not isinstance(raw, list) or isinstance(raw, _ObjectPairs):
         _fail(
             AuditErrorCode.NON_CANONICAL_PAYLOAD,
@@ -986,7 +986,7 @@ def _write_payload_fields(fields: tuple[tuple[str, str], ...]) -> bytes:
     ).encode("utf-8")
 
 
-def _write_holdout_grant_issued_payload(
+def _write_grant_payload(
     holdout_grant_id: str,
     holdout_period_id: str,
     freeze_manifest_sha256: str,

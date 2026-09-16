@@ -5,8 +5,7 @@ use std::collections::BTreeMap;
 use loop_core::holdout::{
     CanonicalHoldoutEvaluationPlan, CanonicalHoldoutPeriod, HoldoutEvaluationPlanReference,
     HoldoutValidationCode, HoldoutValidationError, PlanArtifactReference,
-    validate_holdout_evaluation_plan_reference as validate_domain_plan_reference,
-    verify_holdout_period_identity,
+    validate_plan_reference as validate_domain_plan_reference, verify_period_identity,
 };
 
 use crate::artifact::validate_artifact_ref;
@@ -26,7 +25,7 @@ pub fn validate_holdout_period(
         wire.canonical_period_sha256.as_ref(),
         "canonical_period_sha256",
     )?;
-    let parsed = verify_holdout_period_identity(canonical_period_bytes, &period_id.value, &digest)?;
+    let parsed = verify_period_identity(canonical_period_bytes, &period_id.value, &digest)?;
     let sample = wire
         .sample
         .as_ref()
@@ -71,7 +70,7 @@ pub fn validate_holdout_period(
     Ok(parsed)
 }
 
-pub fn validate_holdout_evaluation_plan_reference(
+pub fn validate_plan_reference(
     wire: &WirePlanReference,
     canonical_plan_bytes: &[u8],
     expected_period: &CanonicalHoldoutPeriod,

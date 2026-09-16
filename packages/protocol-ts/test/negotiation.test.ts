@@ -11,12 +11,12 @@ import {
   ProtocolSelectionSnapshotSchema,
   Sha256DigestSchema,
 } from "../src/generated/loop/v1/common_pb.js";
-import { protocolSelectionSha256 } from "../src/job.js";
+import { protocol_selection_sha256 } from "../src/job.js";
 import {
-  negotiateProtocolAvailability,
+  negotiate_protocol_availability,
   type ProtocolBuildIdentity,
   ProtocolNegotiationError,
-  validateProtocolSelectionAvailability,
+  validate_selection_availability,
 } from "../src/negotiation.js";
 
 const REQUIRED_PACKAGE = "loop.research.v1";
@@ -56,16 +56,16 @@ describe("protocol availability negotiation", () => {
     for (const vector of vectors) {
       const result =
         vector.operation === "negotiate"
-          ? runNegotiation(vector.mutation)
-          : runSelectionValidation(vector.mutation);
+          ? run_negotiation(vector.mutation)
+          : run_selection_validation(vector.mutation);
       expect(result, vector.name).toBe(vector.expected);
     }
   });
 });
 
-function runNegotiation(mutation: string): string {
-  const local = protocolInfo("client.1", 0x11, true);
-  const peer = protocolInfo("server.1", 0x22, false);
+function run_negotiation(mutation: string): string {
+  const local = protocol_info("client.1", 0x11, true);
+  const peer = protocol_info("server.1", 0x22, false);
   switch (mutation) {
     case "none":
       break;
@@ -88,7 +88,7 @@ function runNegotiation(mutation: string): string {
       throw new Error(`unknown negotiation mutation ${mutation}`);
   }
   try {
-    const negotiated = negotiateProtocolAvailability(
+    const negotiated = negotiate_protocol_availability(
       local,
       peer,
       REQUIRED_PACKAGE,
@@ -103,9 +103,9 @@ function runNegotiation(mutation: string): string {
   }
 }
 
-function runSelectionValidation(mutation: string): string {
-  const local = protocolInfo("client.1", 0x11, true);
-  const selection = protocolSelection();
+function run_selection_validation(mutation: string): string {
+  const local = protocol_info("client.1", 0x11, true);
+  const selection = protocol_selection();
   let recomputeDigest = true;
   switch (mutation) {
     case "none":
@@ -120,7 +120,7 @@ function runSelectionValidation(mutation: string): string {
       selection.enabledFeatures.push("streams.sequence.v1");
       break;
     case "selection_limit_exceeds_local":
-      requireLimits(selection.effectiveLimits).maximumUnaryBytes = 3_145_728n;
+      require_limits(selection.effectiveLimits).maximumUnaryBytes = 3_145_728n;
       break;
     case "selection_server_build":
       selection.serverBuildVersion = "server.2";
@@ -141,13 +141,14 @@ function runSelectionValidation(mutation: string): string {
     default:
       throw new Error(`unknown selection mutation ${mutation}`);
   }
-  if (recomputeDigest) selection.selectionSha256 = digestBytes(protocolSelectionSha256(selection));
+  if (recomputeDigest)
+    selection.selectionSha256 = digest_bytes(protocol_selection_sha256(selection));
 
   const retainedBuilds: readonly ProtocolBuildIdentity[] = [
     { buildVersion: "server.1", buildSha256: new Uint8Array(32).fill(0x22) },
   ];
   try {
-    validateProtocolSelectionAvailability(
+    validate_selection_availability(
       selection,
       local,
       retainedBuilds,
@@ -162,7 +163,7 @@ function runSelectionValidation(mutation: string): string {
   }
 }
 
-function protocolInfo(buildVersion: string, buildByte: number, local: boolean): ProtocolInfo {
+function protocol_info(buildVersion: string, buildByte: number, local: boolean): ProtocolInfo {
   return create(ProtocolInfoSchema, {
     supportedPackages: ["loop.research.v1", "loop.v1"],
     features: local
@@ -176,7 +177,7 @@ function protocolInfo(buildVersion: string, buildByte: number, local: boolean): 
   });
 }
 
-function protocolSelection() {
+function protocol_selection() {
   const selection = create(ProtocolSelectionSnapshotSchema, {
     selectedPackage: REQUIRED_PACKAGE,
     enabledFeatures: ["factors.canonical-json.v1", "jobs.envelope.v1"],
@@ -188,7 +189,7 @@ function protocolSelection() {
     clientBuildVersion: "client.1",
     clientBuildSha256: digest(0x11),
   });
-  selection.selectionSha256 = digestBytes(protocolSelectionSha256(selection));
+  selection.selectionSha256 = digest_bytes(protocol_selection_sha256(selection));
   return selection;
 }
 
@@ -214,7 +215,7 @@ function limits(
   });
 }
 
-function requireLimits(value: ProtocolLimits | undefined): ProtocolLimits {
+function require_limits(value: ProtocolLimits | undefined): ProtocolLimits {
   if (value === undefined) throw new Error("fixture limits required");
   return value;
 }
@@ -223,6 +224,6 @@ function digest(byte: number) {
   return create(Sha256DigestSchema, { value: new Uint8Array(32).fill(byte) });
 }
 
-function digestBytes(value: Uint8Array) {
+function digest_bytes(value: Uint8Array) {
   return create(Sha256DigestSchema, { value });
 }

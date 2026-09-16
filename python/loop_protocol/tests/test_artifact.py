@@ -9,7 +9,8 @@ from loop_protocol import ArtifactValidationError, validate_artifact_ref
 _VECTORS = Path(__file__).parents[3] / "tests/contracts/artifact_ref_vectors.tsv"
 
 
-def test_shared_artifact_vectors_fail_closed() -> None:
+# Scenario: shared artifact vectors fail closed.
+def test_shared_artifact() -> None:
     for name, expected, raw_uri, raw_digest, raw_artifact_id, created_at in _rows():
         digest_hex = _token(raw_digest, "")
         digest = bytes.fromhex(digest_hex)
@@ -44,7 +45,8 @@ def test_shared_artifact_vectors_fail_closed() -> None:
             assert error.value.code == expected, name
 
 
-def test_generated_artifact_ref_rejects_an_inline_payload_field() -> None:
+# Scenario: generated artifact ref rejects an inline payload field.
+def test_generated_artifact() -> None:
     with pytest.raises(
         ValueError, match='Protocol message ArtifactRef has no "inline_bytes" field'
     ):

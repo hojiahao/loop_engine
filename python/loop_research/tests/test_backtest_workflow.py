@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 from loop.v1.evaluation_pb2 import FactorEvaluationWork
-from loop_protocol.job import factor_spec_identity_sha256
+from loop_protocol.job import factor_identity_hash
 from test_factor_worker import build as build
 from test_factor_worker import prepared as prepared
 from test_panel_io import declaration, manifest, rows
@@ -114,7 +114,7 @@ def case(prepared: tuple[FactorEvaluationWork, Path, Path], tmp_path: Path) -> C
     documents = policies()
     for role, document in documents.items():
         getattr(work.factor.frozen_policy, role).sha256.value = bytes.fromhex(document.digest()[7:])
-    work.factor.factor_spec_id.value = "sha256:" + factor_spec_identity_sha256(work.factor).hex()
+    work.factor.factor_spec_id.value = "sha256:" + factor_identity_hash(work.factor).hex()
     work_ref = publish(evidence, work.SerializeToString())
     result = execute(work, view=view, output=evidence)
     placeholder = CachedObject(sha256="sha256:" + "0" * 64, byte_size=1)
@@ -154,7 +154,8 @@ def case(prepared: tuple[FactorEvaluationWork, Path, Path], tmp_path: Path) -> C
     return result_case
 
 
-def test_real_evaluation_to_ledger_and_read_only_replay(case: Case) -> None:
+# Scenario: real evaluation to ledger and read only replay.
+def test_evaluation_ledger(case: Case) -> None:
     result = case.run()
     assert result.quality == "synthetic" and not result.production_eligible
     assert result.ending_nav_usd == "1200"
@@ -173,7 +174,8 @@ def test_real_evaluation_to_ledger_and_read_only_replay(case: Case) -> None:
     assert case.run() == result
 
 
-def test_installed_cli_runs_and_replays(case: Case, tmp_path: Path) -> None:
+# Scenario: installed cli runs and replays.
+def test_installed_cli(case: Case, tmp_path: Path) -> None:
     request = tmp_path / "request.json"
     request.write_text(case.request.model_dump_json(by_alias=True), encoding="ascii")
     arguments = [
@@ -215,7 +217,8 @@ def test_installed_cli_runs_and_replays(case: Case, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("field", ["values", "coverage", "seed", "factor", "sample", "unknown"])
-def test_forged_factor_evidence_cannot_enter_the_ledger(case: Case, field: str) -> None:
+# Scenario: forged factor evidence cannot enter the ledger.
+def test_forged_factor(case: Case, field: str) -> None:
     document = json.loads(read_cached(case.evidence, case.request.evaluation_result))
     if field == "values":
         raw = read_cached(case.evidence, case.request.factor_values).replace(b",1,8\n", b",1,9\n")
@@ -239,7 +242,8 @@ def test_forged_factor_evidence_cannot_enter_the_ledger(case: Case, field: str) 
     assert not list(case.store.iterdir())
 
 
-def test_changed_frozen_policy_fails(case: Case) -> None:
+# Scenario: changed frozen policy fails.
+def test_changed_frozen(case: Case) -> None:
     documents = case.request.model_dump(mode="json")["policies"]
     documents["portfolio_policy"]["settings"]["holdings"] = "2"
     case.change_request(policies=documents)
@@ -263,7 +267,8 @@ def reevaluate(case: Case) -> None:
     )
 
 
-def test_genuine_low_coverage_is_not_backtested(case: Case) -> None:
+# Scenario: genuine low coverage is not backtested.
+def test_low_coverage(case: Case) -> None:
     grid = rows()
     grid[0][-1] = ""
     reference = manifest(case.view, declaration(case.view, grid))
@@ -283,16 +288,15 @@ def test_genuine_low_coverage_is_not_backtested(case: Case) -> None:
     assert not list(case.store.iterdir())
 
 
-def test_frozen_but_unsupported_algorithm_fails(case: Case) -> None:
+# Scenario: frozen but unsupported algorithm fails.
+def test_frozen_unsupported(case: Case) -> None:
     documents = case.request.model_dump(mode="json")["policies"]
     documents["portfolio_policy"]["settings"]["algorithm"] = "long-short.1"
     case.change_request(policies=documents)
     case.work.factor.frozen_policy.portfolio_policy.sha256.value = bytes.fromhex(
         case.request.policies["portfolio_policy"].digest()[7:]
     )
-    case.work.factor.factor_spec_id.value = (
-        "sha256:" + factor_spec_identity_sha256(case.work.factor).hex()
-    )
+    case.work.factor.factor_spec_id.value = "sha256:" + factor_identity_hash(case.work.factor).hex()
     reevaluate(case)
     with pytest.raises(ValueError, match="unsupported portfolio"):
         case.run()
@@ -308,7 +312,8 @@ def test_frozen_but_unsupported_algorithm_fails(case: Case) -> None:
         ("quality", "production"),
     ],
 )
-def test_unsupported_execution_assumptions_fail(case: Case, name: str, value: str) -> None:
+# Scenario: unsupported execution assumptions fail.
+def test_unsupported_execution(case: Case, name: str, value: str) -> None:
     case.tape(**{name: value})
     with pytest.raises(ValueError):
         case.run()
@@ -316,7 +321,8 @@ def test_unsupported_execution_assumptions_fail(case: Case, name: str, value: st
 
 
 @pytest.mark.parametrize("change", ["missing", "duplicate", "reordered", "extra", "late", "early"])
-def test_bad_execution_grid_and_clocks_fail(case: Case, change: str) -> None:
+# Scenario: bad execution grid and clocks fail.
+def test_bad_execution(case: Case, change: str) -> None:
     if change == "missing":
         case.observations.pop()
     elif change == "duplicate":
@@ -335,7 +341,8 @@ def test_bad_execution_grid_and_clocks_fail(case: Case, change: str) -> None:
     assert not list(case.store.iterdir())
 
 
-def test_protected_window_fails_without_publication(case: Case) -> None:
+# Scenario: protected window fails without publication.
+def test_protected_window(case: Case) -> None:
     case.work.sample_start.year = case.work.sample_end.year = 2025
     reference = publish(case.evidence, case.work.SerializeToString())
     case.change_request(evaluation_work=reference.model_dump())
@@ -344,7 +351,8 @@ def test_protected_window_fails_without_publication(case: Case) -> None:
     assert not list(case.store.iterdir())
 
 
-def test_source_drift_cannot_relabel_old_results(case: Case) -> None:
+# Scenario: source drift cannot relabel old results.
+def test_source_drift(case: Case) -> None:
     case.work.provenance.source_code_sha256.value = b"x" * 32
     reference = publish(case.evidence, case.work.SerializeToString())
     case.change_request(evaluation_work=reference.model_dump())
@@ -353,7 +361,8 @@ def test_source_drift_cannot_relabel_old_results(case: Case) -> None:
     assert not list(case.store.iterdir())
 
 
-def test_corrupt_output_fails_replay_and_is_not_repaired(case: Case) -> None:
+# Scenario: corrupt output fails replay and is not repaired.
+def test_corrupt_output(case: Case) -> None:
     result = case.run()
     path = case.store / result.artifacts.nav.sha256[7:]
     path.write_bytes(b"corrupt")
@@ -364,16 +373,16 @@ def test_corrupt_output_fails_replay_and_is_not_repaired(case: Case) -> None:
     assert path.read_bytes() == b"corrupt"
 
 
-def test_missing_input_invalidates_replay(case: Case) -> None:
+# Scenario: missing input invalidates replay.
+def test_missing_input(case: Case) -> None:
     result = case.run()
     (case.evidence / case.request.factor_values.sha256[7:]).unlink()
     with pytest.raises(FileNotFoundError):
         case.validate(result.receipt.sha256)
 
 
-def test_interrupted_publication_has_no_receipt(
-    case: Case, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: interrupted publication has no receipt.
+def test_interrupted_publication(case: Case, monkeypatch: pytest.MonkeyPatch) -> None:
     import loop_research.backtest as backtest
 
     original = backtest.publish
@@ -396,7 +405,8 @@ def test_interrupted_publication_has_no_receipt(
     assert case.validate(completed.receipt.sha256) == completed
 
 
-def test_malformed_csv_fails_without_publication(case: Case) -> None:
+# Scenario: malformed csv fails without publication.
+def test_malformed_csv(case: Case) -> None:
     raw = publish(case.evidence, b'"unterminated')
     case.tape(observations=raw.model_dump())
     with pytest.raises(ValueError, match="CSV encoding"):
@@ -404,7 +414,8 @@ def test_malformed_csv_fails_without_publication(case: Case) -> None:
     assert not list(case.store.iterdir())
 
 
-def test_receipt_corruption_is_not_a_valid_summary(case: Case) -> None:
+# Scenario: receipt corruption is not a valid summary.
+def test_receipt_corruption(case: Case) -> None:
     result = case.run()
     _, content = read_receipt(case.store, result.receipt.sha256)
     document = json.loads(content)
@@ -415,9 +426,8 @@ def test_receipt_corruption_is_not_a_valid_summary(case: Case) -> None:
 
 
 @pytest.mark.parametrize("clock_values", [(0.0, 1.0), (1.0, 0.0), (0.0, float("nan"))])
-def test_budget_and_clock_regression_publish_nothing(
-    case: Case, clock_values: tuple[float, ...]
-) -> None:
+# Scenario: budget and clock regression publish nothing.
+def test_budget_clock(case: Case, clock_values: tuple[float, ...]) -> None:
     clock = iter(clock_values)
     with pytest.raises((ValueError, TimeoutError)):
         run_backtest(
@@ -431,7 +441,8 @@ def test_budget_and_clock_regression_publish_nothing(
     assert not list(case.store.iterdir())
 
 
-def test_duplicate_request_keys_fail_before_execution(case: Case, tmp_path: Path) -> None:
+# Scenario: duplicate request keys fail before execution.
+def test_request_keys(case: Case, tmp_path: Path) -> None:
     path = tmp_path / "request.json"
     content = case.request.model_dump_json(by_alias=True)
     path.write_text('{"schema":"loop.portfolio-request/v1",' + content[1:], encoding="ascii")
@@ -439,7 +450,8 @@ def test_duplicate_request_keys_fail_before_execution(case: Case, tmp_path: Path
         load_request(path)
 
 
-def test_transformed_factor_reaches_the_portfolio(tmp_path: Path, build: BuildIdentity) -> None:
+# Scenario: transformed factor reaches the portfolio.
+def test_transformed_factor(tmp_path: Path, build: BuildIdentity) -> None:
     from transform_helpers import make_case, work
 
     source_case = make_case(tmp_path)
@@ -459,7 +471,7 @@ def test_transformed_factor_reaches_the_portfolio(tmp_path: Path, build: BuildId
                 document.digest()[7:]
             )
         evaluation.factor.factor_spec_id.value = (
-            "sha256:" + factor_spec_identity_sha256(evaluation.factor).hex()
+            "sha256:" + factor_identity_hash(evaluation.factor).hex()
         )
         result = execute(evaluation, view=view, output=evidence)
         store = tmp_path / "transformed-ledger"

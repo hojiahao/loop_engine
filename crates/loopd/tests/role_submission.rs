@@ -252,7 +252,8 @@ async fn replay_preserves_receipt() {
 }
 
 #[tokio::test]
-async fn concurrent_retries_commit_once() {
+// Scenario: concurrent retries commit once.
+async fn concurrent_retries_once() {
     let (directory, first, clock) = setup().await;
     let mut options = base_options(&directory.path().join("state"));
     options.clock = clock;
@@ -337,7 +338,8 @@ async fn changed_run_conflicts() {
 }
 
 #[tokio::test]
-async fn actor_spoofing_is_denied() {
+// Scenario: actor spoofing is denied.
+async fn actor_spoofing() {
     let (_directory, store, _) = setup().await;
     let mut other = actor();
     other.actor_id.as_mut().unwrap().value = "actor.spoofed".to_owned();
@@ -352,7 +354,8 @@ async fn actor_spoofing_is_denied() {
 }
 
 #[tokio::test]
-async fn unresolved_references_are_denied() {
+// Scenario: unresolved references are denied.
+async fn unresolved_references() {
     let (_directory, store, _) = setup().await;
     let mut unavailable = request("unavailable");
     let RoleCommand::Reconciliation(request) = &mut unavailable else {
@@ -375,7 +378,8 @@ async fn unresolved_references_are_denied() {
 }
 
 #[tokio::test]
-async fn operations_scope_idempotency_keys() {
+// Scenario: operations scope idempotency keys.
+async fn operations_scope_idempotency() {
     let (_directory, store, _) = setup().await;
     store.submit(command(1)).await.unwrap();
     store
@@ -387,7 +391,8 @@ async fn operations_scope_idempotency_keys() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_submission() {
+// Scenario: audit failure rolls back submission.
+async fn audit_failure_submission() {
     let (directory, store, _) = setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -446,7 +451,8 @@ async fn rejects_missing_inputs() {
 }
 
 #[tokio::test]
-async fn default_policy_denies_submission() {
+// Scenario: default policy denies submission.
+async fn default_policy_submission() {
     let directory = tempfile::tempdir().unwrap();
     let mut options = base_options(&directory.path().join("state"));
     options.clock = Arc::new(TickClock(AtomicI64::new(NOW)));
@@ -509,7 +515,8 @@ async fn rejects_unavailable_protocol() {
 }
 
 #[tokio::test]
-async fn rejects_rehashed_receipt_state() {
+// Scenario: rejects rehashed receipt state.
+async fn rehashed_receipt_state() {
     let (directory, store, _) = setup().await;
     let result = store
         .submit_role(&actor(), request("receipt"), metadata())

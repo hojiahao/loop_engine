@@ -29,9 +29,8 @@ REPOSITORY = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.parametrize("provider", ["sec", "alpaca", "sharadar", "wrds", "databento"])
-def test_ready_diagnosis_never_connects_or_publishes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, provider: str
-) -> None:
+# Scenario: ready diagnosis never connects or publishes.
+def test_ready_diagnosis(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, provider: str) -> None:
     def forbidden(*_: Any, **__: Any) -> None:
         pytest.fail("offline preflight attempted a network connection")
 
@@ -55,7 +54,8 @@ def test_ready_diagnosis_never_connects_or_publishes(
     assert all(secret not in report.model_dump_json() for secret in environment.values())
 
 
-def test_all_requests_report_missing_access(tmp_path: Path) -> None:
+# Scenario: all requests report missing access.
+def test_requests_report(tmp_path: Path) -> None:
     plan, _ = plan_for(tmp_path)
     report = preflight(plan, cache(tmp_path), environment={}, at=OBSERVED)
     assert not report.local_ready
@@ -66,7 +66,8 @@ def test_all_requests_report_missing_access(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("value", ["", "line\nbreak", "密钥", "a" * 1025, "invalid key format"])
-def test_bad_credentials_are_redacted(tmp_path: Path, value: str) -> None:
+# Scenario: bad credentials are redacted.
+def test_bad_credentials(tmp_path: Path, value: str) -> None:
     config, license = license_config(tmp_path)
     report = preflight(
         config,
@@ -90,14 +91,16 @@ def test_bad_credentials_are_redacted(tmp_path: Path, value: str) -> None:
         {"datasets": ["SHARADAR/SF1"]},
     ],
 )
-def test_license_scope_and_validity_are_checked(tmp_path: Path, changes: dict[str, Any]) -> None:
+# Scenario: license scope and validity are checked.
+def test_license_scope(tmp_path: Path, changes: dict[str, Any]) -> None:
     config, license = license_config(tmp_path, license_changes=changes)
     report = preflight(config, cache(tmp_path), licenses=(license,), environment=ENV, at=OBSERVED)
     assert report.sources[0].issues == ("license_denied",)
     assert not report.local_ready
 
 
-def test_replaced_license_does_not_match_pinned_identity(tmp_path: Path) -> None:
+# Scenario: replaced license does not match pinned identity.
+def test_replaced_license(tmp_path: Path) -> None:
     config, license = license_config(tmp_path)
     original = license_files((license,))
     license.write_bytes(license.read_bytes() + b"\n")
@@ -113,7 +116,8 @@ def test_replaced_license_does_not_match_pinned_identity(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("kind", ["shared", "symlink", "fifo", "duplicate"])
-def test_unsafe_license_files_fail_without_writes(tmp_path: Path, kind: str) -> None:
+# Scenario: unsafe license files fail without writes.
+def test_unsafe_license(tmp_path: Path, kind: str) -> None:
     config, license = license_config(tmp_path)
     store = cache(tmp_path)
     paths = (license,)
@@ -135,9 +139,8 @@ def test_unsafe_license_files_fail_without_writes(tmp_path: Path, kind: str) -> 
 
 
 @pytest.mark.parametrize("ambient", [False, True])
-def test_ambient_wrds_settings_do_not_pass_readiness(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ambient: bool
-) -> None:
+# Scenario: ambient wrds settings do not pass readiness.
+def test_ambient_wrds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ambient: bool) -> None:
     config, license = license_config(tmp_path, "wrds")
     environment = dict(ENV)
     if ambient:
@@ -155,7 +158,8 @@ def test_ambient_wrds_settings_do_not_pass_readiness(
     assert "untrusted.invalid" not in report.model_dump_json()
 
 
-def test_current_new_york_date_is_not_complete_data(tmp_path: Path) -> None:
+# Scenario: current new york date is not complete data.
+def test_york_date(tmp_path: Path) -> None:
     # 01:00 UTC on September 1 is still August 31 in New York.
     from datetime import datetime
 
@@ -168,14 +172,16 @@ def test_current_new_york_date_is_not_complete_data(tmp_path: Path) -> None:
     assert report.sources[0].issues == ("invalid_configuration",)
 
 
-def test_invalid_cache_is_reported_without_creating_it(tmp_path: Path) -> None:
+# Scenario: invalid cache is reported without creating it.
+def test_invalid_cache(tmp_path: Path) -> None:
     absent = tmp_path / "absent"
     report = preflight(sec_config(), absent, environment={}, at=OBSERVED)
     assert report.cache == "invalid_cache" and not report.local_ready
     assert not absent.exists()
 
 
-def test_credential_in_reference_name_never_reaches_report(tmp_path: Path) -> None:
+# Scenario: credential in reference name never reaches report.
+def test_credential_reference(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="credential material"):
         preflight(
             alpaca_config(),
@@ -186,7 +192,8 @@ def test_credential_in_reference_name_never_reaches_report(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("failure", ["license_secret", "future_request"])
-def test_later_request_denies_batch_before_first_download(tmp_path: Path, failure: str) -> None:
+# Scenario: later request denies batch before first download.
+def test_later_request(tmp_path: Path, failure: str) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     instant = OBSERVED
@@ -213,7 +220,8 @@ def test_later_request_denies_batch_before_first_download(tmp_path: Path, failur
     assert not list(store.iterdir())
 
 
-def test_previous_readiness_is_not_an_access_grant(tmp_path: Path) -> None:
+# Scenario: previous readiness is not an access grant.
+def test_previous_readiness(tmp_path: Path) -> None:
     plan, license = plan_for(tmp_path)
     store = cache(tmp_path)
     assert preflight(plan, store, licenses=(license,), environment=ENV, at=OBSERVED).local_ready
@@ -232,9 +240,8 @@ def test_previous_readiness_is_not_an_access_grant(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("config_path", sorted((REPOSITORY / "config/data").glob("*.toml")))
-def test_shipped_configuration_reports_real_local_requirements(
-    tmp_path: Path, config_path: Path
-) -> None:
+# Scenario: shipped configuration reports real local requirements.
+def test_shipped_configuration(tmp_path: Path, config_path: Path) -> None:
     config = load_access_config(config_path)
     report = preflight(config, cache(tmp_path), environment={}, at=OBSERVED)
     sources = config.requests if isinstance(config, SyncPlan) else (config,)
@@ -244,9 +251,8 @@ def test_shipped_configuration_reports_real_local_requirements(
 
 
 @pytest.mark.parametrize("config_name,code", [("sec-development", 0), ("alpaca-development", 3)])
-def test_installed_cli_emits_readiness_and_exit_status(
-    tmp_path: Path, config_name: str, code: int
-) -> None:
+# Scenario: installed cli emits readiness and exit status.
+def test_installed_cli(tmp_path: Path, config_name: str, code: int) -> None:
     store = cache(tmp_path)
     completed = subprocess.run(
         [
@@ -272,7 +278,8 @@ def test_installed_cli_emits_readiness_and_exit_status(
     assert not completed.stderr and not list(store.iterdir())
 
 
-def test_cli_malformed_config_is_redacted(tmp_path: Path) -> None:
+# Scenario: cli malformed config is redacted.
+def test_cli_malformed(tmp_path: Path) -> None:
     config = tmp_path / "unsafe.toml"
     config.write_text(f'api_key = "{KEY}"\n')
     completed = subprocess.run(

@@ -183,7 +183,7 @@ acceptance; live verification is not claimed without actual account credentials.
 No paid data or LLM request is made.
 
 The first full workspace run exposed a pre-existing test-client deadline mismatch:
-`changed_output_cannot_replay_a_successful_receipt` timed out during its initial
+`changed_output_replay` timed out during its initial
 legitimate computation, before the corruption step. Its shared metadata client
 allowed 30 seconds while the server permits a 90-second numerical RPC envelope.
 The numerical fixture now requests a 95-second client timeout; ordinary metadata

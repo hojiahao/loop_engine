@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use loop_core::audit::{AuditPayload, Sha256Digest as CanonicalDigest, canonicalize_audit_payload};
 use loop_protocol::artifact::validate_artifact_ref;
-use loop_protocol::holdout::{validate_holdout_evaluation_plan_reference, validate_holdout_period};
+use loop_protocol::holdout::{validate_holdout_period, validate_plan_reference};
 use loop_protocol::wire::holdout::v1::RequestHoldoutGrantRequest;
 use loop_protocol::wire::v1::{
     FreezeManifestReference, HoldoutApprovalRecord, HoldoutApprovalRecordReference,
@@ -208,7 +208,7 @@ pub(in crate::store) fn resolve_freeze(
         .ok_or(StoreError::Corrupt("grant period absent"))?;
     let canonical = validate_holdout_period(wire, &period.canonical_bytes)?;
     store.holdout_policy.validate_registration(&canonical)?;
-    validate_holdout_evaluation_plan_reference(
+    validate_plan_reference(
         plan,
         &resolved.canonical_plan,
         &canonical,

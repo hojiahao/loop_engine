@@ -50,7 +50,7 @@ def validate_artifact_ref(reference: ArtifactRef) -> ValidatedArtifactRef:
 
     if len(reference.uri.encode("utf-8")) > MAX_ARTIFACT_URI_BYTES:
         _fail("uri_too_long", "uri")
-    if not _is_strict_content_address(reference.uri):
+    if not _is_content_address(reference.uri):
         _fail("invalid_locator", "uri")
     if reference.uri != f"{_CONTENT_ADDRESS_PREFIX}{digest_hex}":
         _fail("identity_mismatch", "uri")
@@ -118,7 +118,7 @@ def _require_timestamp(timestamp: _Timestamp | None, field: str) -> tuple[int, i
     return timestamp.seconds, timestamp.nanos
 
 
-def _is_strict_content_address(uri: str) -> bool:
+def _is_content_address(uri: str) -> bool:
     if not uri.startswith(_CONTENT_ADDRESS_PREFIX):
         return False
     digest = uri.removeprefix(_CONTENT_ADDRESS_PREFIX)

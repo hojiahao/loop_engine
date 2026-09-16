@@ -26,7 +26,8 @@ HEADERS = {"User-Agent": "Loop Engine test@example.org"}
         (301, "invalid_response"),
     ],
 )
-def test_http_errors_are_static(status: int, reason: str) -> None:
+# Scenario: http errors are static.
+def test_http_errors(status: int, reason: str) -> None:
     async def run() -> None:
         http = BoundedHttp(
             FetchBudget(retries=0),
@@ -59,7 +60,8 @@ def test_http_errors_are_static(status: int, reason: str) -> None:
         "https://paper-api.alpaca.markets/v2/orders",
     ],
 )
-def test_routes_deny_before_transport(url: str) -> None:
+# Scenario: routes deny before transport.
+def test_routes_transport(url: str) -> None:
     async def run() -> None:
         calls = []
         http = BoundedHttp(
@@ -78,7 +80,8 @@ def test_routes_deny_before_transport(url: str) -> None:
 @pytest.mark.parametrize(
     "headers", [{}, {"Authorization": "secret"}, {"User-Agent": "bad\nheader"}]
 )
-def test_wrong_headers_are_denied(headers: dict[str, str]) -> None:
+# Scenario: wrong headers are denied.
+def test_wrong_headers(headers: dict[str, str]) -> None:
     async def run() -> None:
         http = BoundedHttp(FetchBudget())
         try:
@@ -91,7 +94,8 @@ def test_wrong_headers_are_denied(headers: dict[str, str]) -> None:
     asyncio.run(run())
 
 
-def test_retry_counts_attempts_and_preserves_raw_bytes() -> None:
+# Scenario: retry counts attempts and preserves raw bytes.
+def test_retry_attempts() -> None:
     async def run() -> None:
         calls: list[httpx.Request] = []
 
@@ -122,7 +126,8 @@ def test_retry_counts_attempts_and_preserves_raw_bytes() -> None:
 
 @pytest.mark.parametrize("retry_after", ["100000000000", "Wed, 21 Oct 2026 07:28:00 GMT", "-1"])
 @pytest.mark.parametrize("status,reason", [(429, "rate_limited"), (503, "upstream_unavailable")])
-def test_unknown_retry_delay_fails_closed(retry_after: str, status: int, reason: str) -> None:
+# Scenario: unknown retry delay fails closed.
+def test_unknown_retry(retry_after: str, status: int, reason: str) -> None:
     async def run() -> None:
         http = BoundedHttp(
             FetchBudget(),
@@ -152,7 +157,8 @@ def test_unknown_retry_delay_fails_closed(retry_after: str, status: int, reason:
         (b"{}", {"x-request-id": "x" * 161}, "invalid_response"),
     ],
 )
-def test_response_shape_and_bytes(body: bytes, headers: dict[str, str], reason: str) -> None:
+# Scenario: response shape and bytes.
+def test_response_shape(body: bytes, headers: dict[str, str], reason: str) -> None:
     async def run() -> None:
         wire = response(body, **headers)
         http = BoundedHttp(
@@ -175,7 +181,8 @@ def test_response_shape_and_bytes(body: bytes, headers: dict[str, str], reason: 
         (FetchBudget(response_bytes=1024, total_bytes=1024), "byte_budget"),
     ],
 )
-def test_budgets_apply_across_requests(budget: FetchBudget, reason: str) -> None:
+# Scenario: budgets apply across requests.
+def test_budgets_apply(budget: FetchBudget, reason: str) -> None:
     async def run() -> None:
         http = BoundedHttp(
             budget,
@@ -194,7 +201,8 @@ def test_budgets_apply_across_requests(budget: FetchBudget, reason: str) -> None
 
 
 @pytest.mark.parametrize("kind", ["monotonic", "wall", "nan"])
-def test_clock_regression_is_denied(kind: str) -> None:
+# Scenario: clock regression is denied.
+def test_clock_regression(kind: str) -> None:
     async def run() -> None:
         ticks = iter([2.0, float("nan") if kind == "nan" else 1.0 if kind == "monotonic" else 3.0])
         walls = iter([OBSERVED, OBSERVED - timedelta(seconds=1) if kind == "wall" else OBSERVED])
@@ -209,7 +217,8 @@ def test_clock_regression_is_denied(kind: str) -> None:
     asyncio.run(run())
 
 
-def test_server_delay_larger_than_deadline_is_not_shortened() -> None:
+# Scenario: server delay larger than deadline is not shortened.
+def test_server_delay() -> None:
     async def run() -> None:
         http = BoundedHttp(
             FetchBudget(timeout_seconds=1),
@@ -225,7 +234,8 @@ def test_server_delay_larger_than_deadline_is_not_shortened() -> None:
     asyncio.run(run())
 
 
-def test_stalled_stream_times_out_and_closes() -> None:
+# Scenario: stalled stream times out and closes.
+def test_stalled_stream() -> None:
     async def run() -> None:
         class Stalled(WireBytes):
             async def __aiter__(self) -> AsyncIterator[bytes]:
@@ -251,7 +261,8 @@ def test_stalled_stream_times_out_and_closes() -> None:
     asyncio.run(run())
 
 
-def test_concurrent_callers_share_one_sequential_budget() -> None:
+# Scenario: concurrent callers share one sequential budget.
+def test_concurrent_callers() -> None:
     async def run() -> None:
         active, maximum = 0, 0
 

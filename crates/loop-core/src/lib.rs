@@ -36,7 +36,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ready_health_is_stable_and_serializable() {
+    // Scenario: ready health is stable and serializable.
+    fn ready_health_stable() {
         let health = ComponentHealth::ready("loopd");
         assert_eq!(health.status, HealthStatus::Ready);
         assert_eq!(health.component, "loopd");

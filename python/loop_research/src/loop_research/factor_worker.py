@@ -19,10 +19,10 @@ from loop.v1.artifact_pb2 import ArtifactRef, ArtifactSchemaReference
 from loop.v1.common_pb2 import ArtifactId, Sha256Digest
 from loop.v1.evaluation_pb2 import FactorEvaluationResult, FactorEvaluationWork
 from loop_protocol.artifact import validate_artifact_ref
-from loop_protocol.canonical import CanonicalFactorSpec, parse_canonical_factor_spec
+from loop_protocol.canonical import CanonicalFactorSpec, parse_factor_spec
 from loop_protocol.job import (
-    canonical_factor_spec_identity_bytes,
-    validate_factor_spec_identity_envelope,
+    factor_identity_bytes,
+    validate_factor_identity,
 )
 from loop_protocol.provenance import PROVENANCE_COMPONENTS, ProvenanceSnapshot
 
@@ -137,9 +137,9 @@ def compute(work: FactorEvaluationWork, *, view: Path) -> FactorComputation:
     ProvenanceSnapshot.from_wire(work.provenance)
     if len(work.deterministic_seed.value) != 32:
         raise ValueError("factor work requires a deterministic seed")
-    validate_factor_spec_identity_envelope(work.factor)
-    factor = parse_canonical_factor_spec(
-        canonical_factor_spec_identity_bytes(work.factor),
+    validate_factor_identity(work.factor)
+    factor = parse_factor_spec(
+        factor_identity_bytes(work.factor),
         work.factor.factor_spec_id.value,
         work.factor.expression.canonical_json,
         operator_registry(),

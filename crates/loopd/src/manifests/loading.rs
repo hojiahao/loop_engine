@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use loop_core::factor::{
     FactorSpec, FactorSpecId, OperatorPolicyRegistry, PolicyRef, ValidationLimits,
-    parse_canonical_factor_spec,
+    parse_factor_spec,
 };
 use loop_protocol::wire::v1::{BacktestId, BacktestResult, ResearchProvenanceFingerprint};
 use serde::{Serialize, de::DeserializeOwned};
@@ -238,7 +238,7 @@ impl<'a> Materializer<'a> {
             .map_err(|_| StoreError::Corrupt("factor identity"))?;
         let specification = self.object(&factor.specification, true).await?;
         let expression = self.object(&factor.expression, true).await?;
-        let factor = parse_canonical_factor_spec(
+        let factor = parse_factor_spec(
             specification.bytes()?,
             id,
             expression.bytes()?,

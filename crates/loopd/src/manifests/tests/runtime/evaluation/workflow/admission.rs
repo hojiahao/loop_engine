@@ -47,7 +47,7 @@ impl Linked {
             factor_spec_id: factor.factor_spec_id.as_ref().unwrap().value.clone(),
             specification: put(
                 &f.root,
-                &loop_protocol::job::canonical_factor_spec_identity_bytes(factor).unwrap(),
+                &loop_protocol::job::factor_identity_bytes(factor).unwrap(),
             ),
             expression: put(&f.root, &factor.expression.as_ref().unwrap().canonical_json),
         });
@@ -235,7 +235,8 @@ impl Linked {
 }
 
 #[tokio::test]
-async fn linked_review_uses_shared_readmission() {
+// Scenario: linked review uses shared readmission.
+async fn linked_review_shared() {
     let mut linked = Linked::new().await;
     let store = linked.backtest("job.review1", false, 4).await;
     let rejected = store
@@ -277,7 +278,8 @@ async fn linked_review_uses_shared_readmission() {
 }
 
 #[tokio::test]
-async fn review_cannot_invent_coverage() {
+// Scenario: review cannot invent coverage.
+async fn review_coverage() {
     let mut linked = Linked::new().await;
     let store = linked.backtest("job.forged", true, 6).await;
     assert!(matches!(

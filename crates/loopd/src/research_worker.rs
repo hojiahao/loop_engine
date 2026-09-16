@@ -169,7 +169,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn executable_must_be_absolute() {
+    // Scenario: executable must be absolute.
+    fn executable_absolute() {
         assert!(matches!(
             PythonPerturber::new(Path::new("python")),
             Err(StoreError::Invalid(_))
@@ -177,7 +178,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn process_failure_is_infrastructure_error() {
+    // Scenario: process failure is infrastructure error.
+    async fn process_failure_infrastructure() {
         let worker = PythonPerturber::new(Path::new("/bin/false")).unwrap();
         assert!(matches!(
             worker.advance(PerturbationWork::default()).await,

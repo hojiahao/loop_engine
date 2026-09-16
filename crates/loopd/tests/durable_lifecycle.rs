@@ -73,7 +73,8 @@ fn recover(revision: u64, key: &str) -> JobMutation {
 }
 
 #[tokio::test]
-async fn lease_heartbeat_completion_and_replay_survive_restart() {
+// Scenario: lease heartbeat completion and replay survive restart.
+async fn lease_heartbeat_completion() {
     let (directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let leased = store.mutate(&actor(), acquire("acquire", 1)).await.unwrap();
@@ -112,7 +113,8 @@ async fn lease_heartbeat_completion_and_replay_survive_restart() {
 }
 
 #[tokio::test]
-async fn concurrent_revision_race_has_exactly_one_winner() {
+// Scenario: concurrent revision race has exactly one winner.
+async fn concurrent_revision_race() {
     let (directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let second = PgJobStore::open(options(&directory.path().join("state"), clock))
@@ -146,7 +148,8 @@ async fn concurrent_revision_race_has_exactly_one_winner() {
 }
 
 #[tokio::test]
-async fn lease_owner_id_expiry_and_transport_actor_are_fenced() {
+// Scenario: lease owner id expiry and transport actor are fenced.
+async fn lease_owner_id() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let leased = store
@@ -205,7 +208,8 @@ async fn lease_owner_id_expiry_and_transport_actor_are_fenced() {
 }
 
 #[tokio::test]
-async fn queued_cancel_and_budget_exhaustion_do_not_invent_attempts() {
+// Scenario: queued cancel and budget exhaustion do not invent attempts.
+async fn queued_cancel_budget() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let cancelled = store
@@ -233,7 +237,8 @@ async fn queued_cancel_and_budget_exhaustion_do_not_invent_attempts() {
 }
 
 #[tokio::test]
-async fn heartbeat_never_shortens_lease_or_exceeds_frozen_deadline() {
+// Scenario: heartbeat never shortens lease or exceeds frozen deadline.
+async fn heartbeat_lease_exceeds() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     clock.0.store(NOW + 3_590_000, Ordering::SeqCst);
@@ -266,7 +271,8 @@ async fn heartbeat_never_shortens_lease_or_exceeds_frozen_deadline() {
 }
 
 #[tokio::test]
-async fn malformed_outcome_and_audit_failure_leave_revision_unchanged() {
+// Scenario: malformed outcome and audit failure leave revision unchanged.
+async fn malformed_outcome_audit() {
     let (directory, store, _) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let leased = store
@@ -301,7 +307,8 @@ async fn malformed_outcome_and_audit_failure_leave_revision_unchanged() {
 }
 
 #[tokio::test]
-async fn changed_replay_semantics_and_early_recovery_are_denied() {
+// Scenario: changed replay semantics and early recovery are denied.
+async fn changed_replay_semantics() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     assert!(matches!(
@@ -344,7 +351,8 @@ async fn changed_replay_semantics_and_early_recovery_are_denied() {
 }
 
 #[tokio::test]
-async fn cancelled_worker_cannot_complete_and_heartbeat_replay_cannot_extend() {
+// Scenario: cancelled worker cannot complete and heartbeat replay cannot extend.
+async fn cancelled_worker_heartbeat() {
     let (_directory, store, clock) = fixture().await;
     store.submit(command(1)).await.unwrap();
     let leased = store

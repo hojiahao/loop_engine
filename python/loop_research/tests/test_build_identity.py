@@ -9,7 +9,8 @@ import pytest
 from loop_research import build_identity as builds
 
 
-def test_canonical_field_order() -> None:
+# Scenario: canonical field order.
+def test_canonical_field() -> None:
     manifest: builds.FileManifest = {
         "schema": "loop.source-files/v1",
         "files": [
@@ -21,7 +22,8 @@ def test_canonical_field_order() -> None:
     )
 
 
-def test_real_file_bytes_change_identity(tmp_path: Path) -> None:
+# Scenario: real file bytes change identity.
+def test_file_bytes(tmp_path: Path) -> None:
     path = tmp_path / "worker.py"
     path.write_bytes(b"source-v1")
     first = builds._Capture(None).file("worker.py", path)
@@ -31,7 +33,8 @@ def test_real_file_bytes_change_identity(tmp_path: Path) -> None:
     assert first != second
 
 
-def test_source_tree_skips_only_bytecode(tmp_path: Path) -> None:
+# Scenario: source tree skips only bytecode.
+def test_source_tree(tmp_path: Path) -> None:
     (tmp_path / "worker.py").write_bytes(b"source")
     (tmp_path / "__pycache__").mkdir()
     (tmp_path / "__pycache__" / "worker.pyc").write_bytes(b"generated")
@@ -40,28 +43,32 @@ def test_source_tree_skips_only_bytecode(tmp_path: Path) -> None:
     assert [entry["name"] for entry in result] == ["package/worker.py", "package/worker.pyi"]
 
 
-def test_source_symlink_is_rejected(tmp_path: Path) -> None:
+# Scenario: source symlink is rejected.
+def test_source_symlink(tmp_path: Path) -> None:
     (tmp_path / "real.py").write_bytes(b"source")
     (tmp_path / "alias.py").symlink_to(tmp_path / "real.py")
     with pytest.raises(OSError):
         builds._Capture(None).file("alias.py", tmp_path / "alias.py")
 
 
-def test_directory_symlink_is_rejected(tmp_path: Path) -> None:
+# Scenario: directory symlink is rejected.
+def test_directory_symlink(tmp_path: Path) -> None:
     (tmp_path / "real").mkdir()
     (tmp_path / "alias").symlink_to(tmp_path / "real", target_is_directory=True)
     with pytest.raises(ValueError, match="directory symlink"):
         builds._Capture(None).tree("package", tmp_path)
 
 
-def test_fifo_cannot_block_capture(tmp_path: Path) -> None:
+# Scenario: fifo cannot block capture.
+def test_fifo_capture(tmp_path: Path) -> None:
     path = tmp_path / "pipe"
     os.mkfifo(path)
     with pytest.raises(ValueError, match="regular files"):
         builds._Capture(None).file("pipe", path)
 
 
-def test_capture_has_byte_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: capture has byte budget.
+def test_capture_byte(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "large"
     path.write_bytes(b"too large")
     monkeypatch.setattr(builds, "MAX_BYTES", 4)
@@ -69,7 +76,8 @@ def test_capture_has_byte_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         builds._Capture(None).file("large", path)
 
 
-def test_capture_has_count_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: capture has count budget.
+def test_capture_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(builds, "MAX_FILES", 1)
     capture = builds._Capture(None)
     capture.content("first", b"1")
@@ -77,14 +85,16 @@ def test_capture_has_count_budget(monkeypatch: pytest.MonkeyPatch) -> None:
         capture.content("second", b"2")
 
 
-def test_capture_has_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: capture has deadline.
+def test_capture_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
     capture = builds._Capture(None)
     monkeypatch.setattr(builds.time, "monotonic", lambda: capture.started + builds.MAX_SECONDS + 1)
     with pytest.raises(ValueError, match="timed out"):
         capture.content("late", b"data")
 
 
-def test_publication_is_immutable_and_cleans_temporary_files(tmp_path: Path) -> None:
+# Scenario: publication is immutable and cleans temporary files.
+def test_publication_immutable(tmp_path: Path) -> None:
     descriptor = os.open(tmp_path, os.O_RDONLY | os.O_DIRECTORY)
     try:
         first = builds._Capture(descriptor).content("source", b"content")
@@ -95,7 +105,8 @@ def test_publication_is_immutable_and_cleans_temporary_files(tmp_path: Path) -> 
     assert [path.name for path in tmp_path.iterdir()] == [first["object"]["sha256"][7:]]
 
 
-def test_existing_wrong_bytes_are_not_overwritten(tmp_path: Path) -> None:
+# Scenario: existing wrong bytes are not overwritten.
+def test_existing_wrong(tmp_path: Path) -> None:
     expected = builds._reference(b"correct")
     path = tmp_path / expected["sha256"][7:]
     path.write_bytes(b"invalid")
@@ -109,7 +120,8 @@ def test_existing_wrong_bytes_are_not_overwritten(tmp_path: Path) -> None:
     assert not list(tmp_path.glob(".loop-build-*"))
 
 
-def test_existing_symlink_is_not_followed(tmp_path: Path) -> None:
+# Scenario: existing symlink is not followed.
+def test_existing_symlink(tmp_path: Path) -> None:
     expected = builds._reference(b"correct")
     outside = tmp_path / "untouched"
     outside.write_bytes(b"correct")
@@ -124,12 +136,14 @@ def test_existing_symlink_is_not_followed(tmp_path: Path) -> None:
     assert not list(tmp_path.glob(".loop-build-*"))
 
 
-def test_relative_store_is_rejected() -> None:
+# Scenario: relative store is rejected.
+def test_relative_store() -> None:
     with pytest.raises(ValueError, match="absolute"):
         builds.describe_build(Path("relative-store"))
 
 
-def test_installed_build_is_repeatable() -> None:
+# Scenario: installed build is repeatable.
+def test_installed_build() -> None:
     identity = builds.describe_build()
     assert builds.describe_source() == identity.source
     assert (
@@ -137,12 +151,14 @@ def test_installed_build_is_repeatable() -> None:
     )
 
 
-def test_wrong_installed_build_is_rejected() -> None:
+# Scenario: wrong installed build is rejected.
+def test_wrong_installed() -> None:
     with pytest.raises(ValueError, match="frozen context"):
         builds.require_build("sha256:" + "0" * 64, "sha256:" + "0" * 64)
 
 
-def test_evaluation_build_is_repeatable_and_distinct() -> None:
+# Scenario: evaluation build is repeatable and distinct.
+def test_evaluation_build() -> None:
     identity = builds.describe_build(profile="evaluation")
     assert (
         builds.require_build(
@@ -153,7 +169,8 @@ def test_evaluation_build_is_repeatable_and_distinct() -> None:
     assert identity.environment != builds.describe_build().environment
 
 
-def test_artifact_publication_uses_private_immutable_store(tmp_path: Path) -> None:
+# Scenario: artifact publication uses private immutable store.
+def test_artifact_private(tmp_path: Path) -> None:
     tmp_path.chmod(0o700)
     reference = builds.publish_object(tmp_path, b"factor values")
     assert builds.publish_object(tmp_path, b"factor values") == reference
@@ -161,7 +178,8 @@ def test_artifact_publication_uses_private_immutable_store(tmp_path: Path) -> No
     assert len(list(tmp_path.iterdir())) == 1
 
 
-def test_artifact_publication_denies_shared_output(tmp_path: Path) -> None:
+# Scenario: artifact publication denies shared output.
+def test_artifact_publication(tmp_path: Path) -> None:
     tmp_path.chmod(0o755)
     with pytest.raises(ValueError, match="private"):
         builds.publish_object(tmp_path, b"factor values")

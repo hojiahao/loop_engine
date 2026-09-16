@@ -59,13 +59,15 @@ def test_std_ddof1():
     np.testing.assert_allclose(r["A"].iloc[2], 1.0)
 
 
-def test_roc_and_delta():
+# Scenario: roc and delta.
+def test_roc_delta():
     p = panel(rows={"A": [1.0, 2, 3, 4]})
     np.testing.assert_allclose(op.op_roc(p, 1)["A"].values, [np.nan, 1.0, 0.5, 1 / 3])
     np.testing.assert_allclose(op.op_delta(p, 2)["A"].values, [np.nan, np.nan, 2.0, 2.0])
 
 
-def test_rank_ts_extremes():
+# Scenario: rank ts extremes.
+def test_rank_ts():
     asc = panel(rows={"A": [1.0, 2, 3, 4, 5]})
     desc = panel(rows={"A": [5.0, 4, 3, 2, 1]})
     r_asc = op.op_rank_ts(asc, 3)
@@ -91,7 +93,8 @@ def test_elem_arith():
     np.testing.assert_allclose(op.op_mul(a, b).values, [[2, 50], [4, 80]])
 
 
-def test_div_zero_is_nan_not_inf():
+# Scenario: div zero is nan not inf.
+def test_div_zero():
     a = panel(rows={"A": [1.0, 2.0]})
     b = panel(rows={"A": [0.0, 4.0]})
     r = op.op_div(a, b)
@@ -99,7 +102,8 @@ def test_div_zero_is_nan_not_inf():
     np.testing.assert_allclose(r["A"].iloc[1], 0.5)
 
 
-def test_elem_aligns_mismatched_columns():
+# Scenario: elem aligns mismatched columns.
+def test_elem_aligns():
     a = panel(("A", "B"), {"A": [1.0, 2], "B": [3.0, 4]})
     c = panel(("B", "C"), {"B": [1.0, 1], "C": [10.0, 10]})
     r = op.op_add(a, c)
@@ -111,7 +115,8 @@ def test_elem_aligns_mismatched_columns():
 
 # ---------------- 截面算子 ----------------
 
-def test_zscore_row_standardized():
+# Scenario: zscore row standardized.
+def test_zscore_row():
     p = panel(("A", "B", "C"), {"A": [1.0, 10], "B": [2.0, 20], "C": [3.0, 30]})
     r = op.op_zscore(p)
     row_mean = r.mean(axis=1)
@@ -120,7 +125,8 @@ def test_zscore_row_standardized():
     np.testing.assert_allclose(row_std.values, [1, 1], atol=1e-12)
 
 
-def test_rank_cs_in_unit_interval():
+# Scenario: rank cs in unit interval.
+def test_rank_cs():
     p = panel(("A", "B", "C"), {"A": [3.0, 1], "B": [1.0, 2], "C": [2.0, 3]})
     r = op.op_rank_cs(p)
     assert ((r >= 0) & (r <= 1)).all().all()
@@ -149,7 +155,8 @@ def test_field_dimensions():
     assert op.field_dimension("unknown_xyz") == op.DIM_DIMLESS  # 未知→保守 dimless
 
 
-def test_roc_sanitizes_inf():
+# Scenario: roc sanitizes inf.
+def test_roc_sanitizes():
     """op_roc 除零 ±inf 必须转 NaN(2019-04-18 事故根因:inf 毒化截面 zscore)。"""
     import numpy as np
     import pandas as pd
@@ -160,7 +167,8 @@ def test_roc_sanitizes_inf():
     assert np.isnan(r.loc[1, "A"])   # 1/0 → inf → NaN
 
 
-def test_zscore_robust_to_single_inf():
+# Scenario: zscore robust to single inf.
+def test_zscore_robust():
     """单个 inf 毒化整截面的事故防线:zscore 入口消毒,坏列自身 NaN、其余列正常标准化。"""
     import numpy as np
     import pandas as pd
@@ -173,7 +181,8 @@ def test_zscore_robust_to_single_inf():
     assert np.isinf(z.to_numpy()).sum() == 0
 
 
-def test_leaf_panels_sanitized():
+# Scenario: leaf panels sanitized.
+def test_leaf_panels():
     """求值入口叶子消毒:原始面板混入的 ±inf 不进管线。"""
     import numpy as np
     import pandas as pd
@@ -185,7 +194,8 @@ def test_leaf_panels_sanitized():
     assert np.isinf(out.to_numpy()).sum() == 0
 
 
-def test_skew_matches_series_skew():
+# Scenario: skew matches series skew.
+def test_skew_series():
     """op_skew(滚动矩和实现)必须与 Series.skew() 逐窗一致,且不产生 pandas rolling
     skew 的幽灵 NaN(2026-08-17 事故:rolling 版在完整窗口上大量返回 NaN)。"""
     import numpy as np
@@ -209,7 +219,8 @@ def test_skew_matches_series_skew():
     assert op_skew(const, 20).iloc[25, 0] == 0.0
 
 
-def test_skew_uses_actual_valid_count_in_partial_window():
+# Scenario: skew uses actual valid count in partial window.
+def test_skew_valid():
     """Sparse windows divide moments by their valid count, not the configured width."""
     import pandas as pd
     from engine.operators import op_skew
@@ -220,7 +231,8 @@ def test_skew_uses_actual_valid_count_in_partial_window():
     assert actual == pytest.approx(expected, abs=1e-12)
 
 
-def test_zscore_zero_sd_outputs_zero():
+# Scenario: zscore zero sd outputs zero.
+def test_zscore_zero():
     """zscore sd=0 保护(2026-08-27 覆盖率塌陷根因):截面全同值 → 输出 0(中性)而非
     0/0=NaN 整天蒸发;原始 NaN 仍保留 NaN。季更阶梯字段的 delta/roc 在季中月
     全市场为 0,曾致整月覆盖塌到 10% 触发覆盖率闸。"""
@@ -238,7 +250,8 @@ def test_zscore_zero_sd_outputs_zero():
     assert z.iloc[2][["b", "c"]].notna().all()
 
 
-def test_skew_constant_window_outputs_zero():
+# Scenario: skew constant window outputs zero.
+def test_skew_constant():
     """skew m2=0 保护(2026-08-27,与 zscore sd=0 同型):常数窗(季更字段季中)→ 输出 0
     而非 0/0=NaN;正常窗口仍有离散值;窗口不足仍 NaN。"""
     import numpy as np
@@ -257,7 +270,8 @@ def test_skew_constant_window_outputs_zero():
     assert rv.abs().iloc[25:].mean().mean() > 0.05  # 非常数输入有非常数输出
 
 
-def test_rolling_min_periods_relaxed():
+# Scenario: rolling min periods relaxed.
+def test_rolling_min():
     """时序算子 min_periods=max(3,2n//3)(2026-08-27):窗口 2/3 有效即可输出——
     季更字段每季几天断档,原全有或全无语义把 65% 覆盖打成 8%。"""
     import numpy as np

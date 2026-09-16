@@ -14,12 +14,12 @@ from loop_protocol import (
     EvaluationPlanReference,
     HoldoutValidationError,
     PlanArtifactReference,
-    parse_canonical_holdout_evaluation_plan,
-    parse_canonical_holdout_period,
-    validate_holdout_evaluation_plan_reference,
-    validate_wire_holdout_evaluation_plan_reference,
-    validate_wire_holdout_period,
-    verify_holdout_period_identity,
+    parse_holdout_period,
+    parse_holdout_plan,
+    validate_plan_reference,
+    validate_wire_period,
+    validate_wire_plan,
+    verify_period_identity,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -36,9 +36,10 @@ RESOLVED = {
 }
 
 
-def test_shared_holdout_golden_matches_exact_bytes_and_identities() -> None:
+# Scenario: shared holdout golden matches exact bytes and identities.
+def test_shared_golden() -> None:
     for period_fixture in FIXTURE["periods"]:
-        period = parse_canonical_holdout_period(period_fixture["canonical_json"])
+        period = parse_holdout_period(period_fixture["canonical_json"])
         assert period.canonical_bytes == period_fixture["canonical_json"].encode("ascii")
         assert _encode_digest(period.canonical_period_sha256) == period_fixture["canonical_sha256"]
         assert period.holdout_period_id == period_fixture["holdout_period_id"]
@@ -48,7 +49,7 @@ def test_shared_holdout_golden_matches_exact_bytes_and_identities() -> None:
             for candidate in FIXTURE["plans"]
             if candidate["period"] == period_fixture["name"]
         ):
-            plan = parse_canonical_holdout_evaluation_plan(
+            plan = parse_holdout_plan(
                 plan_fixture["canonical_json"],
                 period,
                 TRUSTED_BACKTEST,
@@ -58,7 +59,7 @@ def test_shared_holdout_golden_matches_exact_bytes_and_identities() -> None:
             assert _encode_digest(plan.plan_sha256) == plan_fixture["plan_sha256"]
             assert plan.holdout_evaluation_plan_id == plan_fixture["holdout_evaluation_plan_id"]
             assert _encode_digest(plan.plan_sha256) != plan.holdout_evaluation_plan_id
-            validated = validate_holdout_evaluation_plan_reference(
+            validated = validate_plan_reference(
                 _domain_reference(plan, period, plan_fixture["entry_count"]),
                 plan.canonical_bytes,
                 period,
@@ -71,13 +72,12 @@ def test_shared_holdout_golden_matches_exact_bytes_and_identities() -> None:
             )
 
 
-def test_generated_holdout_wire_references_are_exact_canonical_projections() -> None:
+# Scenario: generated holdout wire references are exact canonical projections.
+def test_generated_holdout() -> None:
     period_fixture = FIXTURE["periods"][0]
     plan_fixture = FIXTURE["plans"][0]
-    period = parse_canonical_holdout_period(period_fixture["canonical_json"])
-    plan = parse_canonical_holdout_evaluation_plan(
-        plan_fixture["canonical_json"], period, TRUSTED_BACKTEST, RESOLVED
-    )
+    period = parse_holdout_period(period_fixture["canonical_json"])
+    plan = parse_holdout_plan(plan_fixture["canonical_json"], period, TRUSTED_BACKTEST, RESOLVED)
     period_json = json.loads(period_fixture["canonical_json"])
     wire_period = holdout_pb2.HoldoutPeriod(
         holdout_period_id=common_pb2.HoldoutPeriodId(value=period.holdout_period_id),
@@ -93,7 +93,7 @@ def test_generated_holdout_wire_references_are_exact_canonical_projections() -> 
         canonical_period_sha256=_wire_digest(period.canonical_period_sha256),
     )
     assert (
-        validate_wire_holdout_period(wire_period, period.canonical_bytes).holdout_period_id
+        validate_wire_period(wire_period, period.canonical_bytes).holdout_period_id
         == period.holdout_period_id
     )
 
@@ -121,7 +121,7 @@ def test_generated_holdout_wire_references_are_exact_canonical_projections() -> 
     )
     wire_plan.canonical_plan.created_at.seconds = 1
     assert (
-        validate_wire_holdout_evaluation_plan_reference(
+        validate_wire_plan(
             wire_plan,
             plan.canonical_bytes,
             period,
@@ -134,7 +134,7 @@ def test_generated_holdout_wire_references_are_exact_canonical_projections() -> 
 
     wire_plan.canonical_plan.ClearField("created_at")
     with pytest.raises(HoldoutValidationError):
-        validate_wire_holdout_evaluation_plan_reference(
+        validate_wire_plan(
             wire_plan,
             plan.canonical_bytes,
             period,
@@ -145,7 +145,7 @@ def test_generated_holdout_wire_references_are_exact_canonical_projections() -> 
     wire_plan.canonical_plan.created_at.seconds = 1
     wire_plan.canonical_plan.row_count = 1
     with pytest.raises(HoldoutValidationError):
-        validate_wire_holdout_evaluation_plan_reference(
+        validate_wire_plan(
             wire_plan,
             plan.canonical_bytes,
             period,
@@ -155,13 +155,12 @@ def test_generated_holdout_wire_references_are_exact_canonical_projections() -> 
         )
 
 
-def test_every_shared_holdout_negative_vector_fails_closed() -> None:
+# Scenario: every shared holdout negative vector fails closed.
+def test_shared_holdout() -> None:
     period_fixture = FIXTURE["periods"][0]
     plan_fixture = FIXTURE["plans"][0]
-    period = parse_canonical_holdout_period(period_fixture["canonical_json"])
-    plan = parse_canonical_holdout_evaluation_plan(
-        plan_fixture["canonical_json"], period, TRUSTED_BACKTEST, RESOLVED
-    )
+    period = parse_holdout_period(period_fixture["canonical_json"])
+    plan = parse_holdout_plan(plan_fixture["canonical_json"], period, TRUSTED_BACKTEST, RESOLVED)
     for line in NEGATIVE_VECTORS.splitlines():
         if not line or line.startswith("#"):
             continue
@@ -188,10 +187,10 @@ def _execute_negative(
     plan: CanonicalHoldoutEvaluationPlan,
 ) -> None:
     if target == "period":
-        parse_canonical_holdout_period(_mutate_period(period_source, mutation))
+        parse_holdout_period(_mutate_period(period_source, mutation))
         return
     if target == "period_reference":
-        verify_holdout_period_identity(
+        verify_period_identity(
             period_source,
             _digest_text(238) if mutation == "period_id_mismatch" else period.holdout_period_id,
             bytes([238]) * 32
@@ -201,7 +200,7 @@ def _execute_negative(
         return
     if target == "plan":
         mutated, trusted, resolved = _mutate_plan(plan_source, mutation)
-        parse_canonical_holdout_evaluation_plan(
+        parse_holdout_plan(
             mutated,
             period,
             trusted or TRUSTED_BACKTEST,
@@ -212,7 +211,7 @@ def _execute_negative(
         reference = _mutate_reference(
             _domain_reference(plan, period, len(plan.value.entries)), mutation
         )
-        validate_holdout_evaluation_plan_reference(
+        validate_plan_reference(
             reference,
             plan.canonical_bytes,
             period,

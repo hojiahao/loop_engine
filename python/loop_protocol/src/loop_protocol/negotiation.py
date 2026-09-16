@@ -123,7 +123,7 @@ def negotiate_protocol_availability(
     )
 
 
-def validate_protocol_selection_availability(
+def validate_selection_availability(
     selection: common_pb2.ProtocolSelectionSnapshot,
     local: common_pb2.ProtocolInfo,
     retained_builds: Sequence[ProtocolBuildIdentity],

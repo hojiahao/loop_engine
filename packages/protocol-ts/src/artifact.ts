@@ -45,9 +45,9 @@ export interface ValidatedArtifactRef {
 }
 
 /** Validate a generated DTO before domain or storage code can observe it. */
-export function validateArtifactRef(value: ArtifactRef): Readonly<ValidatedArtifactRef> {
-  rejectInlineProperties(value);
-  const digestHex = requireDigest(value.sha256, "sha256");
+export function validate_artifact_ref(value: ArtifactRef): Readonly<ValidatedArtifactRef> {
+  reject_inline_properties(value);
+  const digestHex = require_digest(value.sha256, "sha256");
 
   if (textEncoder.encode(value.uri).byteLength > MAX_ARTIFACT_URI_BYTES) {
     fail("uri_too_long", "uri");
@@ -79,15 +79,15 @@ export function validateArtifactRef(value: ArtifactRef): Readonly<ValidatedArtif
   ) {
     fail("invalid_schema", "schema");
   }
-  const schemaSha256Hex = requireDigest(schema.schemaSha256, "schema.schema_sha256");
-  if (!isMediaType(value.mediaType)) {
+  const schemaSha256Hex = require_digest(schema.schemaSha256, "schema.schema_sha256");
+  if (!is_media_type(value.mediaType)) {
     fail("invalid_media_type", "media_type");
   }
-  const createdAt = requireTimestamp(value.createdAt, "created_at");
+  const createdAt = require_timestamp(value.createdAt, "created_at");
   const manifestSha256Hex =
     value.manifestSha256 === undefined
       ? undefined
-      : requireDigest(value.manifestSha256, "manifest_sha256");
+      : require_digest(value.manifestSha256, "manifest_sha256");
 
   return Object.freeze({
     artifactId,
@@ -105,7 +105,7 @@ export function validateArtifactRef(value: ArtifactRef): Readonly<ValidatedArtif
   });
 }
 
-function requireTimestamp(
+function require_timestamp(
   timestamp: { readonly seconds: bigint; readonly nanos: number } | undefined,
   field: string,
 ): { readonly seconds: bigint; readonly nanos: number } {
@@ -124,7 +124,7 @@ function requireTimestamp(
   return timestamp;
 }
 
-function rejectInlineProperties(value: ArtifactRef): void {
+function reject_inline_properties(value: ArtifactRef): void {
   const record = value as ArtifactRef & Record<string, unknown>;
   for (const field of ["bytes", "data", "payload", "content", "inlineBytes", "inline_bytes"]) {
     if (Object.hasOwn(record, field)) {
@@ -133,7 +133,7 @@ function rejectInlineProperties(value: ArtifactRef): void {
   }
 }
 
-function requireDigest(digest: { readonly value: Uint8Array } | undefined, field: string): string {
+function require_digest(digest: { readonly value: Uint8Array } | undefined, field: string): string {
   if (digest === undefined) {
     fail("missing_field", field);
   }
@@ -143,7 +143,7 @@ function requireDigest(digest: { readonly value: Uint8Array } | undefined, field
   return Array.from(digest.value, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function isMediaType(value: string): boolean {
+function is_media_type(value: string): boolean {
   const parts = value.split("/");
   return (
     parts.length === 2 &&

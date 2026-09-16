@@ -117,7 +117,7 @@ pub fn validate_operational_failure(
 /// Phase 7 owning-BacktestSpec parsing, artifact availability, server-owned
 /// dataset snapshot/capability resolution, and runtime authorization remain
 /// mandatory external gates.
-pub fn validate_job_wire_dispatch_candidate(
+pub fn validate_dispatch_candidate(
     specification: &JobSpecification,
     enabled_job_kinds: &[JobKind],
 ) -> Result<JobKind, RuntimeValidationError> {

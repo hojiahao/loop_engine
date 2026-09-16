@@ -28,7 +28,8 @@ fn requires_explicit_tls() {
 }
 
 #[test]
-fn rejects_ambiguous_or_non_postgres_urls() {
+// Scenario: rejects ambiguous or non postgres urls.
+fn ambiguous_postgres_urls() {
     for (index, url) in [
         "https://app:fixture@localhost/db?sslmode=require",
         "postgresql://app:fixture@localhost/?sslmode=require",
@@ -49,7 +50,8 @@ fn rejects_ambiguous_or_non_postgres_urls() {
 }
 
 #[test]
-fn configuration_errors_do_not_echo_secrets() {
+// Scenario: configuration errors do not echo secrets.
+fn configuration_errors_secrets() {
     for url in [
         "postgresql://app:sentinel-secret@localhost/db?sslmode=invalid",
         "postgresql://app:fixture@localhost/db?token=sentinel-secret&sslmode=require",
@@ -63,7 +65,8 @@ fn configuration_errors_do_not_echo_secrets() {
 }
 
 #[tokio::test]
-async fn runtime_does_not_create_missing_schema() {
+// Scenario: runtime does not create missing schema.
+async fn runtime_create_missing() {
     let directory = tempfile::tempdir().unwrap();
     let mut config = base_options(&directory.path().join("state"));
     let namespace = config.schema.clone();
@@ -81,7 +84,8 @@ async fn runtime_does_not_create_missing_schema() {
 }
 
 #[tokio::test]
-async fn runtime_rejects_changed_migration_checksum() {
+// Scenario: runtime rejects changed migration checksum.
+async fn runtime_changed_migration() {
     let (directory, store, _) = fixture().await;
     let mut connection = connection(&directory).await;
     sqlx::query(
@@ -105,7 +109,8 @@ async fn runtime_rejects_changed_migration_checksum() {
 }
 
 #[tokio::test]
-async fn schema_names_cannot_inject_sql() {
+// Scenario: schema names cannot inject sql.
+async fn schema_names_sql() {
     for name in [
         "",
         "BadSchema",
@@ -123,7 +128,8 @@ async fn schema_names_cannot_inject_sql() {
 }
 
 #[tokio::test]
-async fn independent_schema_has_its_own_migration_lock() {
+// Scenario: independent schema has its own migration lock.
+async fn independent_schema_own() {
     let directory = tempfile::tempdir().unwrap();
     let mut other_migrator = connection(&directory).await;
     other_migrator.lock().await.unwrap();
@@ -136,7 +142,8 @@ async fn independent_schema_has_its_own_migration_lock() {
 }
 
 #[tokio::test]
-async fn migration_resolves_schema_after_lock_wait() {
+// Scenario: migration resolves schema after lock wait.
+async fn migration_resolves_schema() {
     let directory = tempfile::tempdir().unwrap();
     let config = base_options(&directory.path().join("state"));
     let namespace = config.schema.clone();

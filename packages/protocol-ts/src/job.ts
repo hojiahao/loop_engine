@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 
-import { validateArtifactRef } from "./artifact.js";
+import { validate_artifact_ref } from "./artifact.js";
 import type { BacktestSpec } from "./generated/loop/v1/backtest_pb.js";
 import {
   ActorKind,
@@ -36,8 +36,8 @@ import {
 import {
   type CanonicalHoldoutEvaluationPlan,
   type HoldoutJobBudget,
-  parseCanonicalHoldoutEvaluationPlan,
-  verifyHoldoutPeriodIdentity,
+  parse_holdout_plan,
+  verify_period_identity,
 } from "./holdout-identity.js";
 import { ProvenanceError, ProvenanceSnapshot } from "./provenance.js";
 
@@ -117,10 +117,10 @@ export interface ValidatedJobShape extends ValidatedJobSpecificationShape {
 }
 
 /** Classify only the protocol v1 kind/input matrix. */
-export function validateJobSpecificationShape(
+export function validate_job_shape(
   specification: JobSpecification,
 ): Readonly<ValidatedJobSpecificationShape> {
-  const kind = validateKind(specification.kind);
+  const kind = validate_kind(specification.kind);
   const inputCase = specification.input.case;
   if (inputCase === undefined) fail("missing_field", "specification.input");
   const expectedInput: Record<JobKind, string | undefined> = {
@@ -145,58 +145,58 @@ export function validateJobSpecificationShape(
  * opaque identities here; Phase 4/5 server-owned snapshot registry and
  * capability resolution must verify their roles before persistence or dispatch.
  */
-export function validateJobSpecification(
+export function validate_job_specification(
   specification: JobSpecification,
 ): Readonly<ValidatedJobSpecificationShape> {
-  const shape = validateJobSpecificationShape(specification);
-  const submittedAt = validateJobEnvelope(specification);
-  validateJobInput(specification, submittedAt);
+  const shape = validate_job_shape(specification);
+  const submittedAt = validate_job_envelope(specification);
+  validate_job_input(specification, submittedAt);
   return shape;
 }
 
-function validateJobEnvelope(specification: JobSpecification): Timestamp {
-  requireTokenId(specification.jobId?.value, "specification.job_id");
-  requireTokenId(specification.runId?.value, "specification.run_id");
-  const submittedAt = requireTimestamp(specification.submittedAt, "specification.submitted_at");
-  validateActor(specification.submittedBy, "specification.submitted_by");
-  requireTokenId(specification.idempotencyKey?.value, "specification.idempotency_key");
-  requireTokenId(specification.correlationId?.value, "specification.correlation_id");
-  requireTokenId(specification.causationId?.value, "specification.causation_id");
+function validate_job_envelope(specification: JobSpecification): Timestamp {
+  require_token_id(specification.jobId?.value, "specification.job_id");
+  require_token_id(specification.runId?.value, "specification.run_id");
+  const submittedAt = require_timestamp(specification.submittedAt, "specification.submitted_at");
+  validate_actor(specification.submittedBy, "specification.submitted_by");
+  require_token_id(specification.idempotencyKey?.value, "specification.idempotency_key");
+  require_token_id(specification.correlationId?.value, "specification.correlation_id");
+  require_token_id(specification.causationId?.value, "specification.causation_id");
   const selection = specification.protocolSelection;
   if (selection === undefined) fail("missing_field", "specification.protocol_selection");
-  validateProtocolSelection(selection, submittedAt);
+  validate_protocol_selection(selection, submittedAt);
   return submittedAt;
 }
 
-function validateProtocolSelection(
+function validate_protocol_selection(
   selection: ProtocolSelectionSnapshot,
   submittedAt: Timestamp,
 ): void {
-  const expected = protocolSelectionSha256(selection);
-  const actual = requireDigest(
+  const expected = protocol_selection_sha256(selection);
+  const actual = require_digest(
     selection.selectionSha256,
     "specification.protocol_selection.selection_sha256",
   );
-  if (!equalDigest(expected, actual)) {
+  if (!equal_digest(expected, actual)) {
     fail("invalid_protocol_selection", "specification.protocol_selection.selection_sha256");
   }
-  const selectedAt = requireTimestamp(
+  const selectedAt = require_timestamp(
     selection.selectedAt,
     "specification.protocol_selection.selected_at",
   );
-  if (compareTimestamp(selectedAt, submittedAt) > 0) {
+  if (compare_timestamp(selectedAt, submittedAt) > 0) {
     fail("invalid_protocol_selection", "specification.protocol_selection.selected_at");
   }
 }
 
 /** Emit the normative canonical v1 protocol-selection document. */
-export function canonicalProtocolSelectionBytes(selection: ProtocolSelectionSnapshot): Uint8Array {
-  if (!isProtocolPackage(selection.selectedPackage)) {
+export function protocol_selection_bytes(selection: ProtocolSelectionSnapshot): Uint8Array {
+  if (!is_protocol_package(selection.selectedPackage)) {
     fail("invalid_protocol_selection", "specification.protocol_selection.selected_package");
   }
   if (
     selection.enabledFeatures.length > MAX_PROTOCOL_FEATURES ||
-    selection.enabledFeatures.some((feature) => !isProtocolFeature(feature)) ||
+    selection.enabledFeatures.some((feature) => !is_protocol_feature(feature)) ||
     selection.enabledFeatures.some(
       (feature, index) => index > 0 && (selection.enabledFeatures[index - 1] as string) >= feature,
     )
@@ -207,26 +207,26 @@ export function canonicalProtocolSelectionBytes(selection: ProtocolSelectionSnap
   if (limits === undefined) {
     fail("missing_field", "specification.protocol_selection.effective_limits");
   }
-  validateProtocolLimits(limits);
+  validate_protocol_limits(limits);
   if (
-    !isBuildVersion(selection.serverBuildVersion) ||
-    !isBuildVersion(selection.clientBuildVersion)
+    !is_build_version(selection.serverBuildVersion) ||
+    !is_build_version(selection.clientBuildVersion)
   ) {
     fail("invalid_protocol_selection", "specification.protocol_selection.build_version");
   }
-  const serverBuild = requireDigest(
+  const serverBuild = require_digest(
     selection.serverBuildSha256,
     "specification.protocol_selection.server_build_sha256",
   );
-  const descriptor = requireDigest(
+  const descriptor = require_digest(
     selection.schemaDescriptorSha256,
     "specification.protocol_selection.schema_descriptor_sha256",
   );
-  const clientBuild = requireDigest(
+  const clientBuild = require_digest(
     selection.clientBuildSha256,
     "specification.protocol_selection.client_build_sha256",
   );
-  const selectedAt = requireTimestamp(
+  const selectedAt = require_timestamp(
     selection.selectedAt,
     "specification.protocol_selection.selected_at",
   );
@@ -243,20 +243,20 @@ export function canonicalProtocolSelectionBytes(selection: ProtocolSelectionSnap
     `"maximum_identity_bytes":"${limits.maximumIdentityBytes}",` +
     `"maximum_artifact_uri_bytes":"${limits.maximumArtifactUriBytes}"},` +
     `"server_build_version":"${selection.serverBuildVersion}",` +
-    `"server_build_sha256":"${encodeDigest(serverBuild)}",` +
-    `"schema_descriptor_sha256":"${encodeDigest(descriptor)}",` +
+    `"server_build_sha256":"${encode_digest(serverBuild)}",` +
+    `"schema_descriptor_sha256":"${encode_digest(descriptor)}",` +
     `"selected_at":{"seconds":"${selectedAt.seconds}","nanos":"${selectedAt.nanos}"},` +
     `"client_build_version":"${selection.clientBuildVersion}",` +
-    `"client_build_sha256":"${encodeDigest(clientBuild)}"}`;
+    `"client_build_sha256":"${encode_digest(clientBuild)}"}`;
   return encoder.encode(canonical);
 }
 
 /** Compute the domain-separated digest claimed by `selection_sha256`. */
-export function protocolSelectionSha256(selection: ProtocolSelectionSnapshot): Uint8Array {
-  return domainDigest(PROTOCOL_SELECTION_DOMAIN, canonicalProtocolSelectionBytes(selection));
+export function protocol_selection_sha256(selection: ProtocolSelectionSnapshot): Uint8Array {
+  return domain_digest(PROTOCOL_SELECTION_DOMAIN, protocol_selection_bytes(selection));
 }
 
-function validateProtocolLimits(limits: ProtocolLimits): void {
+function validate_protocol_limits(limits: ProtocolLimits): void {
   const valid =
     limits.maximumUnaryBytes >= 1n &&
     limits.maximumUnaryBytes <= MAX_PROTOCOL_UNARY_BYTES &&
@@ -282,23 +282,23 @@ function validateProtocolLimits(limits: ProtocolLimits): void {
   }
 }
 
-function validateJobInput(specification: JobSpecification, submittedAt: Timestamp): void {
+function validate_job_input(specification: JobSpecification, submittedAt: Timestamp): void {
   const input = specification.input;
   switch (input.case) {
     case "discovery":
-      validateDevelopmentDataset(input.value.dataset);
-      validatePolicy(input.value.researchPolicy, "specification.input.discovery.research_policy");
-      validateModelResolution(
+      validate_development_dataset(input.value.dataset);
+      validate_policy(input.value.researchPolicy, "specification.input.discovery.research_policy");
+      validate_model_resolution(
         input.value.makerModel,
         "specification.input.discovery.maker_model",
         submittedAt,
       );
-      validateModelResolution(
+      validate_model_resolution(
         input.value.checkerModel,
         "specification.input.discovery.checker_model",
         submittedAt,
       );
-      validateBudget(input.value.budget, "specification.input.discovery.budget");
+      validate_budget(input.value.budget, "specification.input.discovery.budget");
       if (input.value.maximumCandidates < 1 || input.value.maximumCandidates > MAX_CANDIDATES) {
         fail("invalid_input", "specification.input.discovery.maximum_candidates");
       }
@@ -307,93 +307,93 @@ function validateJobInput(specification: JobSpecification, submittedAt: Timestam
       if (input.value.factor === undefined) {
         fail("missing_field", "specification.input.factor_evaluation.factor");
       }
-      validateFactorSpecIdentityEnvelope(input.value.factor);
-      validateDevelopmentDataset(input.value.dataset);
+      validate_factor_identity(input.value.factor);
+      validate_development_dataset(input.value.dataset);
       if (input.value.provenance !== undefined || input.value.deterministicSeed !== undefined) {
-        validateProvenance(
+        validate_provenance(
           input.value.provenance,
           "specification.input.factor_evaluation.provenance",
         );
-        requireDigest(
+        require_digest(
           input.value.deterministicSeed,
           "specification.input.factor_evaluation.deterministic_seed",
         );
       }
-      validateBudget(input.value.budget, "specification.input.factor_evaluation.budget");
+      validate_budget(input.value.budget, "specification.input.factor_evaluation.budget");
       return;
     case "backtest":
-      validateBudget(input.value.budget, "specification.input.backtest.budget");
-      requireSha256Id(
+      validate_budget(input.value.budget, "specification.input.backtest.budget");
+      require_sha256_id(
         input.value.factorSpecId?.value,
         "specification.input.backtest.factor_spec_id",
       );
-      validateDevelopmentDataset(input.value.dataset);
-      validateSimpleReturn(
+      validate_development_dataset(input.value.dataset);
+      validate_simple_return(
         input.value.returnDefinition,
         "specification.input.backtest.return_definition",
       );
-      validateProvenance(input.value.provenance, "specification.input.backtest.provenance");
-      requireDigest(
+      validate_provenance(input.value.provenance, "specification.input.backtest.provenance");
+      require_digest(
         input.value.deterministicSeed,
         "specification.input.backtest.deterministic_seed",
       );
       return;
     case "reconciliation": {
-      const primary = requireTokenId(
+      const primary = require_token_id(
         input.value.primaryBacktestId?.value,
         "specification.input.reconciliation.primary_backtest_id",
       );
-      const independent = requireTokenId(
+      const independent = require_token_id(
         input.value.independentBacktestId?.value,
         "specification.input.reconciliation.independent_backtest_id",
       );
       if (primary === independent) {
         fail("binding_mismatch", "specification.input.reconciliation.backtest_ids");
       }
-      validatePolicy(
+      validate_policy(
         input.value.reconciliationPolicy,
         "specification.input.reconciliation.reconciliation_policy",
       );
-      validateBudget(input.value.budget, "specification.input.reconciliation.budget");
+      validate_budget(input.value.budget, "specification.input.reconciliation.budget");
       return;
     }
     case "holdoutBacktest":
-      validateHoldoutBacktestInput(input.value, submittedAt);
+      validate_holdout_input(input.value, submittedAt);
       return;
     case "artifact":
       if (input.value.input === undefined) {
         fail("missing_field", "specification.input.artifact.input");
       }
       try {
-        validateArtifactRef(input.value.input);
+        validate_artifact_ref(input.value.input);
       } catch {
         fail("invalid_input", "specification.input.artifact.input");
       }
-      validatePolicy(input.value.policy, "specification.input.artifact.policy");
-      validateBudget(input.value.budget, "specification.input.artifact.budget");
+      validate_policy(input.value.policy, "specification.input.artifact.policy");
+      validate_budget(input.value.budget, "specification.input.artifact.budget");
       return;
     case undefined:
       fail("missing_field", "specification.input");
   }
 }
 
-function validateDevelopmentDataset(dataset: DevelopmentDatasetReference | undefined): void {
+function validate_development_dataset(dataset: DevelopmentDatasetReference | undefined): void {
   if (dataset === undefined) fail("missing_field", "specification.input.dataset");
   if (dataset.snapshotIds.length < 1 || dataset.snapshotIds.length > MAX_DATASET_SNAPSHOTS) {
     fail("invalid_input", "specification.input.dataset.snapshot_ids");
   }
   let previous: string | undefined;
   for (const snapshot of dataset.snapshotIds) {
-    const value = requireTokenId(snapshot.value, "specification.input.dataset.snapshot_ids");
+    const value = require_token_id(snapshot.value, "specification.input.dataset.snapshot_ids");
     if (previous !== undefined && previous >= value) {
       fail("invalid_input", "specification.input.dataset.snapshot_ids");
     }
     previous = value;
   }
-  requireDigest(dataset.manifestSha256, "specification.input.dataset.manifest_sha256");
+  require_digest(dataset.manifestSha256, "specification.input.dataset.manifest_sha256");
 }
 
-function validatePolicy(policy: PolicyReference | undefined, field: string): PolicyReference {
+function validate_policy(policy: PolicyReference | undefined, field: string): PolicyReference {
   if (policy === undefined) fail("missing_field", field);
   const policyId = policy.policyId?.value;
   if (policyId === undefined) fail("missing_field", field);
@@ -404,7 +404,7 @@ function validatePolicy(policy: PolicyReference | undefined, field: string): Pol
   } catch {
     fail("invalid_input", field);
   }
-  requireDigest(policy.sha256, field);
+  require_digest(policy.sha256, field);
   return policy;
 }
 
@@ -413,8 +413,8 @@ function validatePolicy(policy: PolicyReference | undefined, field: string): Pol
  * validation. This proves the attached wire AST is the exact tree encoded by
  * canonical JSON; registry semantics remain mandatory at the domain binder.
  */
-export function canonicalFactorSpecIdentityBytes(factor: FactorSpec): Uint8Array {
-  const factorExpressionId = requireSha256Id(
+export function factor_identity_bytes(factor: FactorSpec): Uint8Array {
+  const factorExpressionId = require_sha256_id(
     factor.expressionId?.value,
     "specification.input.factor_evaluation.factor.expression_id",
   );
@@ -422,11 +422,11 @@ export function canonicalFactorSpecIdentityBytes(factor: FactorSpec): Uint8Array
   if (expression === undefined) {
     fail("missing_field", "specification.input.factor_evaluation.factor.expression");
   }
-  const attachedExpressionId = requireSha256Id(
+  const attachedExpressionId = require_sha256_id(
     expression.expressionId?.value,
     "specification.input.factor_evaluation.factor.expression.expression_id",
   );
-  if (!equalTextConstantTime(factorExpressionId, attachedExpressionId)) {
+  if (!equal_text_constant(factorExpressionId, attachedExpressionId)) {
     fail(
       "binding_mismatch",
       "specification.input.factor_evaluation.factor.expression.expression_id",
@@ -448,21 +448,21 @@ export function canonicalFactorSpecIdentityBytes(factor: FactorSpec): Uint8Array
   ) {
     fail("invalid_input", "specification.input.factor_evaluation.factor.expression.ast");
   }
-  const attachedAst = canonicalWireFactorAstBytes(ast);
-  if (!equalDigest(attachedAst, expression.canonicalJson)) {
+  const attachedAst = wire_ast_bytes(ast);
+  if (!equal_digest(attachedAst, expression.canonicalJson)) {
     fail("binding_mismatch", "specification.input.factor_evaluation.factor.expression.ast");
   }
-  const computedExpressionId = encodeDigest(
-    domainDigest(FACTOR_AST_DOMAIN, expression.canonicalJson),
+  const computedExpressionId = encode_digest(
+    domain_digest(FACTOR_AST_DOMAIN, expression.canonicalJson),
   );
-  if (!equalTextConstantTime(factorExpressionId, computedExpressionId)) {
+  if (!equal_text_constant(factorExpressionId, computedExpressionId)) {
     fail(
       "binding_mismatch",
       "specification.input.factor_evaluation.factor.expression.canonical_json",
     );
   }
 
-  const registry = requireDigest(
+  const registry = require_digest(
     factor.operatorRegistrySha256,
     "specification.input.factor_evaluation.factor.operator_registry_sha256",
   );
@@ -491,26 +491,26 @@ export function canonicalFactorSpecIdentityBytes(factor: FactorSpec): Uint8Array
   }
   const canonical =
     `{"schema":"loop.factor-spec/v1","expression_id":"${factorExpressionId}",` +
-    `"operator_registry_sha256":"${encodeDigest(registry)}","direction":"${direction}"` +
-    writeFactorPolicy("universe_policy", policies.universePolicy) +
-    writeFactorPolicy("data_policy", policies.dataPolicy) +
-    writeFactorPolicy("calendar_policy", policies.calendarPolicy) +
-    writeFactorPolicy("preprocess_policy", policies.preprocessPolicy) +
-    writeFactorPolicy("neutralization_policy", policies.neutralizationPolicy) +
-    writeFactorPolicy("portfolio_policy", policies.portfolioPolicy) +
-    writeFactorPolicy("execution_policy", policies.executionPolicy) +
-    writeFactorPolicy("cost_policy", policies.costPolicy) +
-    writeFactorPolicy("evaluation_policy", policies.evaluationPolicy) +
+    `"operator_registry_sha256":"${encode_digest(registry)}","direction":"${direction}"` +
+    write_factor_policy("universe_policy", policies.universePolicy) +
+    write_factor_policy("data_policy", policies.dataPolicy) +
+    write_factor_policy("calendar_policy", policies.calendarPolicy) +
+    write_factor_policy("preprocess_policy", policies.preprocessPolicy) +
+    write_factor_policy("neutralization_policy", policies.neutralizationPolicy) +
+    write_factor_policy("portfolio_policy", policies.portfolioPolicy) +
+    write_factor_policy("execution_policy", policies.executionPolicy) +
+    write_factor_policy("cost_policy", policies.costPolicy) +
+    write_factor_policy("evaluation_policy", policies.evaluationPolicy) +
     "}";
   return encoder.encode(canonical);
 }
 
-function canonicalWireFactorAstBytes(ast: FactorAst): Uint8Array {
+function wire_ast_bytes(ast: FactorAst): Uint8Array {
   if (ast.schemaVersion !== 1 || ast.root === undefined) {
     fail("invalid_input", "specification.input.factor_evaluation.factor.expression.ast");
   }
   const state = { nodes: 0 };
-  const canonical = writeWireFactorAstNode(ast.root, 1, state);
+  const canonical = write_ast_node(ast.root, 1, state);
   const bytes = encoder.encode(canonical);
   if (BigInt(bytes.byteLength) > MAX_PROTOCOL_CANONICAL_AST_BYTES) {
     fail("invalid_input", "specification.input.factor_evaluation.factor.expression.ast");
@@ -518,18 +518,14 @@ function canonicalWireFactorAstBytes(ast: FactorAst): Uint8Array {
   return bytes;
 }
 
-function writeWireFactorAstNode(
-  node: FactorAstNode,
-  depth: number,
-  state: { nodes: number },
-): string {
+function write_ast_node(node: FactorAstNode, depth: number, state: { nodes: number }): string {
   if (depth > MAX_PROTOCOL_AST_DEPTH || ++state.nodes > MAX_PROTOCOL_AST_NODES) {
     fail("invalid_input", "specification.input.factor_evaluation.factor.expression.ast");
   }
 
   switch (node.node.case) {
     case "field": {
-      const field = requireFactorIdentifier(node.node.value.field);
+      const field = require_factor_identifier(node.node.value.field);
       return `{"node":"field","field":"${field}"}`;
     }
     case "literal":
@@ -548,8 +544,8 @@ function writeWireFactorAstNode(
           return `{"node":"boolean","value":${node.node.value.value.value ? "true" : "false"}}`;
         case "enumeration": {
           const enumeration = node.node.value.value.value;
-          const enumType = requireFactorIdentifier(enumeration.enumType);
-          const value = requireFactorIdentifier(enumeration.value);
+          const enumType = require_factor_identifier(enumeration.enumType);
+          const value = require_factor_identifier(enumeration.value);
           return `{"node":"enum","enum_type":"${enumType}","value":"${value}"}`;
         }
         case undefined:
@@ -567,7 +563,7 @@ function writeWireFactorAstNode(
           "specification.input.factor_evaluation.factor.expression.ast.call.operator",
         );
       }
-      const operator = requireFactorIdentifier(call.operator.operator);
+      const operator = require_factor_identifier(call.operator.operator);
       const operatorVersion = call.operator.operatorVersion;
       if (
         !/^[1-9][0-9]{0,19}$/.test(operatorVersion) ||
@@ -585,7 +581,7 @@ function writeWireFactorAstNode(
         );
       }
       const argumentsJson = call.arguments
-        .map((argument) => writeWireFactorAstNode(argument, depth + 1, state))
+        .map((argument) => write_ast_node(argument, depth + 1, state))
         .join(",");
       return (
         `{"node":"call","operator":"${operator}",` +
@@ -598,7 +594,7 @@ function writeWireFactorAstNode(
   fail("invalid_input", "specification.input.factor_evaluation.factor.expression.ast");
 }
 
-function requireFactorIdentifier(value: string): string {
+function require_factor_identifier(value: string): string {
   if (
     encoder.encode(value).byteLength > 128 ||
     !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/.test(value)
@@ -609,50 +605,50 @@ function requireFactorIdentifier(value: string): string {
 }
 
 /** Compute the domain-separated digest claimed by an inline `factor_spec_id`. */
-export function factorSpecIdentitySha256(factor: FactorSpec): Uint8Array {
-  return domainDigest(FACTOR_SPEC_DOMAIN, canonicalFactorSpecIdentityBytes(factor));
+export function factor_identity_hash(factor: FactorSpec): Uint8Array {
+  return domain_digest(FACTOR_SPEC_DOMAIN, factor_identity_bytes(factor));
 }
 
 /** Validate both content-addressed identities carried by an inline factor. */
-export function validateFactorSpecIdentityEnvelope(factor: FactorSpec): void {
-  const claimed = requireSha256Id(
+export function validate_factor_identity(factor: FactorSpec): void {
+  const claimed = require_sha256_id(
     factor.factorSpecId?.value,
     "specification.input.factor_evaluation.factor.factor_spec_id",
   );
-  const computed = encodeDigest(factorSpecIdentitySha256(factor));
-  if (!equalTextConstantTime(claimed, computed)) {
+  const computed = encode_digest(factor_identity_hash(factor));
+  if (!equal_text_constant(claimed, computed)) {
     fail("binding_mismatch", "specification.input.factor_evaluation.factor.factor_spec_id");
   }
 }
 
-function writeFactorPolicy(name: string, reference: PolicyReference | undefined): string {
-  const policy = validatePolicy(
+function write_factor_policy(name: string, reference: PolicyReference | undefined): string {
+  const policy = validate_policy(
     reference,
     "specification.input.factor_evaluation.factor.frozen_policy",
   );
-  const digest = requireDigest(
+  const digest = require_digest(
     policy.sha256,
     "specification.input.factor_evaluation.factor.frozen_policy",
   );
   return (
     `,"${name}":{"policy_id":"${policy.policyId?.value}",` +
-    `"revision":"${policy.revision}","sha256":"${encodeDigest(digest)}"}`
+    `"revision":"${policy.revision}","sha256":"${encode_digest(digest)}"}`
   );
 }
 
-function validateModelResolution(
+function validate_model_resolution(
   model: ModelResolutionSnapshot | undefined,
   field: string,
   submittedAt: Timestamp,
 ): void {
   if (model === undefined) fail("missing_field", field);
-  requireTokenId(model.resolutionId?.value, field);
-  requireTokenId(model.providerId?.value, field);
-  requireTokenId(model.modelId?.value, field);
+  require_token_id(model.resolutionId?.value, field);
+  require_token_id(model.providerId?.value, field);
+  require_token_id(model.modelId?.value, field);
   if (
-    !isBoundedText(model.requestedAlias, MAX_PROTOCOL_NAME_BYTES) ||
-    !isBoundedText(model.providerPluginName, MAX_PROTOCOL_NAME_BYTES) ||
-    !isBuildVersion(model.providerPluginVersion)
+    !is_bounded_text(model.requestedAlias, MAX_PROTOCOL_NAME_BYTES) ||
+    !is_bounded_text(model.providerPluginName, MAX_PROTOCOL_NAME_BYTES) ||
+    !is_build_version(model.providerPluginVersion)
   ) {
     fail("invalid_input", field);
   }
@@ -674,18 +670,18 @@ function validateModelResolution(
   }
   const pricing = model.pricing;
   if (pricing === undefined) fail("missing_field", field);
-  validateMoney(pricing.inputPerMillionTokens, field);
-  validateMoney(pricing.outputPerMillionTokens, field);
-  validateMoney(pricing.cachedInputPerMillionTokens, field);
-  requireDigest(model.capabilitySha256, field);
-  requireDigest(model.catalogSha256, field);
-  requireDigest(model.providerPluginSha256, field);
-  requireDigest(model.snapshotSha256, field);
-  const resolvedAt = requireTimestamp(model.resolvedAt, field);
-  if (compareTimestamp(resolvedAt, submittedAt) > 0) fail("invalid_input", field);
+  validate_money(pricing.inputPerMillionTokens, field);
+  validate_money(pricing.outputPerMillionTokens, field);
+  validate_money(pricing.cachedInputPerMillionTokens, field);
+  require_digest(model.capabilitySha256, field);
+  require_digest(model.catalogSha256, field);
+  require_digest(model.providerPluginSha256, field);
+  require_digest(model.snapshotSha256, field);
+  const resolvedAt = require_timestamp(model.resolvedAt, field);
+  if (compare_timestamp(resolvedAt, submittedAt) > 0) fail("invalid_input", field);
 }
 
-function validateBudget(budget: JobBudget | undefined, field: string): void {
+function validate_budget(budget: JobBudget | undefined, field: string): void {
   if (budget === undefined) fail("missing_field", field);
   if (
     budget.maximumSteps < 1 ||
@@ -695,7 +691,7 @@ function validateBudget(budget: JobBudget | undefined, field: string): void {
   ) {
     fail("invalid_budget", field);
   }
-  validateMoney(budget.maximumCost, field);
+  validate_money(budget.maximumCost, field);
   const duration = budget.maximumWallTime;
   if (duration === undefined) fail("missing_field", field);
   if (
@@ -710,7 +706,7 @@ function validateBudget(budget: JobBudget | undefined, field: string): void {
   }
 }
 
-function validateMoney(
+function validate_money(
   money:
     | {
         readonly amount?: { readonly value: string };
@@ -720,12 +716,12 @@ function validateMoney(
   field: string,
 ): void {
   if (money === undefined || money.amount === undefined) fail("missing_field", field);
-  if (!/^[A-Z]{3}$/.test(money.currencyCode) || !isNormalizedCost(money.amount.value)) {
+  if (!/^[A-Z]{3}$/.test(money.currencyCode) || !is_normalized_cost(money.amount.value)) {
     fail("invalid_budget", field);
   }
 }
 
-function isNormalizedCost(amount: string): boolean {
+function is_normalized_cost(amount: string): boolean {
   const match = /^(0|[1-9][0-9]*)(?:\.([0-9]*[1-9]))?$/.exec(amount);
   if (match === null) return false;
   const integer = match[1] as string;
@@ -742,64 +738,61 @@ function isNormalizedCost(amount: string): boolean {
   );
 }
 
-function validateProvenance(
+function validate_provenance(
   provenance: ResearchProvenanceFingerprint | undefined,
   field: string,
 ): void {
   if (provenance === undefined) fail("missing_field", field);
   try {
-    ProvenanceSnapshot.fromWire(provenance);
+    ProvenanceSnapshot.from_wire(provenance);
   } catch (error) {
     if (error instanceof ProvenanceError) fail("invalid_provenance", field);
     throw error;
   }
 }
 
-function validateHoldoutBacktestInput(
-  input: HoldoutBacktestJobInput,
-  submittedAt: Timestamp,
-): void {
+function validate_holdout_input(input: HoldoutBacktestJobInput, submittedAt: Timestamp): void {
   const grant = input.consumedGrant;
   if (grant === undefined) {
     fail("missing_field", "specification.input.holdout_backtest.consumed_grant");
   }
-  const [grantIssuedAt, grantExpiresAt] = validateHoldoutGrant(grant);
+  const [grantIssuedAt, grantExpiresAt] = validate_holdout_grant(grant);
   if (
-    compareTimestamp(submittedAt, grantIssuedAt) < 0 ||
-    compareTimestamp(submittedAt, grantExpiresAt) >= 0
+    compare_timestamp(submittedAt, grantIssuedAt) < 0 ||
+    compare_timestamp(submittedAt, grantExpiresAt) >= 0
   ) {
     fail("invalid_input", "specification.input.holdout_backtest.consumed_grant.validity_window");
   }
   if (input.consumedGrantRevision === 0n) {
     fail("invalid_input", "specification.input.holdout_backtest.consumed_grant_revision");
   }
-  const batchId = requireTokenId(
+  const batchId = require_token_id(
     input.jobBatchId?.value,
     "specification.input.holdout_backtest.job_batch_id",
   );
   if (batchId === grant.holdoutGrantId?.value) {
     fail("binding_mismatch", "specification.input.holdout_backtest.job_batch_id");
   }
-  const planId = requireSha256Id(
+  const planId = require_sha256_id(
     input.holdoutEvaluationPlanId?.value,
     "specification.input.holdout_backtest.holdout_evaluation_plan_id",
   );
-  const grantPlanId = requireSha256Id(
+  const grantPlanId = require_sha256_id(
     grant.holdoutEvaluationPlanId?.value,
     "specification.input.holdout_backtest.consumed_grant.holdout_evaluation_plan_id",
   );
   if (planId !== grantPlanId) {
     fail("binding_mismatch", "specification.input.holdout_backtest.holdout_evaluation_plan_id");
   }
-  const planDigest = requireDigest(
+  const planDigest = require_digest(
     input.evaluationPlanSha256,
     "specification.input.holdout_backtest.evaluation_plan_sha256",
   );
-  const grantPlanDigest = requireDigest(
+  const grantPlanDigest = require_digest(
     grant.evaluationPlanSha256,
     "specification.input.holdout_backtest.consumed_grant.evaluation_plan_sha256",
   );
-  if (!equalDigest(planDigest, grantPlanDigest)) {
+  if (!equal_digest(planDigest, grantPlanDigest)) {
     fail("binding_mismatch", "specification.input.holdout_backtest.evaluation_plan_sha256");
   }
   if (
@@ -811,8 +804,8 @@ function validateHoldoutBacktestInput(
   if (input.frozenBacktestSpec === undefined) {
     fail("missing_field", "specification.input.holdout_backtest.frozen_backtest_spec");
   }
-  validateFrozenBacktestSpec(input.frozenBacktestSpec, grant.issuedAt);
-  validateBudget(input.budget, "specification.input.holdout_backtest.budget");
+  validate_backtest_spec(input.frozenBacktestSpec, grant.issuedAt);
+  validate_budget(input.budget, "specification.input.holdout_backtest.budget");
 }
 
 /**
@@ -826,7 +819,7 @@ function validateHoldoutBacktestInput(
  * snapshots, return definition, provenance, and seed. Persisted grant
  * resolution and runtime authorization remain external Phase 4 gates.
  */
-export function validateHoldoutBacktestPlanEntryBinding(
+export function validate_plan_binding(
   input: HoldoutBacktestJobInput,
   submittedAt: Timestamp,
   canonicalPeriodBytes: Uint8Array | string,
@@ -834,33 +827,33 @@ export function validateHoldoutBacktestPlanEntryBinding(
   trustedBacktestSchemaSha256: Uint8Array,
   resolvedBacktestArtifacts: ReadonlyMap<string, Uint8Array>,
 ): void {
-  validateHoldoutBacktestInput(input, requireTimestamp(submittedAt, "specification.submitted_at"));
+  validate_holdout_input(input, require_timestamp(submittedAt, "specification.submitted_at"));
   const grant = input.consumedGrant;
   const frozen = input.frozenBacktestSpec;
   const budget = input.budget;
   if (grant === undefined || frozen === undefined || budget === undefined) {
     fail("missing_field", "specification.input.holdout_backtest");
   }
-  const planId = requireSha256Id(
+  const planId = require_sha256_id(
     input.holdoutEvaluationPlanId?.value,
     "specification.input.holdout_backtest.holdout_evaluation_plan_id",
   );
-  const planDigest = requireDigest(
+  const planDigest = require_digest(
     input.evaluationPlanSha256,
     "specification.input.holdout_backtest.evaluation_plan_sha256",
   );
-  const periodId = requireSha256Id(
+  const periodId = require_sha256_id(
     grant.holdoutPeriodId?.value,
     "specification.input.holdout_backtest.consumed_grant.holdout_period_id",
   );
-  const periodDigest = requireDigest(
+  const periodDigest = require_digest(
     grant.canonicalPeriodSha256,
     "specification.input.holdout_backtest.consumed_grant.canonical_period_sha256",
   );
   let plan: CanonicalHoldoutEvaluationPlan;
   try {
-    const period = verifyHoldoutPeriodIdentity(canonicalPeriodBytes, periodId, periodDigest);
-    plan = parseCanonicalHoldoutEvaluationPlan(
+    const period = verify_period_identity(canonicalPeriodBytes, periodId, periodDigest);
+    plan = parse_holdout_plan(
       canonicalPlanBytes,
       period,
       trustedBacktestSchemaSha256,
@@ -870,10 +863,10 @@ export function validateHoldoutBacktestPlanEntryBinding(
     fail("binding_mismatch", "specification.input.holdout_backtest.resolved_plan");
   }
   if (
-    !equalTextConstantTime(planId, plan.holdoutEvaluationPlanId) ||
-    !equalDigest(planDigest, plan.planSha256) ||
-    !equalTextConstantTime(periodId, plan.value.holdout_period_id) ||
-    !equalTextConstantTime(encodeDigest(periodDigest), plan.value.canonical_period_sha256) ||
+    !equal_text_constant(planId, plan.holdoutEvaluationPlanId) ||
+    !equal_digest(planDigest, plan.planSha256) ||
+    !equal_text_constant(periodId, plan.value.holdout_period_id) ||
+    !equal_text_constant(encode_digest(periodDigest), plan.value.canonical_period_sha256) ||
     grant.evaluationPlanEntryCount !== plan.value.entries.length
   ) {
     fail("binding_mismatch", "specification.input.holdout_backtest.resolved_plan");
@@ -884,24 +877,24 @@ export function validateHoldoutBacktestPlanEntryBinding(
   if (entry === undefined) {
     fail("binding_mismatch", "specification.input.holdout_backtest.evaluation_plan_entry_index");
   }
-  const factorId = requireSha256Id(
+  const factorId = require_sha256_id(
     frozen.factorSpecId?.value,
     "specification.input.holdout_backtest.frozen_backtest_spec.factor_spec_id",
   );
-  const canonicalSpec = requireDigest(
+  const canonicalSpec = require_digest(
     frozen.canonicalSpecSha256,
     "specification.input.holdout_backtest.frozen_backtest_spec.canonical_spec_sha256",
   );
   if (
-    !equalTextConstantTime(factorId, entry.factor_spec_id) ||
-    !equalTextConstantTime(encodeDigest(canonicalSpec), entry.backtest_spec_artifact.sha256) ||
-    !holdoutBudgetMatchesPlan(budget, entry.job_budget)
+    !equal_text_constant(factorId, entry.factor_spec_id) ||
+    !equal_text_constant(encode_digest(canonicalSpec), entry.backtest_spec_artifact.sha256) ||
+    !holdout_budget_matches(budget, entry.job_budget)
   ) {
     fail("binding_mismatch", "specification.input.holdout_backtest.resolved_plan_entry");
   }
 }
 
-function holdoutBudgetMatchesPlan(budget: JobBudget, expected: HoldoutJobBudget): boolean {
+function holdout_budget_matches(budget: JobBudget, expected: HoldoutJobBudget): boolean {
   const cost = budget.maximumCost;
   const wall = budget.maximumWallTime;
   if (cost?.amount === undefined || wall === undefined) return false;
@@ -916,37 +909,37 @@ function holdoutBudgetMatchesPlan(budget: JobBudget, expected: HoldoutJobBudget)
   );
 }
 
-function validateHoldoutGrant(
+function validate_holdout_grant(
   grant: NonNullable<HoldoutBacktestJobInput["consumedGrant"]>,
 ): readonly [Timestamp, Timestamp] {
-  requireTokenId(
+  require_token_id(
     grant.holdoutGrantId?.value,
     "specification.input.holdout_backtest.consumed_grant.holdout_grant_id",
   );
-  const periodId = requireSha256Id(
+  const periodId = require_sha256_id(
     grant.holdoutPeriodId?.value,
     "specification.input.holdout_backtest.consumed_grant.holdout_period_id",
   );
-  requireDigest(
+  require_digest(
     grant.freezeManifestSha256,
     "specification.input.holdout_backtest.consumed_grant.freeze_manifest_sha256",
   );
-  const issuedAt = requireTimestamp(
+  const issuedAt = require_timestamp(
     grant.issuedAt,
     "specification.input.holdout_backtest.consumed_grant.issued_at",
   );
-  const expiresAt = requireTimestamp(
+  const expiresAt = require_timestamp(
     grant.expiresAt,
     "specification.input.holdout_backtest.consumed_grant.expires_at",
   );
-  if (compareTimestamp(issuedAt, expiresAt) >= 0) {
+  if (compare_timestamp(issuedAt, expiresAt) >= 0) {
     fail("invalid_input", "specification.input.holdout_backtest.consumed_grant.expires_at");
   }
-  requireSha256Id(
+  require_sha256_id(
     grant.holdoutEvaluationPlanId?.value,
     "specification.input.holdout_backtest.consumed_grant.holdout_evaluation_plan_id",
   );
-  requireDigest(
+  require_digest(
     grant.evaluationPlanSha256,
     "specification.input.holdout_backtest.consumed_grant.evaluation_plan_sha256",
   );
@@ -956,11 +949,11 @@ function validateHoldoutGrant(
       "specification.input.holdout_backtest.consumed_grant.evaluation_plan_entry_count",
     );
   }
-  const periodDigest = requireDigest(
+  const periodDigest = require_digest(
     grant.canonicalPeriodSha256,
     "specification.input.holdout_backtest.consumed_grant.canonical_period_sha256",
   );
-  if (periodId !== encodeDigest(periodDigest)) {
+  if (periodId !== encode_digest(periodDigest)) {
     fail(
       "binding_mismatch",
       "specification.input.holdout_backtest.consumed_grant.canonical_period_sha256",
@@ -969,11 +962,11 @@ function validateHoldoutGrant(
   return [issuedAt, expiresAt];
 }
 
-function validateFrozenBacktestSpec(
+function validate_backtest_spec(
   backtest: BacktestSpec,
   grantIssuedAt: Timestamp | undefined,
 ): void {
-  requireTokenId(
+  require_token_id(
     backtest.backtestId?.value,
     "specification.input.holdout_backtest.frozen_backtest_spec.backtest_id",
   );
@@ -983,7 +976,7 @@ function validateFrozenBacktestSpec(
       "specification.input.holdout_backtest.frozen_backtest_spec.schema_version",
     );
   }
-  requireSha256Id(
+  require_sha256_id(
     backtest.factorSpecId?.value,
     "specification.input.holdout_backtest.frozen_backtest_spec.factor_spec_id",
   );
@@ -998,32 +991,32 @@ function validateFrozenBacktestSpec(
   ) {
     fail("invalid_input", "specification.input.holdout_backtest.frozen_backtest_spec.snapshot_ids");
   }
-  validateLockedSample(backtest);
-  validateSimpleReturn(
+  validate_locked_sample(backtest);
+  validate_simple_return(
     backtest.returnDefinition,
     "specification.input.holdout_backtest.frozen_backtest_spec.return_definition",
   );
-  validateProvenance(
+  validate_provenance(
     backtest.provenance,
     "specification.input.holdout_backtest.frozen_backtest_spec.provenance",
   );
-  requireDigest(
+  require_digest(
     backtest.canonicalSpecSha256,
     "specification.input.holdout_backtest.frozen_backtest_spec.canonical_spec_sha256",
   );
-  requireDigest(
+  require_digest(
     backtest.deterministicSeed,
     "specification.input.holdout_backtest.frozen_backtest_spec.deterministic_seed",
   );
-  const createdAt = requireTimestamp(
+  const createdAt = require_timestamp(
     backtest.createdAt,
     "specification.input.holdout_backtest.frozen_backtest_spec.created_at",
   );
-  const issuedAt = requireTimestamp(
+  const issuedAt = require_timestamp(
     grantIssuedAt,
     "specification.input.holdout_backtest.consumed_grant.issued_at",
   );
-  if (compareTimestamp(createdAt, issuedAt) > 0) {
+  if (compare_timestamp(createdAt, issuedAt) > 0) {
     fail(
       "binding_mismatch",
       "specification.input.holdout_backtest.frozen_backtest_spec.created_at",
@@ -1031,7 +1024,7 @@ function validateFrozenBacktestSpec(
   }
 }
 
-function validateLockedSample(backtest: BacktestSpec): void {
+function validate_locked_sample(backtest: BacktestSpec): void {
   const sample = backtest.sample;
   if (sample === undefined) {
     fail("missing_field", "specification.input.holdout_backtest.frozen_backtest_spec.sample");
@@ -1049,11 +1042,11 @@ function validateLockedSample(backtest: BacktestSpec): void {
   ) {
     fail("invalid_input", "specification.input.holdout_backtest.frozen_backtest_spec.sample.role");
   }
-  const start = validateCivilDate(
+  const start = validate_civil_date(
     sample.startInclusive,
     "specification.input.holdout_backtest.frozen_backtest_spec.sample.start_inclusive",
   );
-  const end = validateCivilDate(
+  const end = validate_civil_date(
     sample.endInclusive,
     "specification.input.holdout_backtest.frozen_backtest_spec.sample.end_inclusive",
   );
@@ -1062,7 +1055,7 @@ function validateLockedSample(backtest: BacktestSpec): void {
   }
 }
 
-function validateCivilDate(
+function validate_civil_date(
   date: { readonly year: number; readonly month: number; readonly day: number } | undefined,
   field: string,
 ): number {
@@ -1083,7 +1076,7 @@ function validateCivilDate(
   return date.year * 10_000 + date.month * 100 + date.day;
 }
 
-function validateSimpleReturn(value: ReturnDefinition, field: string): void {
+function validate_simple_return(value: ReturnDefinition, field: string): void {
   if (
     !Number.isInteger(value) ||
     value < ReturnDefinition.UNSPECIFIED ||
@@ -1095,20 +1088,20 @@ function validateSimpleReturn(value: ReturnDefinition, field: string): void {
 }
 
 /** Validate cross-field invariants before a wire DTO enters domain state. */
-export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape> {
+export function validate_job_record(record: JobRecord): Readonly<ValidatedJobShape> {
   const specification = record.specification;
   if (specification === undefined) fail("missing_field", "specification");
   if (record.revision === 0n) fail("invalid_revision", "revision");
-  const { kind } = validateJobSpecification(specification);
-  const specificationJobId = requireTokenId(specification.jobId?.value, "specification.job_id");
-  const submittedAt = requireTimestamp(specification.submittedAt, "specification.submitted_at");
-  const updatedAt = requireTimestamp(record.updatedAt, "updated_at");
-  if (compareTimestamp(updatedAt, submittedAt) < 0) fail("invalid_envelope", "updated_at");
+  const { kind } = validate_job_specification(specification);
+  const specificationJobId = require_token_id(specification.jobId?.value, "specification.job_id");
+  const submittedAt = require_timestamp(specification.submittedAt, "specification.submitted_at");
+  const updatedAt = require_timestamp(record.updatedAt, "updated_at");
+  if (compare_timestamp(updatedAt, submittedAt) < 0) fail("invalid_envelope", "updated_at");
 
-  const state = validateState(record.state);
+  const state = validate_state(record.state);
   const hasLease = record.activeLease !== undefined;
   const isActive = state === JobState.LEASED || state === JobState.RUNNING;
-  const isTerminal = isTerminalState(state);
+  const isTerminal = is_terminal_state(state);
   if (hasLease !== isActive) fail("state_lease_mismatch", "active_lease");
   if (state === JobState.QUEUED) {
     if (record.attempt !== 0) fail("invalid_attempt", "attempt");
@@ -1141,7 +1134,7 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
   const outcome = record.outcome?.outcome;
   switch (outcome?.case) {
     case "success":
-      validateArtifacts(outcome.value.outputs, "outcome.success.outputs");
+      validate_artifacts(outcome.value.outputs, "outcome.success.outputs");
       break;
     case "factorRejection": {
       if (
@@ -1151,39 +1144,39 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
       ) {
         fail("rejection_not_allowed", "outcome.factor_rejection");
       }
-      const expected = factorIdFromInput(specification);
-      const actual = requireSha256Id(
+      const expected = input_factor_id(specification);
+      const actual = require_sha256_id(
         outcome.value.factorSpecId?.value,
         "outcome.factor_rejection.factor_spec_id",
       );
       if (expected !== actual) {
         fail("factor_identity_mismatch", "outcome.factor_rejection.factor_spec_id");
       }
-      if (!isFactorRejectionCode(outcome.value.code)) {
+      if (!is_rejection_code(outcome.value.code)) {
         fail("unknown_enum", "outcome.factor_rejection.code");
       }
-      if (!isBoundedText(outcome.value.reason, MAX_REASON_BYTES)) {
+      if (!is_bounded_text(outcome.value.reason, MAX_REASON_BYTES)) {
         fail("invalid_terminal_payload", "outcome.factor_rejection.reason");
       }
-      validateEventTimestamp(
-        requireTimestamp(outcome.value.rejectedAt, "outcome.factor_rejection.rejected_at"),
+      validate_event_timestamp(
+        require_timestamp(outcome.value.rejectedAt, "outcome.factor_rejection.rejected_at"),
         submittedAt,
         updatedAt,
         "outcome.factor_rejection.rejected_at",
       );
-      validateArtifacts(outcome.value.evidence, "outcome.factor_rejection.evidence");
+      validate_artifacts(outcome.value.evidence, "outcome.factor_rejection.evidence");
       break;
     }
     case "infrastructureFailure": {
       const failure = outcome.value;
       const serviceError = failure.error;
       if (serviceError === undefined) fail("missing_field", "outcome.infrastructure_failure.error");
-      validateServiceError(serviceError);
+      validate_service_error(serviceError);
       if (failure.attempt === 0 || failure.attempt !== record.attempt) {
         fail("invalid_terminal_payload", "outcome.infrastructure_failure.attempt");
       }
-      validateEventTimestamp(
-        requireTimestamp(failure.failedAt, "outcome.infrastructure_failure.failed_at"),
+      validate_event_timestamp(
+        require_timestamp(failure.failedAt, "outcome.infrastructure_failure.failed_at"),
         submittedAt,
         updatedAt,
         "outcome.infrastructure_failure.failed_at",
@@ -1191,27 +1184,27 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
       break;
     }
     case "cancellation":
-      if (!isBoundedText(outcome.value.reason, MAX_REASON_BYTES)) {
+      if (!is_bounded_text(outcome.value.reason, MAX_REASON_BYTES)) {
         fail("invalid_terminal_payload", "outcome.cancellation.reason");
       }
-      validateActor(outcome.value.cancelledBy, "outcome.cancellation.cancelled_by");
-      validateEventTimestamp(
-        requireTimestamp(outcome.value.cancelledAt, "outcome.cancellation.cancelled_at"),
+      validate_actor(outcome.value.cancelledBy, "outcome.cancellation.cancelled_by");
+      validate_event_timestamp(
+        require_timestamp(outcome.value.cancelledAt, "outcome.cancellation.cancelled_at"),
         submittedAt,
         updatedAt,
         "outcome.cancellation.cancelled_at",
       );
       break;
     case "budgetExhaustion":
-      if (!isBoundedText(outcome.value.exhaustedLimit, MAX_ERROR_CODE_BYTES)) {
+      if (!is_bounded_text(outcome.value.exhaustedLimit, MAX_ERROR_CODE_BYTES)) {
         fail("invalid_terminal_payload", "outcome.budget_exhaustion.exhausted_limit");
       }
-      validateBudget(outcome.value.enforcedBudget, "outcome.budget_exhaustion.enforced_budget");
-      if (!budgetsEqual(outcome.value.enforcedBudget, jobBudget(specification))) {
+      validate_budget(outcome.value.enforcedBudget, "outcome.budget_exhaustion.enforced_budget");
+      if (!budgets_equal(outcome.value.enforcedBudget, job_budget(specification))) {
         fail("binding_mismatch", "outcome.budget_exhaustion.enforced_budget");
       }
-      validateEventTimestamp(
-        requireTimestamp(outcome.value.exhaustedAt, "outcome.budget_exhaustion.exhausted_at"),
+      validate_event_timestamp(
+        require_timestamp(outcome.value.exhaustedAt, "outcome.budget_exhaustion.exhausted_at"),
         submittedAt,
         updatedAt,
         "outcome.budget_exhaustion.exhausted_at",
@@ -1223,21 +1216,21 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
 
   const lease = record.activeLease;
   if (lease !== undefined) {
-    requireTokenId(lease.leaseId?.value, "active_lease.lease_id");
-    const leaseJobId = requireTokenId(lease.jobId?.value, "active_lease.job_id");
+    require_token_id(lease.leaseId?.value, "active_lease.lease_id");
+    const leaseJobId = require_token_id(lease.jobId?.value, "active_lease.job_id");
     if (specificationJobId !== leaseJobId) fail("lease_job_mismatch", "active_lease.job_id");
-    validateActor(lease.owner, "active_lease.owner");
+    validate_actor(lease.owner, "active_lease.owner");
     if (lease.acquiredRevision === 0n || lease.acquiredRevision > record.revision) {
       fail("invalid_revision", "active_lease.acquired_revision");
     }
-    const issued = requireTimestamp(lease.issuedAt, "active_lease.issued_at");
-    const heartbeat = requireTimestamp(lease.heartbeatAt, "active_lease.heartbeat_at");
-    const expires = requireTimestamp(lease.expiresAt, "active_lease.expires_at");
+    const issued = require_timestamp(lease.issuedAt, "active_lease.issued_at");
+    const heartbeat = require_timestamp(lease.heartbeatAt, "active_lease.heartbeat_at");
+    const expires = require_timestamp(lease.expiresAt, "active_lease.expires_at");
     if (
-      compareTimestamp(issued, submittedAt) < 0 ||
-      compareTimestamp(issued, heartbeat) > 0 ||
-      compareTimestamp(heartbeat, updatedAt) > 0 ||
-      compareTimestamp(updatedAt, expires) >= 0
+      compare_timestamp(issued, submittedAt) < 0 ||
+      compare_timestamp(issued, heartbeat) > 0 ||
+      compare_timestamp(heartbeat, updatedAt) > 0 ||
+      compare_timestamp(updatedAt, expires) >= 0
     ) {
       fail("invalid_lease", "active_lease.timestamps");
     }
@@ -1246,25 +1239,25 @@ export function validateJobRecord(record: JobRecord): Readonly<ValidatedJobShape
   return Object.freeze({ kind, state });
 }
 
-function validateEventTimestamp(
+function validate_event_timestamp(
   eventAt: Timestamp,
   submittedAt: Timestamp,
   updatedAt: Timestamp,
   field: string,
 ): void {
-  if (compareTimestamp(eventAt, submittedAt) < 0 || compareTimestamp(eventAt, updatedAt) > 0) {
+  if (compare_timestamp(eventAt, submittedAt) < 0 || compare_timestamp(eventAt, updatedAt) > 0) {
     fail("invalid_envelope", field);
   }
 }
 
-function jobBudget(specification: JobSpecification): JobBudget {
+function job_budget(specification: JobSpecification): JobBudget {
   const input = specification.input;
   const budget = input.case === undefined ? undefined : input.value.budget;
   if (budget === undefined) fail("missing_field", "specification.input.budget");
   return budget;
 }
 
-function budgetsEqual(left: JobBudget | undefined, right: JobBudget): boolean {
+function budgets_equal(left: JobBudget | undefined, right: JobBudget): boolean {
   return (
     left !== undefined &&
     left.maximumSteps === right.maximumSteps &&
@@ -1277,7 +1270,7 @@ function budgetsEqual(left: JobBudget | undefined, right: JobBudget): boolean {
   );
 }
 
-function factorIdFromInput(specification: JobSpecification): string {
+function input_factor_id(specification: JobSpecification): string {
   let identity: string | undefined;
   switch (specification.input.case) {
     case "factorEvaluation":
@@ -1290,10 +1283,10 @@ function factorIdFromInput(specification: JobSpecification): string {
       identity = specification.input.value.frozenBacktestSpec?.factorSpecId?.value;
       break;
   }
-  return requireSha256Id(identity, "specification.input.factor_spec_id");
+  return require_sha256_id(identity, "specification.input.factor_spec_id");
 }
 
-function validateKind(kind: JobKind): JobKind {
+function validate_kind(kind: JobKind): JobKind {
   switch (kind) {
     case JobKind.DISCOVERY:
     case JobKind.FACTOR_EVALUATION:
@@ -1308,7 +1301,7 @@ function validateKind(kind: JobKind): JobKind {
   }
 }
 
-function validateState(state: JobState): JobState {
+function validate_state(state: JobState): JobState {
   switch (state) {
     case JobState.QUEUED:
     case JobState.LEASED:
@@ -1324,7 +1317,7 @@ function validateState(state: JobState): JobState {
   }
 }
 
-function isTerminalState(state: JobState): boolean {
+function is_terminal_state(state: JobState): boolean {
   return (
     state === JobState.SUCCEEDED ||
     state === JobState.FACTOR_REJECTED ||
@@ -1334,7 +1327,7 @@ function isTerminalState(state: JobState): boolean {
   );
 }
 
-function isFactorRejectionCode(code: FactorRejectionCode): boolean {
+function is_rejection_code(code: FactorRejectionCode): boolean {
   return (
     code === FactorRejectionCode.DUPLICATE ||
     code === FactorRejectionCode.PREVIOUSLY_FAILED ||
@@ -1347,11 +1340,11 @@ function isFactorRejectionCode(code: FactorRejectionCode): boolean {
   );
 }
 
-function isErrorCategory(category: ErrorCategory): boolean {
+function is_error_category(category: ErrorCategory): boolean {
   return category >= ErrorCategory.VALIDATION && category <= ErrorCategory.BUDGET_EXHAUSTED;
 }
 
-export function validateServiceError(serviceError: {
+export function validate_service_error(serviceError: {
   readonly category: ErrorCategory;
   readonly code: string;
   readonly message: string;
@@ -1361,12 +1354,12 @@ export function validateServiceError(serviceError: {
     readonly message: string;
   }[];
 }): void {
-  if (!isErrorCategory(serviceError.category)) {
+  if (!is_error_category(serviceError.category)) {
     fail("unknown_enum", "outcome.infrastructure_failure.error.category");
   }
   if (
-    !isStableErrorCode(serviceError.code) ||
-    !isBoundedText(serviceError.message, MAX_ERROR_MESSAGE_BYTES)
+    !is_error_code(serviceError.code) ||
+    !is_bounded_text(serviceError.message, MAX_ERROR_MESSAGE_BYTES)
   ) {
     fail("invalid_terminal_payload", "outcome.infrastructure_failure.error");
   }
@@ -1375,16 +1368,16 @@ export function validateServiceError(serviceError: {
   }
   for (const detail of serviceError.details) {
     if (
-      !isBoundedFieldPath(detail.fieldPath) ||
-      !isStableErrorCode(detail.code) ||
-      !isBoundedText(detail.message, MAX_ERROR_MESSAGE_BYTES)
+      !is_field_path(detail.fieldPath) ||
+      !is_error_code(detail.code) ||
+      !is_bounded_text(detail.message, MAX_ERROR_MESSAGE_BYTES)
     ) {
       fail("invalid_terminal_payload", "outcome.infrastructure_failure.error.details");
     }
   }
 }
 
-function validateActor(
+function validate_actor(
   actor:
     | {
         readonly actorId?: { readonly value: string };
@@ -1396,84 +1389,85 @@ function validateActor(
   field: string,
 ): void {
   if (actor === undefined) fail("missing_field", field);
-  requireTokenId(actor.actorId?.value, field);
+  require_token_id(actor.actorId?.value, field);
   if (actor.kind < ActorKind.HUMAN || actor.kind > ActorKind.SCHEDULER) {
     fail("unknown_enum", field);
   }
   if (
-    (actor.displayName !== "" && !isBoundedText(actor.displayName, MAX_ACTOR_DISPLAY_NAME_BYTES)) ||
-    !isBoundedText(actor.authenticatedSubject, MAX_AUTHENTICATED_SUBJECT_BYTES)
+    (actor.displayName !== "" &&
+      !is_bounded_text(actor.displayName, MAX_ACTOR_DISPLAY_NAME_BYTES)) ||
+    !is_bounded_text(actor.authenticatedSubject, MAX_AUTHENTICATED_SUBJECT_BYTES)
   ) {
     fail("invalid_envelope", field);
   }
 }
 
-function validateArtifacts(
-  artifacts: readonly Parameters<typeof validateArtifactRef>[0][],
+function validate_artifacts(
+  artifacts: readonly Parameters<typeof validate_artifact_ref>[0][],
   field: string,
 ): void {
   if (artifacts.length > MAX_OUTCOME_ARTIFACTS) fail("collection_limit", field);
   for (const artifact of artifacts) {
     try {
-      validateArtifactRef(artifact);
+      validate_artifact_ref(artifact);
     } catch {
       fail("invalid_terminal_payload", field);
     }
   }
 }
 
-function requireSha256Id(value: string | undefined, field: string): string {
+function require_sha256_id(value: string | undefined, field: string): string {
   if (value === undefined) fail("missing_field", field);
   if (!/^sha256:[0-9a-f]{64}$/.test(value)) fail("invalid_identity", field);
   return value;
 }
 
-function requireDigest(value: Sha256Digest | undefined, field: string): Uint8Array {
+function require_digest(value: Sha256Digest | undefined, field: string): Uint8Array {
   if (value === undefined) fail("missing_field", field);
   if (value.value.byteLength !== 32) fail("invalid_identity", field);
   return value.value;
 }
 
-function encodeDigest(value: Uint8Array): string {
+function encode_digest(value: Uint8Array): string {
   return `sha256:${Buffer.from(value).toString("hex")}`;
 }
 
-function domainDigest(domain: Uint8Array, canonical: Uint8Array): Uint8Array {
+function domain_digest(domain: Uint8Array, canonical: Uint8Array): Uint8Array {
   return createHash("sha256").update(domain).update(Uint8Array.of(0)).update(canonical).digest();
 }
 
-function equalTextConstantTime(left: string, right: string): boolean {
+function equal_text_constant(left: string, right: string): boolean {
   const leftBytes = encoder.encode(left);
   const rightBytes = encoder.encode(right);
   return leftBytes.byteLength === rightBytes.byteLength && timingSafeEqual(leftBytes, rightBytes);
 }
 
-function equalDigest(left: Uint8Array, right: Uint8Array): boolean {
+function equal_digest(left: Uint8Array, right: Uint8Array): boolean {
   return left.byteLength === right.byteLength && timingSafeEqual(left, right);
 }
 
-function isProtocolPackage(value: string): boolean {
+function is_protocol_package(value: string): boolean {
   return (
     encoder.encode(value).byteLength <= MAX_PROTOCOL_NAME_BYTES &&
     /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*\.v[1-9][0-9]*$/.test(value)
   );
 }
 
-function isProtocolFeature(value: string): boolean {
+function is_protocol_feature(value: string): boolean {
   return (
     encoder.encode(value).byteLength <= MAX_PROTOCOL_NAME_BYTES &&
     /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/.test(value)
   );
 }
 
-function isBuildVersion(value: string): boolean {
+function is_build_version(value: string): boolean {
   return (
     encoder.encode(value).byteLength <= MAX_BUILD_VERSION_BYTES &&
     /^[A-Za-z0-9][A-Za-z0-9.+_-]*$/.test(value)
   );
 }
 
-function requireTokenId(value: string | undefined, field: string): string {
+function require_token_id(value: string | undefined, field: string): string {
   if (value === undefined) fail("missing_field", field);
   if (
     encoder.encode(value).byteLength > MAX_ID_BYTES ||
@@ -1484,7 +1478,7 @@ function requireTokenId(value: string | undefined, field: string): string {
   return value;
 }
 
-function requireTimestamp(value: Timestamp | undefined, field: string): Timestamp {
+function require_timestamp(value: Timestamp | undefined, field: string): Timestamp {
   if (value === undefined) fail("missing_field", field);
   if (
     value.seconds < MIN_TIMESTAMP_SECONDS ||
@@ -1497,32 +1491,32 @@ function requireTimestamp(value: Timestamp | undefined, field: string): Timestam
   return value;
 }
 
-function compareTimestamp(left: Timestamp, right: Timestamp): number {
+function compare_timestamp(left: Timestamp, right: Timestamp): number {
   if (left.seconds !== right.seconds) return left.seconds < right.seconds ? -1 : 1;
   return left.nanos === right.nanos ? 0 : left.nanos < right.nanos ? -1 : 1;
 }
 
-function isBoundedText(value: string, maximumBytes: number): boolean {
+function is_bounded_text(value: string, maximumBytes: number): boolean {
   return (
     value.trim() !== "" &&
     encoder.encode(value).byteLength <= maximumBytes &&
-    !hasAsciiControl(value)
+    !has_ascii_control(value)
   );
 }
 
-function isStableErrorCode(value: string): boolean {
+function is_error_code(value: string): boolean {
   return /^[a-z][a-z0-9_.-]{0,127}$/.test(value);
 }
 
-function isBoundedFieldPath(value: string): boolean {
+function is_field_path(value: string): boolean {
   return (
     value.trim() !== "" &&
     encoder.encode(value).byteLength <= MAX_ERROR_FIELD_PATH_BYTES &&
-    !hasAsciiControl(value)
+    !has_ascii_control(value)
   );
 }
 
-function hasAsciiControl(value: string): boolean {
+function has_ascii_control(value: string): boolean {
   return [...value].some((character) => {
     const codePoint = character.codePointAt(0);
     return codePoint !== undefined && (codePoint < 32 || codePoint === 127);

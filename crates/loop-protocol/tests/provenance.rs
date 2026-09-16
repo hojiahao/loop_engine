@@ -66,7 +66,8 @@ fn shared_freshness_vectors() {
 }
 
 #[test]
-fn every_digest_is_required_and_fixed_width() {
+// Scenario: every digest is required and fixed width.
+fn digest_fixed_width() {
     for (index, component) in ProvenanceComponent::ALL.into_iter().enumerate() {
         for size in [None, Some(0), Some(31), Some(33), Some(1_024)] {
             let mut value = fingerprint("000000");
@@ -90,7 +91,8 @@ fn every_digest_is_required_and_fixed_width() {
 }
 
 #[test]
-fn snapshot_does_not_alias_wire_bytes() {
+// Scenario: snapshot does not alias wire bytes.
+fn alias_wire_bytes() {
     let mut wire = fingerprint("000000");
     let original = ProvenanceSnapshot::try_from(&wire).unwrap();
     wire.source_code_sha256.as_mut().unwrap().value[0] ^= 0xff;
@@ -105,7 +107,8 @@ fn snapshot_does_not_alias_wire_bytes() {
 }
 
 #[test]
-fn only_current_metrics_pass_the_gate() {
+// Scenario: only current metrics pass the gate.
+fn metrics_pass_gate() {
     let frozen = ProvenanceSnapshot::try_from(&fingerprint("000000")).unwrap();
     let changed = ProvenanceSnapshot::try_from(&fingerprint("000010")).unwrap();
     assert_eq!(

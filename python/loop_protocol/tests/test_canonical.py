@@ -34,10 +34,10 @@ from loop_protocol import (
     bind_factor_spec,
     canonicalize_expression,
     parse_canonical_ast,
-    parse_canonical_factor_spec,
+    parse_factor_spec,
     resolve_canonicalization_limits,
     verify_expression_id,
-    verify_factor_spec_id,
+    verify_factor_identity,
 )
 
 
@@ -136,7 +136,8 @@ def registry() -> OperatorRegistry:
     )
 
 
-def test_documented_call_has_exact_canonical_bytes(registry: OperatorRegistry) -> None:
+# Scenario: documented call has exact canonical bytes.
+def test_documented_call(registry: OperatorRegistry) -> None:
     expression = canonicalize_expression(
         CallNode("rolling.mean", "1", (FieldNode("market.close"), DecimalNode("20"))),
         registry,
@@ -157,7 +158,8 @@ def test_documented_call_has_exact_canonical_bytes(registry: OperatorRegistry) -
     assert parse_canonical_ast(expression.canonical_bytes, registry) == expression.ast
 
 
-def test_commutative_associative_policy_converges(registry: OperatorRegistry) -> None:
+# Scenario: commutative associative policy converges.
+def test_commutative_associative(registry: OperatorRegistry) -> None:
     close = FieldNode("market.close")
     volume = FieldNode("market.volume")
     one = FieldNode("market.close")
@@ -181,7 +183,8 @@ def test_commutative_associative_policy_converges(registry: OperatorRegistry) ->
     assert len(left.ast.arguments) == 3
 
 
-def test_unregistered_rewrite_preserves_order(registry: OperatorRegistry) -> None:
+# Scenario: unregistered rewrite preserves order.
+def test_unregistered_order(registry: OperatorRegistry) -> None:
     first = canonicalize_expression(
         CallNode(
             "arithmetic.subtract",
@@ -206,7 +209,8 @@ def test_unregistered_rewrite_preserves_order(registry: OperatorRegistry) -> Non
     "value",
     ["", "01", "+1", "1.", ".5", "1.0", "-0", "1e2", "NaN", "Infinity"],
 )
-def test_noncanonical_decimal_is_rejected(registry: OperatorRegistry, value: str) -> None:
+# Scenario: noncanonical decimal is rejected.
+def test_noncanonical_decimal(registry: OperatorRegistry, value: str) -> None:
     with pytest.raises(CanonicalizationError):
         canonicalize_expression(DecimalNode(value), registry)
 
@@ -223,14 +227,14 @@ def test_noncanonical_decimal_is_rejected(registry: OperatorRegistry, value: str
         CallNode("rolling.mean", "01", (FieldNode("market.close"), DecimalNode("20"))),
     ],
 )
-def test_unknown_or_noncanonical_semantics_are_rejected(
-    registry: OperatorRegistry, node: object
-) -> None:
+# Scenario: unknown or noncanonical semantics are rejected.
+def test_unknown_noncanonical(registry: OperatorRegistry, node: object) -> None:
     with pytest.raises(CanonicalizationError):
         canonicalize_expression(node, registry)  # type: ignore[arg-type]
 
 
-def test_canonical_parser_rejects_numbers_unknown_keys_and_whitespace(
+# Scenario: canonical parser rejects numbers unknown keys and whitespace.
+def test_canonical_parser(
     registry: OperatorRegistry,
 ) -> None:
     invalid = (
@@ -245,7 +249,8 @@ def test_canonical_parser_rejects_numbers_unknown_keys_and_whitespace(
             parse_canonical_ast(canonical_bytes, registry)
 
 
-def test_depth_and_direct_argument_limits_fail_closed(registry: OperatorRegistry) -> None:
+# Scenario: depth and direct argument limits fail closed.
+def test_depth_direct(registry: OperatorRegistry) -> None:
     too_deep: object = FieldNode("market.close")
     for _ in range(64):
         too_deep = CallNode(
@@ -265,7 +270,8 @@ def test_depth_and_direct_argument_limits_fail_closed(registry: OperatorRegistry
         canonicalize_expression(too_many, registry)
 
 
-def test_deployment_limits_are_bounded_by_v1_hard_maxima() -> None:
+# Scenario: deployment limits are bounded by v1 hard maxima.
+def test_deployment_limits() -> None:
     with pytest.raises(CanonicalizationError, match="max_nodes"):
         CanonicalizationLimits(max_nodes=0)
     with pytest.raises(CanonicalizationError, match="max_depth"):
@@ -280,7 +286,8 @@ def test_deployment_limits_are_bounded_by_v1_hard_maxima() -> None:
         resolve_canonicalization_limits({"unknown": 1})
 
 
-def test_lower_deployment_limits_apply_during_normalization(
+# Scenario: lower deployment limits apply during normalization.
+def test_lower_deployment(
     registry: OperatorRegistry,
 ) -> None:
     expression = CallNode(
@@ -299,7 +306,8 @@ def test_lower_deployment_limits_apply_during_normalization(
         canonicalize_expression(expression, registry, {"max_canonical_bytes": 1})
 
 
-def test_factor_spec_binds_direction_and_all_policy_digests(
+# Scenario: factor spec binds direction and all policy digests.
+def test_factor_direction(
     registry: OperatorRegistry,
 ) -> None:
     expression = canonicalize_expression(FieldNode("market.close"), registry)
@@ -314,7 +322,7 @@ def test_factor_spec_binds_direction_and_all_policy_digests(
     )
 
     canonical = bind_factor_spec(spec, expression.canonical_bytes, registry)
-    verify_factor_spec_id(
+    verify_factor_identity(
         canonical.factor_spec_id,
         canonical.canonical_bytes,
         expression.canonical_bytes,
@@ -339,7 +347,8 @@ def test_factor_spec_binds_direction_and_all_policy_digests(
     assert changed_policy.factor_spec_id != canonical.factor_spec_id
 
 
-def test_identity_verification_rejects_mismatch(registry: OperatorRegistry) -> None:
+# Scenario: identity verification rejects mismatch.
+def test_identity_verification(registry: OperatorRegistry) -> None:
     expression = canonicalize_expression(FieldNode("market.close"), registry)
     with pytest.raises(CanonicalizationError, match="does not match"):
         verify_expression_id(
@@ -349,7 +358,8 @@ def test_identity_verification_rejects_mismatch(registry: OperatorRegistry) -> N
         )
 
 
-def test_expression_identity_verifier_rejects_hash_matching_invalid_bytes(
+# Scenario: expression identity verifier rejects hash matching invalid bytes.
+def test_expression_identity(
     registry: OperatorRegistry,
 ) -> None:
     invalid_bytes = b"not-json"
@@ -377,7 +387,8 @@ def test_expression_identity_verifier_rejects_hash_matching_invalid_bytes(
         )
     ),
 )
-def test_factor_spec_and_binding_validate_every_policy_reference(
+# Scenario: factor spec and binding validate every policy reference.
+def test_factor_policy(
     registry: OperatorRegistry,
     policy_index: int,
     policy_name: str,
@@ -412,7 +423,8 @@ def test_factor_spec_and_binding_validate_every_policy_reference(
         bind_factor_spec(valid_spec, expression.canonical_bytes, registry)
 
 
-def test_lower_limits_reach_parse_bind_and_verify_entrypoints(
+# Scenario: lower limits reach parse bind and verify entrypoints.
+def test_lower_limits(
     registry: OperatorRegistry,
 ) -> None:
     expression = canonicalize_expression(FieldNode("market.close"), registry)
@@ -444,7 +456,7 @@ def test_lower_limits_reach_parse_bind_and_verify_entrypoints(
     with pytest.raises(CanonicalizationError, match="canonical FactorSpec exceeds"):
         bind_factor_spec(spec, expression.canonical_bytes, registry, spec_limit)
     with pytest.raises(CanonicalizationError, match="canonical FactorSpec exceeds"):
-        parse_canonical_factor_spec(
+        parse_factor_spec(
             bound.canonical_bytes,
             bound.factor_spec_id,
             expression.canonical_bytes,
@@ -452,7 +464,7 @@ def test_lower_limits_reach_parse_bind_and_verify_entrypoints(
             spec_limit,
         )
     with pytest.raises(CanonicalizationError, match="canonical FactorSpec exceeds"):
-        verify_factor_spec_id(
+        verify_factor_identity(
             bound.factor_spec_id,
             bound.canonical_bytes,
             expression.canonical_bytes,
@@ -461,7 +473,8 @@ def test_lower_limits_reach_parse_bind_and_verify_entrypoints(
         )
 
 
-def test_factor_binding_rejects_expression_identity_mismatch(registry: OperatorRegistry) -> None:
+# Scenario: factor binding rejects expression identity mismatch.
+def test_factor_expression(registry: OperatorRegistry) -> None:
     expression = canonicalize_expression(FieldNode("market.close"), registry)
     references = tuple(
         PolicyReference(f"policy_{index}", "1", f"sha256:{index:064x}") for index in range(1, 10)
@@ -476,12 +489,14 @@ def test_factor_binding_rejects_expression_identity_mismatch(registry: OperatorR
         bind_factor_spec(draft, expression.canonical_bytes, registry)
 
 
-def test_bound_factor_spec_has_no_public_constructor() -> None:
+# Scenario: bound factor spec has no public constructor.
+def test_factor_spec() -> None:
     with pytest.raises(TypeError):
         CanonicalFactorSpec()  # type: ignore[call-arg]
 
 
-def test_canonical_factor_spec_parser_rejects_whitespace(registry: OperatorRegistry) -> None:
+# Scenario: canonical factor spec parser rejects whitespace.
+def test_canonical_factor(registry: OperatorRegistry) -> None:
     expression = canonicalize_expression(FieldNode("market.close"), registry)
     references = tuple(
         PolicyReference(f"policy_{index}", "1", f"sha256:{index:064x}") for index in range(1, 10)
@@ -494,7 +509,7 @@ def test_canonical_factor_spec_parser_rejects_whitespace(registry: OperatorRegis
     )
     bound = bind_factor_spec(draft, expression.canonical_bytes, registry)
     with pytest.raises(CanonicalizationError):
-        parse_canonical_factor_spec(
+        parse_factor_spec(
             b" " + bound.canonical_bytes,
             bound.factor_spec_id,
             expression.canonical_bytes,
@@ -502,7 +517,8 @@ def test_canonical_factor_spec_parser_rejects_whitespace(registry: OperatorRegis
         )
 
 
-def test_hostile_json_nesting_fails_closed_without_recursion_escape(
+# Scenario: hostile json nesting fails closed without recursion escape.
+def test_hostile_json(
     registry: OperatorRegistry,
 ) -> None:
     hostile = b'{"node":"call","operator":"math.abs","operator_version":"1","arguments":[' * 2_000

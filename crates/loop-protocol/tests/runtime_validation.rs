@@ -4,7 +4,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use loop_protocol::{
     runtime_validation::{
         RichStatusDetail, RuntimeValidationCode, SERVICE_ERROR_TYPE_URL,
-        validate_job_wire_dispatch_candidate, validate_operational_failure,
+        validate_dispatch_candidate, validate_operational_failure,
     },
     wire::v1::{
         ArtifactJobInput, DiscoveryJobInput, ErrorCategory, ErrorDetail, JobKind, JobSpecification,
@@ -81,7 +81,8 @@ fn operational_fixture() -> OperationalFixture {
 }
 
 #[test]
-fn validates_shared_operational_failure_fixture() {
+// Scenario: validates shared operational failure fixture.
+fn shared_operational_failure() {
     let fixture = operational_fixture();
     let detail = RichStatusDetail {
         type_url: &fixture.type_url,
@@ -97,7 +98,8 @@ fn validates_shared_operational_failure_fixture() {
 }
 
 #[test]
-fn operational_failure_type_and_transport_checks_fail_closed() {
+// Scenario: operational failure type and transport checks fail closed.
+fn operational_failure_type() {
     let fixture = operational_fixture();
     for forged_url in [
         "type.googleapis.com/loop.v1.FactorRejection",
@@ -134,7 +136,8 @@ fn operational_failure_type_and_transport_checks_fail_closed() {
 }
 
 #[test]
-fn operational_failure_rejects_unbounded_or_malformed_service_error_fields() {
+// Scenario: operational failure rejects unbounded or malformed service error fields.
+fn operational_failure_unbounded() {
     let fixture = operational_fixture();
     let baseline = ServiceError::decode(fixture.detail.as_slice())
         .expect("shared fixture must contain a ServiceError");
@@ -145,12 +148,12 @@ fn operational_failure_rejects_unbounded_or_malformed_service_error_fields() {
         code: "digest_mismatch".to_owned(),
         message: "declared and computed digests differ".to_owned(),
     });
-    assert_service_error_result(valid_detail).expect("one bounded detail must be accepted");
+    assert_service_error(valid_detail).expect("one bounded detail must be accepted");
 
     let mut unknown_category = baseline.clone();
     unknown_category.category = 999;
     assert_eq!(
-        assert_service_error_result(unknown_category)
+        assert_service_error(unknown_category)
             .expect_err("unknown error categories must fail closed"),
         RuntimeValidationCode::UnsupportedEnum
     );
@@ -198,14 +201,14 @@ fn operational_failure_rejects_unbounded_or_malformed_service_error_fields() {
 
     for value in invalid {
         assert_eq!(
-            assert_service_error_result(value)
+            assert_service_error(value)
                 .expect_err("malformed ServiceError fields must fail closed"),
             RuntimeValidationCode::InvalidServiceError
         );
     }
 }
 
-fn assert_service_error_result(service_error: ServiceError) -> Result<(), RuntimeValidationCode> {
+fn assert_service_error(service_error: ServiceError) -> Result<(), RuntimeValidationCode> {
     let encoded = service_error.encode_to_vec();
     validate_operational_failure(
         14,
@@ -220,7 +223,8 @@ fn assert_service_error_result(service_error: ServiceError) -> Result<(), Runtim
 }
 
 #[test]
-fn unknown_job_enum_and_oneof_fixtures_fail_closed() {
+// Scenario: unknown job enum and oneof fixtures fail closed.
+fn unknown_job_enum() {
     let unknown_enum = JobSpecification::decode(
         protocol_fixture("job_specification_v1_unknown_enum.binpb").as_slice(),
     )
@@ -231,7 +235,7 @@ fn unknown_job_enum_and_oneof_fixtures_fail_closed() {
         Some(job_specification::Input::Discovery(_))
     ));
     assert_eq!(
-        validate_job_wire_dispatch_candidate(&unknown_enum, &[JobKind::Discovery])
+        validate_dispatch_candidate(&unknown_enum, &[JobKind::Discovery])
             .expect_err("unknown job kind must not select a default action")
             .code,
         RuntimeValidationCode::UnsupportedEnum
@@ -244,7 +248,7 @@ fn unknown_job_enum_and_oneof_fixtures_fail_closed() {
     assert_eq!(unknown_oneof.kind(), JobKind::Report);
     assert!(unknown_oneof.input.is_none());
     assert_eq!(
-        validate_job_wire_dispatch_candidate(&unknown_oneof, &[JobKind::Report])
+        validate_dispatch_candidate(&unknown_oneof, &[JobKind::Report])
             .expect_err("unknown oneof must not select a default action")
             .code,
         RuntimeValidationCode::UnsupportedOneof
@@ -252,7 +256,8 @@ fn unknown_job_enum_and_oneof_fixtures_fail_closed() {
 }
 
 #[test]
-fn known_job_dispatch_requires_a_complete_envelope_and_matching_input() {
+// Scenario: known job dispatch requires a complete envelope and matching input.
+fn known_job_dispatch() {
     let valid = JobSpecification {
         kind: JobKind::Discovery.into(),
         input: Some(job_specification::Input::Discovery(
@@ -261,7 +266,7 @@ fn known_job_dispatch_requires_a_complete_envelope_and_matching_input() {
         ..Default::default()
     };
     assert_eq!(
-        validate_job_wire_dispatch_candidate(&valid, &[JobKind::Discovery])
+        validate_dispatch_candidate(&valid, &[JobKind::Discovery])
             .expect_err("a matching but incomplete envelope must fail closed")
             .code,
         RuntimeValidationCode::InvalidSpecification
@@ -275,7 +280,7 @@ fn known_job_dispatch_requires_a_complete_envelope_and_matching_input() {
         ..Default::default()
     };
     assert_eq!(
-        validate_job_wire_dispatch_candidate(&mismatched, &[JobKind::Discovery])
+        validate_dispatch_candidate(&mismatched, &[JobKind::Discovery])
             .expect_err("known but incompatible discriminants must be rejected")
             .code,
         RuntimeValidationCode::IncompatibleVariant
@@ -289,7 +294,7 @@ fn known_job_dispatch_requires_a_complete_envelope_and_matching_input() {
         ..Default::default()
     };
     assert_eq!(
-        validate_job_wire_dispatch_candidate(&disabled, &[JobKind::Discovery])
+        validate_dispatch_candidate(&disabled, &[JobKind::Discovery])
             .expect_err("a known shape without an enabled handler must be rejected")
             .code,
         RuntimeValidationCode::InvalidSpecification

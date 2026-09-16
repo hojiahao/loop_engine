@@ -111,7 +111,8 @@ def public_case(directory: Path, *, acquisition_end: str = "2020-12-29") -> Case
     return Case(sources, output, request)
 
 
-def test_source_snapshot_cannot_backfill_knowledge(tmp_path: Path) -> None:
+# Scenario: source snapshot cannot backfill knowledge.
+def test_source_backfill(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     result = case.build()
     assert result.quality == "public_development"
@@ -124,7 +125,8 @@ def test_source_snapshot_cannot_backfill_knowledge(tmp_path: Path) -> None:
     )
 
 
-def test_public_capture_requires_a_snapshot(tmp_path: Path) -> None:
+# Scenario: public capture requires a snapshot.
+def test_public_capture(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     case.request = change(case.request, source_snapshot=None)
     with pytest.raises(ValueError, match="verified source snapshot"):
@@ -132,7 +134,8 @@ def test_public_capture_requires_a_snapshot(tmp_path: Path) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_public_prices_cannot_be_injected(tmp_path: Path) -> None:
+# Scenario: public prices cannot be injected.
+def test_public_prices(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     assert case.request.source_snapshot is not None
     _, snapshot = read_snapshot(case.sources, case.request.source_snapshot.sha256)
@@ -147,7 +150,8 @@ def test_public_prices_cannot_be_injected(tmp_path: Path) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_source_parquet_corruption_blocks_publication(tmp_path: Path) -> None:
+# Scenario: source parquet corruption blocks publication.
+def test_source_parquet(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     assert case.request.source_snapshot is not None
     _, snapshot = read_snapshot(case.sources, case.request.source_snapshot.sha256)
@@ -157,9 +161,8 @@ def test_source_parquet_corruption_blocks_publication(tmp_path: Path) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_acquisition_range_is_checked_before_replay(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: acquisition range is checked before replay.
+def test_acquisition_range(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     case = public_case(tmp_path, acquisition_end="2020-12-30")
 
     def forbidden(*args: object, **kwargs: object) -> None:
@@ -171,9 +174,8 @@ def test_acquisition_range_is_checked_before_replay(
     assert not list(case.output.iterdir())
 
 
-def test_snapshot_range_is_checked_before_replay(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: snapshot range is checked before replay.
+def test_range_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     case = public_case(tmp_path)
     case.request = change(case.request, sample_end="2020-12-28")
 
@@ -186,7 +188,8 @@ def test_snapshot_range_is_checked_before_replay(
     assert not list(case.output.iterdir())
 
 
-def test_acquisition_after_capture_cutoff_is_rejected(tmp_path: Path) -> None:
+# Scenario: acquisition after capture cutoff is rejected.
+def test_acquisition_capture(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     capture = case.capture()
     capture["captured_at"] = capture["securities"][0]["ingested_at"]
@@ -196,14 +199,16 @@ def test_acquisition_after_capture_cutoff_is_rejected(tmp_path: Path) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_requested_security_requires_history(tmp_path: Path) -> None:
+# Scenario: requested security requires history.
+def test_requested_security(tmp_path: Path) -> None:
     case = public_case(tmp_path)
     case.request = change(case.request, securities=["unknown.security"])
     with pytest.raises(ValueError, match="explicit history"):
         case.build()
 
 
-def test_synthetic_capture_cannot_import_public_data(tmp_path: Path) -> None:
+# Scenario: synthetic capture cannot import public data.
+def test_synthetic_capture(tmp_path: Path) -> None:
     case = make_case(tmp_path)
     case.request = change(case.request, source_snapshot=case.request.capture.model_dump())
     with pytest.raises(ValueError, match="synthetic captures cannot import"):

@@ -37,7 +37,8 @@ fn config(running: &Running) -> PathBuf {
 }
 
 #[tokio::test]
-async fn startup_loads_actual_tls_and_pinned_namespaces() {
+// Scenario: startup loads actual tls and pinned namespaces.
+async fn startup_tls_pinned() {
     let running = Running::start(Role::Research).await;
     let deployment = RuntimeDeployment::load(&config(&running)).unwrap();
     assert_eq!(deployment.bind.port(), 8443);
@@ -48,7 +49,8 @@ async fn startup_loads_actual_tls_and_pinned_namespaces() {
 }
 
 #[tokio::test]
-async fn startup_denies_public_private_keys() {
+// Scenario: startup denies public private keys.
+async fn startup_public_private() {
     let running = Running::start(Role::Research).await;
     let path = config(&running);
     std::fs::set_permissions(
@@ -60,7 +62,8 @@ async fn startup_denies_public_private_keys() {
 }
 
 #[tokio::test]
-async fn startup_denies_configuration_symlinks() {
+// Scenario: startup denies configuration symlinks.
+async fn startup_configuration_symlinks() {
     let running = Running::start(Role::Research).await;
     let path = config(&running);
     let alias = running.fixture.directory.path().join("runtime-link.json");
@@ -69,7 +72,8 @@ async fn startup_denies_configuration_symlinks() {
 }
 
 #[tokio::test]
-async fn startup_denies_exposed_protected_sources() {
+// Scenario: startup denies exposed protected sources.
+async fn startup_exposed_protected() {
     let running = Running::start(Role::Research).await;
     let path = config(&running);
     std::fs::set_permissions(

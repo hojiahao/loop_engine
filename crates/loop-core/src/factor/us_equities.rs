@@ -97,7 +97,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_matches_the_installed_python_contract() {
+    // Scenario: registry matches the installed python contract.
+    fn registry_installed_python() {
         assert_eq!(
             registry().unwrap().identity().to_string(),
             "sha256:1e61b2328c791e46a58bf61232307c14a7100973d4540a7061f87a6df7480c34"

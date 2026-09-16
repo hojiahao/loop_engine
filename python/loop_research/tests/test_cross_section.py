@@ -56,7 +56,8 @@ def exposures(
     )
 
 
-def test_linear_quantile_clipping_matches_hand_golden() -> None:
+# Scenario: linear quantile clipping matches hand golden.
+def test_linear_quantile() -> None:
     result, panel = inputs([[0, 1, 2, 3, 100]])
     actual = transform(result, panel, policy(winsor_tail_bps=2500), None)
     np.testing.assert_array_equal(actual.evaluation.values, [[1, 1, 2, 3, 3]])
@@ -65,7 +66,8 @@ def test_linear_quantile_clipping_matches_hand_golden() -> None:
     assert actual.outcomes == ("ok",)
 
 
-def test_standardization_matches_scipy() -> None:
+# Scenario: standardization matches scipy.
+def test_standardization_scipy() -> None:
     result, panel = inputs([[1, 3, 7, np.nan, 12]])
     actual = transform(result, panel, policy(standardize=True), None)
     expected = stats.zscore(result.values, axis=1, ddof=1, nan_policy="omit")
@@ -74,7 +76,8 @@ def test_standardization_matches_scipy() -> None:
     assert actual.raw_valid_observations == actual.evaluation.valid_observations == 4
 
 
-def test_industry_neutralization_matches_group_demeaning() -> None:
+# Scenario: industry neutralization matches group demeaning.
+def test_industry_neutralization() -> None:
     result, panel = inputs([[1, 3, 4, 10, 14, 15]])
     risk = exposures(panel, industry=("A", "A", "A", "B", "B", "B"))
     actual = transform(result, panel, policy(industry=True), risk)
@@ -84,7 +87,8 @@ def test_industry_neutralization_matches_group_demeaning() -> None:
     np.testing.assert_allclose(actual.evaluation.values, expected, atol=1e-13)
 
 
-def test_multi_exposure_fit_matches_hand_and_independent_solver() -> None:
+# Scenario: multi exposure fit matches hand and independent solver.
+def test_multi_exposure() -> None:
     log_size = np.array([-1, 1, -1, 1, -1, 1, -1, 1], dtype=np.float64)
     beta = np.array([-1, -1, 1, 1, -1, -1, 1, 1], dtype=np.float64)
     group = np.array([0, 0, 0, 0, 1, 1, 1, 1], dtype=np.float64)
@@ -104,7 +108,8 @@ def test_multi_exposure_fit_matches_hand_and_independent_solver() -> None:
     np.testing.assert_allclose(design.T @ actual.evaluation.values[0], np.zeros(4), atol=1e-13)
 
 
-def test_missing_exposure_preserves_eligible_denominator() -> None:
+# Scenario: missing exposure preserves eligible denominator.
+def test_missing_exposure() -> None:
     result, panel = inputs([[1, 2, 3, 9]])
     risk = exposures(panel, industry=("A", "A", None, "A"))
     actual = transform(result, panel, policy(industry=True), risk)
@@ -113,14 +118,16 @@ def test_missing_exposure_preserves_eligible_denominator() -> None:
     assert actual.evaluation.valid_observations == 3
 
 
-def test_missing_unused_exposure_does_not_remove_observations() -> None:
+# Scenario: missing unused exposure does not remove observations.
+def test_missing_unused() -> None:
     result, panel = inputs([[1, 2, 3]])
     actual = transform(result, panel, policy(industry=True), exposures(panel, industry=("A",) * 3))
     assert actual.evaluation.valid_observations == 3
 
 
 @pytest.mark.parametrize("standardize", [False, True])
-def test_rank_deficiency_stays_missing(standardize: bool) -> None:
+# Scenario: rank deficiency stays missing.
+def test_rank_deficiency(standardize: bool) -> None:
     result, panel = inputs([[1, 2, 4, 7]])
     risk = exposures(panel, beta=[1.0] * 4)
     actual = transform(result, panel, policy(beta=True, standardize=standardize), risk)
@@ -128,7 +135,8 @@ def test_rank_deficiency_stays_missing(standardize: bool) -> None:
     assert actual.outcomes == ("rank_deficient",)
 
 
-def test_fully_explained_factor_is_constant() -> None:
+# Scenario: fully explained factor is constant.
+def test_fully_explained() -> None:
     result, panel = inputs([[3, 5, 7, 9]])
     risk = exposures(panel, beta=[1.0, 2.0, 3.0, 4.0])
     actual = transform(result, panel, policy(beta=True, standardize=True), risk)
@@ -138,21 +146,24 @@ def test_fully_explained_factor_is_constant() -> None:
     np.testing.assert_array_equal(raw.evaluation.values, np.zeros((1, 4)))
 
 
-def test_constant_factor_is_missing_after_standardization() -> None:
+# Scenario: constant factor is missing after standardization.
+def test_constant_factor() -> None:
     result, panel = inputs([[7, 7, 7]])
     actual = transform(result, panel, policy(standardize=True), None)
     assert actual.outcomes == ("constant",)
     assert actual.evaluation.valid_observations == 0
 
 
-def test_minimum_observations_is_explicit() -> None:
+# Scenario: minimum observations is explicit.
+def test_minimum_observations() -> None:
     result, panel = inputs([[1, 4, np.nan]])
     actual = transform(result, panel, policy(minimum_observations=3), None)
     assert actual.outcomes == ("insufficient",)
     assert actual.evaluation.valid_observations == 0
 
 
-def test_saturated_design_is_insufficient() -> None:
+# Scenario: saturated design is insufficient.
+def test_saturated_design() -> None:
     result, panel = inputs([[1, 4, 9]])
     actual = transform(
         result, panel, policy(industry=True), exposures(panel, industry=("A", "B", "C"))
@@ -160,14 +171,16 @@ def test_saturated_design_is_insufficient() -> None:
     assert actual.outcomes == ("insufficient",)
 
 
-def test_extreme_finite_values_remain_finite() -> None:
+# Scenario: extreme finite values remain finite.
+def test_extreme_finite() -> None:
     result, panel = inputs([[-1e308, -5e307, 5e307, 1e308]])
     actual = transform(result, panel, policy(winsor_tail_bps=2500, standardize=True), None)
     expected = stats.zscore([-0.625, -0.5, 0.5, 0.625], ddof=1)
     np.testing.assert_allclose(actual.evaluation.values[0], expected, atol=1e-14)
 
 
-def test_exposure_axes_must_match() -> None:
+# Scenario: exposure axes must match.
+def test_exposure_axes() -> None:
     result, panel = inputs([[1, 2, 3]])
     risk = exposures(panel, beta=[1.0, 3.0, 5.0])
     risk = replace(risk, securities=("other.0", "other.1", "other.2"))
@@ -175,7 +188,8 @@ def test_exposure_axes_must_match() -> None:
         transform(result, panel, policy(beta=True), risk)
 
 
-def test_ineligible_values_cannot_enter_the_fit() -> None:
+# Scenario: ineligible values cannot enter the fit.
+def test_ineligible_values() -> None:
     result, panel = inputs([[1, 2, 4, 100]])
     eligible = np.array([[True, True, True, False]])
     panel = Panel(panel.sessions, panel.securities, panel.fields, eligible)
@@ -192,7 +206,8 @@ def test_ineligible_values_cannot_enter_the_fit() -> None:
     assert np.isnan(actual.evaluation.values[0, 3])
 
 
-def test_solver_failure_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: solver failure is an error.
+def test_solver_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     result, panel = inputs([[1, 2, 4]])
     risk = exposures(panel, beta=[1.0, 3.0, 7.0])
 
@@ -204,20 +219,23 @@ def test_solver_failure_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
         transform(result, panel, policy(beta=True), risk)
 
 
-def test_work_budget_is_shared_with_raw_evaluation() -> None:
+# Scenario: work budget is shared with raw evaluation.
+def test_work_budget() -> None:
     result, panel = inputs([[1, 2, 4]])
     result = replace(result, work_units=50_000_000)
     with pytest.raises(ValueError, match="work budget"):
         transform(result, panel, policy(standardize=True), None)
 
 
-def test_negative_prior_work_cannot_extend_budget() -> None:
+# Scenario: negative prior work cannot extend budget.
+def test_negative_prior() -> None:
     result, panel = inputs([[1, 2, 4]])
     with pytest.raises(ValueError, match="consistent raw values"):
         transform(replace(result, work_units=-1), panel, policy(), None)
 
 
-def test_design_column_budget_is_bounded() -> None:
+# Scenario: design column budget is bounded.
+def test_design_column() -> None:
     result, panel = inputs([[float(index) for index in range(65)]])
     risk = exposures(panel, industry=tuple(f"GROUP{index:02}" for index in range(65)))
     with pytest.raises(ValueError, match="design column budget"):
@@ -226,7 +244,8 @@ def test_design_column_budget_is_bounded() -> None:
 
 @given(st.floats(min_value=-1e8, max_value=1e8, allow_nan=False, allow_infinity=False))
 @settings(max_examples=30, deadline=None)
-def test_future_cross_sections_cannot_change_prior_results(value: float) -> None:
+# Scenario: future cross sections cannot change prior results.
+def test_future_cross(value: float) -> None:
     first, panel = inputs([[1, 3, 9], [value, value / 2, -value]])
     actual = transform(first, panel, policy(standardize=True), None)
     np.testing.assert_allclose(

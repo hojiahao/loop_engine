@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   type ArtifactValidationCode,
   ArtifactValidationError,
-  validateArtifactRef,
+  validate_artifact_ref,
 } from "../src/artifact.js";
 import {
   ArtifactRefSchema,
@@ -43,13 +43,13 @@ describe("ArtifactRef validation", () => {
         mediaType: "application/vnd.apache.parquet",
         byteSize: 42n,
         rowCount: 1n,
-        createdAt: vectorTimestamp(vector.createdAt),
+        createdAt: vector_timestamp(vector.createdAt),
       });
 
       if (vector.expected === "accept") {
         const createdAt = reference.createdAt;
         expect(createdAt, vector.name).toBeDefined();
-        expect(validateArtifactRef(reference), vector.name).toMatchObject({
+        expect(validate_artifact_ref(reference), vector.name).toMatchObject({
           artifactId: vector.artifactId,
           uri: vector.uri,
           createdAtSeconds: createdAt?.seconds,
@@ -57,7 +57,7 @@ describe("ArtifactRef validation", () => {
         });
       } else {
         try {
-          validateArtifactRef(reference);
+          validate_artifact_ref(reference);
           throw new Error(`expected ${vector.name} to fail`);
         } catch (error) {
           expect(error, vector.name).toBeInstanceOf(ArtifactValidationError);
@@ -84,7 +84,7 @@ describe("ArtifactRef validation", () => {
     const injected = reference as typeof reference & { inlineBytes: Uint8Array };
     injected.inlineBytes = new Uint8Array([1]);
 
-    expect(() => validateArtifactRef(injected)).toThrow(ArtifactValidationError);
+    expect(() => validate_artifact_ref(injected)).toThrow(ArtifactValidationError);
   });
 });
 
@@ -105,14 +105,14 @@ function vectors(): Vector[] {
         throw new Error("invalid shared artifact vector");
       }
       const digestHex = token(rawDigest, "");
-      const digest = decodeHex(digestHex);
+      const digest = decode_hex(digestHex);
       const uri = token(rawUri, digestHex.length === 64 ? digestHex : "");
       const artifactId = rawArtifactId === "@matching" ? `sha256:${digestHex}` : rawArtifactId;
       return { name, expected: expected as Vector["expected"], uri, digest, artifactId, createdAt };
     });
 }
 
-function vectorTimestamp(value: string) {
+function vector_timestamp(value: string) {
   switch (value) {
     case "valid":
       return create(TimestampSchema, { seconds: 1n });
@@ -143,7 +143,7 @@ function token(value: string, digest: string): string {
     .replaceAll("@overlong", `artifact://sha256/${"0".repeat(2_100)}`);
 }
 
-function decodeHex(value: string): Uint8Array {
+function decode_hex(value: string): Uint8Array {
   if (value.length % 2 !== 0) {
     throw new Error("invalid fixture hex");
   }

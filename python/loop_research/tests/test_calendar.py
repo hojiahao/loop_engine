@@ -29,7 +29,8 @@ FIXTURES = Path(__file__).resolve().parents[3] / "fixtures/research/nav"
         "2026-12-25",
     ],
 )
-def test_nyse_published_holidays_are_closed(holiday: str) -> None:
+# Scenario: nyse published holidays are closed.
+def test_nyse_published(holiday: str) -> None:
     session = date.fromisoformat(holiday)
     assert xnys_session_dates(session, session) == ()
     with pytest.raises(ValueError, match="complete XNYS"):
@@ -37,12 +38,14 @@ def test_nyse_published_holidays_are_closed(holiday: str) -> None:
 
 
 @pytest.mark.parametrize("session", [date(2026, 11, 27), date(2026, 12, 24)])
-def test_early_close_is_still_a_session(session: date) -> None:
+# Scenario: early close is still a session.
+def test_early_close(session: date) -> None:
     assert xnys_session_dates(session, session) == (session,)
     assert require_xnys_sessions((session,)).name == "XNYS"
 
 
-def test_preholiday_sequence_is_complete() -> None:
+# Scenario: preholiday sequence is complete.
+def test_preholiday_sequence() -> None:
     expected = (date(2026, 7, 1), date(2026, 7, 2), date(2026, 7, 6))
     assert xnys_session_dates(expected[0], expected[-1]) == expected
     evidence = require_xnys_sessions(expected)
@@ -54,17 +57,20 @@ def test_preholiday_sequence_is_complete() -> None:
     )
 
 
-def test_shared_missing_session_is_not_complete() -> None:
+# Scenario: shared missing session is not complete.
+def test_shared_missing() -> None:
     with pytest.raises(ValueError, match="complete XNYS"):
         require_xnys_sessions((date(2026, 7, 1), date(2026, 7, 6)))
 
 
-def test_weekends_are_not_sessions() -> None:
+# Scenario: weekends are not sessions.
+def test_weekends_sessions() -> None:
     with pytest.raises(ValueError, match="complete XNYS"):
         require_xnys_sessions((date(2026, 7, 4),))
 
 
-def test_research_window_reaches_august_2026() -> None:
+# Scenario: research window reaches august 2026.
+def test_research_window() -> None:
     sessions = xnys_session_dates(FIRST_DATE, date(2026, 8, 31))
     assert sessions[0] == date(2005, 1, 3)
     assert sessions[-1] == date(2026, 8, 31)
@@ -81,7 +87,8 @@ def test_research_window_reaches_august_2026() -> None:
         (datetime(2026, 1, 1), date(2026, 1, 2)),
     ],
 )
-def test_unsupported_boundaries_are_rejected(start: date, end: date) -> None:
+# Scenario: unsupported boundaries are rejected.
+def test_unsupported_boundaries(start: date, end: date) -> None:
     with pytest.raises(ValueError):
         xnys_session_dates(start, end)
 
@@ -90,18 +97,21 @@ def test_unsupported_boundaries_are_rejected(start: date, end: date) -> None:
     "sessions",
     [(), (date(2020, 1, 2),) * 2, (date(2020, 1, 3), date(2020, 1, 2)), (datetime(2020, 1, 2),)],
 )
-def test_invalid_sequences_are_rejected(sessions: tuple[date, ...]) -> None:
+# Scenario: invalid sequences are rejected.
+def test_invalid_sequences(sessions: tuple[date, ...]) -> None:
     with pytest.raises(ValueError):
         require_xnys_sessions(sessions)
 
 
-def test_sequence_scan_is_bounded() -> None:
+# Scenario: sequence scan is bounded.
+def test_sequence_scan() -> None:
     sessions = (FIRST_DATE,) * ((LAST_DATE - FIRST_DATE).days + 2)
     with pytest.raises(ValueError, match="bounded"):
         require_xnys_sessions(sessions)
 
 
-def test_diagnostic_calendar_is_explicit() -> None:
+# Scenario: diagnostic calendar is explicit.
+def test_diagnostic_calendar() -> None:
     left, right = FIXTURES / "left.csv", FIXTURES / "right.csv"
     unchecked = correlate_nav_files(left, right, cash_flow_adjusted=True)
     checked = correlate_nav_files(left, right, cash_flow_adjusted=True, calendar="XNYS")
@@ -114,7 +124,8 @@ def test_diagnostic_calendar_is_explicit() -> None:
     assert checked.correlation == unchecked.correlation
 
 
-def test_calendar_cli_validates_actual_inputs(tmp_path: Path) -> None:
+# Scenario: calendar cli validates actual inputs.
+def test_calendar_inputs(tmp_path: Path) -> None:
     completed = subprocess.run(
         [
             sys.executable,
@@ -140,7 +151,8 @@ def test_calendar_cli_validates_actual_inputs(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-def test_calendar_cli_rejects_shared_gaps(tmp_path: Path) -> None:
+# Scenario: calendar cli rejects shared gaps.
+def test_calendar_cli(tmp_path: Path) -> None:
     inputs = []
     for filename in ("left.csv", "right.csv"):
         with (FIXTURES / filename).open(newline="") as source:

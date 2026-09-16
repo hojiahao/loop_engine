@@ -43,7 +43,8 @@ async fn counts(directory: &TempDir) -> (i64, i64, i64) {
 }
 
 #[tokio::test]
-async fn result_and_replay_survive_restart() {
+// Scenario: result and replay survive restart.
+async fn result_replay_restart() {
     let (directory, store, clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     let completed = store
@@ -79,7 +80,8 @@ async fn result_and_replay_survive_restart() {
 }
 
 #[tokio::test]
-async fn current_read_checks_all_components() {
+// Scenario: current read checks all components.
+async fn components() {
     let (directory, store, clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store
@@ -123,7 +125,8 @@ async fn current_read_checks_all_components() {
 }
 
 #[tokio::test]
-async fn absent_context_is_not_current() {
+// Scenario: absent context is not current.
+async fn absent_context() {
     let (_directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store
@@ -141,7 +144,8 @@ async fn absent_context_is_not_current() {
 }
 
 #[tokio::test]
-async fn original_mismatch_rolls_back_completion() {
+// Scenario: original mismatch rolls back completion.
+async fn original_mismatch_completion() {
     let (directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     policy
@@ -171,7 +175,8 @@ async fn original_mismatch_rolls_back_completion() {
 }
 
 #[tokio::test]
-async fn default_result_policy_denies_success() {
+// Scenario: default result policy denies success.
+async fn default_result_policy() {
     let (directory, store, clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store.close().await;
@@ -189,7 +194,8 @@ async fn default_result_policy_denies_success() {
 }
 
 #[tokio::test]
-async fn malformed_metrics_cannot_commit() {
+// Scenario: malformed metrics cannot commit.
+async fn malformed_metrics() {
     let (directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     for decimal in ["NaN", "Infinity", "-0", "1e3", "0.010", "+1"] {
@@ -210,7 +216,8 @@ async fn malformed_metrics_cannot_commit() {
 }
 
 #[tokio::test]
-async fn duplicate_metrics_are_rejected() {
+// Scenario: duplicate metrics are rejected.
+async fn metrics() {
     let (_directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     let metric = policy.result.lock().unwrap().metrics[0].clone();
@@ -223,7 +230,8 @@ async fn duplicate_metrics_are_rejected() {
 }
 
 #[tokio::test]
-async fn result_artifacts_must_be_committed_outputs() {
+// Scenario: result artifacts must be committed outputs.
+async fn result_artifacts_outputs() {
     let (directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     policy
@@ -251,7 +259,8 @@ async fn result_artifacts_must_be_committed_outputs() {
 }
 
 #[tokio::test]
-async fn expired_lease_cannot_record_metrics() {
+// Scenario: expired lease cannot record metrics.
+async fn expired_lease_metrics() {
     let (directory, store, clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     clock.0.store(NOW + 30_000, Ordering::SeqCst);
@@ -264,7 +273,8 @@ async fn expired_lease_cannot_record_metrics() {
 }
 
 #[tokio::test]
-async fn future_result_time_is_rejected() {
+// Scenario: future result time is rejected.
+async fn future_result_time() {
     let (_directory, store, _clock, policy) = fixture().await;
     let request = backtest::seed(&store).await;
     policy.result.lock().unwrap().completed_at = Some(timestamp(NOW + 1));
@@ -276,7 +286,8 @@ async fn future_result_time_is_rejected() {
 }
 
 #[tokio::test]
-async fn result_rows_are_immutable() {
+// Scenario: result rows are immutable.
+async fn result_rows_immutable() {
     let (directory, store, _clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store
@@ -304,7 +315,8 @@ async fn result_rows_are_immutable() {
 }
 
 #[tokio::test]
-async fn database_rejects_success_without_result() {
+// Scenario: database rejects success without result.
+async fn database_success_result() {
     let (directory, store, _clock, _policy) = fixture().await;
     backtest::seed(&store).await;
     let error = sqlx::query(
@@ -327,7 +339,8 @@ async fn database_rejects_success_without_result() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_result() {
+// Scenario: audit failure rolls back result.
+async fn audit_failure_result() {
     let (directory, store, _clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     let mut connection = connection(&directory).await;
@@ -362,7 +375,8 @@ async fn audit_failure_rolls_back_result() {
 }
 
 #[tokio::test]
-async fn corrupt_result_is_not_replayed_or_read() {
+// Scenario: corrupt result is not replayed or read.
+async fn corrupt_result() {
     let (directory, store, _clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store
@@ -392,7 +406,8 @@ async fn corrupt_result_is_not_replayed_or_read() {
 }
 
 #[tokio::test]
-async fn current_read_requires_authenticated_access() {
+// Scenario: current read requires authenticated access.
+async fn authenticated_access() {
     let (_directory, store, _clock, _policy) = fixture().await;
     let request = backtest::seed(&store).await;
     store

@@ -74,7 +74,7 @@ def _expected_protocol_info() -> common_pb2.ProtocolInfo:
     )
 
 
-def _assert_semantic_round_trip(name: str) -> None:
+def _assert_semantic_roundtrip(name: str) -> None:
     decoded = common_pb2.ProtocolInfo.FromString(_fixture(name))
     _assert_expected_projection(decoded)
 
@@ -83,7 +83,8 @@ def _assert_semantic_round_trip(name: str) -> None:
     _assert_expected_projection(decoded_again)
 
 
-def test_generated_bindings_import() -> None:
+# Scenario: generated bindings import.
+def test_generated_bindings() -> None:
     assert common_pb2.ProtocolInfo.DESCRIPTOR.full_name == "loop.v1.ProtocolInfo"
     assert (
         service_pb2.GetProtocolInfoRequest.DESCRIPTOR.full_name
@@ -91,7 +92,8 @@ def test_generated_bindings_import() -> None:
     )
 
 
-def test_wire_fixture_manifest_matches_committed_bytes_and_schema() -> None:
+# Scenario: wire fixture manifest matches committed bytes and schema.
+def test_wire_fixture() -> None:
     manifest: dict[str, Any] = json.loads(
         (FIXTURE_DIRECTORY / "wire_fixtures.json").read_text(encoding="ascii")
     )
@@ -122,18 +124,21 @@ def test_wire_fixture_manifest_matches_committed_bytes_and_schema() -> None:
     )
 
 
-def test_python_fixture_is_current_native_encoder_output() -> None:
+# Scenario: python fixture is current native encoder output.
+def test_python_fixture() -> None:
     assert _fixture("protocol_info_v1.binpb") == _expected_protocol_info().SerializeToString(
         deterministic=True
     )
 
 
-def test_decodes_and_reencodes_every_producer_fixture() -> None:
+# Scenario: decodes and reencodes every producer fixture.
+def test_producer_fixture() -> None:
     for name in PRODUCER_FIXTURES:
-        _assert_semantic_round_trip(name)
+        _assert_semantic_roundtrip(name)
 
 
-def test_old_reader_tolerates_additive_unknown_field() -> None:
-    _assert_semantic_round_trip("protocol_info_v1_unknown_field.binpb")
+# Scenario: old reader tolerates additive unknown field.
+def test_old_reader() -> None:
+    _assert_semantic_roundtrip("protocol_info_v1_unknown_field.binpb")
     # Unknown-field preservation is intentionally not asserted. Lossless
     # forwarding retains the original envelope instead of parse/re-serialize.

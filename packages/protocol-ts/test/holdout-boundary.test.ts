@@ -41,7 +41,7 @@ const vectors = readFileSync(
   "utf8",
 );
 
-function grantReference() {
+function grant_reference() {
   return create(HoldoutGrantReferenceSchema, {
     holdoutGrantId: create(HoldoutGrantIdSchema, { value: "grant.holdout.0001" }),
     holdoutPeriodId: create(HoldoutPeriodIdSchema, { value: periodId }),
@@ -83,7 +83,8 @@ describe("frozen holdout evaluation boundary", () => {
       if (!(surface in surfaces) || name === undefined || member === undefined) {
         throw new Error(`invalid shared holdout vector: ${line}`);
       }
-      const localMember = surface === "holdout_service" ? lowerFirst(member) : snakeToCamel(member);
+      const localMember =
+        surface === "holdout_service" ? lower_first(member) : snake_to_camel(member);
       expect(Object.hasOwn(surfaces[surface as keyof typeof surfaces], localMember), name).toBe(
         expected === "accept",
       );
@@ -125,7 +126,7 @@ describe("frozen holdout evaluation boundary", () => {
 
   it("accepts only grant and revision inputs and returns a narrow batch handle", () => {
     const request = create(ConsumeGrantAndEnqueueBacktestRequestSchema, {
-      grantReference: grantReference(),
+      grantReference: grant_reference(),
       expectedGrantRevision: 3n,
       expectedPeriodRevision: 4n,
     });
@@ -138,7 +139,7 @@ describe("frozen holdout evaluation boundary", () => {
     expect(decodedRequest).not.toHaveProperty("budget");
 
     const response = create(ConsumeGrantAndEnqueueBacktestResponseSchema, {
-      consumedGrant: grantReference(),
+      consumedGrant: grant_reference(),
       jobBatch: create(JobBatchHandleSchema, {
         jobBatchId: create(JobBatchIdSchema, { value: "batch.holdout.0001" }),
         holdoutGrantId: create(HoldoutGrantIdSchema, { value: "grant.holdout.0001" }),
@@ -164,7 +165,7 @@ describe("frozen holdout evaluation boundary", () => {
 
   it("keeps parsed specifications only on the internal durable job", () => {
     const internal = create(HoldoutBacktestJobInputSchema, {
-      consumedGrant: grantReference(),
+      consumedGrant: grant_reference(),
       consumedGrantRevision: 4n,
       jobBatchId: create(JobBatchIdSchema, { value: "batch.holdout.0001" }),
       holdoutEvaluationPlanId: create(HoldoutEvaluationPlanIdSchema, { value: planId }),
@@ -181,10 +182,10 @@ describe("frozen holdout evaluation boundary", () => {
   });
 });
 
-function snakeToCamel(value: string): string {
+function snake_to_camel(value: string): string {
   return value.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
 }
 
-function lowerFirst(value: string): string {
+function lower_first(value: string): string {
   return `${value.slice(0, 1).toLowerCase()}${value.slice(1)}`;
 }

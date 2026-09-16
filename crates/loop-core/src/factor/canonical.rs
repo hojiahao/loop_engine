@@ -5,8 +5,7 @@ use super::{
     CanonicalizationError, EnumLiteral, ExpressionId, FactorDirection, FactorExpr, FactorSpec,
     FactorSpecDraft, FactorSpecId, IdentityVerificationError, Literal, OperatorCall,
     OperatorDefinition, OperatorPolicyRegistry, OperatorRegistryId, PolicyId, PolicyRef,
-    PositiveInteger, ValidationError, ValidationLimits, ValueType, constant_time_digest_eq,
-    encode_digest,
+    PositiveInteger, ValidationError, ValidationLimits, ValueType, digest_eq, encode_digest,
 };
 
 const EXPRESSION_DOMAIN: &[u8] = b"loop.factor-ast/v1\0";
@@ -137,7 +136,7 @@ pub fn expression_id(
     )))
 }
 
-pub fn canonical_operator_registry_bytes(registry: &OperatorPolicyRegistry) -> Vec<u8> {
+pub fn operator_registry_bytes(registry: &OperatorPolicyRegistry) -> Vec<u8> {
     let mut output = Vec::new();
     output.extend_from_slice(b"{\"schema\":\"loop.operator-registry/v1\",\"fields\":[");
     for (index, (field, value_type)) in registry.fields.iter().enumerate() {
@@ -147,7 +146,7 @@ pub fn canonical_operator_registry_bytes(registry: &OperatorPolicyRegistry) -> V
         output.extend_from_slice(b"{\"field\":\"");
         output.extend_from_slice(field.as_str().as_bytes());
         output.extend_from_slice(b"\",\"outputType\":");
-        write_registry_value_type(&mut output, value_type);
+        write_registry_type(&mut output, value_type);
         output.push(b'}');
     }
     output.extend_from_slice(b"],\"enums\":[");
@@ -194,7 +193,7 @@ pub fn canonical_operator_registry_bytes(registry: &OperatorPolicyRegistry) -> V
 pub fn operator_registry_id(registry: &OperatorPolicyRegistry) -> OperatorRegistryId {
     OperatorRegistryId::from_bytes(domain_hash(
         OPERATOR_REGISTRY_DOMAIN,
-        &canonical_operator_registry_bytes(registry),
+        &operator_registry_bytes(registry),
     ))
 }
 
@@ -273,7 +272,7 @@ pub fn bind_factor_spec(
     limits: ValidationLimits,
 ) -> Result<FactorSpec, IdentityVerificationError> {
     let expression = parse_canonical_expression(canonical_expression, registry, limits)?;
-    if !constant_time_digest_eq(
+    if !digest_eq(
         draft.operator_registry_sha256(),
         registry.identity().as_bytes(),
     ) {
@@ -299,7 +298,7 @@ pub fn bind_factor_spec(
 
 /// Strictly parse canonical specification bytes and jointly verify the linked
 /// canonical expression under the supplied registry.
-pub fn parse_canonical_factor_spec(
+pub fn parse_factor_spec(
     canonical_spec: &[u8],
     expected_factor_spec_id: FactorSpecId,
     canonical_expression: &[u8],
@@ -310,13 +309,13 @@ pub fn parse_canonical_factor_spec(
     let raw: RawFactorSpec = serde_json::from_slice(canonical_spec)
         .map_err(|error| CanonicalizationError::Parse(error.to_string()))?;
     let draft = raw.try_into_draft()?;
-    let emitted = canonical_factor_spec_draft_bytes(&draft);
+    let emitted = factor_draft_bytes(&draft);
     if emitted != canonical_spec {
         return Err(CanonicalizationError::NonCanonical.into());
     }
     let bound = bind_factor_spec(draft, canonical_expression, registry, limits)?;
     let computed = factor_spec_id(&bound);
-    if !constant_time_digest_eq(expected_factor_spec_id.as_bytes(), computed.as_bytes()) {
+    if !digest_eq(expected_factor_spec_id.as_bytes(), computed.as_bytes()) {
         return Err(IdentityVerificationError::FactorSpecMismatch {
             claimed: expected_factor_spec_id,
             computed,
@@ -325,11 +324,11 @@ pub fn parse_canonical_factor_spec(
     Ok(bound)
 }
 
-pub fn canonical_factor_spec_bytes(spec: &FactorSpec) -> Vec<u8> {
-    canonical_factor_spec_draft_bytes(&spec.draft)
+pub fn factor_spec_bytes(spec: &FactorSpec) -> Vec<u8> {
+    factor_draft_bytes(&spec.draft)
 }
 
-fn canonical_factor_spec_draft_bytes(spec: &FactorSpecDraft) -> Vec<u8> {
+fn factor_draft_bytes(spec: &FactorSpecDraft) -> Vec<u8> {
     let mut output = Vec::new();
     output.extend_from_slice(b"{\"schema\":\"loop.factor-spec/v1\",\"expression_id\":\"");
     output.extend_from_slice(spec.expression_id().to_string().as_bytes());
@@ -363,10 +362,7 @@ fn canonical_factor_spec_draft_bytes(spec: &FactorSpecDraft) -> Vec<u8> {
 }
 
 pub fn factor_spec_id(spec: &FactorSpec) -> FactorSpecId {
-    FactorSpecId::from_bytes(domain_hash(
-        FACTOR_SPEC_DOMAIN,
-        &canonical_factor_spec_bytes(spec),
-    ))
+    FactorSpecId::from_bytes(domain_hash(FACTOR_SPEC_DOMAIN, &factor_spec_bytes(spec)))
 }
 
 fn parse_sha256(value: &str) -> Result<[u8; 32], CanonicalizationError> {
@@ -382,7 +378,7 @@ fn domain_hash(domain: &[u8], canonical: &[u8]) -> [u8; 32] {
     hasher.finalize().into()
 }
 
-fn write_registry_value_type(output: &mut Vec<u8>, value_type: &ValueType) {
+fn write_registry_type(output: &mut Vec<u8>, value_type: &ValueType) {
     match value_type {
         ValueType::Series => output.extend_from_slice(b"\"series\""),
         ValueType::Decimal => output.extend_from_slice(b"\"decimal\""),
@@ -397,7 +393,7 @@ fn write_registry_value_type(output: &mut Vec<u8>, value_type: &ValueType) {
 
 fn write_registry_argument(output: &mut Vec<u8>, argument: &super::ArgumentDefinition) {
     output.extend_from_slice(b"{\"type\":");
-    write_registry_value_type(output, argument.value_type());
+    write_registry_type(output, argument.value_type());
     if argument.literal_only {
         output.extend_from_slice(b",\"literalOnly\":true");
     }
@@ -440,7 +436,7 @@ fn write_registry_operator(output: &mut Vec<u8>, definition: &OperatorDefinition
         output.push(b'"');
     }
     output.extend_from_slice(b",\"outputType\":");
-    write_registry_value_type(output, &definition.output_type);
+    write_registry_type(output, &definition.output_type);
     output.extend_from_slice(b",\"associative\":");
     if definition.policy.is_associative() {
         output.extend_from_slice(b"true");
@@ -471,7 +467,7 @@ fn validate_expression(
     registry: &OperatorPolicyRegistry,
     limits: ValidationLimits,
 ) -> Result<ValueType, ValidationError> {
-    validate_expression_at_stage(expression, registry, limits, ValidationStage::Normalized)
+    validate_expression_stage(expression, registry, limits, ValidationStage::Normalized)
 }
 
 fn validate_submitted_expression(
@@ -479,7 +475,7 @@ fn validate_submitted_expression(
     registry: &OperatorPolicyRegistry,
     limits: ValidationLimits,
 ) -> Result<ValueType, ValidationError> {
-    validate_expression_at_stage(expression, registry, limits, ValidationStage::Submitted)
+    validate_expression_stage(expression, registry, limits, ValidationStage::Submitted)
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -488,7 +484,7 @@ enum ValidationStage {
     Normalized,
 }
 
-fn validate_expression_at_stage(
+fn validate_expression_stage(
     expression: &FactorExpr,
     registry: &OperatorPolicyRegistry,
     limits: ValidationLimits,
@@ -630,7 +626,7 @@ fn validate_argument(
             actual: actual.label(),
         });
     }
-    if expected.is_literal_only() && !is_literal_of_type(expression, expected.value_type()) {
+    if expected.is_literal_only() && !is_typed_literal(expression, expected.value_type()) {
         return Err(ValidationError::LiteralRequired {
             operator: call.operator().name().clone(),
             index,
@@ -644,7 +640,7 @@ fn validate_argument(
     Ok(())
 }
 
-fn is_literal_of_type(expression: &FactorExpr, value_type: &ValueType) -> bool {
+fn is_typed_literal(expression: &FactorExpr, value_type: &ValueType) -> bool {
     matches!(
         (expression, value_type),
         (FactorExpr::Literal(Literal::Decimal(_)), ValueType::Decimal)

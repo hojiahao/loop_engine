@@ -49,7 +49,8 @@ def run_cli(*arguments: str, directory: Path) -> subprocess.CompletedProcess[str
     )
 
 
-def test_cli_matches_independent_return_correlation(tmp_path: Path) -> None:
+# Scenario: cli matches independent return correlation.
+def test_cli_independent(tmp_path: Path) -> None:
     left, right = FIXTURES / "left.csv", FIXTURES / "right.csv"
     original = (left.read_bytes(), right.read_bytes())
     completed = run_cli(
@@ -77,7 +78,8 @@ def test_cli_matches_independent_return_correlation(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-def test_repeated_diagnostics_are_identical() -> None:
+# Scenario: repeated diagnostics are identical.
+def test_repeated_diagnostics() -> None:
     left, right = FIXTURES / "left.csv", FIXTURES / "right.csv"
     first = correlate_nav_files(left, right, cash_flow_adjusted=True)
     second = correlate_nav_files(left, right, cash_flow_adjusted=True)
@@ -93,15 +95,15 @@ def test_repeated_diagnostics_are_identical() -> None:
     ],
     ids=["unequal_lengths", "shifted_first_endpoint", "shifted_inner_endpoint"],
 )
-def test_alignment_is_never_inferred(
-    tmp_path: Path, sessions: list[str], values: list[float]
-) -> None:
+# Scenario: alignment is never inferred.
+def test_alignment_inferred(tmp_path: Path, sessions: list[str], values: list[float]) -> None:
     right = write_nav(tmp_path / "right.csv", sessions, values)
     with pytest.raises(ValueError, match="identical observation dates"):
         correlate_nav_files(FIXTURES / "left.csv", right, cash_flow_adjusted=True)
 
 
-def test_shared_gaps_do_not_become_daily_returns(tmp_path: Path) -> None:
+# Scenario: shared gaps do not become daily returns.
+def test_shared_gaps(tmp_path: Path) -> None:
     dates = [SESSIONS[0], SESSIONS[3], SESSIONS[7]]
     left = write_nav(tmp_path / "left.csv", dates, [100, 110, 99])
     right = write_nav(tmp_path / "right.csv", dates, [200, 180, 189])
@@ -113,7 +115,8 @@ def test_shared_gaps_do_not_become_daily_returns(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("count", [1, 3, 5])
-def test_insufficient_pairs_stay_null(tmp_path: Path, count: int) -> None:
+# Scenario: insufficient pairs stay null.
+def test_insufficient_pairs(tmp_path: Path, count: int) -> None:
     path = write_nav(tmp_path / "short.csv", SESSIONS[:count], LEFT[:count])
     report = correlate_nav_files(path, path, cash_flow_adjusted=True)
     assert report.return_pairs == count - 1
@@ -122,7 +125,8 @@ def test_insufficient_pairs_stay_null(tmp_path: Path, count: int) -> None:
     json.dumps(asdict(report), allow_nan=False)
 
 
-def test_constant_returns_stay_null(tmp_path: Path) -> None:
+# Scenario: constant returns stay null.
+def test_constant_stay(tmp_path: Path) -> None:
     left = write_nav(tmp_path / "constant.csv", SESSIONS, [100] * len(SESSIONS))
     report = correlate_nav_files(left, FIXTURES / "right.csv", cash_flow_adjusted=True)
     assert report.correlation is None
@@ -148,7 +152,8 @@ def test_constant_returns_stay_null(tmp_path: Path) -> None:
         b'session,nav\n"2020-01-02,1\n',
     ],
 )
-def test_invalid_csv_is_rejected(tmp_path: Path, content: bytes) -> None:
+# Scenario: invalid csv is rejected.
+def test_invalid_csv(tmp_path: Path, content: bytes) -> None:
     invalid = tmp_path / "invalid.csv"
     invalid.write_bytes(content)
     with pytest.raises(ValueError):
@@ -172,33 +177,38 @@ def test_invalid_csv_is_rejected(tmp_path: Path, content: bytes) -> None:
         "9" * 65,
     ],
 )
-def test_invalid_nav_is_rejected(tmp_path: Path, value: str) -> None:
+# Scenario: invalid nav is rejected.
+def test_invalid_nav(tmp_path: Path, value: str) -> None:
     invalid = tmp_path / "invalid.csv"
     invalid.write_text(f"session,nav\n2020-01-02,{value}\n", encoding="ascii")
     with pytest.raises(ValueError):
         correlate_nav_files(invalid, invalid, cash_flow_adjusted=True)
 
 
-def test_observations_after_insolvency_are_rejected(tmp_path: Path) -> None:
+# Scenario: observations after insolvency are rejected.
+def test_observations_insolvency(tmp_path: Path) -> None:
     invalid = write_nav(tmp_path / "invalid.csv", SESSIONS[:3], [1, 0, 1])
     with pytest.raises(ValueError, match="Prior NAV"):
         correlate_nav_files(invalid, invalid, cash_flow_adjusted=True)
 
 
-def test_return_overflow_is_rejected(tmp_path: Path) -> None:
+# Scenario: return overflow is rejected.
+def test_overflow(tmp_path: Path) -> None:
     invalid = write_nav(tmp_path / "invalid.csv", SESSIONS[:2], [1e-300, 1e300])
     with pytest.raises(ValueError, match="represented"):
         correlate_nav_files(invalid, invalid, cash_flow_adjusted=True)
 
 
-def test_input_bytes_are_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: input bytes are bounded.
+def test_input_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(nav_diagnostic, "MAX_INPUT_BYTES", 32)
     invalid = write_nav(tmp_path / "large.csv", SESSIONS, LEFT)
     with pytest.raises(ValueError, match="MiB limit"):
         correlate_nav_files(invalid, invalid, cash_flow_adjusted=True)
 
 
-def test_observation_count_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: observation count is bounded.
+def test_observation_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(nav_diagnostic, "MAX_OBSERVATIONS", 4)
     invalid = write_nav(tmp_path / "long.csv", SESSIONS, LEFT)
     with pytest.raises(ValueError, match="observation limit"):
@@ -206,19 +216,22 @@ def test_observation_count_is_bounded(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 @pytest.mark.parametrize("minimum", [0, 1, True, 100_000])
-def test_invalid_minimum_is_rejected(minimum: int) -> None:
+# Scenario: invalid minimum is rejected.
+def test_invalid_minimum(minimum: int) -> None:
     with pytest.raises(ValueError, match="Minimum return pairs"):
         correlate_nav_files(
             Path("missing"), Path("missing"), min_observations=minimum, cash_flow_adjusted=True
         )
 
 
-def test_cash_flow_basis_requires_confirmation() -> None:
+# Scenario: cash flow basis requires confirmation.
+def test_cash_flow() -> None:
     with pytest.raises(ValueError, match="external cash flows"):
         correlate_nav_files(Path("missing"), Path("missing"))
 
 
-def test_special_files_cannot_block_input(tmp_path: Path) -> None:
+# Scenario: special files cannot block input.
+def test_special_files(tmp_path: Path) -> None:
     pipe = tmp_path / "pipe"
     os.mkfifo(pipe)
     completed = run_cli(
@@ -229,14 +242,16 @@ def test_special_files_cannot_block_input(tmp_path: Path) -> None:
     assert not completed.stdout
 
 
-def test_symlink_inputs_are_rejected(tmp_path: Path) -> None:
+# Scenario: symlink inputs are rejected.
+def test_symlink_inputs(tmp_path: Path) -> None:
     link = tmp_path / "link.csv"
     link.symlink_to(FIXTURES / "left.csv")
     with pytest.raises(OSError):
         correlate_nav_files(link, link, cash_flow_adjusted=True)
 
 
-def test_cli_errors_never_publish_partial_reports(tmp_path: Path) -> None:
+# Scenario: cli errors never publish partial reports.
+def test_cli_errors(tmp_path: Path) -> None:
     right = write_nav(tmp_path / "right.csv", SESSIONS[1:], RIGHT[1:])
     completed = run_cli(
         "nav-correlation",
@@ -251,14 +266,16 @@ def test_cli_errors_never_publish_partial_reports(tmp_path: Path) -> None:
     assert not completed.stdout
 
 
-def test_cli_requires_cash_flow_confirmation(tmp_path: Path) -> None:
+# Scenario: cli requires cash flow confirmation.
+def test_cli_cash(tmp_path: Path) -> None:
     completed = run_cli("nav-correlation", "left", "right", directory=tmp_path)
     assert completed.returncode == 2
     assert "--cash-flow-adjusted" in completed.stderr
     assert not completed.stdout
 
 
-def test_doctor_cli_is_preserved(tmp_path: Path) -> None:
+# Scenario: doctor cli is preserved.
+def test_doctor_cli(tmp_path: Path) -> None:
     completed = run_cli("doctor", directory=tmp_path)
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout)["component"] == "researchd"

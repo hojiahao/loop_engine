@@ -62,7 +62,8 @@ def table(result: Ledger, name: str) -> list[dict[str, str]]:
     return list(csv.DictReader(io.StringIO(result.artifacts[name].decode("ascii"))))
 
 
-def test_hand_accounting_with_opening_gaps() -> None:
+# Scenario: hand accounting with opening gaps.
+def test_hand_accounting() -> None:
     result = replay(golden(), policy(), HIGHER)
     assert table(result, "nav") == [
         {"session": "2010-01-04", "cash_usd": "1000", "market_value_usd": "0", "nav_usd": "1000"},
@@ -81,14 +82,16 @@ def test_hand_accounting_with_opening_gaps() -> None:
     assert result.ending_nav == Decimal("1221")
 
 
-def test_returns_are_ratios_and_first_is_missing() -> None:
+# Scenario: returns are ratios and first is missing.
+def test_ratios_first() -> None:
     rows = table(replay(golden(), policy(), HIGHER), "returns")
     assert rows[0]["simple_return"] == rows[0]["previous_nav_usd"] == ""
     assert rows[1]["simple_return"] == "0.249"
     assert Decimal(rows[2]["simple_return"]) == (Decimal(-28) / 1249).quantize(Decimal("1e-18"))
 
 
-def test_next_open_never_resizes_the_decision_order() -> None:
+# Scenario: next open never resizes the decision order.
+def test_next_open() -> None:
     baseline = golden()
     changed = (
         baseline[0],
@@ -108,7 +111,8 @@ def test_next_open_never_resizes_the_decision_order() -> None:
     assert table(new, "fills")[0]["session"] == "2010-01-05"
 
 
-def test_future_signals_cannot_change_prior_ledger() -> None:
+# Scenario: future signals cannot change prior ledger.
+def test_future_signals() -> None:
     baseline = golden()
     changed = (
         *baseline[:2],
@@ -127,7 +131,8 @@ def test_future_signals_cannot_change_prior_ledger() -> None:
     assert table(old, "nav")[:2] == table(new, "nav")[:2]
 
 
-def test_late_sale_cannot_fund_an_earlier_open() -> None:
+# Scenario: late sale cannot fund an earlier open.
+def test_late_sale() -> None:
     baseline = golden()
     changed = (
         *baseline[:2],
@@ -145,7 +150,8 @@ def test_late_sale_cannot_fund_an_earlier_open() -> None:
     assert result.ending_nav == Decimal("1166")
 
 
-def test_equal_scores_use_stable_security_id() -> None:
+# Scenario: equal scores use stable security id.
+def test_equal_scores() -> None:
     baseline = golden()
     equal = (
         replace(
@@ -157,7 +163,8 @@ def test_equal_scores_use_stable_security_id() -> None:
     assert table(replay(equal, policy(), HIGHER), "orders")[0]["security_id"] == "US.A"
 
 
-def test_lower_direction_is_frozen() -> None:
+# Scenario: lower direction is frozen.
+def test_lower_direction() -> None:
     result = replay(golden(), policy(), FactorDirection.LOWER_IS_BETTER)
     assert table(result, "orders")[0]["security_id"] == "US.B"
 
@@ -169,7 +176,8 @@ def test_lower_direction_is_frozen() -> None:
         ("1", "0", 0, "90", "10", "910"),
     ],
 )
-def test_commission_and_spread_goldens(
+# Scenario: commission and spread goldens.
+def test_commission_spread(
     per_share: str, minimum: str, spread: int, quantity: str, cash: str, nav: str
 ) -> None:
     sessions = tuple(
@@ -196,7 +204,8 @@ def test_commission_and_spread_goldens(
     )
 
 
-def test_unfilled_open_expires_and_cannot_use_the_close() -> None:
+# Scenario: unfilled open expires and cannot use the close.
+def test_unfilled_open() -> None:
     baseline = golden()
     changed = (
         baseline[0],
@@ -215,7 +224,8 @@ def test_unfilled_open_expires_and_cannot_use_the_close() -> None:
     assert table(result, "fills")[0]["security_id"] == "US.B"
 
 
-def test_missing_held_mark_fails() -> None:
+# Scenario: missing held mark fails.
+def test_missing_held() -> None:
     baseline = golden()
     changed = (
         baseline[0],
@@ -232,7 +242,8 @@ def test_missing_held_mark_fails() -> None:
         replay(changed, policy(), HIGHER)
 
 
-def test_missing_sizing_price_fails() -> None:
+# Scenario: missing sizing price fails.
+def test_missing_sizing() -> None:
     baseline = golden()
     changed = (
         replace(
@@ -248,14 +259,16 @@ def test_missing_sizing_price_fails() -> None:
         replay(changed, policy(), HIGHER)
 
 
-def test_final_positions_are_marked_without_hidden_liquidation() -> None:
+# Scenario: final positions are marked without hidden liquidation.
+def test_final_positions() -> None:
     result = replay(golden(), policy(), HIGHER)
     final = table(result, "positions")[-1]
     assert final["security_id"] == "US.B" and final["shares"] == "55"
     assert table(result, "targets")[-1]["decision_session"] == "2010-01-05"
 
 
-def test_no_valid_signals_moves_to_cash() -> None:
+# Scenario: no valid signals moves to cash.
+def test_valid_signals() -> None:
     baseline = golden()
     changed = (
         baseline[0],
@@ -270,14 +283,16 @@ def test_no_valid_signals_moves_to_cash() -> None:
     assert table(result, "nav")[-1]["market_value_usd"] == "0"
 
 
-def test_lot_rounding_and_cash_constraints() -> None:
+# Scenario: lot rounding and cash constraints.
+def test_lot_rounding() -> None:
     result = replay(golden(), policy(lot_size=10), HIGHER)
     assert table(result, "orders")[0]["filled_shares"] == "80"
     assert all(int(row["shares"]) % 10 == 0 for row in table(result, "fills"))
     assert all(Decimal(row["cash_usd"]) >= 0 for row in table(result, "nav"))
 
 
-def test_global_decimal_context_does_not_change_results() -> None:
+# Scenario: global decimal context does not change results.
+def test_global_decimal() -> None:
     expected = replay(golden(), policy(), HIGHER)
     with localcontext() as context:
         context.prec, context.rounding = 3, ROUND_UP
@@ -287,7 +302,8 @@ def test_global_decimal_context_does_not_change_results() -> None:
 
 @settings(max_examples=40, deadline=None)
 @given(price=st.integers(1, 1000), capital=st.integers(1, 10000), lots=st.integers(1, 100))
-def test_flat_frictionless_market_conserves_wealth(price: int, capital: int, lots: int) -> None:
+# Scenario: flat frictionless market conserves wealth.
+def test_flat_frictionless(price: int, capital: int, lots: int) -> None:
     sessions = tuple(
         Session(
             date(2010, 1, day),
@@ -301,7 +317,8 @@ def test_flat_frictionless_market_conserves_wealth(price: int, capital: int, lot
     assert all(Decimal(row["nav_usd"]) == capital for row in table(result, "nav"))
 
 
-def test_deadline_cancellation_does_not_return_a_partial_ledger() -> None:
+# Scenario: deadline cancellation does not return a partial ledger.
+def test_deadline_cancellation() -> None:
     def cancelled() -> None:
         raise TimeoutError("cancelled")
 

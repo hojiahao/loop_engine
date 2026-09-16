@@ -20,7 +20,7 @@ function sha256(parts) {
   return `sha256:${hash.digest("hex")}`;
 }
 
-function canonicalEvent(envelope, vector, payloadSha256) {
+function canonical_event(envelope, vector, payloadSha256) {
   return (
     `{"schema":"loop.audit-event/v1","audit_ledger_id":${JSON.stringify(envelope.audit_ledger_id)},` +
     `"sequence":${JSON.stringify(envelope.sequence)},` +
@@ -54,7 +54,7 @@ const accepted = fixture.accepted.map((vector) => {
     Buffer.from([0]),
     Buffer.from(vector.canonical_payload, "utf8"),
   ]);
-  const canonicalEventUtf8 = canonicalEvent(fixture.event_envelope, vector, payloadSha256);
+  const canonicalEventUtf8 = canonical_event(fixture.event_envelope, vector, payloadSha256);
   const eventSha256 = sha256([
     Buffer.from("loop.audit-event/v1\0", "ascii"),
     Buffer.from(canonicalEventUtf8, "utf8"),

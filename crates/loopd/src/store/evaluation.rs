@@ -398,7 +398,8 @@ mod tests {
     }
 
     #[test]
-    fn coverage_boundaries_are_exact() {
+    // Scenario: coverage boundaries are exact.
+    fn coverage_boundaries() {
         assert!(coverage_passes(6, 4, 6666));
         assert!(!coverage_passes(6, 4, 6667));
         assert!(!coverage_passes(0, 0, 1));
@@ -410,7 +411,8 @@ mod tests {
     }
 
     #[test]
-    fn orchestration_metadata_cannot_bypass_memory() {
+    // Scenario: orchestration metadata cannot bypass memory.
+    fn orchestration_metadata_memory() {
         let first = job();
         let mut other = first.clone();
         other.job_id.as_mut().unwrap().value = "job.other".to_owned();
@@ -424,7 +426,8 @@ mod tests {
     }
 
     #[test]
-    fn frozen_context_changes_do_not_share_failures() {
+    // Scenario: frozen context changes do not share failures.
+    fn frozen_context_failures() {
         let original = job();
         let expected = context_key(&original).unwrap().unwrap();
         for component in 0..10 {

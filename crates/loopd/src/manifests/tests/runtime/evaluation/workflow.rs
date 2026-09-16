@@ -75,7 +75,8 @@ async fn trials(case: &Case) -> Vec<crate::store::FactorTrial> {
 }
 
 #[tokio::test]
-async fn coverage_failure_filters_future_trials() {
+// Scenario: coverage failure filters future trials.
+async fn coverage_failure_filters() {
     let case = Case::start().await;
     let duplicate = candidate(&case, "job.duplicate");
     let queued = candidate(&case, "job.queued");
@@ -138,7 +139,8 @@ async fn coverage_failure_filters_future_trials() {
 }
 
 #[tokio::test]
-async fn passing_coverage_waits_for_backtest() {
+// Scenario: passing coverage waits for backtest.
+async fn passing_coverage_waits() {
     let mut case = Case::open(fixture_with_minimum(false, 6666).await).await;
     let request = case.request().await;
     case.client()
@@ -180,7 +182,8 @@ async fn passing_coverage_waits_for_backtest() {
 }
 
 #[tokio::test]
-async fn corrupted_projection_cannot_supply_trial_evidence() {
+// Scenario: corrupted projection cannot supply trial evidence.
+async fn corrupted_projection_trial() {
     let case = Case::start().await;
     case.client()
         .await
@@ -228,7 +231,8 @@ async fn corrupted_projection_cannot_supply_trial_evidence() {
 }
 
 #[tokio::test]
-async fn unevaluated_rejection_cannot_create_failure_memory() {
+// Scenario: unevaluated rejection cannot create failure memory.
+async fn unevaluated_rejection_create() {
     let case = Case::start().await;
     let request = case.request().await;
     let error = case
@@ -253,7 +257,8 @@ async fn unevaluated_rejection_cannot_create_failure_memory() {
 }
 
 #[tokio::test]
-async fn migration_preserves_unverified_history() {
+// Scenario: migration preserves unverified history.
+async fn migration_unverified_history() {
     use sqlx::Executor;
     let case = Case::start().await;
     case.client()

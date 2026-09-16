@@ -51,7 +51,8 @@ def handler(requests: list[httpx.Request]):
     return handle
 
 
-def test_sync_finishes_and_complete_resume_needs_no_credentials(tmp_path: Path) -> None:
+# Scenario: sync finishes and complete resume needs no credentials.
+def test_sync_finishes(tmp_path: Path) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     calls: list[httpx.Request] = []
@@ -86,7 +87,8 @@ def test_sync_finishes_and_complete_resume_needs_no_credentials(tmp_path: Path) 
     assert before == {path.name: path.stat().st_mtime_ns for path in store.iterdir()}
 
 
-def test_interrupted_sync_resumes_only_unfinished_requests(tmp_path: Path) -> None:
+# Scenario: interrupted sync resumes only unfinished requests.
+def test_interrupted_sync(tmp_path: Path) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     calls: list[httpx.Request] = []
@@ -127,7 +129,8 @@ def test_interrupted_sync_resumes_only_unfinished_requests(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize("failure", ["credentials", "license", "expired"])
-def test_all_remaining_requirements_preflight_before_io(tmp_path: Path, failure: str) -> None:
+# Scenario: all remaining requirements preflight before io.
+def test_remaining_requirements(tmp_path: Path, failure: str) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     if failure == "expired":
@@ -161,15 +164,15 @@ def test_all_remaining_requirements_preflight_before_io(tmp_path: Path, failure:
         ("start", "2026-08-01"),
     ],
 )
-def test_aggregate_reservations_and_dates_are_enforced(
-    tmp_path: Path, field: str, value: object
-) -> None:
+# Scenario: aggregate reservations and dates are enforced.
+def test_aggregate_reservations(tmp_path: Path, field: str, value: object) -> None:
     with pytest.raises(ValueError):
         plan_for(tmp_path, **{field: value})
 
 
 @pytest.mark.parametrize("failure", ["plan", "receipt", "prefix", "source"])
-def test_resume_tampering_fails_before_io(tmp_path: Path, failure: str) -> None:
+# Scenario: resume tampering fails before io.
+def test_resume_tampering(tmp_path: Path, failure: str) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     checkpoints: list[CachedObject] = []
@@ -219,7 +222,8 @@ def test_resume_tampering_fails_before_io(tmp_path: Path, failure: str) -> None:
         )
 
 
-def test_cancelled_acquisition_has_no_success_manifest(tmp_path: Path) -> None:
+# Scenario: cancelled acquisition has no success manifest.
+def test_cancelled_acquisition(tmp_path: Path) -> None:
     store = cache(tmp_path)
     plan, license = plan_for(tmp_path)
     entered = asyncio.Event()
@@ -256,7 +260,8 @@ def test_cancelled_acquisition_has_no_success_manifest(tmp_path: Path) -> None:
     )
 
 
-def test_actual_toml_and_cli_reject_missing_credentials(tmp_path: Path) -> None:
+# Scenario: actual toml and cli reject missing credentials.
+def test_toml_cli(tmp_path: Path) -> None:
     store = cache(tmp_path)
     config = tmp_path / "sync.toml"
     config.write_text("""schema = "loop.data-sync-plan/v1"
@@ -297,7 +302,8 @@ tables = ["SEP"]
     assert not list(store.iterdir())
 
 
-def test_plan_cannot_persist_credential_echo(tmp_path: Path) -> None:
+# Scenario: plan cannot persist credential echo.
+def test_plan_persist(tmp_path: Path) -> None:
     from licensed_helpers import KEY
 
     store = cache(tmp_path)

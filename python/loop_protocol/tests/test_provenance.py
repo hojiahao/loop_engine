@@ -29,7 +29,8 @@ def fingerprint(mask: str = "000000") -> ResearchProvenanceFingerprint:
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda value: value["name"])
-def test_shared_freshness_vectors(case: dict[str, str]) -> None:
+# Scenario: shared freshness vectors.
+def test_shared_freshness(case: dict[str, str]) -> None:
     recorded = ProvenanceSnapshot.from_wire(fingerprint(case["recorded"]))
     frozen = ProvenanceSnapshot.from_wire(fingerprint(case["frozen"]))
     current = (
@@ -49,7 +50,8 @@ def test_shared_freshness_vectors(case: dict[str, str]) -> None:
 
 @pytest.mark.parametrize("component", PROVENANCE_COMPONENTS)
 @pytest.mark.parametrize("size", [None, 0, 31, 33, 1024])
-def test_every_digest_is_required_and_fixed_width(component: str, size: int | None) -> None:
+# Scenario: every digest is required and fixed width.
+def test_digest_fixed(component: str, size: int | None) -> None:
     value = fingerprint()
     field = f"{component}_sha256"
     if size is None:
@@ -62,7 +64,8 @@ def test_every_digest_is_required_and_fixed_width(component: str, size: int | No
     assert failure.value.changed == (component,)
 
 
-def test_snapshot_does_not_alias_wire_bytes() -> None:
+# Scenario: snapshot does not alias wire bytes.
+def test_alias_wire() -> None:
     wire = fingerprint()
     snapshot = ProvenanceSnapshot.from_wire(wire)
     wire.source_code_sha256.value = b"z" * 32
@@ -70,14 +73,16 @@ def test_snapshot_does_not_alias_wire_bytes() -> None:
     assert snapshot.differences(ProvenanceSnapshot.from_wire(wire)) == ("source_code",)
 
 
-def test_snapshot_is_immutable() -> None:
+# Scenario: snapshot is immutable.
+def test_immutable() -> None:
     snapshot = ProvenanceSnapshot.from_wire(fingerprint())
     with pytest.raises(FrozenInstanceError):
         snapshot._digests = ()  # type: ignore[misc]
 
 
 @pytest.mark.parametrize("digests", [[], (), (b"x" * 32,), tuple(bytearray(32) for _ in range(6))])
-def test_constructor_cannot_bypass_validation(digests: object) -> None:
+# Scenario: constructor cannot bypass validation.
+def test_constructor_validation(digests: object) -> None:
     with pytest.raises(ProvenanceError):
         ProvenanceSnapshot(digests)  # type: ignore[arg-type]
 
@@ -85,7 +90,8 @@ def test_constructor_cannot_bypass_validation(digests: object) -> None:
 @pytest.mark.parametrize(
     "mask,status", [("000000", "current"), ("000010", "stale"), ("-", "unresolved_current")]
 )
-def test_only_current_metrics_pass_the_gate(mask: str, status: str) -> None:
+# Scenario: only current metrics pass the gate.
+def test_metrics_pass(mask: str, status: str) -> None:
     frozen = ProvenanceSnapshot.from_wire(fingerprint())
     current = None if mask == "-" else ProvenanceSnapshot.from_wire(fingerprint(mask))
     assessment = assess_provenance(frozen, frozen, current)

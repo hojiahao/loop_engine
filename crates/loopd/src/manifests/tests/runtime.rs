@@ -235,7 +235,8 @@ impl Drop for Running {
 }
 
 #[tokio::test]
-async fn evaluation_is_disabled_without_deployment() {
+// Scenario: evaluation is disabled without deployment.
+async fn evaluation_disabled_deployment() {
     let running = Running::start(Role::Research).await;
     let error = running
         .client()
@@ -253,7 +254,8 @@ async fn evaluation_is_disabled_without_deployment() {
 }
 
 #[tokio::test]
-async fn discovery_cannot_request_numerical_execution() {
+// Scenario: discovery cannot request numerical execution.
+async fn discovery_request_numerical() {
     let running = Running::start(Role::Discovery).await;
     let error = running
         .client()
@@ -271,7 +273,8 @@ async fn discovery_cannot_request_numerical_execution() {
 }
 
 #[tokio::test]
-async fn mtls_reads_only_pinned_jobs() {
+// Scenario: mtls reads only pinned jobs.
+async fn mtls_pinned_jobs() {
     let running = Running::start(Role::Research).await;
     let job = running
         .client()
@@ -291,7 +294,8 @@ async fn mtls_reads_only_pinned_jobs() {
 }
 
 #[tokio::test]
-async fn mtls_requires_a_client_certificate() {
+// Scenario: mtls requires a client certificate.
+async fn mtls_client_certificate() {
     let running = Running::start(Role::Research).await;
     if let Ok(mut client) = running.tls.client(running.address, false).await {
         assert!(
@@ -306,7 +310,8 @@ async fn mtls_requires_a_client_certificate() {
 }
 
 #[tokio::test]
-async fn an_unregistered_ca_signed_client_is_denied() {
+// Scenario: an unregistered ca signed client is denied.
+async fn unregistered_ca_signed() {
     let running = Running::start(Role::Research).await;
     let mut client = running
         .tls
@@ -326,7 +331,8 @@ async fn an_unregistered_ca_signed_client_is_denied() {
 }
 
 #[tokio::test]
-async fn a_different_client_ca_is_rejected() {
+// Scenario: a different client ca is rejected.
+async fn different_client_ca() {
     let running = Running::start(Role::Research).await;
     let directory = tempfile::Builder::new()
         .prefix("loop-runtime-rogue-ca-")
@@ -346,7 +352,8 @@ async fn a_different_client_ca_is_rejected() {
 }
 
 #[tokio::test]
-async fn provider_cannot_read_research_jobs() {
+// Scenario: provider cannot read research jobs.
+async fn provider_research_jobs() {
     let running = Running::start(Role::Provider).await;
     let error = running
         .client()
@@ -360,7 +367,8 @@ async fn provider_cannot_read_research_jobs() {
 }
 
 #[tokio::test]
-async fn discovery_cannot_present_a_capability() {
+// Scenario: discovery cannot present a capability.
+async fn discovery_present_capability() {
     let running = Running::start(Role::Discovery).await;
     let mut request = Request::new(GetJobRequest {
         job_id: running.id(),
@@ -382,7 +390,8 @@ async fn discovery_cannot_present_a_capability() {
 }
 
 #[tokio::test]
-async fn forwarded_identity_is_rejected() {
+// Scenario: forwarded identity is rejected.
+async fn forwarded_identity() {
     let running = Running::start(Role::Research).await;
     let mut request = Request::new(GetJobRequest {
         job_id: running.id(),
@@ -403,7 +412,8 @@ async fn forwarded_identity_is_rejected() {
 }
 
 #[tokio::test]
-async fn body_actor_cannot_impersonate_a_peer() {
+// Scenario: body actor cannot impersonate a peer.
+async fn body_actor_peer() {
     let running = Running::start(Role::Research).await;
     let mut context = context("tls-spoof");
     context.actor.as_mut().unwrap().authenticated_subject = "service:other".to_owned();
@@ -435,7 +445,8 @@ async fn body_actor_cannot_impersonate_a_peer() {
 }
 
 #[tokio::test]
-async fn authenticated_data_view_is_immutable_and_audited() {
+// Scenario: authenticated data view is immutable and audited.
+async fn authenticated_data_view() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     let request = running.data_request(&job);
@@ -479,7 +490,8 @@ async fn authenticated_data_view_is_immutable_and_audited() {
 }
 
 #[tokio::test]
-async fn an_expired_lease_cannot_read_data() {
+// Scenario: an expired lease cannot read data.
+async fn expired_lease_data() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     running.clock.0.store(NOW + 60_000, Ordering::SeqCst);
@@ -497,7 +509,8 @@ async fn an_expired_lease_cannot_read_data() {
 }
 
 #[tokio::test]
-async fn a_changed_file_does_not_publish_a_view() {
+// Scenario: a changed file does not publish a view.
+async fn changed_file_view() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     let data: model::Dataset = serde_json::from_slice(
@@ -535,7 +548,8 @@ fn authorized<T>(
 }
 
 #[tokio::test]
-async fn protected_view_requires_the_current_capability() {
+// Scenario: protected view requires the current capability.
+async fn protected_view_capability() {
     let running = Running::start_with(Role::HoldoutWorker, true).await;
     let acquired = running.acquire_response().await;
     let token = acquired
@@ -577,7 +591,8 @@ async fn protected_view_requires_the_current_capability() {
 }
 
 #[tokio::test]
-async fn development_worker_cannot_acquire_protected_work() {
+// Scenario: development worker cannot acquire protected work.
+async fn development_worker_protected() {
     let running = Running::start_with(Role::Research, true).await;
     let error = running
         .client()
@@ -591,7 +606,8 @@ async fn development_worker_cannot_acquire_protected_work() {
 }
 
 #[tokio::test]
-async fn restart_does_not_accept_an_old_capability() {
+// Scenario: restart does not accept an old capability.
+async fn restart_old_capability() {
     let mut running = Running::start_with(Role::HoldoutWorker, true).await;
     let acquired = running.acquire_response().await;
     let token = acquired
@@ -624,7 +640,8 @@ async fn restart_does_not_accept_an_old_capability() {
 }
 
 #[tokio::test]
-async fn expired_acquisition_does_not_renew_authority() {
+// Scenario: expired acquisition does not renew authority.
+async fn expired_acquisition_authority() {
     let running = Running::start_with(Role::HoldoutWorker, true).await;
     let acquired = running.acquire_response().await;
     running.clock.0.store(NOW + 60_000, Ordering::SeqCst);
@@ -654,7 +671,8 @@ async fn expired_acquisition_does_not_renew_authority() {
 }
 
 #[tokio::test]
-async fn duplicate_capability_headers_are_denied() {
+// Scenario: duplicate capability headers are denied.
+async fn capability_headers() {
     let running = Running::start_with(Role::HoldoutWorker, true).await;
     let acquired = running.acquire_response().await;
     let token = acquired
@@ -681,7 +699,8 @@ async fn duplicate_capability_headers_are_denied() {
 }
 
 #[tokio::test]
-async fn an_unknown_job_does_not_reveal_existence() {
+// Scenario: an unknown job does not reveal existence.
+async fn unknown_job_existence() {
     let running = Running::start(Role::Provider).await;
     let unknown = Some(JobId {
         value: "job.absent".to_owned(),
@@ -703,7 +722,8 @@ async fn an_unknown_job_does_not_reveal_existence() {
 }
 
 #[tokio::test]
-async fn identity_expiry_applies_to_existing_connections() {
+// Scenario: identity expiry applies to existing connections.
+async fn identity_expiry_applies() {
     let running = Running::start(Role::Research).await;
     let mut client = running.client().await;
     client
@@ -726,7 +746,8 @@ async fn identity_expiry_applies_to_existing_connections() {
 }
 
 #[tokio::test]
-async fn regressed_runtime_clock_denies_reads() {
+// Scenario: regressed runtime clock denies reads.
+async fn regressed_runtime_clock() {
     let running = Running::start(Role::Research).await;
     let mut client = running.client().await;
     client
@@ -749,7 +770,8 @@ async fn regressed_runtime_clock_denies_reads() {
 }
 
 #[tokio::test]
-async fn a_stale_request_does_not_publish_data() {
+// Scenario: a stale request does not publish data.
+async fn stale_request_data() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     running.clock.0.store(NOW + 30_000, Ordering::SeqCst);
@@ -768,7 +790,8 @@ async fn a_stale_request_does_not_publish_data() {
 }
 
 #[tokio::test]
-async fn a_tampered_view_is_not_overwritten() {
+// Scenario: a tampered view is not overwritten.
+async fn tampered_view() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     let request = running.data_request(&job);
@@ -801,7 +824,8 @@ async fn a_tampered_view_is_not_overwritten() {
 }
 
 #[tokio::test]
-async fn data_receipt_projection_is_verified() {
+// Scenario: data receipt projection is verified.
+async fn data_receipt_projection() {
     use sqlx::Executor;
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
@@ -835,7 +859,8 @@ async fn data_receipt_projection_is_verified() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_data_acceptance() {
+// Scenario: audit failure rolls back data acceptance.
+async fn audit_failure_data() {
     use sqlx::Executor;
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
@@ -867,7 +892,8 @@ async fn audit_failure_rolls_back_data_acceptance() {
 }
 
 #[tokio::test]
-async fn a_cancelled_job_cannot_replay_data_access() {
+// Scenario: a cancelled job cannot replay data access.
+async fn cancelled_job_replay() {
     let running = Running::start(Role::Research).await;
     let job = running.acquire().await;
     let request = running.data_request(&job);

@@ -53,7 +53,8 @@ def run_cli(path: Path, *arguments: str, directory: Path) -> subprocess.Complete
     )
 
 
-def test_installed_cli_resolves_history_without_writing(tmp_path: Path) -> None:
+# Scenario: installed cli resolves history without writing.
+def test_installed_cli(tmp_path: Path) -> None:
     before = FIXTURE.read_bytes()
     completed = run_cli(FIXTURE, "--ticker", "DEMO", "--venue", "XNYS", directory=tmp_path)
     assert completed.returncode == 0, completed.stderr
@@ -73,14 +74,16 @@ def test_installed_cli_resolves_history_without_writing(tmp_path: Path) -> None:
     assert not list(tmp_path.iterdir())
 
 
-def test_repeated_reports_have_identical_bytes() -> None:
+# Scenario: repeated reports have identical bytes.
+def test_repeated_reports() -> None:
     assert (
         query_file(FIXTURE, query()).model_dump_json()
         == query_file(FIXTURE, query()).model_dump_json()
     )
 
 
-def test_byte_provenance_changes_without_changing_selected_values(tmp_path: Path) -> None:
+# Scenario: byte provenance changes without changing selected values.
+def test_byte_provenance(tmp_path: Path) -> None:
     original = query_file(FIXTURE, query())
     reformatted = tmp_path / "reformatted.json"
     reformatted.write_text(json.dumps(json.loads(FIXTURE.read_bytes())), encoding="utf8")
@@ -103,14 +106,16 @@ def test_byte_provenance_changes_without_changing_selected_values(tmp_path: Path
         b"[" * 1100 + b"]" * 1100,
     ],
 )
-def test_malformed_input_has_no_report(tmp_path: Path, content: bytes) -> None:
+# Scenario: malformed input has no report.
+def test_malformed_input(tmp_path: Path, content: bytes) -> None:
     path = tmp_path / "invalid.json"
     path.write_bytes(content)
     with pytest.raises(ValueError):
         query_file(path, query())
 
 
-def test_nested_duplicate_fields_are_rejected(tmp_path: Path) -> None:
+# Scenario: nested duplicate fields are rejected.
+def test_nested_fields(tmp_path: Path) -> None:
     path = tmp_path / "ambiguous.json"
     path.write_bytes(
         FIXTURE.read_bytes().replace(b'"volume": 12345', b'"volume": 1, "volume": 12345')
@@ -119,7 +124,8 @@ def test_nested_duplicate_fields_are_rejected(tmp_path: Path) -> None:
         query_file(path, query())
 
 
-def test_unknown_fields_are_rejected(tmp_path: Path) -> None:
+# Scenario: unknown fields are rejected.
+def test_unknown_fields(tmp_path: Path) -> None:
     values = json.loads(FIXTURE.read_bytes())
     values["securities"][0]["trust_me"] = True
     path = tmp_path / "unknown.json"
@@ -128,7 +134,8 @@ def test_unknown_fields_are_rejected(tmp_path: Path) -> None:
         query_file(path, query())
 
 
-def test_input_byte_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: input byte budget.
+def test_input_byte(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(diagnostic, "MAX_INPUT_BYTES", 32)
     path = tmp_path / "oversized.json"
     path.write_bytes(b" " * 33)
@@ -136,14 +143,16 @@ def test_input_byte_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
         query_file(path, query())
 
 
-def test_total_record_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: total record budget.
+def test_total_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(models, "MAX_RECORDS", 6)
     with pytest.raises(ValueError, match="record budget"):
         query_file(FIXTURE, query())
 
 
 @pytest.mark.parametrize("kind", ["symlink", "directory", "fifo"])
-def test_special_files_are_rejected_without_blocking(tmp_path: Path, kind: str) -> None:
+# Scenario: special files are rejected without blocking.
+def test_special_files(tmp_path: Path, kind: str) -> None:
     path = tmp_path / "input"
     if kind == "symlink":
         path.symlink_to(FIXTURE)
@@ -155,7 +164,8 @@ def test_special_files_are_rejected_without_blocking(tmp_path: Path, kind: str) 
         query_file(path, query())
 
 
-def test_changed_file_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+# Scenario: changed file is rejected.
+def test_changed_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "changing.json"
     path.write_bytes(FIXTURE.read_bytes())
     real_stat = os.fstat
@@ -174,7 +184,8 @@ def test_changed_file_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         query_file(path, query())
 
 
-def test_cli_errors_do_not_echo_source_payloads(tmp_path: Path) -> None:
+# Scenario: cli errors do not echo source payloads.
+def test_cli_errors(tmp_path: Path) -> None:
     path = tmp_path / "private-input.json"
     path.write_text('{"private_field":"fixture-secret-must-not-appear"}', encoding="utf8")
     completed = run_cli(path, directory=tmp_path)
@@ -186,7 +197,8 @@ def test_cli_errors_do_not_echo_source_payloads(tmp_path: Path) -> None:
     assert "Traceback" not in completed.stderr
 
 
-def test_cli_requires_a_venue_for_ticker_lookup(tmp_path: Path) -> None:
+# Scenario: cli requires a venue for ticker lookup.
+def test_cli_venue(tmp_path: Path) -> None:
     completed = run_cli(FIXTURE, "--ticker", "DEMO", directory=tmp_path)
     assert completed.returncode == 2
     assert not completed.stdout

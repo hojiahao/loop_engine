@@ -144,7 +144,8 @@ fn data_worker() {
 }
 
 #[tokio::test]
-async fn independent_publishers_preserve_view_identity() {
+// Scenario: independent publishers preserve view identity.
+async fn independent_publishers_view() {
     for count in [2, 4, 8] {
         for shared in [true, false] {
             let running = Running::start(Role::Research).await;
@@ -185,7 +186,8 @@ async fn independent_publishers_preserve_view_identity() {
 }
 
 #[tokio::test]
-async fn killed_publisher_replays_without_duplicate_acceptance() {
+// Scenario: killed publisher replays without duplicate acceptance.
+async fn killed_publisher_acceptance() {
     for point in ["data_before_commit", "data_after_commit"] {
         let running = Running::start(Role::Research).await;
         let job = running.acquire().await;

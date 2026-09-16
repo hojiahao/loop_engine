@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from loop.v1.evaluation_pb2 import FactorEvaluationResult
-from loop_protocol.job import factor_spec_identity_sha256
+from loop_protocol.job import factor_identity_hash
 from scipy import stats
 from transform_helpers import make_case, recipe, replace_recipe, replace_risk, risk_capture, work
 
@@ -26,9 +26,8 @@ def build() -> BuildIdentity:
     return describe_build(profile="evaluation")
 
 
-def test_installed_worker_neutralizes_verified_exposures(
-    tmp_path: Path, build: BuildIdentity
-) -> None:
+# Scenario: installed worker neutralizes verified exposures.
+def test_installed_worker(tmp_path: Path, build: BuildIdentity) -> None:
     case = make_case(tmp_path)
     report = case.build()
     assert validate_panel(case.sources, case.output, report.receipt.sha256) == report
@@ -72,7 +71,8 @@ def test_installed_worker_neutralizes_verified_exposures(
         view.chmod(0o700)
 
 
-def test_late_exposure_revision_cannot_rewrite_input(tmp_path: Path) -> None:
+# Scenario: late exposure revision cannot rewrite input.
+def test_late_exposure(tmp_path: Path) -> None:
     case = make_case(tmp_path)
     first = case.build()
     before = PanelManifest.model_validate_json(read_cached(case.output, first.panel))
@@ -86,9 +86,8 @@ def test_late_exposure_revision_cannot_rewrite_input(tmp_path: Path) -> None:
     assert first.dataset != second.dataset
 
 
-def test_preprocessing_without_exposures_reaches_worker(
-    tmp_path: Path, build: BuildIdentity
-) -> None:
+# Scenario: preprocessing without exposures reaches worker.
+def test_preprocessing_exposures(tmp_path: Path, build: BuildIdentity) -> None:
     case = make_case(tmp_path)
     current = recipe(case)
     current["preprocess"]["settings"]["standardize"] = "zscore"
@@ -119,7 +118,8 @@ def test_preprocessing_without_exposures_reaches_worker(
         view.chmod(0o700)
 
 
-def test_missing_exposure_reduces_only_valid_coverage(tmp_path: Path, build: BuildIdentity) -> None:
+# Scenario: missing exposure reduces only valid coverage.
+def test_missing_exposure(tmp_path: Path, build: BuildIdentity) -> None:
     case = make_case(tmp_path)
     capture = risk_capture(case)
     capture["records"][0]["market_cap"] = None
@@ -135,16 +135,15 @@ def test_missing_exposure_reduces_only_valid_coverage(tmp_path: Path, build: Bui
         view.chmod(0o700)
 
 
-def test_policy_identity_is_checked_before_calculation(
+# Scenario: policy identity is checked before calculation.
+def test_policy_identity(
     tmp_path: Path, build: BuildIdentity, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     case = make_case(tmp_path)
     view, output = tmp_path / "view", tmp_path / "worker-output"
     request = work(case, case.build(), build, view, output)
     request.factor.frozen_policy.preprocess_policy.sha256.value = b"x" * 32
-    request.factor.factor_spec_id.value = (
-        "sha256:" + factor_spec_identity_sha256(request.factor).hex()
-    )
+    request.factor.factor_spec_id.value = "sha256:" + factor_identity_hash(request.factor).hex()
     before = set(output.iterdir())
 
     def forbidden(*args: object, **kwargs: object) -> None:
@@ -162,7 +161,8 @@ def test_policy_identity_is_checked_before_calculation(
 @pytest.mark.parametrize(
     "field,value", [("market_cap", "0"), ("currency", "CAD"), ("industry", "bad\nname")]
 )
-def test_invalid_exposure_fails_before_publication(tmp_path: Path, field: str, value: str) -> None:
+# Scenario: invalid exposure fails before publication.
+def test_invalid_exposure(tmp_path: Path, field: str, value: str) -> None:
     case = make_case(tmp_path)
     capture = risk_capture(case)
     capture["records"][0][field] = value
@@ -172,7 +172,8 @@ def test_invalid_exposure_fails_before_publication(tmp_path: Path, field: str, v
     assert not list(case.output.iterdir())
 
 
-def test_exposure_source_must_resolve(tmp_path: Path) -> None:
+# Scenario: exposure source must resolve.
+def test_exposure_source(tmp_path: Path) -> None:
     case = make_case(tmp_path)
     capture = risk_capture(case)
     capture["records"][0]["source"]["raw_sha256"] = "sha256:" + "0" * 64
@@ -182,7 +183,8 @@ def test_exposure_source_must_resolve(tmp_path: Path) -> None:
     assert not list(case.output.iterdir())
 
 
-def test_exposure_cutoff_must_match_prices(tmp_path: Path) -> None:
+# Scenario: exposure cutoff must match prices.
+def test_exposure_cutoff(tmp_path: Path) -> None:
     case = make_case(tmp_path)
     capture = risk_capture(case)
     capture["captured_at"] = "2026-09-16T00:00:00Z"
@@ -194,7 +196,8 @@ def test_exposure_cutoff_must_match_prices(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "setting,value", [("algorithm", "latest"), ("standardize", "auto"), ("winsor_tail_bps", "01")]
 )
-def test_unknown_policy_semantics_fail_closed(tmp_path: Path, setting: str, value: str) -> None:
+# Scenario: unknown policy semantics fail closed.
+def test_unknown_policy(tmp_path: Path, setting: str, value: str) -> None:
     case = make_case(tmp_path)
     current = recipe(case)
     current["preprocess"]["settings"][setting] = value

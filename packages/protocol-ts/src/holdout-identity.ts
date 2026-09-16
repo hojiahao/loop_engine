@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { validateArtifactRef } from "./artifact.js";
+import { validate_artifact_ref } from "./artifact.js";
 import type { ArtifactRef } from "./generated/loop/v1/artifact_pb.js";
 import type { Sha256Digest } from "./generated/loop/v1/common_pb.js";
 import { SampleRole } from "./generated/loop/v1/data_pb.js";
@@ -150,99 +150,103 @@ export interface EvaluationPlanReference {
 
 type JsonObject = Record<string, unknown>;
 
-export function canonicalizeHoldoutPeriod(value: HoldoutPeriodValue): CanonicalHoldoutPeriod {
-  validatePeriod(value);
-  const canonicalBytes = encoder.encode(writePeriod(value));
+export function canonicalize_holdout_period(value: HoldoutPeriodValue): CanonicalHoldoutPeriod {
+  validate_period(value);
+  const canonicalBytes = encoder.encode(write_period(value));
   if (canonicalBytes.byteLength > MAX_HOLDOUT_PERIOD_BYTES) fail("size_limit", "period");
-  const digest = domainHash(PERIOD_DOMAIN, canonicalBytes);
+  const digest = domain_hash(PERIOD_DOMAIN, canonicalBytes);
   return Object.freeze({
-    value: freezePeriod(value),
+    value: freeze_period(value),
     canonicalBytes,
     canonicalPeriodSha256: digest,
-    holdoutPeriodId: encodeDigest(digest),
+    holdoutPeriodId: encode_digest(digest),
   });
 }
 
-export function parseCanonicalHoldoutPeriod(input: Uint8Array | string): CanonicalHoldoutPeriod {
-  const { bytes, value } = parseJson(input, MAX_HOLDOUT_PERIOD_BYTES, "period");
-  const raw = requireObject(value, "period");
-  requireExactKeys(raw, ["schema", "sample", "snapshot_ids", "snapshot_manifest_sha256"], "period");
-  if (requireString(raw.schema, "schema") !== PERIOD_SCHEMA) fail("invalid_schema", "schema");
-  const sample = requireObject(raw.sample, "sample");
-  requireExactKeys(sample, ["role", "start_inclusive", "end_inclusive"], "sample");
-  const snapshots = requireArray(raw.snapshot_ids, "snapshot_ids").map((item, index) =>
-    requireString(item, `snapshot_ids[${index}]`),
+export function parse_holdout_period(input: Uint8Array | string): CanonicalHoldoutPeriod {
+  const { bytes, value } = parse_json(input, MAX_HOLDOUT_PERIOD_BYTES, "period");
+  const raw = require_object(value, "period");
+  require_exact_keys(
+    raw,
+    ["schema", "sample", "snapshot_ids", "snapshot_manifest_sha256"],
+    "period",
   );
-  const parsed = canonicalizeHoldoutPeriod({
+  if (require_string(raw.schema, "schema") !== PERIOD_SCHEMA) fail("invalid_schema", "schema");
+  const sample = require_object(raw.sample, "sample");
+  require_exact_keys(sample, ["role", "start_inclusive", "end_inclusive"], "sample");
+  const snapshots = require_array(raw.snapshot_ids, "snapshot_ids").map((item, index) =>
+    require_string(item, `snapshot_ids[${index}]`),
+  );
+  const parsed = canonicalize_holdout_period({
     sample: {
-      role: parseRole(requireString(sample.role, "sample.role")),
-      start_inclusive: requireString(sample.start_inclusive, "sample.start_inclusive"),
-      end_inclusive: requireString(sample.end_inclusive, "sample.end_inclusive"),
+      role: parse_role(require_string(sample.role, "sample.role")),
+      start_inclusive: require_string(sample.start_inclusive, "sample.start_inclusive"),
+      end_inclusive: require_string(sample.end_inclusive, "sample.end_inclusive"),
     },
     snapshot_ids: snapshots,
-    snapshot_manifest_sha256: requireString(
+    snapshot_manifest_sha256: require_string(
       raw.snapshot_manifest_sha256,
       "snapshot_manifest_sha256",
     ),
   });
-  if (!equalBytes(bytes, parsed.canonicalBytes)) fail("non_canonical", "period");
+  if (!equal_bytes(bytes, parsed.canonicalBytes)) fail("non_canonical", "period");
   return parsed;
 }
 
-export function verifyHoldoutPeriodIdentity(
+export function verify_period_identity(
   input: Uint8Array | string,
   holdoutPeriodId: string,
   canonicalPeriodSha256: Uint8Array,
 ): CanonicalHoldoutPeriod {
-  const parsed = parseCanonicalHoldoutPeriod(input);
+  const parsed = parse_holdout_period(input);
   if (
     parsed.holdoutPeriodId !== holdoutPeriodId ||
-    !equalDigest(parsed.canonicalPeriodSha256, canonicalPeriodSha256)
+    !equal_digest(parsed.canonicalPeriodSha256, canonicalPeriodSha256)
   ) {
     fail("period_mismatch", "holdout_period_id");
   }
   return parsed;
 }
 
-export function canonicalizeHoldoutEvaluationPlan(
+export function canonicalize_holdout_plan(
   value: HoldoutEvaluationPlanValue,
   expectedPeriod: CanonicalHoldoutPeriod,
   trustedBacktestSchemaSha256: Uint8Array,
   resolvedBacktestArtifacts: ReadonlyMap<string, Uint8Array>,
 ): CanonicalHoldoutEvaluationPlan {
-  requireRawDigest(trustedBacktestSchemaSha256, "trusted_backtest_schema_sha256");
-  validatePlan(value, expectedPeriod, trustedBacktestSchemaSha256, resolvedBacktestArtifacts);
-  const canonicalBytes = encoder.encode(writePlan(value));
+  require_raw_digest(trustedBacktestSchemaSha256, "trusted_backtest_schema_sha256");
+  validate_plan(value, expectedPeriod, trustedBacktestSchemaSha256, resolvedBacktestArtifacts);
+  const canonicalBytes = encoder.encode(write_plan(value));
   if (canonicalBytes.byteLength > MAX_HOLDOUT_PLAN_BYTES) fail("size_limit", "plan");
   return Object.freeze({
-    value: freezePlan(value),
+    value: freeze_plan(value),
     canonicalBytes,
-    planSha256: rawHash(canonicalBytes),
-    holdoutEvaluationPlanId: encodeDigest(domainHash(PLAN_DOMAIN, canonicalBytes)),
+    planSha256: raw_hash(canonicalBytes),
+    holdoutEvaluationPlanId: encode_digest(domain_hash(PLAN_DOMAIN, canonicalBytes)),
   });
 }
 
-export function parseCanonicalHoldoutEvaluationPlan(
+export function parse_holdout_plan(
   input: Uint8Array | string,
   expectedPeriod: CanonicalHoldoutPeriod,
   trustedBacktestSchemaSha256: Uint8Array,
   resolvedBacktestArtifacts: ReadonlyMap<string, Uint8Array>,
 ): CanonicalHoldoutEvaluationPlan {
-  const { bytes, value } = parseJson(input, MAX_HOLDOUT_PLAN_BYTES, "plan");
-  const raw = requireObject(value, "plan");
-  requireExactKeys(
+  const { bytes, value } = parse_json(input, MAX_HOLDOUT_PLAN_BYTES, "plan");
+  const raw = require_object(value, "plan");
+  require_exact_keys(
     raw,
     ["schema", "holdout_period_id", "canonical_period_sha256", "entries"],
     "plan",
   );
-  if (requireString(raw.schema, "schema") !== PLAN_SCHEMA) fail("invalid_schema", "schema");
-  const entries = requireArray(raw.entries, "entries").map((entry, index) =>
-    decodePlanEntry(entry, index),
+  if (require_string(raw.schema, "schema") !== PLAN_SCHEMA) fail("invalid_schema", "schema");
+  const entries = require_array(raw.entries, "entries").map((entry, index) =>
+    decode_plan_entry(entry, index),
   );
-  const parsed = canonicalizeHoldoutEvaluationPlan(
+  const parsed = canonicalize_holdout_plan(
     {
-      holdout_period_id: requireString(raw.holdout_period_id, "holdout_period_id"),
-      canonical_period_sha256: requireString(
+      holdout_period_id: require_string(raw.holdout_period_id, "holdout_period_id"),
+      canonical_period_sha256: require_string(
         raw.canonical_period_sha256,
         "canonical_period_sha256",
       ),
@@ -252,11 +256,11 @@ export function parseCanonicalHoldoutEvaluationPlan(
     trustedBacktestSchemaSha256,
     resolvedBacktestArtifacts,
   );
-  if (!equalBytes(bytes, parsed.canonicalBytes)) fail("non_canonical", "plan");
+  if (!equal_bytes(bytes, parsed.canonicalBytes)) fail("non_canonical", "plan");
   return parsed;
 }
 
-export function validateHoldoutEvaluationPlanReference(
+export function validate_plan_reference(
   reference: EvaluationPlanReference,
   canonicalPlanBytes: Uint8Array,
   expectedPeriod: CanonicalHoldoutPeriod,
@@ -264,20 +268,20 @@ export function validateHoldoutEvaluationPlanReference(
   trustedBacktestSchemaSha256: Uint8Array,
   resolvedBacktestArtifacts: ReadonlyMap<string, Uint8Array>,
 ): CanonicalHoldoutEvaluationPlan {
-  requireRawDigest(trustedPlanSchemaSha256, "trusted_plan_schema_sha256");
-  const parsed = parseCanonicalHoldoutEvaluationPlan(
+  require_raw_digest(trustedPlanSchemaSha256, "trusted_plan_schema_sha256");
+  const parsed = parse_holdout_plan(
     canonicalPlanBytes,
     expectedPeriod,
     trustedBacktestSchemaSha256,
     resolvedBacktestArtifacts,
   );
-  const rawId = encodeDigest(parsed.planSha256);
+  const rawId = encode_digest(parsed.planSha256);
   const artifact = reference.canonicalPlan;
   if (
     artifact.artifactId !== rawId ||
     artifact.uri !== `artifact://sha256/${rawId.slice(7)}` ||
-    !equalDigest(artifact.sha256, parsed.planSha256) ||
-    !equalDigest(reference.planSha256, parsed.planSha256) ||
+    !equal_digest(artifact.sha256, parsed.planSha256) ||
+    !equal_digest(reference.planSha256, parsed.planSha256) ||
     artifact.byteSize !== BigInt(canonicalPlanBytes.byteLength) ||
     artifact.hasRowCount ||
     artifact.hasManifestSha256
@@ -288,7 +292,7 @@ export function validateHoldoutEvaluationPlanReference(
     artifact.schemaName !== PLAN_ARTIFACT_SCHEMA_NAME ||
     artifact.schemaVersion !== 1 ||
     artifact.mediaType !== JSON_MEDIA_TYPE ||
-    !equalDigest(artifact.schemaSha256, trustedPlanSchemaSha256)
+    !equal_digest(artifact.schemaSha256, trustedPlanSchemaSha256)
   ) {
     fail("schema_mismatch", "canonical_plan.schema");
   }
@@ -296,21 +300,21 @@ export function validateHoldoutEvaluationPlanReference(
     reference.holdoutEvaluationPlanId !== parsed.holdoutEvaluationPlanId ||
     reference.entryCount !== parsed.value.entries.length ||
     reference.holdoutPeriodId !== expectedPeriod.holdoutPeriodId ||
-    !equalDigest(reference.canonicalPeriodSha256, expectedPeriod.canonicalPeriodSha256)
+    !equal_digest(reference.canonicalPeriodSha256, expectedPeriod.canonicalPeriodSha256)
   ) {
     fail("reference_mismatch", "plan_reference");
   }
   return parsed;
 }
 
-export function validateWireHoldoutPeriod(
+export function validate_wire_period(
   wire: WireHoldoutPeriod,
   canonicalPeriodBytes: Uint8Array,
 ): CanonicalHoldoutPeriod {
   const periodId = wire.holdoutPeriodId?.value;
   if (periodId === undefined) fail("reference_mismatch", "holdout_period_id");
-  const digest = requireWireDigest(wire.canonicalPeriodSha256, "canonical_period_sha256");
-  const parsed = verifyHoldoutPeriodIdentity(canonicalPeriodBytes, periodId, digest);
+  const digest = require_wire_digest(wire.canonicalPeriodSha256, "canonical_period_sha256");
+  const parsed = verify_period_identity(canonicalPeriodBytes, periodId, digest);
   const sample = wire.sample;
   if (sample === undefined) fail("reference_mismatch", "sample");
   const role =
@@ -320,24 +324,24 @@ export function validateWireHoldoutPeriod(
         ? "second_locked_historical_holdout"
         : undefined;
   if (role === undefined) fail("reference_mismatch", "sample.role");
-  const start = formatWireDate(sample.startInclusive, "sample.start_inclusive");
-  const end = formatWireDate(sample.endInclusive, "sample.end_inclusive");
+  const start = format_wire_date(sample.startInclusive, "sample.start_inclusive");
+  const end = format_wire_date(sample.endInclusive, "sample.end_inclusive");
   const snapshots = wire.snapshotIds.map((value) => value.value);
-  const manifest = requireWireDigest(wire.snapshotManifestSha256, "snapshot_manifest_sha256");
+  const manifest = require_wire_digest(wire.snapshotManifestSha256, "snapshot_manifest_sha256");
   if (
     parsed.value.sample.role !== role ||
     parsed.value.sample.start_inclusive !== start ||
     parsed.value.sample.end_inclusive !== end ||
     snapshots.length !== parsed.value.snapshot_ids.length ||
     snapshots.some((value, index) => value !== parsed.value.snapshot_ids[index]) ||
-    parsed.value.snapshot_manifest_sha256 !== encodeDigest(manifest)
+    parsed.value.snapshot_manifest_sha256 !== encode_digest(manifest)
   ) {
     fail("reference_mismatch", "holdout_period");
   }
   return parsed;
 }
 
-export function validateWireHoldoutEvaluationPlanReference(
+export function validate_wire_plan(
   wire: WirePlanReference,
   canonicalPlanBytes: Uint8Array,
   expectedPeriod: CanonicalHoldoutPeriod,
@@ -347,19 +351,19 @@ export function validateWireHoldoutEvaluationPlanReference(
 ): CanonicalHoldoutEvaluationPlan {
   const wireArtifact = wire.canonicalPlan;
   if (wireArtifact === undefined) fail("reference_mismatch", "canonical_plan");
-  const artifact = validatePlanWireArtifact(wireArtifact);
+  const artifact = validate_plan_artifact(wireArtifact);
   const planId = wire.holdoutEvaluationPlanId?.value;
   const periodId = wire.holdoutPeriodId?.value;
   if (planId === undefined) fail("reference_mismatch", "holdout_evaluation_plan_id");
   if (periodId === undefined) fail("reference_mismatch", "holdout_period_id");
-  return validateHoldoutEvaluationPlanReference(
+  return validate_plan_reference(
     {
       holdoutEvaluationPlanId: planId,
       canonicalPlan: artifact,
-      planSha256: requireWireDigest(wire.planSha256, "plan_sha256"),
+      planSha256: require_wire_digest(wire.planSha256, "plan_sha256"),
       entryCount: wire.entryCount,
       holdoutPeriodId: periodId,
-      canonicalPeriodSha256: requireWireDigest(
+      canonicalPeriodSha256: require_wire_digest(
         wire.canonicalPeriodSha256,
         "canonical_period_sha256",
       ),
@@ -372,20 +376,20 @@ export function validateWireHoldoutEvaluationPlanReference(
   );
 }
 
-function validatePlanWireArtifact(value: ArtifactRef): PlanArtifactReference {
-  let artifact: ReturnType<typeof validateArtifactRef>;
+function validate_plan_artifact(value: ArtifactRef): PlanArtifactReference {
+  let artifact: ReturnType<typeof validate_artifact_ref>;
   try {
-    artifact = validateArtifactRef(value);
+    artifact = validate_artifact_ref(value);
   } catch {
     fail("reference_mismatch", "canonical_plan");
   }
   return {
     artifactId: artifact.artifactId,
     uri: artifact.uri,
-    sha256: decodeDigestHex(artifact.sha256Hex),
+    sha256: decode_digest_hex(artifact.sha256Hex),
     schemaName: artifact.schemaName,
     schemaVersion: artifact.schemaVersion,
-    schemaSha256: decodeDigestHex(artifact.schemaSha256Hex),
+    schemaSha256: decode_digest_hex(artifact.schemaSha256Hex),
     mediaType: artifact.mediaType,
     byteSize: artifact.byteSize,
     hasRowCount: artifact.rowCount !== undefined,
@@ -393,24 +397,24 @@ function validatePlanWireArtifact(value: ArtifactRef): PlanArtifactReference {
   };
 }
 
-function validatePeriod(value: HoldoutPeriodValue): void {
-  const start = parseDate(value.sample.start_inclusive);
-  const end = parseDate(value.sample.end_inclusive);
-  parseRole(value.sample.role);
+function validate_period(value: HoldoutPeriodValue): void {
+  const start = parse_date(value.sample.start_inclusive);
+  const end = parse_date(value.sample.end_inclusive);
+  parse_role(value.sample.role);
   if (start > end) fail("invalid_window", "sample");
   if (value.snapshot_ids.length < 1 || value.snapshot_ids.length > MAX_HOLDOUT_SNAPSHOTS) {
     fail("invalid_snapshots", "snapshot_ids");
   }
   let previous: string | undefined;
   for (const snapshot of value.snapshot_ids) {
-    requireDigestText(snapshot, "snapshot_ids");
+    require_digest_text(snapshot, "snapshot_ids");
     if (previous !== undefined && previous >= snapshot) fail("invalid_snapshots", "snapshot_ids");
     previous = snapshot;
   }
-  requireDigestText(value.snapshot_manifest_sha256, "snapshot_manifest_sha256");
+  require_digest_text(value.snapshot_manifest_sha256, "snapshot_manifest_sha256");
 }
 
-function validatePlan(
+function validate_plan(
   value: HoldoutEvaluationPlanValue,
   expectedPeriod: CanonicalHoldoutPeriod,
   trustedBacktestSchemaSha256: Uint8Array,
@@ -429,29 +433,29 @@ function validatePlan(
   const artifacts = new Set<string>();
   value.entries.forEach((entry, index) => {
     if (
-      parseUnsigned(entry.entry_index, 1n, BigInt(MAX_HOLDOUT_PLAN_ENTRIES), "entry_index") !==
+      parse_unsigned(entry.entry_index, 1n, BigInt(MAX_HOLDOUT_PLAN_ENTRIES), "entry_index") !==
       BigInt(index + 1)
     ) {
       fail("invalid_entries", "entry_index");
     }
-    requireDigestText(entry.factor_spec_id, "factor_spec_id");
+    require_digest_text(entry.factor_spec_id, "factor_spec_id");
     if (factors.has(entry.factor_spec_id)) fail("duplicate_identity", "factor_spec_id");
     factors.add(entry.factor_spec_id);
-    validateBacktestArtifact(entry.backtest_spec_artifact, trustedBacktestSchemaSha256, resolved);
+    validate_backtest_artifact(entry.backtest_spec_artifact, trustedBacktestSchemaSha256, resolved);
     if (artifacts.has(entry.backtest_spec_artifact.artifact_id)) {
       fail("duplicate_identity", "backtest_spec_artifact.artifact_id");
     }
     artifacts.add(entry.backtest_spec_artifact.artifact_id);
-    validateBudget(entry.job_budget);
+    validate_budget(entry.job_budget);
   });
 }
 
-function validateBacktestArtifact(
+function validate_backtest_artifact(
   artifact: BacktestSpecArtifactValue,
   trustedSchemaSha256: Uint8Array,
   resolved: ReadonlyMap<string, Uint8Array>,
 ): void {
-  const digest = requireDigestText(artifact.sha256, "backtest_spec_artifact.sha256");
+  const digest = require_digest_text(artifact.sha256, "backtest_spec_artifact.sha256");
   if (
     artifact.artifact_id !== artifact.sha256 ||
     artifact.uri !== `artifact://sha256/${artifact.sha256.slice(7)}`
@@ -462,14 +466,14 @@ function validateBacktestArtifact(
     artifact.schema_name !== BACKTEST_SCHEMA_NAME ||
     artifact.schema_version !== "1" ||
     artifact.media_type !== JSON_MEDIA_TYPE ||
-    !equalDigest(
-      requireDigestText(artifact.schema_sha256, "backtest_spec_artifact.schema_sha256"),
+    !equal_digest(
+      require_digest_text(artifact.schema_sha256, "backtest_spec_artifact.schema_sha256"),
       trustedSchemaSha256,
     )
   ) {
     fail("schema_mismatch", "backtest_spec_artifact.schema");
   }
-  const size = parseUnsigned(
+  const size = parse_unsigned(
     artifact.byte_size,
     1n,
     MAX_BACKTEST_ARTIFACT_BYTES,
@@ -477,20 +481,20 @@ function validateBacktestArtifact(
   );
   const content = resolved.get(artifact.sha256);
   if (content === undefined) fail("unresolved_artifact", "backtest_spec_artifact");
-  if (BigInt(content.byteLength) !== size || !equalDigest(rawHash(content), digest)) {
+  if (BigInt(content.byteLength) !== size || !equal_digest(raw_hash(content), digest)) {
     fail("invalid_artifact", "backtest_spec_artifact");
   }
 }
 
-function validateBudget(value: HoldoutJobBudget): void {
-  parseUnsigned(value.maximum_steps, 1n, MAX_HOLDOUT_STEPS, "maximum_steps");
-  parseUnsigned(value.maximum_input_tokens, 0n, MAX_HOLDOUT_TOKENS, "maximum_input_tokens");
-  parseUnsigned(value.maximum_output_tokens, 0n, MAX_HOLDOUT_TOKENS, "maximum_output_tokens");
-  parseUnsigned(value.maximum_wall_time_ns, 1n, MAX_HOLDOUT_WALL_TIME_NS, "maximum_wall_time_ns");
-  validateCost(value.maximum_cost);
+function validate_budget(value: HoldoutJobBudget): void {
+  parse_unsigned(value.maximum_steps, 1n, MAX_HOLDOUT_STEPS, "maximum_steps");
+  parse_unsigned(value.maximum_input_tokens, 0n, MAX_HOLDOUT_TOKENS, "maximum_input_tokens");
+  parse_unsigned(value.maximum_output_tokens, 0n, MAX_HOLDOUT_TOKENS, "maximum_output_tokens");
+  parse_unsigned(value.maximum_wall_time_ns, 1n, MAX_HOLDOUT_WALL_TIME_NS, "maximum_wall_time_ns");
+  validate_cost(value.maximum_cost);
 }
 
-function validateCost(value: HoldoutMoneyBudget): void {
+function validate_cost(value: HoldoutMoneyBudget): void {
   if (!CURRENCY_PATTERN.test(value.currency_code))
     fail("invalid_budget", "maximum_cost.currency_code");
   const match = /^(0|[1-9][0-9]*)(?:\.([0-9]*[1-9]))?$/.exec(value.amount);
@@ -511,16 +515,16 @@ function validateCost(value: HoldoutMoneyBudget): void {
   }
 }
 
-function decodePlanEntry(value: unknown, index: number): HoldoutEvaluationPlanEntry {
+function decode_plan_entry(value: unknown, index: number): HoldoutEvaluationPlanEntry {
   const path = `entries[${index}]`;
-  const raw = requireObject(value, path);
-  requireExactKeys(
+  const raw = require_object(value, path);
+  require_exact_keys(
     raw,
     ["entry_index", "factor_spec_id", "backtest_spec_artifact", "job_budget"],
     path,
   );
-  const artifact = requireObject(raw.backtest_spec_artifact, `${path}.backtest_spec_artifact`);
-  requireExactKeys(
+  const artifact = require_object(raw.backtest_spec_artifact, `${path}.backtest_spec_artifact`);
+  require_exact_keys(
     artifact,
     [
       "artifact_id",
@@ -534,8 +538,8 @@ function decodePlanEntry(value: unknown, index: number): HoldoutEvaluationPlanEn
     ],
     `${path}.backtest_spec_artifact`,
   );
-  const budget = requireObject(raw.job_budget, `${path}.job_budget`);
-  requireExactKeys(
+  const budget = require_object(raw.job_budget, `${path}.job_budget`);
+  require_exact_keys(
     budget,
     [
       "maximum_steps",
@@ -546,51 +550,51 @@ function decodePlanEntry(value: unknown, index: number): HoldoutEvaluationPlanEn
     ],
     `${path}.job_budget`,
   );
-  const cost = requireObject(budget.maximum_cost, `${path}.job_budget.maximum_cost`);
-  requireExactKeys(cost, ["amount", "currency_code"], `${path}.job_budget.maximum_cost`);
+  const cost = require_object(budget.maximum_cost, `${path}.job_budget.maximum_cost`);
+  require_exact_keys(cost, ["amount", "currency_code"], `${path}.job_budget.maximum_cost`);
   return {
-    entry_index: requireString(raw.entry_index, `${path}.entry_index`),
-    factor_spec_id: requireString(raw.factor_spec_id, `${path}.factor_spec_id`),
+    entry_index: require_string(raw.entry_index, `${path}.entry_index`),
+    factor_spec_id: require_string(raw.factor_spec_id, `${path}.factor_spec_id`),
     backtest_spec_artifact: {
-      artifact_id: requireString(
+      artifact_id: require_string(
         artifact.artifact_id,
         `${path}.backtest_spec_artifact.artifact_id`,
       ),
-      uri: requireString(artifact.uri, `${path}.backtest_spec_artifact.uri`),
-      sha256: requireString(artifact.sha256, `${path}.backtest_spec_artifact.sha256`),
-      schema_name: requireString(
+      uri: require_string(artifact.uri, `${path}.backtest_spec_artifact.uri`),
+      sha256: require_string(artifact.sha256, `${path}.backtest_spec_artifact.sha256`),
+      schema_name: require_string(
         artifact.schema_name,
         `${path}.backtest_spec_artifact.schema_name`,
       ),
-      schema_version: requireString(
+      schema_version: require_string(
         artifact.schema_version,
         `${path}.backtest_spec_artifact.schema_version`,
       ),
-      schema_sha256: requireString(
+      schema_sha256: require_string(
         artifact.schema_sha256,
         `${path}.backtest_spec_artifact.schema_sha256`,
       ),
-      media_type: requireString(artifact.media_type, `${path}.backtest_spec_artifact.media_type`),
-      byte_size: requireString(artifact.byte_size, `${path}.backtest_spec_artifact.byte_size`),
+      media_type: require_string(artifact.media_type, `${path}.backtest_spec_artifact.media_type`),
+      byte_size: require_string(artifact.byte_size, `${path}.backtest_spec_artifact.byte_size`),
     },
     job_budget: {
-      maximum_steps: requireString(budget.maximum_steps, `${path}.job_budget.maximum_steps`),
-      maximum_input_tokens: requireString(
+      maximum_steps: require_string(budget.maximum_steps, `${path}.job_budget.maximum_steps`),
+      maximum_input_tokens: require_string(
         budget.maximum_input_tokens,
         `${path}.job_budget.maximum_input_tokens`,
       ),
-      maximum_output_tokens: requireString(
+      maximum_output_tokens: require_string(
         budget.maximum_output_tokens,
         `${path}.job_budget.maximum_output_tokens`,
       ),
       maximum_cost: {
-        amount: requireString(cost.amount, `${path}.job_budget.maximum_cost.amount`),
-        currency_code: requireString(
+        amount: require_string(cost.amount, `${path}.job_budget.maximum_cost.amount`),
+        currency_code: require_string(
           cost.currency_code,
           `${path}.job_budget.maximum_cost.currency_code`,
         ),
       },
-      maximum_wall_time_ns: requireString(
+      maximum_wall_time_ns: require_string(
         budget.maximum_wall_time_ns,
         `${path}.job_budget.maximum_wall_time_ns`,
       ),
@@ -598,13 +602,13 @@ function decodePlanEntry(value: unknown, index: number): HoldoutEvaluationPlanEn
   };
 }
 
-function parseJson(
+function parse_json(
   input: Uint8Array | string,
   maximumBytes: number,
   field: string,
 ): { readonly bytes: Uint8Array; readonly value: unknown } {
   const bytes = typeof input === "string" ? encoder.encode(input) : new Uint8Array(input);
-  validateJsonEnvelope(bytes, maximumBytes);
+  validate_json_envelope(bytes, maximumBytes);
   let text: string;
   try {
     text = decoder.decode(bytes);
@@ -618,7 +622,7 @@ function parseJson(
   }
 }
 
-function validateJsonEnvelope(bytes: Uint8Array, maximumBytes: number): void {
+function validate_json_envelope(bytes: Uint8Array, maximumBytes: number): void {
   if (bytes.byteLength < 1 || bytes.byteLength > maximumBytes) fail("size_limit", "json");
   let depth = 0;
   let inString = false;
@@ -640,7 +644,7 @@ function validateJsonEnvelope(bytes: Uint8Array, maximumBytes: number): void {
   }
 }
 
-function requireObject(value: unknown, field: string): JsonObject {
+function require_object(value: unknown, field: string): JsonObject {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     fail("invalid_json", field);
   const prototype = Object.getPrototypeOf(value);
@@ -648,30 +652,30 @@ function requireObject(value: unknown, field: string): JsonObject {
   return value as JsonObject;
 }
 
-function requireArray(value: unknown, field: string): unknown[] {
+function require_array(value: unknown, field: string): unknown[] {
   if (!Array.isArray(value)) fail("invalid_json", field);
   return value;
 }
 
-function requireExactKeys(value: JsonObject, expected: readonly string[], field: string): void {
+function require_exact_keys(value: JsonObject, expected: readonly string[], field: string): void {
   const actual = Object.keys(value);
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
     fail("non_canonical", field);
   }
 }
 
-function requireString(value: unknown, field: string): string {
+function require_string(value: unknown, field: string): string {
   if (typeof value !== "string") fail("invalid_json", field);
   return value;
 }
 
-function parseRole(value: string): LockedSampleRole {
+function parse_role(value: string): LockedSampleRole {
   if (value === "first_locked_confirmation" || value === "second_locked_historical_holdout")
     return value;
   fail("invalid_role", "sample.role");
 }
 
-function parseDate(value: string): number {
+function parse_date(value: string): number {
   const match = DATE_PATTERN.exec(value);
   if (match === null) fail("invalid_date", "sample.date");
   const year = Number(match[1]);
@@ -684,29 +688,29 @@ function parseDate(value: string): number {
   return year * 10_000 + month * 100 + day;
 }
 
-function parseUnsigned(value: string, minimum: bigint, maximum: bigint, field: string): bigint {
+function parse_unsigned(value: string, minimum: bigint, maximum: bigint, field: string): bigint {
   if (!UNSIGNED_PATTERN.test(value)) fail("invalid_budget", field);
   const parsed = BigInt(value);
   if (parsed < minimum || parsed > maximum) fail("invalid_budget", field);
   return parsed;
 }
 
-function requireDigestText(value: string, field: string): Uint8Array {
+function require_digest_text(value: string, field: string): Uint8Array {
   if (!SHA256_PATTERN.test(value)) fail("invalid_digest", field);
-  return decodeDigestHex(value.slice(7));
+  return decode_digest_hex(value.slice(7));
 }
 
-function requireRawDigest(value: Uint8Array, field: string): void {
+function require_raw_digest(value: Uint8Array, field: string): void {
   if (!(value instanceof Uint8Array) || value.byteLength !== 32) fail("invalid_digest", field);
 }
 
-function requireWireDigest(value: Sha256Digest | undefined, field: string): Uint8Array {
+function require_wire_digest(value: Sha256Digest | undefined, field: string): Uint8Array {
   if (value === undefined) fail("reference_mismatch", field);
-  requireRawDigest(value.value, field);
+  require_raw_digest(value.value, field);
   return new Uint8Array(value.value);
 }
 
-function formatWireDate(
+function format_wire_date(
   value: { readonly year: number; readonly month: number; readonly day: number } | undefined,
   field: string,
 ): string {
@@ -716,11 +720,11 @@ function formatWireDate(
   return `${String(value.year).padStart(4, "0")}-${String(value.month).padStart(2, "0")}-${String(value.day).padStart(2, "0")}`;
 }
 
-function writePeriod(value: HoldoutPeriodValue): string {
+function write_period(value: HoldoutPeriodValue): string {
   return `{"schema":"${PERIOD_SCHEMA}","sample":{"role":"${value.sample.role}","start_inclusive":"${value.sample.start_inclusive}","end_inclusive":"${value.sample.end_inclusive}"},"snapshot_ids":[${value.snapshot_ids.map(quote).join(",")}],"snapshot_manifest_sha256":"${value.snapshot_manifest_sha256}"}`;
 }
 
-function writePlan(value: HoldoutEvaluationPlanValue): string {
+function write_plan(value: HoldoutEvaluationPlanValue): string {
   const entries = value.entries.map((entry) => {
     const artifact = entry.backtest_spec_artifact;
     const budget = entry.job_budget;
@@ -733,7 +737,7 @@ function quote(value: string): string {
   return `"${value}"`;
 }
 
-function freezePeriod(value: HoldoutPeriodValue): HoldoutPeriodValue {
+function freeze_period(value: HoldoutPeriodValue): HoldoutPeriodValue {
   return Object.freeze({
     sample: Object.freeze({ ...value.sample }),
     snapshot_ids: Object.freeze([...value.snapshot_ids]),
@@ -741,7 +745,7 @@ function freezePeriod(value: HoldoutPeriodValue): HoldoutPeriodValue {
   });
 }
 
-function freezePlan(value: HoldoutEvaluationPlanValue): HoldoutEvaluationPlanValue {
+function freeze_plan(value: HoldoutEvaluationPlanValue): HoldoutEvaluationPlanValue {
   return Object.freeze({
     holdout_period_id: value.holdout_period_id,
     canonical_period_sha256: value.canonical_period_sha256,
@@ -761,30 +765,30 @@ function freezePlan(value: HoldoutEvaluationPlanValue): HoldoutEvaluationPlanVal
   });
 }
 
-function rawHash(bytes: Uint8Array): Uint8Array {
+function raw_hash(bytes: Uint8Array): Uint8Array {
   return new Uint8Array(createHash("sha256").update(bytes).digest());
 }
 
-function domainHash(domain: string, bytes: Uint8Array): Uint8Array {
+function domain_hash(domain: string, bytes: Uint8Array): Uint8Array {
   return new Uint8Array(
     createHash("sha256").update(domain, "ascii").update(Uint8Array.of(0)).update(bytes).digest(),
   );
 }
 
-function encodeDigest(value: Uint8Array): string {
-  requireRawDigest(value, "digest");
+function encode_digest(value: Uint8Array): string {
+  require_raw_digest(value, "digest");
   return `sha256:${Buffer.from(value).toString("hex")}`;
 }
 
-function decodeDigestHex(value: string): Uint8Array {
+function decode_digest_hex(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value, "hex"));
 }
 
-function equalDigest(left: Uint8Array, right: Uint8Array): boolean {
+function equal_digest(left: Uint8Array, right: Uint8Array): boolean {
   return left.byteLength === 32 && right.byteLength === 32 && timingSafeEqual(left, right);
 }
 
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
+function equal_bytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.byteLength === right.byteLength && timingSafeEqual(left, right);
 }
 

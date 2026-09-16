@@ -12,7 +12,8 @@ use prost_types::{FileDescriptorSet, Timestamp};
 const DISCOVERY_FILE: &str = "loop/discovery/v1/service.proto";
 
 #[test]
-fn discovery_response_round_trip_exposes_only_the_safe_job_projection() {
+// Scenario: discovery response round trip exposes only the safe job projection.
+fn discovery_response_round() {
     let response = StartDiscoveryResponse {
         job: Some(DiscoveryJobHandle {
             job_id: Some(JobId {
@@ -48,7 +49,8 @@ fn discovery_response_round_trip_exposes_only_the_safe_job_projection() {
 }
 
 #[test]
-fn generated_discovery_surface_does_not_reference_sensitive_job_types() {
+// Scenario: generated discovery surface does not reference sensitive job types.
+fn generated_discovery_surface() {
     let generated = include_str!("../src/generated/r#loop.discovery.v1.rs");
     for forbidden in [
         "JobRecord",
@@ -65,7 +67,8 @@ fn generated_discovery_surface_does_not_reference_sensitive_job_types() {
 }
 
 #[test]
-fn discovery_dependency_closure_uses_only_the_development_data_leaf() {
+// Scenario: discovery dependency closure uses only the development data leaf.
+fn discovery_dependency_closure() {
     let descriptor = FileDescriptorSet::decode(loop_protocol::FILE_DESCRIPTOR_SET)
         .expect("committed descriptor must decode");
     let files = descriptor

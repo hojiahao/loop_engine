@@ -40,7 +40,7 @@ Run the existing local TLS PostgreSQL fixture; never use the production URL:
 bash scripts/postgres-test.sh start
 ./scripts/cargo.sh test --locked --offline -p loopd --test durable_rejection -- --test-threads=1
 ./scripts/cargo.sh test --locked --offline -p loopd --test durable_processes -- --test-threads=1
-./scripts/cargo.sh test --locked --offline -p loopd --lib killed_writer_preserves_atomicity -- --test-threads=1
+./scripts/cargo.sh test --locked --offline -p loopd --lib killed_writer_atomicity -- --test-threads=1
 bash scripts/postgres-test.sh stop
 just check
 ```

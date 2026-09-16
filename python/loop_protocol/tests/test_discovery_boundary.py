@@ -14,7 +14,8 @@ _FORBIDDEN = (
 )
 
 
-def test_generated_discovery_module_has_only_safe_dependencies() -> None:
+# Scenario: generated discovery module has only safe dependencies.
+def test_generated_discovery() -> None:
     assert {dependency.name for dependency in service_pb2.DESCRIPTOR.dependencies} == {
         "google/protobuf/duration.proto",
         "google/protobuf/timestamp.proto",
@@ -26,7 +27,8 @@ def test_generated_discovery_module_has_only_safe_dependencies() -> None:
     assert service_pb2.loop_dot_v1_dot_development__data__pb2 is development_data_pb2
 
 
-def test_development_dataset_module_is_a_safe_dependency_leaf() -> None:
+# Scenario: development dataset module is a safe dependency leaf.
+def test_development_dataset() -> None:
     descriptor = development_data_pb2.DESCRIPTOR
     assert {dependency.name for dependency in descriptor.dependencies} == {"loop/v1/common.proto"}
     assert set(descriptor.message_types_by_name) == {"DevelopmentDatasetReference"}
@@ -36,7 +38,8 @@ def test_development_dataset_module_is_a_safe_dependency_leaf() -> None:
     assert not hasattr(development_data_pb2, "DataSnapshot")
 
 
-def test_discovery_request_and_response_graph_cannot_reach_holdout_or_generic_job() -> None:
+# Scenario: discovery request and response graph cannot reach holdout or generic job.
+def test_discovery_request() -> None:
     service = service_pb2.DESCRIPTOR.services_by_name["DiscoveryService"]
     roots = [
         message for method in service.methods for message in (method.input_type, method.output_type)
@@ -63,7 +66,8 @@ def test_discovery_request_and_response_graph_cannot_reach_holdout_or_generic_jo
     assert "loop.v1.JobSpecification" not in visited
 
 
-def test_discovery_response_round_trip_has_no_specification_or_outcome() -> None:
+# Scenario: discovery response round trip has no specification or outcome.
+def test_discovery_response() -> None:
     response = service_pb2.StartDiscoveryResponse(
         job=service_pb2.DiscoveryJobHandle(
             job_id=JobId(value="job.discovery.0001"),

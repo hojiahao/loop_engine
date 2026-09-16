@@ -11,7 +11,7 @@ from loop_protocol import (
     ProtocolNegotiationError,
     negotiate_protocol_availability,
     protocol_selection_sha256,
-    validate_protocol_selection_availability,
+    validate_selection_availability,
 )
 
 VECTORS = Path(__file__).parents[3] / "tests" / "contracts" / "protocol_negotiation_vectors.tsv"
@@ -21,7 +21,8 @@ REQUIRED_FEATURES = ("jobs.envelope.v1",)
 
 
 @pytest.mark.parametrize("vector", SHARED_VECTORS, ids=lambda vector: vector["name"])
-def test_shared_protocol_negotiation_matrix_fails_closed(vector: dict[str, str]) -> None:
+# Scenario: shared protocol negotiation matrix fails closed.
+def test_shared_protocol(vector: dict[str, str]) -> None:
     assert len(SHARED_VECTORS) == 15
     operation = vector["operation"]
     if operation == "negotiate":
@@ -97,7 +98,7 @@ def _run_selection_validation(mutation: str) -> str:
 
     retained_builds = (ProtocolBuildIdentity("server.1", bytes([0x22]) * 32),)
     try:
-        validate_protocol_selection_availability(
+        validate_selection_availability(
             selection,
             local,
             retained_builds,

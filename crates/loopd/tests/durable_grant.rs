@@ -13,7 +13,8 @@ use sqlx::Connection;
 use support::*;
 
 #[tokio::test]
-async fn issue_binds_approvals_and_period() {
+// Scenario: issue binds approvals and period.
+async fn issue_approvals_period() {
     let (_directory, store, _, request) = grant::setup().await;
     let result = store.issue_grant(&actor(), request).await.unwrap();
     assert!(!result.replayed);
@@ -39,7 +40,8 @@ async fn issue_binds_approvals_and_period() {
 }
 
 #[tokio::test]
-async fn personal_policy_accepts_one_human() {
+// Scenario: personal policy accepts one human.
+async fn personal_policy_human() {
     let policy = grant::Policy {
         required_approvers: 1,
         ..Default::default()
@@ -59,7 +61,8 @@ async fn personal_policy_accepts_one_human() {
 }
 
 #[tokio::test]
-async fn pinned_policy_enforces_approver_count() {
+// Scenario: pinned policy enforces approver count.
+async fn pinned_policy_approver() {
     let (_directory, store, _, request) = grant::setup_with(grant::Policy::default(), 1).await;
     assert!(matches!(
         store.issue_grant(&actor(), request).await,
@@ -70,7 +73,8 @@ async fn pinned_policy_enforces_approver_count() {
 }
 
 #[tokio::test]
-async fn aliases_do_not_count_as_distinct_humans() {
+// Scenario: aliases do not count as distinct humans.
+async fn aliases_distinct_humans() {
     let policy = grant::Policy {
         alias_subject: true,
         ..Default::default()
@@ -85,7 +89,8 @@ async fn aliases_do_not_count_as_distinct_humans() {
 }
 
 #[tokio::test]
-async fn same_actor_cannot_supply_two_approvals() {
+// Scenario: same actor cannot supply two approvals.
+async fn actor_approvals() {
     let (_directory, store, _, mut request) = grant::setup().await;
     let first = store
         .record_approval(
@@ -119,7 +124,8 @@ async fn same_actor_cannot_supply_two_approvals() {
 }
 
 #[tokio::test]
-async fn expired_approval_cannot_issue() {
+// Scenario: expired approval cannot issue.
+async fn expired_approval_issue() {
     let (_directory, store, clock, request) = grant::setup().await;
     clock.0.store(NOW + 3_600_000, Ordering::SeqCst);
     assert!(matches!(
@@ -130,7 +136,8 @@ async fn expired_approval_cannot_issue() {
 }
 
 #[tokio::test]
-async fn grant_cannot_outlive_approval() {
+// Scenario: grant cannot outlive approval.
+async fn grant_approval() {
     let policy = grant::Policy {
         grant_validity_ms: 3_600_001,
         ..Default::default()
@@ -144,7 +151,8 @@ async fn grant_cannot_outlive_approval() {
 }
 
 #[tokio::test]
-async fn different_key_cannot_issue_twice() {
+// Scenario: different key cannot issue twice.
+async fn different_key_issue() {
     let (_directory, store, _, mut request) = grant::setup().await;
     store.issue_grant(&actor(), request.clone()).await.unwrap();
     request.context = Some(context("second"));
@@ -174,7 +182,8 @@ async fn changed_request_conflicts() {
 }
 
 #[tokio::test]
-async fn replay_survives_expiry_and_restart() {
+// Scenario: replay survives expiry and restart.
+async fn replay_expiry_restart() {
     let (directory, store, clock, mut request) = grant::setup().await;
     let original = store.issue_grant(&actor(), request.clone()).await.unwrap();
     store.close().await;
@@ -195,7 +204,8 @@ async fn replay_survives_expiry_and_restart() {
 }
 
 #[tokio::test]
-async fn expired_grant_permanently_closes_period() {
+// Scenario: expired grant permanently closes period.
+async fn expired_grant_closes() {
     let (_directory, store, clock, mut request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request.clone()).await.unwrap();
     clock.0.store(NOW + 60_000, Ordering::SeqCst);
@@ -224,7 +234,8 @@ async fn expired_grant_permanently_closes_period() {
 }
 
 #[tokio::test]
-async fn revoked_grant_cannot_be_replaced() {
+// Scenario: revoked grant cannot be replaced.
+async fn revoked_grant_replaced() {
     let (_directory, store, _, mut request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request.clone()).await.unwrap();
     let closed = store
@@ -246,7 +257,8 @@ async fn revoked_grant_cannot_be_replaced() {
 }
 
 #[tokio::test]
-async fn expiry_is_half_open() {
+// Scenario: expiry is half open.
+async fn expiry_half_open() {
     let (_directory, store, clock, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request).await.unwrap();
     clock.0.store(NOW + 59_999, Ordering::SeqCst);
@@ -273,7 +285,8 @@ async fn expiry_is_half_open() {
 }
 
 #[tokio::test]
-async fn close_replay_preserves_reason() {
+// Scenario: close replay preserves reason.
+async fn close_replay_reason() {
     let (_directory, store, _, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request).await.unwrap();
     let mut command = grant::close(&issued, GrantClosure::Revoke, "revoke");
@@ -290,7 +303,8 @@ async fn close_replay_preserves_reason() {
 }
 
 #[tokio::test]
-async fn default_policy_denies_all_grant_operations() {
+// Scenario: default policy denies all grant operations.
+async fn default_policy_grant() {
     let (directory, store, clock, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request.clone()).await.unwrap();
     store.close().await;
@@ -323,7 +337,8 @@ async fn default_policy_denies_all_grant_operations() {
 }
 
 #[tokio::test]
-async fn unresolved_freeze_fails_closed() {
+// Scenario: unresolved freeze fails closed.
+async fn unresolved_freeze_closed() {
     let policy = grant::Policy {
         resolved: None,
         ..Default::default()
@@ -337,7 +352,8 @@ async fn unresolved_freeze_fails_closed() {
 }
 
 #[tokio::test]
-async fn changed_plan_bytes_fail_closed() {
+// Scenario: changed plan bytes fail closed.
+async fn changed_plan_bytes() {
     let mut resolved = grant::resolved(0);
     resolved.canonical_plan.push(b' ');
     let policy = grant::Policy {
@@ -353,7 +369,8 @@ async fn changed_plan_bytes_fail_closed() {
 }
 
 #[tokio::test]
-async fn caller_cannot_change_frozen_policy() {
+// Scenario: caller cannot change frozen policy.
+async fn caller_frozen_policy() {
     let (_directory, store, _, mut request) = grant::setup().await;
     request
         .freeze_manifest
@@ -371,7 +388,8 @@ async fn caller_cannot_change_frozen_policy() {
 }
 
 #[tokio::test]
-async fn clock_regression_blocks_mutation() {
+// Scenario: clock regression blocks mutation.
+async fn clock_regression_mutation() {
     let (_directory, store, clock, request) = grant::setup().await;
     clock.0.store(NOW - 1, Ordering::SeqCst);
     assert!(matches!(
@@ -382,7 +400,8 @@ async fn clock_regression_blocks_mutation() {
 }
 
 #[tokio::test]
-async fn future_command_fails_before_issue() {
+// Scenario: future command fails before issue.
+async fn future_command_issue() {
     let (_directory, store, _, mut request) = grant::setup().await;
     request.context.as_mut().unwrap().requested_at = Some(timestamp(NOW + 1));
     assert!(matches!(
@@ -393,7 +412,8 @@ async fn future_command_fails_before_issue() {
 }
 
 #[tokio::test]
-async fn actor_metadata_is_not_authority() {
+// Scenario: actor metadata is not authority.
+async fn actor_metadata_authority() {
     let (_directory, store, _, mut request) = grant::setup().await;
     request
         .context
@@ -411,7 +431,8 @@ async fn actor_metadata_is_not_authority() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_issue() {
+// Scenario: audit failure rolls back issue.
+async fn audit_failure_issue() {
     let (directory, store, _, request) = grant::setup().await;
     let mut database = connection(&directory).await;
     sqlx::query("CREATE TRIGGER injected_failure BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION reject_immutable_change()")
@@ -443,7 +464,8 @@ async fn audit_failure_rolls_back_issue() {
 }
 
 #[tokio::test]
-async fn receipt_failure_rolls_back_close() {
+// Scenario: receipt failure rolls back close.
+async fn receipt_failure_close() {
     let (directory, store, _, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request).await.unwrap();
     let mut database = connection(&directory).await;
@@ -475,7 +497,8 @@ async fn receipt_failure_rolls_back_close() {
 }
 
 #[tokio::test]
-async fn cancellation_leaves_no_grant() {
+// Scenario: cancellation leaves no grant.
+async fn cancellation_grant() {
     let (directory, store, _, request) = grant::setup().await;
     let mut database = connection(&directory).await;
     let mut transaction = database.begin().await.unwrap();
@@ -499,7 +522,8 @@ async fn cancellation_leaves_no_grant() {
 }
 
 #[tokio::test]
-async fn rehashed_receipt_cannot_rewrite_grant() {
+// Scenario: rehashed receipt cannot rewrite grant.
+async fn rehashed_receipt_grant() {
     let (directory, store, _, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request.clone()).await.unwrap();
     let mut response = RequestHoldoutGrantResponse {
@@ -524,7 +548,8 @@ async fn rehashed_receipt_cannot_rewrite_grant() {
 }
 
 #[tokio::test]
-async fn database_rejects_partial_and_mutable_aggregates() {
+// Scenario: database rejects partial and mutable aggregates.
+async fn database_aggregates() {
     let (directory, store, _, request) = grant::setup().await;
     let issued = store.issue_grant(&actor(), request).await.unwrap();
     let mut database = connection(&directory).await;

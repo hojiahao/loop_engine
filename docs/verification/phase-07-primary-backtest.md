@@ -9,14 +9,14 @@ No service, database table, dependency or production-data permission is added.
 
 | Requirement | Executable evidence |
 | --- | --- |
-| Cash/holdings/NAV reconciliation with opening gaps | `test_hand_accounting_with_opening_gaps` |
-| Successive NAV returns, absent first return | `test_returns_are_ratios_and_first_is_missing` |
-| Fixed-share next-session orders, causal prefixes | `test_next_open_never_resizes_the_decision_order`, `test_future_signals_cannot_change_prior_ledger` |
-| Chronological sale funding | `test_late_sale_cannot_fund_an_earlier_open` |
-| Commission/spread without double charging | `test_commission_and_spread_goldens` |
-| Missing observations and explicit terminal holdings | `test_unfilled_open_expires_and_cannot_use_the_close`, missing-mark tests, `test_final_positions_are_marked_without_hidden_liquidation` |
-| Deterministic ties, direction, decimal context and conservation | Direction/tie/context tests and `test_flat_frictionless_market_conserves_wealth` |
-| Actual numerical source and installed CLI | `test_real_evaluation_to_ledger_and_read_only_replay`, `test_installed_cli_runs_and_replays` |
+| Cash/holdings/NAV reconciliation with opening gaps | `test_hand_accounting` |
+| Successive NAV returns, absent first return | `test_ratios_first` |
+| Fixed-share next-session orders, causal prefixes | `test_next_open`, `test_future_signals` |
+| Chronological sale funding | `test_late_sale` |
+| Commission/spread without double charging | `test_commission_spread` |
+| Missing observations and explicit terminal holdings | `test_unfilled_open`, missing-mark tests, `test_final_positions` |
+| Deterministic ties, direction, decimal context and conservation | Direction/tie/context tests and `test_flat_frictionless` |
+| Actual numerical source and installed CLI | `test_evaluation_ledger`, `test_installed_cli` |
 | Fail-closed evidence, policy, provenance, sample, clocks and corruption | `test_backtest_workflow.py` negative cases |
 
 Phase 6 closeout `4ea0316` is pushed and passes CI run `35060368321`; its

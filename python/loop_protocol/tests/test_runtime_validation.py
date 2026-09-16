@@ -11,7 +11,7 @@ from loop_protocol import (
     RichStatusDetail,
     RuntimeValidationCode,
     RuntimeValidationError,
-    validate_job_wire_dispatch_candidate,
+    validate_dispatch_candidate,
     validate_operational_failure,
 )
 
@@ -44,7 +44,8 @@ def _assert_error_code(expected: RuntimeValidationCode, operation: Any) -> None:
     assert caught.value.code is expected
 
 
-def test_validates_shared_operational_failure_fixture() -> None:
+# Scenario: validates shared operational failure fixture.
+def test_shared_operational() -> None:
     fixture = _operational_fixture()
     validated = validate_operational_failure(
         fixture["grpc_status_code"],
@@ -57,7 +58,8 @@ def test_validates_shared_operational_failure_fixture() -> None:
     assert validated.retryable is fixture["expected"]["retryable"]
 
 
-def test_operational_failure_type_and_transport_checks_fail_closed() -> None:
+# Scenario: operational failure type and transport checks fail closed.
+def test_operational_type() -> None:
     fixture = _operational_fixture()
     for type_url in (
         "type.googleapis.com/loop.v1.FactorRejection",
@@ -82,7 +84,8 @@ def test_operational_failure_type_and_transport_checks_fail_closed() -> None:
     assert _detail(fixture).type_url == SERVICE_ERROR_TYPE_URL
 
 
-def test_operational_failure_rejects_unbounded_or_malformed_service_error_fields() -> None:
+# Scenario: operational failure rejects unbounded or malformed service error fields.
+def test_operational_failure() -> None:
     baseline = common_pb2.ServiceError(
         category=common_pb2.ERROR_CATEGORY_DEPENDENCY,
         code="artifact_digest_mismatch",
@@ -96,14 +99,14 @@ def test_operational_failure_rejects_unbounded_or_malformed_service_error_fields
         code="digest_mismatch",
         message="declared and computed digests differ",
     )
-    _validate_service_error_bytes(valid)
+    _service_error_bytes(valid)
 
     unknown_category = common_pb2.ServiceError()
     unknown_category.CopyFrom(baseline)
     unknown_category.category = cast(Any, 999)
     _assert_error_code(
         RuntimeValidationCode.UNSUPPORTED_ENUM,
-        lambda: _validate_service_error_bytes(unknown_category),
+        lambda: _service_error_bytes(unknown_category),
     )
 
     invalid: list[common_pb2.ServiceError] = []
@@ -148,11 +151,11 @@ def test_operational_failure_rejects_unbounded_or_malformed_service_error_fields
     for service_error in invalid:
         _assert_error_code(
             RuntimeValidationCode.INVALID_SERVICE_ERROR,
-            lambda service_error=service_error: _validate_service_error_bytes(service_error),
+            lambda service_error=service_error: _service_error_bytes(service_error),
         )
 
 
-def _validate_service_error_bytes(service_error: common_pb2.ServiceError) -> None:
+def _service_error_bytes(service_error: common_pb2.ServiceError) -> None:
     validate_operational_failure(
         14,
         b"",
@@ -165,7 +168,8 @@ def _validate_service_error_bytes(service_error: common_pb2.ServiceError) -> Non
     )
 
 
-def test_unknown_job_enum_and_oneof_fixtures_fail_closed() -> None:
+# Scenario: unknown job enum and oneof fixtures fail closed.
+def test_unknown_job() -> None:
     unknown_enum = job_pb2.JobSpecification.FromString(
         (PROTOCOL_FIXTURES / "job_specification_v1_unknown_enum.binpb").read_bytes()
     )
@@ -173,7 +177,7 @@ def test_unknown_job_enum_and_oneof_fixtures_fail_closed() -> None:
     assert unknown_enum.WhichOneof("input") == "discovery"
     _assert_error_code(
         RuntimeValidationCode.UNSUPPORTED_ENUM,
-        lambda: validate_job_wire_dispatch_candidate(unknown_enum, {job_pb2.JOB_KIND_DISCOVERY}),
+        lambda: validate_dispatch_candidate(unknown_enum, {job_pb2.JOB_KIND_DISCOVERY}),
     )
 
     unknown_oneof = job_pb2.JobSpecification.FromString(
@@ -183,18 +187,19 @@ def test_unknown_job_enum_and_oneof_fixtures_fail_closed() -> None:
     assert unknown_oneof.WhichOneof("input") is None
     _assert_error_code(
         RuntimeValidationCode.UNSUPPORTED_ONEOF,
-        lambda: validate_job_wire_dispatch_candidate(unknown_oneof, {job_pb2.JOB_KIND_REPORT}),
+        lambda: validate_dispatch_candidate(unknown_oneof, {job_pb2.JOB_KIND_REPORT}),
     )
 
 
-def test_known_job_dispatch_requires_a_complete_envelope_and_matching_input() -> None:
+# Scenario: known job dispatch requires a complete envelope and matching input.
+def test_known_job() -> None:
     valid = job_pb2.JobSpecification(
         kind=job_pb2.JOB_KIND_DISCOVERY,
         discovery=job_pb2.DiscoveryJobInput(),
     )
     _assert_error_code(
         RuntimeValidationCode.INVALID_SPECIFICATION,
-        lambda: validate_job_wire_dispatch_candidate(valid, {job_pb2.JOB_KIND_DISCOVERY}),
+        lambda: validate_dispatch_candidate(valid, {job_pb2.JOB_KIND_DISCOVERY}),
     )
 
     mismatched = job_pb2.JobSpecification(
@@ -203,7 +208,7 @@ def test_known_job_dispatch_requires_a_complete_envelope_and_matching_input() ->
     )
     _assert_error_code(
         RuntimeValidationCode.INCOMPATIBLE_VARIANT,
-        lambda: validate_job_wire_dispatch_candidate(mismatched, {job_pb2.JOB_KIND_DISCOVERY}),
+        lambda: validate_dispatch_candidate(mismatched, {job_pb2.JOB_KIND_DISCOVERY}),
     )
 
     disabled = job_pb2.JobSpecification(
@@ -212,5 +217,5 @@ def test_known_job_dispatch_requires_a_complete_envelope_and_matching_input() ->
     )
     _assert_error_code(
         RuntimeValidationCode.INVALID_SPECIFICATION,
-        lambda: validate_job_wire_dispatch_candidate(disabled, {job_pb2.JOB_KIND_DISCOVERY}),
+        lambda: validate_dispatch_candidate(disabled, {job_pb2.JOB_KIND_DISCOVERY}),
     )

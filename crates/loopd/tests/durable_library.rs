@@ -36,7 +36,8 @@ async fn counts(dir: &TempDir) -> (i64, i64, i64, i64) {
 }
 
 #[tokio::test]
-async fn admission_replays_after_restart() {
+// Scenario: admission replays after restart.
+async fn admission_restart() {
     let (dir, store, clock, policy) = fixture().await;
     let command = library::command(1, 0, "decide.1");
     let first = store
@@ -97,7 +98,8 @@ async fn readmission_rechecks_coverage() {
 }
 
 #[tokio::test]
-async fn human_override_is_explicit_and_replayable() {
+// Scenario: human override is explicit and replayable.
+async fn human_override_explicit() {
     let (dir, store, _, policy) = fixture().await;
     policy.evidence.lock().unwrap().semantic_accepted = false;
     store
@@ -144,7 +146,8 @@ async fn human_override_is_explicit_and_replayable() {
 }
 
 #[tokio::test]
-async fn override_cannot_bypass_machine_gates() {
+// Scenario: override cannot bypass machine gates.
+async fn override_machine_gates() {
     let (dir, store, _, policy) = fixture().await;
     *policy.override_allowed.lock().unwrap() = true;
     let before = counts(&dir).await;
@@ -176,7 +179,8 @@ async fn override_cannot_bypass_machine_gates() {
 }
 
 #[tokio::test]
-async fn missing_review_is_not_rejection() {
+// Scenario: missing review is not rejection.
+async fn missing_review_rejection() {
     let (dir, store, _, policy) = fixture().await;
     let before = counts(&dir).await;
     *policy.available.lock().unwrap() = false;
@@ -191,7 +195,8 @@ async fn missing_review_is_not_rejection() {
 }
 
 #[tokio::test]
-async fn replaces_and_preserves_lifetime_retirements() {
+// Scenario: replaces and preserves lifetime retirements.
+async fn lifetime_retirements() {
     let (_dir, store, _, policy) = fixture().await;
     let first = store
         .decide_factor(&actor(), library::command(1, 0, "first"))
@@ -228,7 +233,8 @@ async fn replaces_and_preserves_lifetime_retirements() {
 }
 
 #[tokio::test]
-async fn replacement_failure_rolls_back_admission() {
+// Scenario: replacement failure rolls back admission.
+async fn replacement_failure_admission() {
     let (dir, store, _, policy) = fixture().await;
     policy.evidence.lock().unwrap().replacements =
         vec![perturbation::candidate(20).factor_spec_id.unwrap().value];
@@ -244,7 +250,8 @@ async fn replacement_failure_rolls_back_admission() {
 }
 
 #[tokio::test]
-async fn stale_library_blocks_decision() {
+// Scenario: stale library blocks decision.
+async fn stale_library_decision() {
     let (dir, store, _, _) = fixture().await;
     store
         .decide_factor(&actor(), library::command(1, 0, "first"))
@@ -263,7 +270,8 @@ async fn stale_library_blocks_decision() {
 }
 
 #[tokio::test]
-async fn stale_provenance_blocks_retry() {
+// Scenario: stale provenance blocks retry.
+async fn stale_provenance_retry() {
     let (dir, store, _, policy) = fixture().await;
     let request = library::command(1, 0, "decide");
     store
@@ -293,7 +301,8 @@ async fn stale_provenance_blocks_retry() {
 }
 
 #[tokio::test]
-async fn authorization_and_default_deny() {
+// Scenario: authorization and default deny.
+async fn authorization_default() {
     let (dir, store, clock, _) = fixture().await;
     let mut spoofed = library::command(1, 0, "spoof");
     spoofed.context.as_mut().unwrap().actor = Some(library::human());
@@ -325,7 +334,8 @@ async fn authorization_and_default_deny() {
 }
 
 #[tokio::test]
-async fn revisions_and_keys_are_fenced() {
+// Scenario: revisions and keys are fenced.
+async fn revisions_keys_fenced() {
     let (dir, store, _, _) = fixture().await;
     let request = library::command(1, 0, "decide");
     store
@@ -356,7 +366,8 @@ async fn revisions_and_keys_are_fenced() {
 }
 
 #[tokio::test]
-async fn deadlines_and_clock_regression_fail_closed() {
+// Scenario: deadlines and clock regression fail closed.
+async fn deadlines_clock_regression() {
     let (dir, store, clock, _) = fixture().await;
     let before = counts(&dir).await;
     clock.0.store(NOW - 1, Ordering::SeqCst);
@@ -378,7 +389,8 @@ async fn deadlines_and_clock_regression_fail_closed() {
 }
 
 #[tokio::test]
-async fn trials_preserve_preexecution_cancellation() {
+// Scenario: trials preserve preexecution cancellation.
+async fn trials_preexecution_cancellation() {
     let (dir, store, _, _) = fixture().await;
     let mut submission = rejection::command(2);
     if let Some(job_specification::Input::Backtest(input)) = &mut submission.specification.input {
@@ -422,7 +434,8 @@ async fn trials_preserve_preexecution_cancellation() {
 }
 
 #[tokio::test]
-async fn audit_failure_rolls_back_decision() {
+// Scenario: audit failure rolls back decision.
+async fn audit_failure_decision() {
     let (dir, store, _, _) = fixture().await;
     connection(&dir).await.execute("CREATE FUNCTION fail_factor_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture audit outage'; END $$; CREATE TRIGGER fail_factor_audit BEFORE INSERT ON audit_events FOR EACH ROW EXECUTE FUNCTION fail_factor_audit();").await.unwrap();
     let before = counts(&dir).await;
@@ -437,7 +450,8 @@ async fn audit_failure_rolls_back_decision() {
 }
 
 #[tokio::test]
-async fn sql_guards_preserve_history() {
+// Scenario: sql guards preserve history.
+async fn sql_guards_history() {
     let (dir, store, _, _) = fixture().await;
     store
         .decide_factor(&actor(), library::command(1, 0, "first"))
@@ -456,7 +470,8 @@ async fn sql_guards_preserve_history() {
 }
 
 #[tokio::test]
-async fn malformed_evidence_cannot_create_decisions() {
+// Scenario: malformed evidence cannot create decisions.
+async fn malformed_evidence_create() {
     let (dir, store, _, policy) = fixture().await;
     let before = counts(&dir).await;
     for mutate in [
@@ -485,7 +500,8 @@ async fn malformed_evidence_cannot_create_decisions() {
 }
 
 #[tokio::test]
-async fn trial_corruption_blocks_admission_and_reads() {
+// Scenario: trial corruption blocks admission and reads.
+async fn trial_corruption_admission() {
     let (dir, store, _, _) = fixture().await;
     connection(&dir).await.execute("ALTER TABLE factor_trials DISABLE TRIGGER factor_trials_immutable; UPDATE factor_trials SET specification_sha256 = decode(repeat('00', 32), 'hex');").await.unwrap();
     assert!(matches!(
@@ -503,7 +519,8 @@ async fn trial_corruption_blocks_admission_and_reads() {
 }
 
 #[tokio::test]
-async fn factor_projection_corruption_is_not_a_new_factor() {
+// Scenario: factor projection corruption is not a new factor.
+async fn factor_projection_corruption() {
     let (dir, store, _, policy) = fixture().await;
     let admitted = store
         .decide_factor(&actor(), library::command(1, 0, "first"))
@@ -522,7 +539,8 @@ async fn factor_projection_corruption_is_not_a_new_factor() {
 }
 
 #[tokio::test]
-async fn receipt_corruption_blocks_replay() {
+// Scenario: receipt corruption blocks replay.
+async fn receipt_corruption_replay() {
     let (dir, store, _, _) = fixture().await;
     store
         .decide_factor(&actor(), library::command(1, 0, "first"))
@@ -547,7 +565,8 @@ async fn receipt_corruption_blocks_replay() {
 }
 
 #[tokio::test]
-async fn cancelled_waiter_does_not_publish() {
+// Scenario: cancelled waiter does not publish.
+async fn cancelled_waiter() {
     let (dir, store, _, _) = fixture().await;
     let before = counts(&dir).await;
     let mut conn = connection(&dir).await;
@@ -580,7 +599,8 @@ async fn cancelled_waiter_does_not_publish() {
 }
 
 #[tokio::test]
-async fn factor_evaluation_submissions_are_trials() {
+// Scenario: factor evaluation submissions are trials.
+async fn factor_evaluation_submissions() {
     let (dir, store, _, _) = fixture().await;
     let mut request = command(2);
     let (kind, input) = research::inputs().remove(1);
@@ -608,7 +628,8 @@ async fn factor_evaluation_submissions_are_trials() {
 }
 
 #[tokio::test]
-async fn rejects_and_infrastructure_failures_remain_trials() {
+// Scenario: rejects and infrastructure failures remain trials.
+async fn infrastructure_failures_trials() {
     let (_dir, store, clock, _) = fixture().await;
     perturbation::seed(&store, 2, 20, true).await;
     let mut submission = rejection::command(3);
@@ -663,7 +684,8 @@ async fn rejects_and_infrastructure_failures_remain_trials() {
 }
 
 #[tokio::test]
-async fn migration_refuses_unindexed_trials() {
+// Scenario: migration refuses unindexed trials.
+async fn migration_refuses_unindexed() {
     let (dir, store, _, _) = fixture().await;
     let mut conn = connection(&dir).await;
     conn.execute("CREATE TEMP TABLE jobs (kind INTEGER); INSERT INTO jobs VALUES (2);")
@@ -687,7 +709,8 @@ async fn migration_refuses_unindexed_trials() {
 }
 
 #[tokio::test]
-async fn protected_jobs_are_not_admission_trials() {
+// Scenario: protected jobs are not admission trials.
+async fn protected_jobs_admission() {
     let directory = tempfile::tempdir().unwrap();
     let mut config = options(
         &directory.path().join("state"),
@@ -714,7 +737,8 @@ async fn protected_jobs_are_not_admission_trials() {
 }
 
 #[tokio::test]
-async fn trial_pages_require_authority_and_bounds() {
+// Scenario: trial pages require authority and bounds.
+async fn trial_pages_authority() {
     let (_dir, store, _, _) = fixture().await;
     let run = command(1).specification.run_id.unwrap().value;
     let mut stranger = actor();

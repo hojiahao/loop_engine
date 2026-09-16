@@ -29,7 +29,8 @@ FORBIDDEN_TYPE_TOKENS = (
 )
 
 
-def test_research_dependency_closure_excludes_internal_and_locked_contracts() -> None:
+# Scenario: research dependency closure excludes internal and locked contracts.
+def test_research_dependency() -> None:
     pending = [service_pb2.DESCRIPTOR]
     visited: set[str] = set()
     while pending:
@@ -45,7 +46,8 @@ def test_research_dependency_closure_excludes_internal_and_locked_contracts() ->
     assert service_pb2.loop_dot_v1_dot_development__data__pb2 is development_data_pb2
 
 
-def test_research_request_and_response_graph_is_development_only() -> None:
+# Scenario: research request and response graph is development only.
+def test_research_request() -> None:
     service = service_pb2.DESCRIPTOR.services_by_name["ResearchService"]
     roots = [
         message for method in service.methods for message in (method.input_type, method.output_type)
@@ -71,7 +73,8 @@ def test_research_request_and_response_graph_is_development_only() -> None:
     assert "loop.v1.ResearchProvenanceFingerprint" in visited
 
 
-def test_research_shared_surface_vectors_fail_closed() -> None:
+# Scenario: research shared surface vectors fail closed.
+def test_research_shared() -> None:
     surfaces = {
         "backtest_input": service_pb2.BacktestInput.DESCRIPTOR,
         "factor_input": service_pb2.FactorEvaluationInput.DESCRIPTOR,
@@ -85,7 +88,8 @@ def test_research_shared_surface_vectors_fail_closed() -> None:
         assert (member in surfaces[surface].fields_by_name) is (expected == "accept"), name
 
 
-def test_research_response_round_trip_has_only_the_safe_projection() -> None:
+# Scenario: research response round trip has only the safe projection.
+def test_research_response() -> None:
     response = service_pb2.EnqueueBacktestResponse(
         job=service_pb2.ResearchJobHandle(
             job_id=common_pb2.JobId(value="job.research.0001"),

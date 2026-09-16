@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
 use loop_core::holdout::{
-    CanonicalHoldoutEvaluationPlan, CanonicalHoldoutPeriod,
-    parse_canonical_holdout_evaluation_plan, parse_canonical_holdout_period,
+    CanonicalHoldoutEvaluationPlan, CanonicalHoldoutPeriod, parse_holdout_period,
+    parse_holdout_plan,
 };
-use loop_protocol::holdout::{validate_holdout_evaluation_plan_reference, validate_holdout_period};
+use loop_protocol::holdout::{validate_holdout_period, validate_plan_reference};
 use loop_protocol::wire::v1::{
     ArtifactId, ArtifactRef, ArtifactSchemaReference, CivilDate, HoldoutEvaluationPlanId,
     HoldoutEvaluationPlanReference, HoldoutPeriod, HoldoutPeriodId, SampleRole, SampleWindow,
@@ -16,7 +16,8 @@ use serde_json::Value;
 const GOLDEN: &str = include_str!("../../../tests/contracts/holdout_identity_golden.json");
 
 #[test]
-fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
+// Scenario: wire period and plan are validated as exact canonical projections.
+fn wire_period_plan() {
     let fixture: Value = serde_json::from_str(GOLDEN).unwrap();
     let period_fixture = &fixture["periods"][0];
     let plan_fixture = &fixture["plans"][0];
@@ -24,14 +25,14 @@ fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
     let trusted_backtest =
         decode_digest(fixture["trusted_backtest_schema_sha256"].as_str().unwrap());
     let resolved = resolved_artifacts(&fixture);
-    let period = parse_canonical_holdout_period(
+    let period = parse_holdout_period(
         period_fixture["canonical_json"]
             .as_str()
             .unwrap()
             .as_bytes(),
     )
     .unwrap();
-    let plan = parse_canonical_holdout_evaluation_plan(
+    let plan = parse_holdout_plan(
         plan_fixture["canonical_json"].as_str().unwrap().as_bytes(),
         &period,
         &trusted_backtest,
@@ -54,7 +55,7 @@ fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
         &trusted_plan,
     );
     assert_eq!(
-        validate_holdout_evaluation_plan_reference(
+        validate_plan_reference(
             &wire_plan,
             &plan.canonical_bytes,
             &period,
@@ -69,7 +70,7 @@ fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
 
     wire_plan.canonical_plan.as_mut().unwrap().created_at = None;
     assert!(
-        validate_holdout_evaluation_plan_reference(
+        validate_plan_reference(
             &wire_plan,
             &plan.canonical_bytes,
             &period,
@@ -85,7 +86,7 @@ fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
     });
     wire_plan.canonical_plan.as_mut().unwrap().row_count = Some(1);
     assert!(
-        validate_holdout_evaluation_plan_reference(
+        validate_plan_reference(
             &wire_plan,
             &plan.canonical_bytes,
             &period,
@@ -98,7 +99,8 @@ fn wire_period_and_plan_are_validated_as_exact_canonical_projections() {
 }
 
 #[test]
-fn wire_adapters_reject_missing_and_malformed_repeated_identities() {
+// Scenario: wire adapters reject missing and malformed repeated identities.
+fn wire_adapters_missing() {
     let fixture: Value = serde_json::from_str(GOLDEN).unwrap();
     let period_fixture = &fixture["periods"][0];
     let plan_fixture = &fixture["plans"][0];
@@ -106,14 +108,14 @@ fn wire_adapters_reject_missing_and_malformed_repeated_identities() {
     let trusted_backtest =
         decode_digest(fixture["trusted_backtest_schema_sha256"].as_str().unwrap());
     let resolved = resolved_artifacts(&fixture);
-    let period = parse_canonical_holdout_period(
+    let period = parse_holdout_period(
         period_fixture["canonical_json"]
             .as_str()
             .unwrap()
             .as_bytes(),
     )
     .unwrap();
-    let plan = parse_canonical_holdout_evaluation_plan(
+    let plan = parse_holdout_plan(
         plan_fixture["canonical_json"].as_str().unwrap().as_bytes(),
         &period,
         &trusted_backtest,
@@ -133,7 +135,7 @@ fn wire_adapters_reject_missing_and_malformed_repeated_identities() {
     );
     wire_plan.plan_sha256 = None;
     assert!(
-        validate_holdout_evaluation_plan_reference(
+        validate_plan_reference(
             &wire_plan,
             &plan.canonical_bytes,
             &period,

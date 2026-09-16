@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{
-    Identifier, OperatorRef, PositiveInteger, RegistryError, SemanticContractId,
-    constant_time_digest_eq,
+    Identifier, OperatorRef, PositiveInteger, RegistryError, SemanticContractId, digest_eq,
 };
 
 pub const OPERATOR_SEMANTIC_CONTRACT_SCHEMA: &str = "loop.operator-semantic-contract/v1";
@@ -190,9 +189,7 @@ where
     }
 }
 
-pub fn parse_canonical_operator_semantic_contract(
-    bytes: &[u8],
-) -> Result<OperatorSemanticContract, RegistryError> {
+pub fn parse_semantic_contract(bytes: &[u8]) -> Result<OperatorSemanticContract, RegistryError> {
     if bytes.len() > MAX_SEMANTIC_CONTRACT_BYTES {
         return Err(RegistryError::InvalidSemanticContract(
             "semantic contract exceeds the v1 byte limit".to_owned(),
@@ -227,13 +224,13 @@ pub(super) fn resolve_semantic_contract(
         .resolve(identity)
         .ok_or(RegistryError::SemanticContractNotFound { identity })?;
     let computed = semantic_contract_sha256(&bytes);
-    if !constant_time_digest_eq(identity.as_bytes(), computed.as_bytes()) {
+    if !digest_eq(identity.as_bytes(), computed.as_bytes()) {
         return Err(RegistryError::SemanticContractDigestMismatch {
             claimed: identity,
             computed,
         });
     }
-    let contract = parse_canonical_operator_semantic_contract(&bytes)?;
+    let contract = parse_semantic_contract(&bytes)?;
     if contract.operator() != operator.name()
         || contract.operator_version() != operator.semantic_version()
     {

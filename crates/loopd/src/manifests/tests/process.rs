@@ -95,7 +95,8 @@ fn manifest_worker() {
 }
 
 #[tokio::test]
-async fn independent_writers_preserve_export_identity() {
+// Scenario: independent writers preserve export identity.
+async fn independent_writers_export() {
     for count in [2, 4, 8] {
         for shared in [true, false] {
             let fixture = Fixture::new();
@@ -140,7 +141,8 @@ async fn independent_writers_preserve_export_identity() {
 }
 
 #[tokio::test]
-async fn killed_exporter_recovers_from_actual_files() {
+// Scenario: killed exporter recovers from actual files.
+async fn killed_exporter_files() {
     for point in [
         "export_after_receipt",
         "export_before_commit",

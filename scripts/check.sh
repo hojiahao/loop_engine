@@ -9,6 +9,10 @@ for loop_shell_script in scripts/*.sh; do
 done
 
 ./scripts/pnpm.sh exec biome check tests/toolchains tests/runtime
+./scripts/uv.sh run --locked --offline --no-sync python scripts/check-function-names.py --self-test
+./scripts/uv.sh run --locked --offline --no-sync python scripts/check-function-names.py
+node --test --test-isolation=none tests/toolchains/function-names.test.mjs
+node tests/toolchains/function-names.mjs --check
 node --test --test-isolation=none tests/toolchains/rust-download.test.mjs
 ./scripts/proto-check.sh
 ./scripts/cargo.sh fmt --all -- --check

@@ -89,7 +89,7 @@ fn expected_protocol_info() -> ProtocolInfo {
     }
 }
 
-fn assert_semantic_round_trip(name: &str) {
+fn assert_semantic_roundtrip(name: &str) {
     let decoded = ProtocolInfo::decode(fixture(name).as_slice())
         .expect("current binding must decode the compatibility fixture");
     assert_expected_projection(&decoded);
@@ -101,7 +101,8 @@ fn assert_semantic_round_trip(name: &str) {
 }
 
 #[test]
-fn generated_core_binding_imports() {
+// Scenario: generated core binding imports.
+fn generated_core_imports() {
     let message = ProtocolInfo {
         supported_packages: Vec::new(),
         features: Vec::new(),
@@ -114,14 +115,16 @@ fn generated_core_binding_imports() {
 
 #[cfg(feature = "protocol-service")]
 #[test]
-fn generated_protocol_service_binding_imports() {
+// Scenario: generated protocol service binding imports.
+fn generated_protocol_service() {
     use loop_protocol::wire::protocol::v1::GetProtocolInfoRequest;
 
     assert_eq!(GetProtocolInfoRequest {}.encoded_len(), 0);
 }
 
 #[test]
-fn rust_fixture_is_current_native_encoder_output() {
+// Scenario: rust fixture is current native encoder output.
+fn rust_fixture_native() {
     assert_eq!(
         fixture("protocol_info_v1.rust.binpb"),
         expected_protocol_info().encode_to_vec()
@@ -129,15 +132,17 @@ fn rust_fixture_is_current_native_encoder_output() {
 }
 
 #[test]
-fn decodes_and_reencodes_every_producer_fixture() {
+// Scenario: decodes and reencodes every producer fixture.
+fn producer_fixture() {
     for name in PRODUCER_FIXTURES {
-        assert_semantic_round_trip(name);
+        assert_semantic_roundtrip(name);
     }
 }
 
 #[test]
-fn old_reader_tolerates_additive_unknown_field() {
-    assert_semantic_round_trip("protocol_info_v1_unknown_field.binpb");
+// Scenario: old reader tolerates additive unknown field.
+fn old_reader_additive() {
+    assert_semantic_roundtrip("protocol_info_v1_unknown_field.binpb");
     // Unknown-field preservation is intentionally not asserted. Lossless
     // forwarding retains the original envelope instead of parse/re-serialize.
 }

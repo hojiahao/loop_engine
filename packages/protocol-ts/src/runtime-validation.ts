@@ -2,7 +2,7 @@ import { fromBinary } from "@bufbuild/protobuf";
 
 import { type ServiceError, ServiceErrorSchema } from "./generated/loop/v1/common_pb.js";
 import type { JobKind, JobSpecification } from "./generated/loop/v1/job_pb.js";
-import { JobValidationError, validateJobSpecification, validateServiceError } from "./job.js";
+import { JobValidationError, validate_job_specification, validate_service_error } from "./job.js";
 
 export const SERVICE_ERROR_TYPE_URL = "type.googleapis.com/loop.v1.ServiceError";
 
@@ -33,7 +33,7 @@ export interface RichStatusDetail {
   readonly value: Uint8Array;
 }
 
-export function validateOperationalFailure(
+export function validate_operational_failure(
   grpcStatusCode: number,
   responseBody: Uint8Array,
   details: readonly RichStatusDetail[],
@@ -59,7 +59,7 @@ export function validateOperationalFailure(
     throw new RuntimeValidationError("malformed_detail");
   }
   try {
-    validateServiceError(serviceError);
+    validate_service_error(serviceError);
   } catch (error) {
     if (error instanceof JobValidationError && error.code === "unknown_enum") {
       throw new RuntimeValidationError("unsupported_enum");
@@ -77,13 +77,13 @@ export function validateOperationalFailure(
  * availability, server-owned dataset snapshot/capability resolution, and
  * runtime authorization remain mandatory external gates.
  */
-export function validateJobWireDispatchCandidate(
+export function validate_dispatch_candidate(
   specification: JobSpecification,
   enabledJobKinds: ReadonlySet<JobKind>,
 ): JobKind {
   let kind: JobKind;
   try {
-    kind = validateJobSpecification(specification).kind;
+    kind = validate_job_specification(specification).kind;
   } catch (error) {
     if (!(error instanceof JobValidationError)) throw error;
     if (error.code === "unknown_enum") throw new RuntimeValidationError("unsupported_enum");

@@ -88,16 +88,16 @@ import {
   ReturnDefinition,
 } from "../src/generated/loop/v1/research_common_pb.js";
 import {
-  canonicalProtocolSelectionBytes,
-  factorSpecIdentitySha256,
+  factor_identity_hash,
   type JobValidationCode,
   JobValidationError,
-  protocolSelectionSha256,
-  validateHoldoutBacktestPlanEntryBinding,
-  validateJobRecord,
-  validateJobSpecification,
+  protocol_selection_bytes,
+  protocol_selection_sha256,
+  validate_job_record,
+  validate_job_specification,
+  validate_plan_binding,
 } from "../src/job.js";
-import { validateJobWireDispatchCandidate } from "../src/runtime-validation.js";
+import { validate_dispatch_candidate } from "../src/runtime-validation.js";
 
 const FACTOR_ID = "sha256:3a4f28e6e918ec379af280264bf314eaac843a0aded6fefcdcdd06cf925b895a";
 const EXPRESSION_ID = "sha256:2b93fad0265af4e02df2b2dce69d3b5a221bfd553aacaa52bb652666374d7cb3";
@@ -167,14 +167,14 @@ describe("JobRecord structural validation", () => {
         (entry) => entry.input === "factor_evaluation" && entry.expected === "accept",
       );
       if (vector === undefined) throw new Error("factor fixture missing");
-      const specification = validSpecification(vector);
+      const specification = valid_specification(vector);
       if (specification.input.case !== "factorEvaluation") throw new Error("factor input missing");
       const input = specification.input.value;
       input.provenance = provenance();
       input.deterministicSeed = digest(9);
-      validateJobSpecification(specification);
+      validate_job_specification(specification);
       input[missing] = undefined;
-      expect(() => validateJobSpecification(specification)).toThrow(JobValidationError);
+      expect(() => validate_job_specification(specification)).toThrow(JobValidationError);
     },
   );
   it("executes every row in the shared fail-closed matrix", () => {
@@ -183,13 +183,13 @@ describe("JobRecord structural validation", () => {
     for (const vector of shared) {
       const value = record(vector);
       if (vector.expected === "accept") {
-        expect(validateJobRecord(value), vector.name).toMatchObject({
+        expect(validate_job_record(value), vector.name).toMatchObject({
           kind: value.specification?.kind,
           state: value.state,
         });
       } else {
         try {
-          validateJobRecord(value);
+          validate_job_record(value);
           throw new Error(`expected ${vector.name} to fail`);
         } catch (error) {
           expect(error, vector.name).toBeInstanceOf(JobValidationError);
@@ -204,15 +204,15 @@ describe("ProtocolSelection canonical identity", () => {
   it("matches the shared producer golden", () => {
     const fields = protocolGoldenText.trimEnd().split("\n")[1]?.split("\t");
     expect(fields).toHaveLength(3);
-    const selection = protocolSelection();
-    expect(new TextDecoder().decode(canonicalProtocolSelectionBytes(selection))).toBe(fields?.[1]);
-    expect(Buffer.from(protocolSelectionSha256(selection)).toString("hex")).toBe(fields?.[2]);
+    const selection = protocol_selection();
+    expect(new TextDecoder().decode(protocol_selection_bytes(selection))).toBe(fields?.[1]);
+    expect(Buffer.from(protocol_selection_sha256(selection)).toString("hex")).toBe(fields?.[2]);
   });
 
   it("rejects every shared malformed selection", () => {
     for (const line of protocolNegativeText.trimEnd().split("\n").slice(1)) {
       const [name, expected, mutation] = line.split("\t");
-      const specification = validSpecification({
+      const specification = valid_specification({
         name: name ?? "selection",
         expected: (expected ?? "invalid_protocol_selection") as Vector["expected"],
         kind: "discovery",
@@ -240,7 +240,7 @@ describe("ProtocolSelection canonical identity", () => {
           break;
         case "future_timestamp":
           selection.selectedAt = timestamp(6);
-          selection.selectionSha256 = digestFromBytes(protocolSelectionSha256(selection));
+          selection.selectionSha256 = digest_from_bytes(protocol_selection_sha256(selection));
           break;
         case "invalid_package":
           selection.selectedPackage = "Loop.v1";
@@ -254,7 +254,7 @@ describe("ProtocolSelection canonical identity", () => {
         default:
           throw new Error(`unknown selection mutation ${mutation}`);
       }
-      expect(() => validateJobSpecification(specification), name).toThrowError(
+      expect(() => validate_job_specification(specification), name).toThrowError(
         expect.objectContaining({ code: expected }),
       );
     }
@@ -265,12 +265,12 @@ describe("holdout job resolved plan binding", () => {
   it("executes every shared plan-entry binding vector", () => {
     for (const line of holdoutBindingText.trimEnd().split("\n").slice(1)) {
       const [name, expected, mutation] = line.split("\t");
-      const fixture = holdoutBindingFixture();
+      const fixture = holdout_binding_fixture();
       switch (mutation) {
         case "none":
           break;
         case "plan_identity": {
-          const identity = create(HoldoutEvaluationPlanIdSchema, { value: digestId(99) });
+          const identity = create(HoldoutEvaluationPlanIdSchema, { value: digest_id(99) });
           fixture.input.holdoutEvaluationPlanId = identity;
           if (fixture.input.consumedGrant) {
             fixture.input.consumedGrant.holdoutEvaluationPlanId = identity;
@@ -279,7 +279,7 @@ describe("holdout job resolved plan binding", () => {
         }
         case "entry_factor":
           if (fixture.input.frozenBacktestSpec) {
-            fixture.input.frozenBacktestSpec.factorSpecId = factorId(OTHER_FACTOR_ID);
+            fixture.input.frozenBacktestSpec.factorSpecId = factor_id(OTHER_FACTOR_ID);
           }
           break;
         case "entry_budget":
@@ -291,10 +291,10 @@ describe("holdout job resolved plan binding", () => {
           }
           break;
         case "canonical_plan_tampered":
-          fixture.canonicalPlanBytes = appendSpace(fixture.canonicalPlanBytes);
+          fixture.canonicalPlanBytes = append_space(fixture.canonicalPlanBytes);
           break;
         case "canonical_period_tampered":
-          fixture.canonicalPeriodBytes = appendSpace(fixture.canonicalPeriodBytes);
+          fixture.canonicalPeriodBytes = append_space(fixture.canonicalPeriodBytes);
           break;
         default:
           throw new Error(`unknown holdout mutation ${mutation}`);
@@ -302,7 +302,7 @@ describe("holdout job resolved plan binding", () => {
       if (expected === "accept") {
         expect(
           () =>
-            validateHoldoutBacktestPlanEntryBinding(
+            validate_plan_binding(
               fixture.input,
               timestamp(5),
               fixture.canonicalPeriodBytes,
@@ -315,7 +315,7 @@ describe("holdout job resolved plan binding", () => {
       } else {
         expect(
           () =>
-            validateHoldoutBacktestPlanEntryBinding(
+            validate_plan_binding(
               fixture.input,
               timestamp(5),
               fixture.canonicalPeriodBytes,
@@ -346,9 +346,9 @@ describe("holdout job resolved plan binding", () => {
         throw new Error(`invalid grant lifetime vector: ${line}`);
       }
       const submittedAt = timestamp(Number(seconds), Number(nanos));
-      const fixture = holdoutBindingFixture();
+      const fixture = holdout_binding_fixture();
       const bind = () =>
-        validateHoldoutBacktestPlanEntryBinding(
+        validate_plan_binding(
           fixture.input,
           submittedAt,
           fixture.canonicalPeriodBytes,
@@ -364,7 +364,7 @@ describe("holdout job resolved plan binding", () => {
         );
       }
 
-      const specification = validSpecification({
+      const specification = valid_specification({
         name,
         expected: "accept",
         kind: "holdout_backtest",
@@ -376,12 +376,12 @@ describe("holdout job resolved plan binding", () => {
         mutation: "none",
       });
       specification.submittedAt = submittedAt;
-      const validateWireCandidate = () =>
-        validateJobWireDispatchCandidate(specification, new Set([JobKind.HOLDOUT_BACKTEST]));
+      const validate_wire_candidate = () =>
+        validate_dispatch_candidate(specification, new Set([JobKind.HOLDOUT_BACKTEST]));
       if (expectedWire === "accept") {
-        expect(validateWireCandidate(), name).toBe(JobKind.HOLDOUT_BACKTEST);
+        expect(validate_wire_candidate(), name).toBe(JobKind.HOLDOUT_BACKTEST);
       } else {
-        expect(validateWireCandidate, `${name} wire candidate`).toThrowError(
+        expect(validate_wire_candidate, `${name} wire candidate`).toThrowError(
           expect.objectContaining({ code: expectedWire }),
         );
       }
@@ -438,14 +438,14 @@ function vectors(): Vector[] {
 }
 
 function record(vector: Vector): JobRecord {
-  const specification = vector.kind === "missing" ? undefined : validSpecification(vector);
-  const enforcedBudget = specificationBudget(specification);
+  const specification = vector.kind === "missing" ? undefined : valid_specification(vector);
+  const enforcedBudget = specification_budget(specification);
   const value = create(JobRecordSchema, {
     specification,
     state: state(vector.state),
     revision: 1n,
     attempt: vector.attempt,
-    activeLease: vector.lease === "present" ? validLease() : undefined,
+    activeLease: vector.lease === "present" ? valid_lease() : undefined,
     outcome: outcome(vector.outcome, vector.attempt, enforcedBudget),
     updatedAt: timestamp(20),
   });
@@ -453,9 +453,9 @@ function record(vector: Vector): JobRecord {
   return value;
 }
 
-function validSpecification(vector: Vector) {
-  const selection = protocolSelection();
-  selection.selectionSha256 = digestFromBytes(protocolSelectionSha256(selection));
+function valid_specification(vector: Vector) {
+  const selection = protocol_selection();
+  selection.selectionSha256 = digest_from_bytes(protocol_selection_sha256(selection));
   return create(JobSpecificationSchema, {
     jobId: create(JobIdSchema, { value: "job.01" }),
     runId: create(RunIdSchema, { value: "run.01" }),
@@ -513,19 +513,19 @@ function mutate(record: JobRecord, mutation: string): void {
       if (lease) lease.heartbeatAt = timestamp(30);
       return;
     case "factor_input_id_missing":
-      setInputFactorId(record, undefined);
+      input_factor_id(record, undefined);
       return;
     case "factor_input_id_malformed":
-      setInputFactorId(record, "SHA256:bad");
+      input_factor_id(record, "SHA256:bad");
       return;
     case "rejection_id_missing":
       rejection(record).factorSpecId = undefined;
       return;
     case "rejection_id_malformed":
-      rejection(record).factorSpecId = factorId("SHA256:bad");
+      rejection(record).factorSpecId = factor_id("SHA256:bad");
       return;
     case "rejection_id_mismatch":
-      rejection(record).factorSpecId = factorId(OTHER_FACTOR_ID);
+      rejection(record).factorSpecId = factor_id(OTHER_FACTOR_ID);
       return;
     case "rejection_unspecified_code":
       rejection(record).code = FactorRejectionCode.UNSPECIFIED;
@@ -615,16 +615,16 @@ function mutate(record: JobRecord, mutation: string): void {
         specification.submittedBy.authenticatedSubject = "subject\nforged";
       return;
     case "policy_revision_zero":
-      discoveryPolicy(record).revision = "0";
+      discovery_policy(record).revision = "0";
       return;
     case "policy_revision_leading_zero":
-      discoveryPolicy(record).revision = "01";
+      discovery_policy(record).revision = "01";
       return;
     case "policy_revision_sign":
-      discoveryPolicy(record).revision = "+1";
+      discovery_policy(record).revision = "+1";
       return;
     case "factor_expression_hash_mismatch": {
-      const expression = factorSpec(record).expression;
+      const expression = factor_spec(record).expression;
       if (expression) {
         const mutated = new Uint8Array(expression.canonicalJson.byteLength + 1);
         mutated.set(expression.canonicalJson);
@@ -634,16 +634,16 @@ function mutate(record: JobRecord, mutation: string): void {
       return;
     }
     case "factor_ast_canonical_mismatch": {
-      const root = factorSpec(record).expression?.ast?.root;
+      const root = factor_spec(record).expression?.ast?.root;
       if (root?.node.case !== "field") throw new Error("fixture root must be a field");
       root.node.value.field = "market.open";
       return;
     }
     case "factor_spec_hash_mismatch":
-      factorSpec(record).factorSpecId = factorId(OTHER_FACTOR_ID);
+      factor_spec(record).factorSpecId = factor_id(OTHER_FACTOR_ID);
       return;
     case "factor_unspecified_direction":
-      factorSpec(record).direction = FactorDirection.UNSPECIFIED;
+      factor_spec(record).direction = FactorDirection.UNSPECIFIED;
       return;
     case "protocol_selection_digest_mismatch": {
       const value = specification?.protocolSelection?.selectionSha256?.value;
@@ -681,7 +681,7 @@ function mutate(record: JobRecord, mutation: string): void {
       }
       return;
     case "factor_ast_empty_root": {
-      const root = factorSpec(record).expression?.ast?.root;
+      const root = factor_spec(record).expression?.ast?.root;
       if (root) root.node = { case: undefined };
       return;
     }
@@ -723,11 +723,11 @@ function input(value: string): ReturnType<typeof create<typeof JobSpecificationS
       return {
         case: "discovery",
         value: create(DiscoveryJobInputSchema, {
-          dataset: developmentDataset(),
+          dataset: development_dataset(),
           researchPolicy: policy("policy.research"),
           makerModel: model("resolution.maker"),
           checkerModel: model("resolution.checker"),
-          budget: validBudget(),
+          budget: valid_budget(),
           maximumCandidates: 40,
         }),
       };
@@ -735,18 +735,18 @@ function input(value: string): ReturnType<typeof create<typeof JobSpecificationS
       return {
         case: "factorEvaluation",
         value: create(FactorEvaluationJobInputSchema, {
-          factor: validFactorSpec(),
-          dataset: developmentDataset(),
-          budget: validBudget(),
+          factor: valid_factor_spec(),
+          dataset: development_dataset(),
+          budget: valid_budget(),
         }),
       };
     case "backtest":
       return {
         case: "backtest",
         value: create(BacktestJobInputSchema, {
-          budget: validBudget(),
-          factorSpecId: factorId(FACTOR_ID),
-          dataset: developmentDataset(),
+          budget: valid_budget(),
+          factorSpecId: factor_id(FACTOR_ID),
+          dataset: development_dataset(),
           returnDefinition: ReturnDefinition.SIMPLE_NAV_RETURN,
           provenance: provenance(),
           deterministicSeed: digest(9),
@@ -759,13 +759,13 @@ function input(value: string): ReturnType<typeof create<typeof JobSpecificationS
           primaryBacktestId: create(BacktestIdSchema, { value: "backtest.primary" }),
           independentBacktestId: create(BacktestIdSchema, { value: "backtest.independent" }),
           reconciliationPolicy: policy("policy.reconciliation"),
-          budget: validBudget(),
+          budget: valid_budget(),
         }),
       };
     case "holdout_backtest":
       return {
         case: "holdoutBacktest",
-        value: holdoutInput(),
+        value: holdout_input(),
       };
     case "artifact":
       return {
@@ -773,7 +773,7 @@ function input(value: string): ReturnType<typeof create<typeof JobSpecificationS
         value: create(ArtifactJobInputSchema, {
           input: artifact(),
           policy: policy("policy.artifact"),
-          budget: validBudget(),
+          budget: valid_budget(),
         }),
       };
     default:
@@ -796,7 +796,7 @@ function outcome(value: string, attempt: number, enforcedBudget: JobBudget | und
         outcome: {
           case: "factorRejection",
           value: create(FactorRejectionSchema, {
-            factorSpecId: factorId(FACTOR_ID),
+            factorSpecId: factor_id(FACTOR_ID),
             code: FactorRejectionCode.PERFORMANCE,
             reason: "fails frozen performance threshold",
             rejectedAt: timestamp(20),
@@ -845,7 +845,7 @@ function outcome(value: string, attempt: number, enforcedBudget: JobBudget | und
   }
 }
 
-function validBudget(): JobBudget {
+function valid_budget(): JobBudget {
   return create(JobBudgetSchema, {
     maximumSteps: 40,
     maximumInputTokens: 100_000n,
@@ -866,11 +866,11 @@ function digest(byte: number) {
   return create(Sha256DigestSchema, { value: new Uint8Array(32).fill(byte) });
 }
 
-function digestFromBytes(value: Uint8Array) {
+function digest_from_bytes(value: Uint8Array) {
   return create(Sha256DigestSchema, { value });
 }
 
-function digestId(byte: number): string {
+function digest_id(byte: number): string {
   return `sha256:${byte.toString(16).padStart(2, "0").repeat(32)}`;
 }
 
@@ -882,7 +882,7 @@ function policy(value: string) {
   });
 }
 
-function validFactorSpec() {
+function valid_factor_spec() {
   const expressionId = create(FactorExpressionIdSchema, { value: EXPRESSION_ID });
   const factor = create(FactorSpecSchema, {
     expressionId,
@@ -914,12 +914,12 @@ function validFactorSpec() {
     }),
     operatorRegistrySha256: digest(2),
   });
-  expect(`sha256:${Buffer.from(factorSpecIdentitySha256(factor)).toString("hex")}`).toBe(FACTOR_ID);
-  factor.factorSpecId = factorId(FACTOR_ID);
+  expect(`sha256:${Buffer.from(factor_identity_hash(factor)).toString("hex")}`).toBe(FACTOR_ID);
+  factor.factorSpecId = factor_id(FACTOR_ID);
   return factor;
 }
 
-function developmentDataset() {
+function development_dataset() {
   return create(DevelopmentDatasetReferenceSchema, {
     snapshotIds: [create(SnapshotIdSchema, { value: "snapshot.dev.01" })],
     manifestSha256: digest(7),
@@ -963,7 +963,7 @@ function model(resolution: string) {
   });
 }
 
-function protocolSelection() {
+function protocol_selection() {
   return create(ProtocolSelectionSnapshotSchema, {
     selectedPackage: "loop.v1",
     enabledFeatures: ["jobs.envelope.v1", "jobs.kind-input.v1"],
@@ -987,7 +987,7 @@ function protocolSelection() {
 }
 
 function artifact() {
-  const id = digestId(24);
+  const id = digest_id(24);
   return create(ArtifactRefSchema, {
     artifactId: create(ArtifactIdSchema, { value: id }),
     uri: `artifact://sha256/${id.slice(7)}`,
@@ -1003,12 +1003,12 @@ function artifact() {
   });
 }
 
-function holdoutInput() {
-  const planId = digestId(32);
+function holdout_input() {
+  const planId = digest_id(32);
   return create(HoldoutBacktestJobInputSchema, {
     consumedGrant: create(HoldoutGrantReferenceSchema, {
       holdoutGrantId: create(HoldoutGrantIdSchema, { value: "grant.01" }),
-      holdoutPeriodId: create(HoldoutPeriodIdSchema, { value: digestId(31) }),
+      holdoutPeriodId: create(HoldoutPeriodIdSchema, { value: digest_id(31) }),
       freezeManifestSha256: digest(33),
       issuedAt: timestamp(4),
       expiresAt: timestamp(100),
@@ -1021,8 +1021,8 @@ function holdoutInput() {
     frozenBacktestSpec: create(BacktestSpecSchema, {
       backtestId: create(BacktestIdSchema, { value: "backtest.holdout.01" }),
       schemaVersion: 1,
-      factorSpecId: factorId(FACTOR_ID),
-      snapshotIds: [create(SnapshotIdSchema, { value: digestId(35) })],
+      factorSpecId: factor_id(FACTOR_ID),
+      snapshotIds: [create(SnapshotIdSchema, { value: digest_id(35) })],
       sample: create(SampleWindowSchema, {
         role: SampleRole.SECOND_LOCKED_HISTORICAL_HOLDOUT,
         startInclusive: create(CivilDateSchema, { year: 2025, month: 1, day: 1 }),
@@ -1034,7 +1034,7 @@ function holdoutInput() {
       createdAt: timestamp(3),
       deterministicSeed: digest(37),
     }),
-    budget: validBudget(),
+    budget: valid_budget(),
     jobBatchId: create(JobBatchIdSchema, { value: "batch.01" }),
     holdoutEvaluationPlanId: create(HoldoutEvaluationPlanIdSchema, { value: planId }),
     evaluationPlanSha256: digest(34),
@@ -1042,7 +1042,7 @@ function holdoutInput() {
   });
 }
 
-function holdoutBindingFixture() {
+function holdout_binding_fixture() {
   const period = holdoutGolden.periods[0];
   const plan = holdoutGolden.plans[0];
   if (period === undefined || plan === undefined) throw new Error("missing holdout golden fixture");
@@ -1054,23 +1054,25 @@ function holdoutBindingFixture() {
   };
   const firstEntry = planValue.entries[0];
   if (firstEntry === undefined) throw new Error("missing holdout plan entry");
-  const input = holdoutInput();
+  const input = holdout_input();
   const grant = input.consumedGrant;
   const frozen = input.frozenBacktestSpec;
   if (grant === undefined || frozen === undefined) throw new Error("incomplete holdout input");
   grant.holdoutPeriodId = create(HoldoutPeriodIdSchema, { value: period.holdout_period_id });
-  grant.canonicalPeriodSha256 = digestFromBytes(rawDigest(period.canonical_sha256));
+  grant.canonicalPeriodSha256 = digest_from_bytes(raw_digest(period.canonical_sha256));
   grant.holdoutEvaluationPlanId = create(HoldoutEvaluationPlanIdSchema, {
     value: plan.holdout_evaluation_plan_id,
   });
-  grant.evaluationPlanSha256 = digestFromBytes(rawDigest(plan.plan_sha256));
+  grant.evaluationPlanSha256 = digest_from_bytes(raw_digest(plan.plan_sha256));
   grant.evaluationPlanEntryCount = 2;
   input.holdoutEvaluationPlanId = create(HoldoutEvaluationPlanIdSchema, {
     value: plan.holdout_evaluation_plan_id,
   });
-  input.evaluationPlanSha256 = digestFromBytes(rawDigest(plan.plan_sha256));
-  frozen.factorSpecId = factorId(firstEntry.factor_spec_id);
-  frozen.canonicalSpecSha256 = digestFromBytes(rawDigest(firstEntry.backtest_spec_artifact.sha256));
+  input.evaluationPlanSha256 = digest_from_bytes(raw_digest(plan.plan_sha256));
+  frozen.factorSpecId = factor_id(firstEntry.factor_spec_id);
+  frozen.canonicalSpecSha256 = digest_from_bytes(
+    raw_digest(firstEntry.backtest_spec_artifact.sha256),
+  );
   if (frozen.sample) {
     frozen.sample.role = SampleRole.FIRST_LOCKED_CONFIRMATION;
     frozen.sample.startInclusive = create(CivilDateSchema, { year: 2021, month: 1, day: 1 });
@@ -1081,7 +1083,7 @@ function holdoutBindingFixture() {
     input,
     canonicalPeriodBytes: encoder.encode(period.canonical_json),
     canonicalPlanBytes: encoder.encode(plan.canonical_json),
-    trustedBacktestSchemaSha256: rawDigest(holdoutGolden.trusted_backtest_schema_sha256),
+    trustedBacktestSchemaSha256: raw_digest(holdoutGolden.trusted_backtest_schema_sha256),
     resolvedBacktestArtifacts: new Map(
       holdoutGolden.backtest_artifacts.map((artifact) => [
         artifact.sha256,
@@ -1091,22 +1093,22 @@ function holdoutBindingFixture() {
   };
 }
 
-function rawDigest(value: string): Uint8Array {
+function raw_digest(value: string): Uint8Array {
   return new Uint8Array(Buffer.from(value.slice(7), "hex"));
 }
 
-function appendSpace(value: Uint8Array): Uint8Array {
+function append_space(value: Uint8Array): Uint8Array {
   const result = new Uint8Array(value.byteLength + 1);
   result.set(value);
   result[result.byteLength - 1] = 32;
   return result;
 }
 
-function specificationBudget(specification: ReturnType<typeof validSpecification> | undefined) {
+function specification_budget(specification: ReturnType<typeof valid_specification> | undefined) {
   return specification?.input.case === undefined ? undefined : specification.input.value.budget;
 }
 
-function validLease() {
+function valid_lease() {
   return create(JobLeaseSchema, {
     leaseId: create(LeaseIdSchema, { value: "lease.01" }),
     jobId: create(JobIdSchema, { value: "job.01" }),
@@ -1125,16 +1127,16 @@ function actor() {
     authenticatedSubject: "service:loop-worker",
   });
 }
-function factorId(value: string) {
+function factor_id(value: string) {
   return create(FactorSpecIdSchema, { value });
 }
 function timestamp(seconds: number, nanos = 0) {
   return create(TimestampSchema, { seconds: BigInt(seconds), nanos });
 }
 
-function setInputFactorId(record: JobRecord, value: string | undefined): void {
+function input_factor_id(record: JobRecord, value: string | undefined): void {
   const inputValue = record.specification?.input;
-  const id = value === undefined ? undefined : factorId(value);
+  const id = value === undefined ? undefined : factor_id(value);
   if (inputValue?.case === "factorEvaluation" && inputValue.value.factor)
     inputValue.value.factor.factorSpecId = id;
   else if (inputValue?.case === "backtest") inputValue.value.factorSpecId = id;
@@ -1169,7 +1171,7 @@ function budget(record: JobRecord) {
   return outcomeValue.value;
 }
 
-function discoveryPolicy(record: JobRecord) {
+function discovery_policy(record: JobRecord) {
   const input = record.specification?.input;
   if (input?.case !== "discovery" || input.value.researchPolicy === undefined) {
     throw new Error("mutation requires discovery input");
@@ -1177,7 +1179,7 @@ function discoveryPolicy(record: JobRecord) {
   return input.value.researchPolicy;
 }
 
-function factorSpec(record: JobRecord) {
+function factor_spec(record: JobRecord) {
   const input = record.specification?.input;
   if (input?.case !== "factorEvaluation" || input.value.factor === undefined) {
     throw new Error("mutation requires factor-evaluation input");

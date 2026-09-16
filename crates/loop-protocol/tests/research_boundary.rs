@@ -14,7 +14,8 @@ const BOUNDARY_VECTORS: &str =
 const RESEARCH_FILE: &str = "loop/research/v1/service.proto";
 
 #[test]
-fn research_response_round_trip_exposes_only_the_safe_job_projection() {
+// Scenario: research response round trip exposes only the safe job projection.
+fn research_response_round() {
     let response = EnqueueBacktestResponse {
         job: Some(ResearchJobHandle {
             job_id: Some(JobId {
@@ -39,7 +40,8 @@ fn research_response_round_trip_exposes_only_the_safe_job_projection() {
 }
 
 #[test]
-fn research_dependency_closure_excludes_internal_and_locked_contracts() {
+// Scenario: research dependency closure excludes internal and locked contracts.
+fn research_dependency_closure() {
     let descriptor = descriptor();
     let files = descriptor
         .file
@@ -71,7 +73,8 @@ fn research_dependency_closure_excludes_internal_and_locked_contracts() {
 }
 
 #[test]
-fn research_shared_surface_vectors_fail_closed() {
+// Scenario: research shared surface vectors fail closed.
+fn research_shared_surface() {
     let descriptor = descriptor();
     for line in BOUNDARY_VECTORS.lines() {
         if line.is_empty() || line.starts_with('#') {
@@ -93,7 +96,8 @@ fn research_shared_surface_vectors_fail_closed() {
 }
 
 #[test]
-fn generated_research_surface_does_not_reference_sensitive_job_types() {
+// Scenario: generated research surface does not reference sensitive job types.
+fn generated_research_surface() {
     let generated = include_str!("../src/generated/r#loop.research.v1.rs");
     let code = generated
         .lines()

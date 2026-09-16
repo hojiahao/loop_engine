@@ -38,7 +38,8 @@ struct PlanFixture {
 }
 
 #[test]
-fn shared_golden_periods_and_plans_match_exact_bytes() {
+// Scenario: shared golden periods and plans match exact bytes.
+fn shared_golden_periods() {
     let fixture: Fixture = serde_json::from_str(GOLDEN).unwrap();
     let trusted_backtest = require_digest_text(
         &fixture.trusted_backtest_schema_sha256,
@@ -62,7 +63,7 @@ fn shared_golden_periods_and_plans_match_exact_bytes() {
         .collect::<BTreeMap<_, _>>();
 
     for period_fixture in &fixture.periods {
-        let period = parse_canonical_holdout_period(period_fixture.canonical_json.as_bytes())
+        let period = parse_holdout_period(period_fixture.canonical_json.as_bytes())
             .unwrap_or_else(|error| panic!("{}: {error}", period_fixture.name));
         assert_eq!(
             period.canonical_bytes,
@@ -79,7 +80,7 @@ fn shared_golden_periods_and_plans_match_exact_bytes() {
             .iter()
             .filter(|plan| plan.period == period_fixture.name)
         {
-            let plan = parse_canonical_holdout_evaluation_plan(
+            let plan = parse_holdout_plan(
                 plan_fixture.canonical_json.as_bytes(),
                 &period,
                 &trusted_backtest,
@@ -113,7 +114,7 @@ fn shared_golden_periods_and_plans_match_exact_bytes() {
                 holdout_period_id: period.holdout_period_id.clone(),
                 canonical_period_sha256: period.canonical_period_sha256,
             };
-            validate_holdout_evaluation_plan_reference(
+            validate_plan_reference(
                 &reference,
                 &plan.canonical_bytes,
                 &period,
@@ -128,7 +129,8 @@ fn shared_golden_periods_and_plans_match_exact_bytes() {
 }
 
 #[test]
-fn strict_period_parser_rejects_aliases_and_noncanonical_json() {
+// Scenario: strict period parser rejects aliases and noncanonical json.
+fn strict_period_parser() {
     let fixture: Fixture = serde_json::from_str(GOLDEN).unwrap();
     let source = &fixture.periods[0].canonical_json;
     for invalid in [
@@ -146,21 +148,18 @@ fn strict_period_parser_rejects_aliases_and_noncanonical_json() {
             "sha256:0202020202020202020202020202020202020202020202020202020202020202\",\"sha256:0101",
         ),
     ] {
-        assert!(parse_canonical_holdout_period(invalid.as_bytes()).is_err());
+        assert!(parse_holdout_period(invalid.as_bytes()).is_err());
     }
-    let period = parse_canonical_holdout_period(source.as_bytes()).unwrap();
+    let period = parse_holdout_period(source.as_bytes()).unwrap();
     let wrong = [9_u8; 32];
-    assert!(
-        verify_holdout_period_identity(source.as_bytes(), &period.holdout_period_id, &wrong)
-            .is_err()
-    );
+    assert!(verify_period_identity(source.as_bytes(), &period.holdout_period_id, &wrong).is_err());
 }
 
 #[test]
-fn strict_plan_parser_rejects_semantic_mutations_and_recursion() {
+// Scenario: strict plan parser rejects semantic mutations and recursion.
+fn strict_plan_parser() {
     let fixture: Fixture = serde_json::from_str(GOLDEN).unwrap();
-    let period =
-        parse_canonical_holdout_period(fixture.periods[0].canonical_json.as_bytes()).unwrap();
+    let period = parse_holdout_period(fixture.periods[0].canonical_json.as_bytes()).unwrap();
     let trusted = require_digest_text(
         &fixture.trusted_backtest_schema_sha256,
         "trusted_backtest_schema_sha256",
@@ -188,19 +187,11 @@ fn strict_plan_parser_rejects_semantic_mutations_and_recursion() {
             "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         ),
     ] {
-        assert!(
-            parse_canonical_holdout_evaluation_plan(
-                invalid.as_bytes(),
-                &period,
-                &trusted,
-                &resolved
-            )
-            .is_err()
-        );
+        assert!(parse_holdout_plan(invalid.as_bytes(), &period, &trusted, &resolved).is_err());
     }
     let deep = format!("{}0{}", "[".repeat(40), "]".repeat(40));
     assert_eq!(
-        parse_canonical_holdout_evaluation_plan(deep.as_bytes(), &period, &trusted, &resolved,)
+        parse_holdout_plan(deep.as_bytes(), &period, &trusted, &resolved,)
             .unwrap_err()
             .code,
         HoldoutValidationCode::SizeLimit
@@ -208,11 +199,12 @@ fn strict_plan_parser_rejects_semantic_mutations_and_recursion() {
 }
 
 #[test]
-fn every_shared_negative_vector_fails_closed() {
+// Scenario: every shared negative vector fails closed.
+fn shared_negative_vector() {
     let fixture: Fixture = serde_json::from_str(GOLDEN).unwrap();
     let period_source = &fixture.periods[0].canonical_json;
     let plan_source = &fixture.plans[0].canonical_json;
-    let period = parse_canonical_holdout_period(period_source.as_bytes()).unwrap();
+    let period = parse_holdout_period(period_source.as_bytes()).unwrap();
     let trusted_plan = require_digest_text(
         &fixture.trusted_plan_schema_sha256,
         "trusted_plan_schema_sha256",
@@ -224,7 +216,7 @@ fn every_shared_negative_vector_fails_closed() {
     )
     .unwrap();
     let resolved = resolved_artifacts(&fixture);
-    let plan = parse_canonical_holdout_evaluation_plan(
+    let plan = parse_holdout_plan(
         plan_source.as_bytes(),
         &period,
         &trusted_backtest,
@@ -271,13 +263,12 @@ fn execute_negative(
 ) -> Result<(), HoldoutValidationError> {
     match target {
         "period" => {
-            parse_canonical_holdout_period(mutate_period(period_source, mutation).as_bytes())
-                .map(|_| ())
+            parse_holdout_period(mutate_period(period_source, mutation).as_bytes()).map(|_| ())
         }
         "period_reference" => {
             let wrong = [238_u8; 32];
             let wrong_id = digest_text(238);
-            verify_holdout_period_identity(
+            verify_period_identity(
                 period_source.as_bytes(),
                 if mutation == "period_id_mismatch" {
                     &wrong_id
@@ -295,7 +286,7 @@ fn execute_negative(
         "plan" => {
             let (source, trusted, artifacts) =
                 mutate_plan(plan_source, mutation, trusted_backtest, resolved);
-            parse_canonical_holdout_evaluation_plan(
+            parse_holdout_plan(
                 source.as_bytes(),
                 period,
                 trusted.as_ref().unwrap_or(trusted_backtest),
@@ -308,7 +299,7 @@ fn execute_negative(
                 plan_reference(plan, period, plan.value.entries.len() as u32, trusted_plan),
                 mutation,
             );
-            validate_holdout_evaluation_plan_reference(
+            validate_plan_reference(
                 &reference,
                 &plan.canonical_bytes,
                 period,

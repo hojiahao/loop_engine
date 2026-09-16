@@ -42,7 +42,8 @@ publish(Path(sys.argv[1]), b"crash-evidence")
 
 
 @pytest.mark.parametrize("writers", [2, 4, 8])
-def test_independent_processes_preserve_shared_objects(tmp_path: Path, writers: int) -> None:
+# Scenario: independent processes preserve shared objects.
+def test_independent_processes(tmp_path: Path, writers: int) -> None:
     processes = [
         subprocess.Popen(
             [sys.executable, "-I", "-c", WRITER, str(tmp_path), str(index)],
@@ -72,7 +73,8 @@ def test_independent_processes_preserve_shared_objects(tmp_path: Path, writers: 
 
 
 @pytest.mark.parametrize("stage", ["before", "after"])
-def test_kill_at_publish_commit_can_restart(tmp_path: Path, stage: str) -> None:
+# Scenario: kill at publish commit can restart.
+def test_kill_restart(tmp_path: Path, stage: str) -> None:
     process = subprocess.Popen(
         [sys.executable, "-I", "-c", CRASH_WRITER, str(tmp_path), stage],
         stdin=subprocess.PIPE,

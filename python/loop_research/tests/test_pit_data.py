@@ -62,12 +62,14 @@ def with_records(original: PitInput, **changes: object) -> PitInput:
         ("2019-01-02T22:00:00Z", "synthetic:new-a"),
     ],
 )
-def test_ticker_reuse_resolves_historical_security(instant: str, expected: str | None) -> None:
+# Scenario: ticker reuse resolves historical security.
+def test_ticker_reuse(instant: str, expected: str | None) -> None:
     result = query_capture(capture(), query(instant, ticker="DEMO", venue="XNYS"))
     assert [row.state.security_id for row in result.securities] == ([expected] if expected else [])
 
 
-def test_share_classes_remain_distinct() -> None:
+# Scenario: share classes remain distinct.
+def test_classes_distinct() -> None:
     result = query_capture(capture(), query())
     assert [row.state.security_id for row in result.securities] == [
         "synthetic:new-a",
@@ -77,14 +79,16 @@ def test_share_classes_remain_distinct() -> None:
     assert len(result.fundamentals) == 1  # No duplicated issuer fact per share class.
 
 
-def test_delisted_id_is_not_universe_eligible() -> None:
+# Scenario: delisted id is not universe eligible.
+def test_delisted_id() -> None:
     result = query_capture(capture(), query(security_id="synthetic:old-a"))
     assert len(result.securities) == 1
     assert not result.securities[0].state.listed
     assert not result.securities[0].universe_eligible
 
 
-def test_expired_latest_state_does_not_resurrect_old_listing() -> None:
+# Scenario: expired latest state does not resurrect old listing.
+def test_expired_latest() -> None:
     original = capture()
     old, delisted, *others = original.securities
     expired = update(delisted, effective_until="2018-01-03T00:00:00Z")
@@ -92,7 +96,8 @@ def test_expired_latest_state_does_not_resurrect_old_listing() -> None:
     assert not query_capture(data, query(security_id=old.security_id)).securities
 
 
-def test_effective_end_is_exclusive() -> None:
+# Scenario: effective end is exclusive.
+def test_effective_end() -> None:
     original = capture()
     new = update(original.securities[2], effective_until="2020-03-02T22:00:00Z")
     data = with_records(
@@ -104,7 +109,8 @@ def test_effective_end_is_exclusive() -> None:
     assert not query_capture(data, query(security_id=new.security_id)).securities
 
 
-def test_security_restatement_cannot_replace_a_later_effective_event() -> None:
+# Scenario: security restatement cannot replace a later effective event.
+def test_security_restatement() -> None:
     original = capture()
     # A newly published correction to the original listing does not undo delisting.
     correction = update(original.securities[0], known_at="2020-01-02T00:00:00Z", ticker="PAST")
@@ -114,7 +120,8 @@ def test_security_restatement_cannot_replace_a_later_effective_event() -> None:
     assert result.securities[0].state.ticker == "DEMO"
 
 
-def test_revision_at_same_effective_time_uses_visible_knowledge() -> None:
+# Scenario: revision at same effective time uses visible knowledge.
+def test_revision_effective() -> None:
     original = capture()
     correction = update(original.securities[2], known_at="2020-03-03T00:00:00Z", ticker="RENAMED")
     data = with_records(original, securities=(*original.securities, correction))
@@ -124,13 +131,15 @@ def test_revision_at_same_effective_time_uses_visible_knowledge() -> None:
     assert after.securities[0].state.ticker == "RENAMED"
 
 
-def test_unknown_security_remains_absent() -> None:
+# Scenario: unknown security remains absent.
+def test_unknown_security() -> None:
     result = query_capture(capture(), query(security_id="synthetic:missing"))
     assert not result.securities and not result.bars and not result.fundamentals
 
 
 @pytest.mark.parametrize("kind", ["adr", "etf", "fund", "preferred", "spac", "other", "unknown"])
-def test_non_common_stock_is_excluded(kind: str) -> None:
+# Scenario: non common stock is excluded.
+def test_common_stock(kind: str) -> None:
     original = capture()
     excluded = update(original.securities[2], kind=kind)
     data = with_records(
@@ -145,7 +154,8 @@ def test_non_common_stock_is_excluded(kind: str) -> None:
     )
 
 
-def test_otc_is_excluded_by_default() -> None:
+# Scenario: otc is excluded by default.
+def test_otc_excluded() -> None:
     original = capture()
     otc = update(original.securities[2], venue="OOTC")
     data = with_records(
@@ -156,7 +166,8 @@ def test_otc_is_excluded_by_default() -> None:
     )
 
 
-def test_ambiguous_ticker_fails_closed() -> None:
+# Scenario: ambiguous ticker fails closed.
+def test_ambiguous_ticker() -> None:
     original = capture()
     conflict = update(original.securities[3], ticker="DEMO")
     data = with_records(original, securities=(*original.securities[:3], conflict))
@@ -165,14 +176,16 @@ def test_ambiguous_ticker_fails_closed() -> None:
 
 
 @pytest.mark.parametrize("section", ["securities", "bars", "fundamentals"])
-def test_duplicate_versions_are_rejected(section: str) -> None:
+# Scenario: duplicate versions are rejected.
+def test_versions(section: str) -> None:
     values = json.loads(FIXTURE.read_bytes())
     values[section].append(values[section][0])
     with pytest.raises(ValidationError, match="duplicate or conflicting"):
         PitInput.model_validate_json(json.dumps(values))
 
 
-def test_filing_delay_and_restatement_use_publication_time() -> None:
+# Scenario: filing delay and restatement use publication time.
+def test_filing_delay() -> None:
     data = capture()
     assert not query_capture(data, query("2020-02-03T21:59:59Z")).fundamentals
     original = query_capture(data, query("2020-02-03T22:00:00Z")).fundamentals
@@ -181,7 +194,8 @@ def test_filing_delay_and_restatement_use_publication_time() -> None:
     assert revised[0].value == "9007199254740994.02"
 
 
-def test_ingestion_cutoff_replays_the_original_capture_view() -> None:
+# Scenario: ingestion cutoff replays the original capture view.
+def test_ingestion_cutoff() -> None:
     result = query_capture(
         capture(), query("2020-06-01T22:00:00Z", ingested_at="2026-09-01T00:00:00Z")
     )
@@ -189,7 +203,8 @@ def test_ingestion_cutoff_replays_the_original_capture_view() -> None:
     assert not query_capture(capture(), query(ingested_at="2026-08-31T23:59:59Z")).securities
 
 
-def test_units_and_duration_periods_do_not_collapse() -> None:
+# Scenario: units and duration periods do not collapse.
+def test_units_duration() -> None:
     original = capture()
     base = original.fundamentals[0]
     quarterly = update(base, period_start=date(2019, 10, 1), value="1.25")
@@ -199,7 +214,8 @@ def test_units_and_duration_periods_do_not_collapse() -> None:
     assert len(query_capture(data, query()).fundamentals) == 4
 
 
-def test_bar_arrival_and_revision_do_not_backfill() -> None:
+# Scenario: bar arrival and revision do not backfill.
+def test_bar_arrival() -> None:
     original = capture()
     bar = original.bars[0]
     corrected = update(bar, close="10.50", known_at="2020-01-03T12:00:00Z")
@@ -209,7 +225,8 @@ def test_bar_arrival_and_revision_do_not_backfill() -> None:
     assert query_capture(data, query("2020-01-03T12:00:00Z")).bars[0].close == "10.50"
 
 
-def test_different_feeds_cannot_silently_replace_bar_revisions() -> None:
+# Scenario: different feeds cannot silently replace bar revisions.
+def test_different_feeds() -> None:
     data = capture()
     base = data.bars[0]
     other = update(
@@ -219,14 +236,16 @@ def test_different_feeds_cannot_silently_replace_bar_revisions() -> None:
         with_records(data, bars=(base, other))
 
 
-def test_bar_revisions_cannot_silently_change_currency() -> None:
+# Scenario: bar revisions cannot silently change currency.
+def test_bar_revisions() -> None:
     data = capture()
     changed = update(data.bars[0], known_at="2020-01-03T12:00:00Z", currency="CAD")
     with pytest.raises(ValueError, match="change currency"):
         with_records(data, bars=(*data.bars, changed))
 
 
-def test_market_cutoff_does_not_follow_later_knowledge() -> None:
+# Scenario: market cutoff does not follow later knowledge.
+def test_market_cutoff() -> None:
     result = query_capture(
         capture(), query("2020-01-02T20:00:00Z", known_at="2020-03-02T22:00:00Z")
     )
@@ -248,26 +267,31 @@ def test_market_cutoff_does_not_follow_later_knowledge() -> None:
         {"ticker": " demo", "venue": "XNYS"},
     ],
 )
-def test_invalid_query_is_rejected(change: dict[str, object]) -> None:
+# Scenario: invalid query is rejected.
+def test_invalid_query(change: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         query(**change)
 
 
-def test_timezone_offsets_resolve_same_instant() -> None:
+# Scenario: timezone offsets resolve same instant.
+def test_timezone_offsets() -> None:
     assert parse_instant("2020-01-02T16:00:00-05:00") == parse_instant("2020-01-02T21:00:00Z")
 
 
-def test_ingestion_after_capture_is_rejected() -> None:
+# Scenario: ingestion after capture is rejected.
+def test_ingestion_capture() -> None:
     with pytest.raises(ValueError, match="ingested after the capture"):
         capture(captured_at="2026-08-31T00:00:00Z")
 
 
-def test_query_cannot_project_ingestion_beyond_capture() -> None:
+# Scenario: query cannot project ingestion beyond capture.
+def test_query_project() -> None:
     with pytest.raises(ValueError, match="cutoff exceeds"):
         query_capture(capture(), query(ingested_at="2026-09-14T00:00:00Z"))
 
 
-def test_first_observed_source_cannot_backdate_knowledge() -> None:
+# Scenario: first observed source cannot backdate knowledge.
+def test_first_observed() -> None:
     base = capture().securities[0]
     source = update(base.source, availability="first_observed")
     with pytest.raises(ValueError, match="cannot backdate"):
@@ -276,23 +300,27 @@ def test_first_observed_source_cannot_backdate_knowledge() -> None:
     assert observed.known_at == observed.ingested_at
 
 
-def test_publication_cannot_follow_ingestion() -> None:
+# Scenario: publication cannot follow ingestion.
+def test_publication_ingestion() -> None:
     with pytest.raises(ValueError, match="cannot follow ingestion"):
         update(capture().securities[0], known_at="2026-09-02T00:00:00Z")
 
 
-def test_unknown_classification_is_explicit() -> None:
+# Scenario: unknown classification is explicit.
+def test_unknown_classification() -> None:
     with pytest.raises(ValueError):
         update(capture().securities[0], kind="new_vendor_asset_class")
 
 
-def test_synthetic_capture_cannot_claim_public_quality() -> None:
+# Scenario: synthetic capture cannot claim public quality.
+def test_synthetic_capture() -> None:
     with pytest.raises(ValueError, match="quality must agree"):
         capture(quality="public_development")
 
 
 @pytest.mark.parametrize("value", ["NaN", "Infinity", "1e3", " 1", "01", 0.1, True, "9" * 65])
-def test_fundamental_values_require_bounded_exact_decimals(value: object) -> None:
+# Scenario: fundamental values require bounded exact decimals.
+def test_fundamental_values(value: object) -> None:
     with pytest.raises(ValueError):
         update(capture().fundamentals[0], value=value)
 
@@ -312,7 +340,8 @@ def test_fundamental_values_require_bounded_exact_decimals(value: object) -> Non
         {"session": date(2020, 1, 3)},
     ],
 )
-def test_invalid_raw_bar_is_rejected(change: dict[str, object]) -> None:
+# Scenario: invalid raw bar is rejected.
+def test_invalid_raw(change: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         update(capture().bars[0], **change)
 
@@ -325,24 +354,28 @@ def test_invalid_raw_bar_is_rejected(change: dict[str, object]) -> None:
         {"known_at": "2019-12-30T00:00:00Z"},
     ],
 )
-def test_invalid_fiscal_period_is_rejected(change: dict[str, object]) -> None:
+# Scenario: invalid fiscal period is rejected.
+def test_invalid_fiscal(change: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         update(capture().fundamentals[0], **change)
 
 
-def test_unresolved_security_reference_is_rejected() -> None:
+# Scenario: unresolved security reference is rejected.
+def test_unresolved_security() -> None:
     data = capture()
     with pytest.raises(ValueError, match="unresolved security"):
         with_records(data, bars=(update(data.bars[0], security_id="missing"),))
 
 
-def test_unresolved_issuer_reference_is_rejected() -> None:
+# Scenario: unresolved issuer reference is rejected.
+def test_unresolved_issuer() -> None:
     data = capture()
     with pytest.raises(ValueError, match="unresolved issuer"):
         with_records(data, fundamentals=(update(data.fundamentals[0], issuer_id="missing"),))
 
 
-def test_unchecked_nested_copy_is_revalidated() -> None:
+# Scenario: unchecked nested copy is revalidated.
+def test_unchecked_nested() -> None:
     data = capture()
     invalid = data.bars[0].model_copy(update={"close": "-1"})
     with pytest.raises(ValueError):
@@ -351,7 +384,8 @@ def test_unchecked_nested_copy_is_revalidated() -> None:
 
 @given(st.integers(min_value=1, max_value=1000), st.integers(min_value=1, max_value=1_000_000))
 @settings(max_examples=30, deadline=None)
-def test_future_revisions_do_not_change_historical_result(days: int, amount: int) -> None:
+# Scenario: future revisions do not change historical result.
+def test_future_revisions(days: int, amount: int) -> None:
     data = capture()
     decision = query()
     revised = update(
@@ -365,7 +399,8 @@ def test_future_revisions_do_not_change_historical_result(days: int, amount: int
 
 @given(st.permutations((0, 1, 2, 3)))
 @settings(max_examples=24, deadline=None)
-def test_source_order_does_not_change_result(order: list[int]) -> None:
+# Scenario: source order does not change result.
+def test_source_order(order: list[int]) -> None:
     data = capture()
     reordered = with_records(data, securities=tuple(data.securities[index] for index in order))
     assert query_capture(data, query()) == query_capture(reordered, query())

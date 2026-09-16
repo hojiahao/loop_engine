@@ -75,12 +75,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn protocol_version_is_namespaced() {
+    // Scenario: protocol version is namespaced.
+    fn protocol_version_namespaced() {
         assert!(PROTOCOL_VERSION.starts_with("loop-engine."));
     }
 
     #[test]
-    fn descriptor_set_is_committed() {
+    // Scenario: descriptor set is committed.
+    fn descriptor() {
         assert!(!FILE_DESCRIPTOR_SET.is_empty());
     }
 }

@@ -80,7 +80,8 @@ def request(
 @pytest.mark.parametrize(
     "provider,rows", [("sec", 4), ("alpaca", 2), ("sharadar", 1), ("databento", 1)]
 )
-def test_receipts_produce_replayable_parquet(tmp_path: Path, provider: str, rows: int) -> None:
+# Scenario: receipts produce replayable parquet.
+def test_receipts_replayable(tmp_path: Path, provider: str, rows: int) -> None:
     store = cache(tmp_path)
     digest = acquire(store, provider, tmp_path)
     config = request(digest)
@@ -112,7 +113,8 @@ def test_receipts_produce_replayable_parquet(tmp_path: Path, provider: str, rows
             assert actual["ts_record"].to_pylist() == ["2026-08-29T12:00:00.123456789Z"]
 
 
-def test_installed_snapshot_commands(tmp_path: Path) -> None:
+# Scenario: installed snapshot commands.
+def test_installed_commands(tmp_path: Path) -> None:
     store = cache(tmp_path)
     digest = acquire(store, "sec", tmp_path)
     completed = subprocess.run(
@@ -159,7 +161,8 @@ def test_installed_snapshot_commands(tmp_path: Path) -> None:
     assert json.loads(replay.stdout) == report
 
 
-def test_full_history_partitions_have_fixed_boundaries(tmp_path: Path) -> None:
+# Scenario: full history partitions have fixed boundaries.
+def test_full_history(tmp_path: Path) -> None:
     store = cache(tmp_path)
     dates = [
         "2006-12-29",
@@ -201,7 +204,8 @@ def test_full_history_partitions_have_fixed_boundaries(tmp_path: Path) -> None:
     assert validate_snapshot(store, result.snapshot.sha256) == result
 
 
-def test_source_revisions_create_new_snapshots(tmp_path: Path) -> None:
+# Scenario: source revisions create new snapshots.
+def test_source_revisions(tmp_path: Path) -> None:
     store = cache(tmp_path)
     first_receipt = acquire(store, "sharadar", tmp_path)
     original = build_snapshot(store, request(first_receipt))
@@ -236,7 +240,8 @@ def test_source_revisions_create_new_snapshots(tmp_path: Path) -> None:
         "source_receipt",
     ],
 )
-def test_corrupt_snapshot_graph_fails(tmp_path: Path, target: str) -> None:
+# Scenario: corrupt snapshot graph fails.
+def test_corrupt_graph(tmp_path: Path, target: str) -> None:
     store = cache(tmp_path)
     result = build_snapshot(store, request(acquire(store, "sharadar", tmp_path)))
     _, manifest = read_snapshot(store, result.snapshot.sha256)
@@ -250,7 +255,8 @@ def test_corrupt_snapshot_graph_fails(tmp_path: Path, target: str) -> None:
 @pytest.mark.parametrize(
     "field,value", [("total_rows", 9), ("excluded_rows", 9), ("writer", "other:writer")]
 )
-def test_rehashed_false_manifest_is_rejected(tmp_path: Path, field: str, value: object) -> None:
+# Scenario: rehashed false manifest is rejected.
+def test_rehashed_manifest(tmp_path: Path, field: str, value: object) -> None:
     store = cache(tmp_path)
     result = build_snapshot(store, request(acquire(store, "sharadar", tmp_path)))
     document = json.loads(read_cached(store, result.snapshot))
@@ -262,7 +268,8 @@ def test_rehashed_false_manifest_is_rejected(tmp_path: Path, field: str, value: 
 
 
 @pytest.mark.parametrize("changed", ["rows", "schema", "footer"])
-def test_parquet_semantics_and_footer_are_verified(changed: str) -> None:
+# Scenario: parquet semantics and footer are verified.
+def test_parquet_semantics(changed: str) -> None:
     rows: tuple[Row, ...] = (
         (date(2026, 8, 31), 1, 2, "synthetic", ("0.123456789012345678", None)),
     )
@@ -279,7 +286,8 @@ def test_parquet_semantics_and_footer_are_verified(changed: str) -> None:
         verify_parquet(data, columns, rows)
 
 
-def test_all_null_empty_and_exact_text_columns() -> None:
+# Scenario: all null empty and exact text columns.
+def test_null_empty() -> None:
     columns = ("leading_zero_id", "nullable")
     rows: tuple[Row, ...] = ((date(2026, 8, 31), 1, 2, "synthetic", ("000123", None)),)
     for values in (rows, ()):
@@ -295,7 +303,8 @@ def test_all_null_empty_and_exact_text_columns() -> None:
     "start,through",
     [("2004-12-31", "2026-08-31"), ("2005-01-01", "2026-09-01"), ("2026-08-31", "2026-08-01")],
 )
-def test_snapshot_dates_fail_closed(start: str, through: str) -> None:
+# Scenario: snapshot dates fail closed.
+def test_dates_closed(start: str, through: str) -> None:
     with pytest.raises(ValueError):
         SnapshotRequest.model_validate_json(
             json.dumps(
@@ -308,14 +317,14 @@ def test_snapshot_dates_fail_closed(start: str, through: str) -> None:
         )
 
 
-def test_nanosecond_offsets_preserve_identity() -> None:
+# Scenario: nanosecond offsets preserve identity.
+def test_nanosecond_offsets() -> None:
     assert timestamp_ns("2026-08-29T08:00:00.123456789-04:00") == 1788004800123456789
     assert timestamp_ns("2026-08-29T12:00:00.123456789Z") == 1788004800123456789
 
 
-def test_source_budget_denies_before_raw_replay(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: source budget denies before raw replay.
+def test_source_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from loop_research.data import snapshot_sources
 
     store = cache(tmp_path)
@@ -330,7 +339,8 @@ def test_source_budget_denies_before_raw_replay(
 
 
 @pytest.mark.parametrize("ticks", [(100.0, 99.0), (100.0, 102.0), (100.0, float("nan"))])
-def test_deadline_and_clock_regression_deny(ticks: tuple[float, float]) -> None:
+# Scenario: deadline and clock regression deny.
+def test_deadline_clock(ticks: tuple[float, float]) -> None:
     from loop_research.data.snapshots import _Deadline
 
     readings = iter(ticks)
@@ -339,7 +349,8 @@ def test_deadline_and_clock_regression_deny(ticks: tuple[float, float]) -> None:
         budget.remaining()
 
 
-def test_nontrading_daily_observation_is_not_publishable(tmp_path: Path) -> None:
+# Scenario: nontrading daily observation is not publishable.
+def test_nontrading_daily(tmp_path: Path) -> None:
     store = cache(tmp_path)
     config, license = license_config(tmp_path)
     weekend = [*SEP_ROW]
@@ -362,7 +373,8 @@ def test_nontrading_daily_observation_is_not_publishable(tmp_path: Path) -> None
     )
 
 
-def test_empty_market_response_reports_all_requested_sessions_missing(tmp_path: Path) -> None:
+# Scenario: empty market response reports all requested sessions missing.
+def test_empty_market(tmp_path: Path) -> None:
     store = cache(tmp_path)
     config, license = license_config(tmp_path)
     receipt = asyncio.run(
@@ -384,9 +396,8 @@ def test_empty_market_response_reports_all_requested_sessions_missing(tmp_path: 
     assert validate_snapshot(store, result.snapshot.sha256) == result
 
 
-def test_failed_manifest_publication_can_retry(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+# Scenario: failed manifest publication can retry.
+def test_manifest_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from loop_research.data import snapshots
 
     store = cache(tmp_path)
@@ -411,7 +422,8 @@ def test_failed_manifest_publication_can_retry(
 
 
 @pytest.mark.parametrize("writers", [2, 4, 8])
-def test_independent_snapshot_writers(tmp_path: Path, writers: int) -> None:
+# Scenario: independent snapshot writers.
+def test_independent_writers(tmp_path: Path, writers: int) -> None:
     store = cache(tmp_path)
     digest = acquire(store, "sec", tmp_path)
     command = [
@@ -449,7 +461,8 @@ def test_independent_snapshot_writers(tmp_path: Path, writers: int) -> None:
 
 
 @pytest.mark.parametrize("boundary", ["before", "after"])
-def test_hard_kill_at_manifest_commit_recovers(tmp_path: Path, boundary: str) -> None:
+# Scenario: hard kill at manifest commit recovers.
+def test_hard_kill(tmp_path: Path, boundary: str) -> None:
     store = cache(tmp_path)
     digest = acquire(store, "sec", tmp_path)
     script = """

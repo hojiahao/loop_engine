@@ -10,7 +10,7 @@ import pytest
 from loop.v1.common_pb2 import CivilDate, JobId, LeaseId, Sha256Digest
 from loop.v1.evaluation_pb2 import FactorEvaluationResult, FactorEvaluationWork
 from loop.v1.factor_pb2 import FACTOR_DIRECTION_HIGHER_IS_BETTER, FactorSpec
-from loop_protocol.job import factor_spec_identity_sha256
+from loop_protocol.job import factor_identity_hash
 from loop_protocol.provenance import PROVENANCE_COMPONENTS
 from test_panel_io import declaration, manifest
 
@@ -57,7 +57,7 @@ def prepared(
         policy.policy_id.value = "policy." + field.name.removesuffix("_policy")
         policy.revision = "1"
         policy.sha256.value = b"p" * 32
-    factor.factor_spec_id.value = "sha256:" + factor_spec_identity_sha256(factor).hex()
+    factor.factor_spec_id.value = "sha256:" + factor_identity_hash(factor).hex()
     work.factor.CopyFrom(factor)
     for component in PROVENANCE_COMPONENTS:
         getattr(work.provenance, component + "_sha256").value = b"c" * 32
@@ -78,7 +78,8 @@ def prepared(
     view.chmod(0o700)
 
 
-def test_installed_subprocess_produces_bound_evidence(
+# Scenario: installed subprocess produces bound evidence.
+def test_installed_subprocess(
     prepared: tuple[FactorEvaluationWork, Path, Path],
 ) -> None:
     work, view, output = prepared
@@ -124,7 +125,8 @@ def test_installed_subprocess_produces_bound_evidence(
     assert not list(output.glob(".loop-build-*"))
 
 
-def test_changed_build_does_not_publish_results(
+# Scenario: changed build does not publish results.
+def test_changed_build(
     prepared: tuple[FactorEvaluationWork, Path, Path],
 ) -> None:
     work, view, output = prepared
@@ -136,7 +138,8 @@ def test_changed_build_does_not_publish_results(
 
 
 @pytest.mark.parametrize("changed", [None, "source_code_sha256", "environment_sha256"])
-def test_replay_verifies_the_build_without_recomputing(
+# Scenario: replay verifies the build without recomputing.
+def test_replay_verifies(
     prepared: tuple[FactorEvaluationWork, Path, Path], changed: str | None
 ) -> None:
     work, _, output = prepared
@@ -170,7 +173,8 @@ def test_replay_verifies_the_build_without_recomputing(
     "missing",
     ["job_id", "lease_id", "provenance", "deterministic_seed", "factor", "panel_manifest"],
 )
-def test_incomplete_work_is_not_execution_authority(
+# Scenario: incomplete work is not execution authority.
+def test_incomplete_work(
     prepared: tuple[FactorEvaluationWork, Path, Path],
     missing: str,
 ) -> None:
@@ -182,7 +186,8 @@ def test_incomplete_work_is_not_execution_authority(
     assert set(output.iterdir()) == before
 
 
-def test_subprocess_rejects_malformed_wire(tmp_path: Path) -> None:
+# Scenario: subprocess rejects malformed wire.
+def test_subprocess_malformed(tmp_path: Path) -> None:
     completed = subprocess.run(
         [
             sys.executable,
@@ -204,7 +209,8 @@ def test_subprocess_rejects_malformed_wire(tmp_path: Path) -> None:
     assert completed.stderr == b"factor evaluation failed; no completion authorized\n"
 
 
-def test_caller_environment_cannot_replace_the_module(tmp_path: Path) -> None:
+# Scenario: caller environment cannot replace the module.
+def test_caller_environment(tmp_path: Path) -> None:
     assert os.path.isabs(sys.executable)
     (tmp_path / "loop_research.py").write_text("raise RuntimeError('injected module')\n")
     completed = subprocess.run(

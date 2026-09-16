@@ -8,7 +8,7 @@ export const providerHealthSchema = z.object({
 
 export type ProviderHealth = z.infer<typeof providerHealthSchema>;
 
-export function providerHealth(): ProviderHealth {
+export function provider_health(): ProviderHealth {
   return providerHealthSchema.parse({
     component: "providerd",
     protocolVersion: "loop-engine.v1alpha1",

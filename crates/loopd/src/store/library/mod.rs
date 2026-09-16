@@ -677,7 +677,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn library_digest_has_independent_golden() {
+    // Scenario: library digest has independent golden.
+    fn library_digest_independent() {
         // Independently calculated with Node.js crypto, not this Rust writer.
         let hex: String = active_digest(&[])
             .unwrap()
@@ -691,7 +692,8 @@ mod tests {
     }
 
     #[test]
-    fn coverage_keeps_large_counts_exact() {
+    // Scenario: coverage keeps large counts exact.
+    fn coverage_large() {
         let mut evidence = AdmissionEvidence {
             eligible_observations: u64::MAX,
             valid_observations: u64::MAX - 1,

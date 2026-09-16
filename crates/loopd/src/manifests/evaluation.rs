@@ -2,10 +2,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::Datelike;
-use loop_core::factor::{FactorSpecId, ValidationLimits, parse_canonical_factor_spec, us_equities};
-use loop_protocol::job::{
-    canonical_factor_spec_identity_bytes, validate_factor_spec_identity_envelope,
-};
+use loop_core::factor::{FactorSpecId, ValidationLimits, parse_factor_spec, us_equities};
+use loop_protocol::job::{factor_identity_bytes, validate_factor_identity};
 use loop_protocol::provenance::ProvenanceSnapshot;
 use loop_protocol::wire::v1::{
     ArtifactRef, CivilDate, FactorEvaluationResult, FactorEvaluationWork, JobRecord,
@@ -146,9 +144,9 @@ impl EvaluationResolver {
         {
             return Err(StoreError::Corrupt("frozen evaluation context"));
         }
-        validate_factor_spec_identity_envelope(factor)?;
-        let canonical = parse_canonical_factor_spec(
-            &canonical_factor_spec_identity_bytes(factor)?,
+        validate_factor_identity(factor)?;
+        let canonical = parse_factor_spec(
+            &factor_identity_bytes(factor)?,
             FactorSpecId::parse(
                 &factor
                     .factor_spec_id
