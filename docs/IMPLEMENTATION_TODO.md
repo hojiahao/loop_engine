@@ -334,7 +334,12 @@ live acceptance task `e2a04de` is pushed; all seven jobs in run `34822845327`
 pass. The licensed coverage exit above remains deferred, not passed. It no longer
 blocks Phase 6 development; production data admission stays disabled.
 
-## Phase 6 - Factor engine (`in_progress`)
+## Phase 6 - Factor engine (`complete`)
+
+All three delivery units are published. Final implementation `b792601` passes
+all seven jobs in CI run `35058329373`, including complete workspace and clean
+DaoCloud container gates. The numerical/authorized trial workflow is closed;
+licensed historical data and formal portfolio accounting remain separate gates.
 
 Delivery units (implementation, tests and documentation together; publish and
 verify each before the next):
@@ -353,22 +358,44 @@ verify each before the next):
    panels, exposures and results to frozen policies; raw inputs remain compatible.
 3. Integrate the complete factor-research evaluation and trial/admission workflow,
    with frozen preprocessing/operator provenance, coverage, duplicate/failure
-   filtering, determinism and no-lookahead acceptance (`in_progress`; ADR 0028).
-   Implementation and the nine local workflow acceptance cases pass, including
-   independent 2/4/8 writers and kill/restart. Publication and exact-commit CI
-   remain the closure gates at this checkpoint; evidence is in the Phase 6 record.
+   filtering, determinism and no-lookahead acceptance (`complete`; ADR 0028).
+   `b792601` is pushed; all seven jobs in CI run `35058329373` pass, including
+   independent 2/4/8 writers and kill/restart. Evidence is in the Phase 6 record.
    Passing numerical coverage means ready for later backtesting, not admission
    or portfolio performance. Production backtesting remains Phase 7.
 
-- [ ] Port and specify operators, canonical AST evaluation, neutralization,
+- [x] Port and specify operators, canonical AST evaluation, neutralization,
       coverage checks, and trial registry.
-- [ ] Prove every evaluator conforms to its resolved operator semantic contract
+- [x] Prove every evaluator conforms to its resolved operator semantic contract
       with cross-language goldens, missing/constant-window properties, and
       reference numerical comparisons; bind source changes through
       `ResearchProvenance.source_code_sha256`.
-- [ ] Add golden, property, determinism, and look-ahead tests.
+- [x] Add golden, property, determinism, and look-ahead tests.
 
 ## Phase 7 - Primary backtester (`pending`)
+
+Delivery units, each with an executable workflow, negative-path tests, numerical
+goldens, documentation, a Simplified Chinese commit and remote acceptance:
+
+1. Frozen next-session portfolio replay and cash/NAV ledger (`pending`): consume
+   verified factor values and explicit raw execution observations; implement
+   deterministic long-only ranking, sizing, commissions/spread assumptions,
+   orders/fills, holdings, cash, NAV and simple returns. Add bounded administrative
+   CLI execution/replay and immutable receipts. Unsupported actions/shorting fail
+   explicitly; synthetic/development evidence cannot claim production eligibility.
+2. Market/accounting completeness (`pending`): integrate PIT execution inputs,
+   splits, dividends, delisting settlements, short availability, borrow costs,
+   participation/capacity and price-impact policy. Exercise corporate-action,
+   suspended/untradable-security, financing and insolvency golden ledgers.
+3. Statistical evaluation (`pending`): IC/Rank IC, grouped performance, turnover,
+   drawdown, risk exposures and uncertainty; bind multiple-testing procedures
+   and trial counts to complete experiment evidence. Insufficient inputs produce
+   explicit unavailable results, not invented statistics or admissibility.
+4. Authorized execution and phase acceptance (`pending`): connect the installed
+   producer to frozen contracts, runtime identity/data capability, lease fencing,
+   durable results, current reads/exports and shared admission. Cover protected
+   execution boundaries, independent processes, interrupted runs and deterministic
+   replay; preserve the separate Phase 8 independent-validation requirement.
 
 - [ ] Integrate portfolio/NAV generation with the Phase 4 authorization and
       numerical integrity gates; raw factor values and imported synthetic

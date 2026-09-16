@@ -1,6 +1,6 @@
 # ADR 0028: Verified evaluation trials and admission lineage
 
-- Status: Implemented and locally verified; publication gates pending
+- Status: Accepted; published and remotely verified
 - Date: 2026-09-15
 - Owner: hojiahao
 
@@ -77,3 +77,8 @@ or duplicate evidence until a fresh authorized evaluation completes. New writers
 must use the atomic projection path. Rollback stops new writers and retains the
 schema, artifacts, receipts and audit; use a compatible reader, not a destructive
 down-migration. Do not claim closure until commit, push and exact-commit CI pass.
+
+Implementation `b792601` is pushed. All seven jobs in CI run `35058329373`
+pass, including Rust, unified workspace and clean DaoCloud container acceptance.
+This closes Phase 6 unit 3 and the factor-engine phase; it does not implement
+portfolio accounting, deploy migration 0010 to production or unlock holdouts.

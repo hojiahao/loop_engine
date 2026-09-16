@@ -142,7 +142,7 @@ and lease acquisition consult completed evidence; trial reads return verified
 numerical provenance. File-backed version-2 admission reports name the actual
 numerical predecessor and share the existing admission/readmission handler.
 
-Verification is in progress. The added cases exercise actual installed-worker
+The added verification cases exercise actual installed-worker
 coverage, trial reads/replay, duplicate/failure filtering, corrupt projections,
 unverified rejection refusal, version-2 review lineage, exact context/coverage
 boundaries and independent 2/4/8 writers with kill/restart around commit.
@@ -178,6 +178,31 @@ commit's remote gates; these local results alone do not close the phase.
 Final `loopd` Clippy (`--all-targets --all-features -- -D warnings`) passes
 against the corrected code in 6m45s on the development host. No warnings are
 suppressed, and no numerical/corruption check is relaxed to obtain acceptance.
+
+Implementation `b7926012ce4816d4e3afd12a7e38e87f6b7a2c13` is pushed. All seven
+jobs in [CI run 35058329373](https://github.com/hojiahao/loop_engine/actions/runs/35058329373)
+pass: Rust, TypeScript, research worker, protocol contracts, legacy regression,
+unified workspace and clean DaoCloud development container. This closes unit 3.
+Task-local logs and the PostgreSQL container have been removed after recording
+the evidence; approximately 890 MiB of regenerable incremental compilation
+cache was also removed. Source market caches and immutable history were retained.
+
+## Phase closure
+
+The three Phase 6 units and the inherited ADR 0020 operator execution boundary
+meet the phase exit gate on the published implementation above:
+
+| Requirement | Executable evidence |
+| --- | --- |
+| Canonical AST and all fourteen installed operator families | `test_evaluator.py`, `test_numerics.py`, Rust registry identity and shared three-language canonical/provenance vectors |
+| Causal panels, coverage and no future input | `test_panel_builder.py`, `test_panel_sources.py`, `test_panel_io.py` and the installed TLS/PostgreSQL/worker cases |
+| Frozen preprocessing and neutralization | `test_cross_section.py`, `test_transform_pipeline.py`, exposure-time cases and actual transformed worker completion/replay |
+| Trial accounting, failed/duplicate filtering and shared admission | ADR 0028 workflow, legacy-review denial, corruption/migration, independent 2/4/8 writers and before/after-commit kills |
+
+No Phase 6 implementation item remains open. The data-quality limitation from
+Phase 5 remains: paid historical coverage was explicitly deferred. Exposure
+evidence retains its declared quality. Portfolio execution/accounting, statistics,
+independent backtest validation and autonomous search remain later phases.
 
 ## Rollback and retained evidence
 
