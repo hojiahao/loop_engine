@@ -36,7 +36,10 @@ from loop_research.data.fetch_cache import (
 )
 from loop_research.data.fetch_json import decode_object
 from loop_research.data.fetch_records import CachedObject
+from loop_research.execution_inputs import prepare_market
 from loop_research.factor_worker import FactorComputation, compute, encode_manifest
+from loop_research.market_models import ExecutionCapture, MarketPolicy, MarketTape
+from loop_research.market_portfolio import replay_market
 from loop_research.portfolio import Observation, Session, decimal_text, replay
 
 
@@ -77,7 +80,9 @@ def _integer(value: str, lower: int, upper: int) -> int:
     return result
 
 
-def _policy(request: BacktestRequest, computed: FactorComputation) -> PortfolioPolicy:
+def _policy(
+    request: BacktestRequest, computed: FactorComputation
+) -> PortfolioPolicy | MarketPolicy:
     factor = computed.factor.spec
     for role in POLICY_ROLES:
         document = request.policies[role]
@@ -101,7 +106,18 @@ def _policy(request: BacktestRequest, computed: FactorComputation) -> PortfolioP
                 raise ValueError("raw factor values cannot implement a transformation policy")
         elif document != getattr(processing, role.removesuffix("_policy")):
             raise ValueError("portfolio transformation policy differs from the factor panel")
+    coverage = request.policies["evaluation_policy"].settings
+    if set(coverage) != {"minimum_coverage_bps"}:
+        raise ValueError("unsupported evaluation coverage policy")
+    minimum = _integer(coverage["minimum_coverage_bps"], 0, 10000)
+    result = computed.result
+    if not result.eligible_observations or (
+        result.valid_observations * 10000 < result.eligible_observations * minimum
+    ):
+        raise ValueError("factor coverage does not satisfy its frozen policy")
     settings = request.policies["portfolio_policy"].settings
+    if settings.get("algorithm") == "ranked-long-short.1":
+        return _market_policy(request)
     if set(settings) != {"algorithm", "holdings", "initial_cash_usd", "lot_size"} or (
         settings["algorithm"] != "long-only-top-n.1"
     ):
@@ -115,15 +131,6 @@ def _policy(request: BacktestRequest, computed: FactorComputation) -> PortfolioP
         or costs["algorithm"] != "commission-spread.1"
     ):
         raise ValueError("unsupported cost policy")
-    coverage = request.policies["evaluation_policy"].settings
-    if set(coverage) != {"minimum_coverage_bps"}:
-        raise ValueError("unsupported evaluation coverage policy")
-    minimum = _integer(coverage["minimum_coverage_bps"], 0, 10000)
-    result = computed.result
-    if not result.eligible_observations or (
-        result.valid_observations * 10000 < result.eligible_observations * minimum
-    ):
-        raise ValueError("factor coverage does not satisfy its frozen policy")
     return PortfolioPolicy(
         initial_cash_usd=settings["initial_cash_usd"],
         holdings=_integer(settings["holdings"], 1, 1000),
@@ -131,6 +138,51 @@ def _policy(request: BacktestRequest, computed: FactorComputation) -> PortfolioP
         commission_per_share_usd=costs["commission_per_share_usd"],
         minimum_commission_usd=costs["minimum_commission_usd"],
         half_spread_bps=_integer(costs["half_spread_bps"], 0, 1000),
+    )
+
+
+def _market_policy(request: BacktestRequest) -> MarketPolicy:
+    settings = request.policies["portfolio_policy"].settings
+    costs = request.policies["cost_policy"].settings
+    execution = request.policies["execution_policy"].settings
+    portfolio_integers = {
+        "holdings",
+        "lot_size",
+        "long_weight_bps",
+        "short_weight_bps",
+        "initial_margin_bps",
+        "maintenance_margin_bps",
+    }
+    cost_integers = {
+        "half_spread_bps",
+        "impact_bps",
+        "short_collateral_bps",
+        "cash_debit_bps",
+        "cash_credit_bps",
+        "day_count",
+    }
+    if set(settings) != {"algorithm", "initial_cash_usd", *portfolio_integers}:
+        raise ValueError("unsupported market portfolio settings")
+    if (
+        set(execution) != {"algorithm", "participation_bps"}
+        or execution["algorithm"] != "pit-next-open.1"
+    ):
+        raise ValueError("unsupported market execution policy")
+    if (
+        set(costs)
+        != {"algorithm", "commission_per_share_usd", "minimum_commission_usd", *cost_integers}
+        or costs["algorithm"] != "commission-impact-finance.1"
+    ):
+        raise ValueError("unsupported market cost policy")
+    return MarketPolicy.model_validate(
+        {
+            **{key: _integer(settings[key], 0, 100000) for key in portfolio_integers},
+            **{key: _integer(costs[key], 0, 100000) for key in cost_integers},
+            "initial_cash_usd": settings["initial_cash_usd"],
+            "commission_per_share_usd": costs["commission_per_share_usd"],
+            "minimum_commission_usd": costs["minimum_commission_usd"],
+            "participation_bps": _integer(execution["participation_bps"], 1, 10000),
+        }
     )
 
 
@@ -221,10 +273,13 @@ def _materialize(
     if type(completed_ms) is not int or not 0 < completed_ms < 2**53:
         raise ValueError("invalid evaluation completion clock")
     tape_bytes = read(request.execution_tape)
-    decode_object(tape_bytes)
-    tape = ExecutionTape.model_validate_json(tape_bytes)
+    tape_document = decode_object(tape_bytes)
+    tape = (
+        MarketTape.model_validate_json(tape_bytes)
+        if tape_document.get("schema") == "loop.execution-tape/v2"
+        else ExecutionTape.model_validate_json(tape_bytes)
+    )
     factor_values = read(request.factor_values)
-    observations = read(tape.observations)
     computed = compute(work, view=view)
     deadline.check()
     if factor_values != computed.values_csv or result_bytes != (
@@ -236,15 +291,31 @@ def _materialize(
     if tape.quality != computed.loaded.manifest.quality:
         raise ValueError("execution and factor data quality differ")
     policy = _policy(request, computed)
-    try:
-        sessions = _sessions(observations, computed, deadline)
-    except csv.Error as error:
-        raise ValueError("invalid execution CSV encoding") from error
+    if isinstance(tape, MarketTape):
+        if not isinstance(policy, MarketPolicy):
+            raise ValueError("version-2 execution evidence requires frozen market policies")
+        content = read(tape.capture)
+        decode_object(content)
+        capture = ExecutionCapture.model_validate_json(content)
+        market = prepare_market(capture, computed, read, deadline.check)
+        sessions = tuple(session.base for session in market)
+        ledger = replay_market(
+            market, policy, computed.factor.spec.direction, check_budget=deadline.check
+        )
+    else:
+        if isinstance(policy, MarketPolicy):
+            raise ValueError("market accounting requires version-2 execution evidence")
+        try:
+            sessions = _sessions(read(tape.observations), computed, deadline)
+        except csv.Error as error:
+            raise ValueError("invalid execution CSV encoding") from error
+        ledger = replay(
+            sessions, policy, computed.factor.spec.direction, check_budget=deadline.check
+        )
     calendar = require_session_decisions(
         tuple(session.day for session in sessions),
         tuple(session.decision_ms for session in sessions),
     )
-    ledger = replay(sessions, policy, computed.factor.spec.direction, check_budget=deadline.check)
     source = "sha256:" + work.provenance.source_code_sha256.value.hex()
     environment = "sha256:" + work.provenance.environment_sha256.value.hex()
 
@@ -258,6 +329,9 @@ def _materialize(
         deadline.check()
 
     receipt = BacktestReceipt(
+        engine="pit-actions-long-short.1"
+        if isinstance(tape, MarketTape)
+        else "long-only-next-open.1",
         request=request,
         factor_spec_id=computed.factor.factor_spec_id,
         source_code_sha256=source,

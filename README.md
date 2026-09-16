@@ -9,10 +9,11 @@
 > A 股 legacy 基线，不代表美股版本已经完成。
 
 Phase 6 的美股因子面板、数值评测和试验接线已验收。Phase 7 正在实现组合回测，
-首项提供下一交易时点执行、现金/持仓/净值账本和离线重放，使用方法见
+已提供下一交易时点执行、现金/持仓/净值账本和离线重放；第二口径接入公司行动、
+做空借券、融资、成交容量及冲击成本。使用方法见
 [`组合回放说明`](docs/development/portfolio-backtest.md)，验收状态见
 [`Phase 7 验证记录`](docs/verification/phase-07-primary-backtest.md)。当前结果仍限于
-合成或开发级数据；公司行动、借券、容量、统计和授权回测接线尚待后续任务。
+合成或开发级数据；统计、授权回测接线和独立复核尚待后续任务。
 
 目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
 [`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；

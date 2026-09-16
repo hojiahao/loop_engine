@@ -36,6 +36,14 @@ methods, interfaces, arrows and wire-field exclusions.
 
 ## Acceptance
 
+Commit `9b08a6ecb9bd792aaa01dfc706c491c59078befd` is pushed. GitHub Actions run
+[`35079738478`](https://github.com/hojiahao/loop_engine/actions/runs/35079738478)
+passes all seven jobs, including clean DaoCloud container and unified
+`just check/test/test-isolation/build/doctor`. The local full-test compilation
+was stopped on the 1.6 GiB host after prolonged swapping; this exact-commit
+remote run supplies the full regression evidence. The publication-time checks
+below are retained for traceability.
+
 - Python/Rust/Shell: 3,363 declarations pass the naming gate in the current
   worktree, including the seven new guard functions/methods.
 - TypeScript/JavaScript: 343 declarations pass, including guard code and the

@@ -1,6 +1,6 @@
 # ADR 0029: Frozen next-session portfolio accounting
 
-- Status: Implemented; local acceptance passed, publication/CI pending
+- Status: Accepted; `cf2750d` is pushed and CI `35065117368` passes all seven jobs
 - Date: 2026-09-16
 - Owner: hojiahao
 

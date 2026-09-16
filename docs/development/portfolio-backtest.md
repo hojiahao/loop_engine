@@ -1,9 +1,10 @@
 # Development portfolio replay
 
-Phase 7 unit 1 adds an actual portfolio ledger using installed Python numerical
-code. ADR 0029 specifies its fixed long-only model. This administrative command
-does not submit a runtime job or admit a factor. Paid data, protected samples,
-shorting, corporate-action accounting and independent verification remain gated.
+The installed Python worker supports two explicit development portfolio profiles.
+ADR 0029 specifies the original fixed long-only ledger; ADR 0030 adds PIT actions,
+long/short accounting, borrowing, financing and capacity. This administrative
+command does not submit a runtime job or admit a factor. Paid data, protected
+samples, production eligibility and independent verification remain gated.
 
 ## Commands
 
@@ -157,3 +158,107 @@ receipt establishes completion. Rerun the same request to reuse identical bytes;
 corruption is rejected, not silently repaired. Preserve original inputs and
 historical receipts during rollback. Disable new `backtest-run` use or revert
 this task commit; no database migration is required.
+
+## Version 2: actions, shorts and capacity
+
+Use the same `backtest-run` / `backtest-validate` commands and v1 request envelope,
+but freeze these explicit policy settings before the factor computation:
+
+| Role | Exact required settings |
+| --- | --- |
+| `portfolio_policy` | `algorithm=ranked-long-short.1`, `holdings`, `initial_cash_usd`, `lot_size`, `long_weight_bps`, `short_weight_bps`, `initial_margin_bps`, `maintenance_margin_bps` |
+| `execution_policy` | `algorithm=pit-next-open.1`, `participation_bps` |
+| `cost_policy` | `algorithm=commission-impact-finance.1`, `commission_per_share_usd`, `minimum_commission_usd`, `half_spread_bps`, `impact_bps`, `short_collateral_bps`, `cash_debit_bps`, `cash_credit_bps`, `day_count` |
+
+The other six roles keep the same identity and validation rules as v1. Integer
+values must use canonical unsigned decimal text. Weights sum to 1..20000 bps,
+and gross weight times initial margin cannot exceed 100,000,000. Initial margin
+is 5000..10000 bps; maintenance is 2500..initial. Participation is 1..10000 bps;
+impact at full event volume is 0..5000 bps; half spread is 0..1000. Short collateral
+is 10000..30000 bps, cash debit rate 0..100000, credit rate 0..10000, and day count
+is exactly 360 or 365. The original cash, holdings, lot and fee bounds still apply.
+These are model parameters; no regulatory/broker margin rules are certified.
+
+The tape has this shape, replacing the v1 CSV reference:
+
+```json
+{
+  "schema": "loop.execution-tape/v2",
+  "quality": "synthetic",
+  "currency": "USD",
+  "price_basis": "raw",
+  "coverage": "explicit_development_declaration",
+  "capture": {"sha256": "sha256:<actual digest>", "byte_size": 123}
+}
+```
+
+The capture is a strict `loop.execution-capture/v1` object with `captured_at`,
+`prices`, `terms`, `actions` and `sources`. All timestamps are RFC3339 UTC-aware
+instants with exact millisecond precision; sessions are ISO dates. Every record
+contains `security_id`, `session`, `effective_at`, `known_at`, `ingested_at` and
+the existing `SourceEvidence` fields (`source`, `dataset`, `revision`, `record_id`,
+`raw_sha256`, `availability`). `sources` contains the sorted unique bounded
+`CachedObject` references for exactly those raw digests. Put their actual bytes
+in the private evidence directory. The program verifies integrity and declared
+PIT consistency; it does not certify normalization or vendor coverage.
+
+| Record | Additional required fields and behavior |
+| --- | --- |
+| Opening price | `kind=open`, `price_usd`, `auction_volume` (0..1e12 shares). Effective time inside the session; first dissemination within 60 seconds; modeled fill at dissemination. No daily final volume substitution. |
+| Closing price | `kind=close`, `price_usd`, `auction_volume=null`. Effective time identifies the scheduled close. Latest already visible revision supplies the mark. |
+| Trading terms | `valid_until`, `tradable`, `short_allowed`, `borrow_limit` (absolute shares), `borrow_rate_bps`, `recalled`, `sec_fee_usd_per_million`, `taf_fee_usd_per_share`, `taf_fee_cap_usd`. No default zero rates or unlimited borrow. |
+| Split | `kind=split`, `event_id`, positive integer `numerator` and `denominator` (each <=1e6). Optional paired `fraction_price_usd` and `pay_at` become mandatory when the actual position leaves a fractional residual. |
+| Ordinary dividend | `kind=dividend`, `event_id`, positive `amount_per_share_usd`, `pay_at`. Creates a signed claim on pre-ex-date shares. |
+| Final cash delisting | `kind=delisting`, `event_id`, nonnegative `amount_per_share_usd`, `pay_at`. Cancels orders, exchanges the position for a signed claim and permanently retires the ID. |
+
+Prices use the v1 raw-USD bounds. Fees use at most eight decimal places. The SEC
+pass-through rate is at most 1000 USD/million; TAF rate at most 1 USD/share and
+cap at most 1e6 USD/order in whole cents. A positive TAF rate requires a positive cap. These
+time-scoped declarations must reflect the intended historical assumptions, not
+today's rates copied into every year. Values in tests are invented examples.
+
+`effective_at <= known_at <= ingested_at <= captured_at` applies to price
+observations. Announcements/terms may be known before becoming effective. A
+first-observed source requires `known_at=ingested_at`; a later API download cannot
+be relabeled as historically executable. Events and terms are selected using
+public knowledge at each opening/closing event and the pinned ingestion cutoff.
+Late revisions are retained in lineage but cannot rewrite prior fills.
+
+Only one corporate event per security/session is supported, effective before
+the scheduled opening and already known then. Supply actual ex-dates and payment
+times. Complex/combined actions, special-dividend due bills and unresolved
+consideration are unsupported; do not encode them as ordinary cash dividends.
+An incomplete declared action list is not evidence of a complete historical feed.
+SEC/Alpaca daily development captures do not by themselves supply these auction,
+borrow and action inputs. No paid download or automatic source inference occurs.
+
+Version 2 retains the seven artifact names but adds `reason` to orders,
+`receivable_usd`, `gross_value_usd` and `short_collateral_usd` to NAV. Receivable
+is the signed net of action assets/liabilities; the event ledger permits their
+separate reconstruction. `costs` records `event_id`, `session`, `security_id`,
+`kind`, `cash_delta_usd`, `receivable_delta_usd`, `commission_usd`, `sec_fee_usd`,
+`taf_fee_usd`, `spread_cost_usd` and `impact_cost_usd`. Actions/claims/payments,
+borrow/cash interest and actual trades all reconcile through these columns.
+The receipt's engine is `pit-actions-long-short.1`; v1 readers must not interpret
+these CSVs using the old cost/NAV schema.
+
+Use ADR 0030 for exact selection, rounding, financing and failure rules. Notably,
+unpaid positive claims are not spendable cash or initial-margin collateral,
+short liabilities reserve cash, recalls require an actual cover, and missing
+held marks/borrow terms invalidate the run. There is no synthetic liquidation
+to avoid a margin/insolvency failure. The daily financing model uses prior-close
+balances for the whole actual-day interval; it is not brokerage settlement.
+
+Executable examples and hand-ledger acceptance:
+
+```sh
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_market_portfolio.py tests/test_market_workflow.py \
+  tests/test_portfolio.py tests/test_backtest_workflow.py
+```
+
+The workflow fixture builds actual source objects, a v2 capture, frozen policies
+and a real factor evaluation before invoking the installed CLI. It checks all
+artifact bytes on replay and never treats imported performance metrics as a
+computed backtest. Rollback disables v2 writes or reverts its task commit while
+preserving immutable receipts and sources; v1 requires no migration.

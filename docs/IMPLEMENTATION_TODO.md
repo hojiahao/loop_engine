@@ -377,19 +377,25 @@ verify each before the next):
 Delivery units, each with an executable workflow, negative-path tests, numerical
 goldens, documentation, a Simplified Chinese commit and remote acceptance:
 
-1. Frozen next-session portfolio replay and cash/NAV ledger (`implemented`; ADR 0029): consume
+1. Frozen next-session portfolio replay and cash/NAV ledger (`complete`; ADR 0029): consume
    verified factor values and explicit raw execution observations; implement
    deterministic long-only ranking, sizing, commissions/spread assumptions,
    orders/fills, holdings, cash, NAV and simple returns. Add bounded administrative
    CLI execution/replay and immutable receipts. Unsupported actions/shorting fail
    explicitly; synthetic/development evidence cannot claim production eligibility.
    Local final acceptance: 77 affected tests, Ruff, strict mypy, Rust formatting
-   and workspace Clippy pass. Publication and exact-commit CI remain the task's
-   final gate at commit time; see `docs/verification/phase-07-primary-backtest.md`.
-2. Market/accounting completeness (`pending`): integrate PIT execution inputs,
+   and workspace Clippy pass. Commit `cf2750d` is pushed; all seven jobs in CI
+   `35065117368` pass. See `docs/verification/phase-07-primary-backtest.md`.
+2. Market/accounting completeness (`in_progress`; ADR 0030): integrate PIT execution inputs,
    splits, dividends, delisting settlements, short availability, borrow costs,
    participation/capacity and price-impact policy. Exercise corporate-action,
    suspended/untradable-security, financing and insolvency golden ledgers.
+   The versioned development profile also consumes dated SEC/TAF pass-through
+   assumptions. Unsupported complex actions or unresolved intraday recalls fail
+   closed. It does not certify a broker account, licensed coverage or production
+   eligibility. Local acceptance: 120 affected regressions, followed by 46 final
+   market cases after the naming refactor; Ruff/format and strict mypy pass.
+   Commit, push and remote acceptance still gate delivery.
 3. Statistical evaluation (`pending`): IC/Rank IC, grouped performance, turnover,
    drawdown, risk exposures and uncertainty; bind multiple-testing procedures
    and trial counts to complete experiment evidence. Insufficient inputs produce

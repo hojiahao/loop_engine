@@ -1,6 +1,13 @@
 # Phase 7 primary portfolio backtest verification
 
-## Unit 1: next-session ledger (`implemented`; publication gate pending)
+## Unit 1: next-session ledger (`complete`)
+
+Commit `cf2750dd4aaacabccb258dfd6815cf034a1c452d` is pushed. GitHub Actions run
+[`35065117368`](https://github.com/hojiahao/loop_engine/actions/runs/35065117368)
+passes all seven jobs, including isolated Python research with its WRDS fixture,
+Rust, unified workspace and the clean DaoCloud development container. This closes
+unit 1, not Phase 7 or a production-data validation gate. The local history below
+is retained as evidence; the exact-commit CI supersedes its pending status.
 
 Requirement and scope: ADR 0029. Implementation provides bounded administrative
 `backtest-run` and read-only `backtest-validate`, using actual recomputed factor
@@ -56,7 +63,7 @@ local full run as fully passing, or the affected-suite result as a complete
 production backtester. Publication/CI evidence accompanies this task commit and
 is pinned in the next phase-task update after its check run completes.
 
-Remaining Phase 7 units: action/financing/borrow/capacity accounting and PIT
+At unit 1 closure, remaining Phase 7 units were action/financing/borrow/capacity accounting and PIT
 execution inputs; statistics/multiple-testing; authorized runtime completion,
 current reads/exports and admission. Independent validation remains Phase 8.
 Licensed historical production-data coverage remains deferred by the owner.
@@ -65,3 +72,42 @@ Rollback: disable new portfolio writers or revert the unit's code commit,
 preserving immutable inputs/results/receipts. No schema migration or deletion of
 research/audit history is needed. Temporary test directories may be removed
 after evidence is recorded; actual market captures and research artifacts remain.
+
+## Unit 2: PIT actions, financing and capacity (`in_progress`)
+
+Requirement and exact model: ADR 0030. Adds `pit-actions-long-short.1` through the
+existing installed CLI, with a source-backed v2 tape and explicitly frozen new
+policies. No extra service, database table, dependency or paid access is added.
+Prior v1 algorithms remain available. Byte integrity and declared public clocks
+do not certify historical source coverage; all receipts remain development-only.
+
+| Requirement | Executable acceptance |
+| --- | --- |
+| Share conversion, pending targets, long/short fractional cash-in-lieu | Split and reverse-split goldens in `test_market_portfolio.py` |
+| Entitlement versus cash payment; lender liabilities | Dividend, short-dividend and unpaid-payable-reserve goldens |
+| Explicit cash/zero delisting consideration and permanent retirement | Long and short delisting goldens |
+| Borrow limits, actual recalls and unavailable markets | Availability/recall/held-mark tests; unfinished covers fail |
+| ACT weekend borrow and financed cash balances | Hand-calculated collateral, weekend and cash-interest tests |
+| Bounded fills and price impact without double charging | Opening-event capacity/impact golden |
+| Historical SEC/TAF inputs and separate fee reconciliation | Dated sale-levy golden; no current rate is hardcoded |
+| Insolvency, closing maintenance, causality and determinism | Margin/insolvency cases, causal-prefix and Hypothesis conservation |
+| Genuine computation, CLI, immutable replay and source corruption | `test_market_workflow.py` with real factor evaluation and installed subprocess |
+| Late revisions, ambiguous sources, clocks and protected samples | Capture/terms/action negative cases and inherited v1 guards |
+
+The initial kernel run passed 23 tests. The combined portfolio, factor-worker
+and transform regression passed **120 tests in 326.58 seconds**. After tightening
+source-scope rejection before raw-artifact access and fee-cap cent precision,
+the final market suites passed **46 tests in 107.99 seconds**. Ruff lint/format
+and strict mypy passed (49 research source files). These runs preceded the
+repository-wide naming task; no financial formula changed during that rename.
+The post-rename market suites pass **46 tests in 132.09 seconds**, including the
+installed CLI and complete byte replay. Ruff lint/format and strict mypy pass
+again. Publication and remote acceptance remain pending. Local verification
+runs serially to avoid the prior task's native-IO contention.
+
+Rollback: disable v2 writers or revert the task implementation. Keep input
+captures, output ledgers and receipts; source changes invalidate current replay
+without relabeling immutable historical results. No destructive migration exists.
+
+Remaining after this unit: Phase 7 unit 3 statistics/multiple testing and unit 4
+authorized execution/current reads/exports/admission; Phase 8 independent review.

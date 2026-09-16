@@ -120,7 +120,7 @@ class BacktestReceipt(ImmutableRecord):
     schema_version: Literal["loop.portfolio-receipt/v1"] = Field(
         default="loop.portfolio-receipt/v1", alias="schema"
     )
-    engine: Literal["long-only-next-open.1"] = "long-only-next-open.1"
+    engine: Literal["long-only-next-open.1", "pit-actions-long-short.1"] = "long-only-next-open.1"
     request: BacktestRequest
     factor_spec_id: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     source_code_sha256: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
