@@ -1,6 +1,6 @@
 # ADR 0030: Point-in-time actions, financing and executable capacity
 
-- Status: Implemented; local acceptance passed, publication and CI pending
+- Status: Accepted; `4953dc9` is pushed and CI `35082001411` passes all seven jobs
 - Date: 2026-09-16
 - Owner: hojiahao
 

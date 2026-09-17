@@ -70,6 +70,11 @@ string-valued `settings` and the canonical field order used by the materializer.
 | `universe_policy`, `data_policy`, `calendar_policy` | Empty settings; use the already built panel's explicit selection and calendar |
 | `preprocess_policy`, `neutralization_policy` | Empty for raw v1; exact implemented transformation documents from the v2 panel otherwise |
 
+For statistics, freeze the additional `daily-statistics.1` settings described in
+[portfolio statistics](portfolio-statistics.md) before computing the factor.
+Coverage-only policies remain accepted for accounting but cannot acquire a
+statistical selection policy retrospectively.
+
 The administrator remains responsible for selecting the correct runtime input
 records. This command verifies bytes and computation, but job/lease IDs and the
 recorded configuration/data registry hashes do not authenticate the caller or

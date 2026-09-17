@@ -386,7 +386,7 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    Local final acceptance: 77 affected tests, Ruff, strict mypy, Rust formatting
    and workspace Clippy pass. Commit `cf2750d` is pushed; all seven jobs in CI
    `35065117368` pass. See `docs/verification/phase-07-primary-backtest.md`.
-2. Market/accounting completeness (`in_progress`; ADR 0030): integrate PIT execution inputs,
+2. Market/accounting completeness (`complete`; ADR 0030): integrate PIT execution inputs,
    splits, dividends, delisting settlements, short availability, borrow costs,
    participation/capacity and price-impact policy. Exercise corporate-action,
    suspended/untradable-security, financing and insolvency golden ledgers.
@@ -395,11 +395,18 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    closed. It does not certify a broker account, licensed coverage or production
    eligibility. Local acceptance: 120 affected regressions, followed by 46 final
    market cases after the naming refactor; Ruff/format and strict mypy pass.
-   Commit, push and remote acceptance still gate delivery.
-3. Statistical evaluation (`pending`): IC/Rank IC, grouped performance, turnover,
+   Commit `4953dc9` is pushed; CI `35082001411` passed all seven jobs, including
+   unified workspace and the clean DaoCloud container.
+3. Statistical evaluation (`in_progress`; ADR 0031): IC/Rank IC, grouped performance, turnover,
    drawdown, risk exposures and uncertainty; bind multiple-testing procedures
    and trial counts to complete experiment evidence. Insufficient inputs produce
    explicit unavailable results, not invented statistics or admissibility.
+   The opt-in frozen profile adds administrative statistics run/replay, complete
+   declared-family BY-FDR, DSR and exhaustive CSCV. Authenticated global trial
+   completeness remains part of unit 4. Local combined regression: 187 passed,
+   one native-environment verification timeout; the affected case passes alone
+   in 6.42 seconds. All 65 new cases pass. Ruff, strict mypy, naming and Rust
+   formatting pass. Publication and exact-commit remote CI still gate delivery.
 4. Authorized execution and phase acceptance (`pending`): connect the installed
    producer to frozen contracts, runtime identity/data capability, lease fencing,
    durable results, current reads/exports and shared admission. Cover protected

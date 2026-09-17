@@ -1,5 +1,72 @@
 # Phase 7 primary portfolio backtest verification
 
+## Unit 3: statistics and multiple testing (`in_progress`)
+
+Requirement and exact assumptions: ADR 0031. The installed `statistics-run`,
+`statistics-validate` and plan-binding command use genuine numerical/portfolio
+reconstruction. Four cohesive numerical/contract/workflow modules reuse the
+existing CAS, evaluator and accounting. No dependency, service, database table
+or protected-data access is added.
+
+| Requirement | Executable acceptance |
+| --- | --- |
+| Intercept Newey–West covariance and normal uncertainty | `test_hac_golden`, independent SciPy SEM/t-stat comparison |
+| Average ranks, IC, groups, frozen direction and future-label missingness | `test_portfolio_statistics.py` goldens and causal eligibility cases |
+| BY-FDR on the full family | Hand-calculated adjusted p-values and permutation/monotonicity properties |
+| DSR moments and declared-count assumption | Independent SciPy skew/Pearson-kurtosis and equation checks |
+| Exhaustive CSCV and deterministic ties | Six hand-derived splits; missing/unequal/constant/short/budget negative cases |
+| Actual portfolio statistics with complete synchronous trials | `test_actual_statistics`, 17 XNYS sessions and two actual portfolio replays |
+| Failures remain in counts; no missing/duplicate/substituted trial | `test_failure_count`, family integrity and frozen-policy mismatch tests |
+| NAV ratio, drawdown, turnover and signed risk exposures | Small ledger/drawdown goldens and long/short exposure weights |
+| Repeatability, provenance, corruption, cancellation and deadline | Installed CLI round trip, read-only bytes/mtime checks, Decimal-context and interruption tests |
+
+The initial new numerical/workflow suite passed 41 tests in 199.88 seconds.
+A later regression run was stopped after a newly added constant-series guard
+referenced the wrong local variable; that run is not counted as passing. The
+guard was corrected, and explicit decimal constants, complete policy comparison
+and isolated Decimal contexts were added. The numerical/cross-section suite then
+passed **45 tests in 3.55 seconds**. Ruff lint/format (90 files), strict mypy
+(53 source files), and the 3,452-declaration Python/Rust/Shell naming gate pass.
+Final combined regression and exact-commit remote CI are recorded below when
+completed; this note alone does not close the delivery gate.
+
+Final affected-suite run: **187 passed, 1 setup error in 713.38 seconds**. All
+65 new statistics cases passed. The error was the existing
+`test_backtest_workflow.py::test_protected_window` fixture hitting
+`worker build verification timed out` while hashing the native environment;
+it did not reach protected-window execution. The same case passed alone in
+**6.42 seconds**, with no source, limit, assertion or skip changes. Do not describe
+the first run as completely passing. All 188 cases have passing local evidence
+across these two runs; exact-commit CI must also pass the complete gates.
+
+```sh
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_statistics_kernels.py tests/test_statistics_workflow.py \
+  tests/test_portfolio_statistics.py tests/test_backtest_workflow.py \
+  tests/test_portfolio.py tests/test_market_workflow.py tests/test_market_portfolio.py \
+  tests/test_factor_worker.py tests/test_transform_pipeline.py
+
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_backtest_workflow.py::test_protected_window
+```
+
+Ruff lint and format (90 files), strict mypy (53 source files), the handwritten
+naming gate and Rust formatting pass. Financial paths preserve their existing
+deadlines and numeric bounds. The seven-job remote workflow supplies the full
+workspace, Rust/Clippy and clean-container gates; its exact commit/run receipt
+will accompany publication and be pinned in the next task's checklist update.
+Temporary local fixtures and XML are disposable after this evidence is recorded.
+
+The family receipt proves completeness only of its declared batch. Plan timing,
+failure statements and the global search history are not authenticated here;
+they must be bound to the durable registry in unit 4. Every report remains
+`production_eligible=false`. The statistical values are synthetic acceptance
+evidence, not market profitability or independent out-of-sample conclusions.
+
+Rollback disables the new CLI writers or reverts this task's implementation,
+retaining all CAS plans, ledgers, statistics, receipts and audit history. There
+is no schema migration or destructive recovery action.
+
 ## Unit 1: next-session ledger (`complete`)
 
 Commit `cf2750dd4aaacabccb258dfd6815cf034a1c452d` is pushed. GitHub Actions run
@@ -73,7 +140,13 @@ preserving immutable inputs/results/receipts. No schema migration or deletion of
 research/audit history is needed. Temporary test directories may be removed
 after evidence is recorded; actual market captures and research artifacts remain.
 
-## Unit 2: PIT actions, financing and capacity (`in_progress`)
+## Unit 2: PIT actions, financing and capacity (`complete`)
+
+Commit `4953dc90f33cd86d38df1b9e2019a958631b487b` is pushed. GitHub Actions run
+[`35082001411`](https://github.com/hojiahao/loop_engine/actions/runs/35082001411)
+passed all seven jobs, including unified workspace and the clean DaoCloud
+container. This supersedes the pre-publication pending notes below and closes
+unit 2 only.
 
 Requirement and exact model: ADR 0030. Adds `pit-actions-long-short.1` through the
 existing installed CLI, with a source-backed v2 tape and explicitly frozen new

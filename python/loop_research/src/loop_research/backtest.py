@@ -8,6 +8,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 
@@ -41,6 +42,7 @@ from loop_research.factor_worker import FactorComputation, compute, encode_manif
 from loop_research.market_models import ExecutionCapture, MarketPolicy, MarketTape
 from loop_research.market_portfolio import replay_market
 from loop_research.portfolio import Observation, Session, decimal_text, replay
+from loop_research.statistics_models import resolve_statistics
 
 
 class _Deadline:
@@ -62,6 +64,18 @@ class _Deadline:
         self.previous = current
         if current - self.started >= self.seconds:
             raise TimeoutError("portfolio deadline exceeded")
+
+
+@dataclass(frozen=True, slots=True)
+class PortfolioReplay:
+    """Actual reconstructed inputs/outputs and live guards, without job authority."""
+
+    receipt: BacktestReceipt
+    artifacts: dict[str, bytes]
+    sessions: tuple[Session, ...]
+    computed: FactorComputation
+    work: FactorEvaluationWork
+    check: Callable[[], None]
 
 
 def load_request(path: Path) -> BacktestRequest:
@@ -107,8 +121,7 @@ def _policy(
         elif document != getattr(processing, role.removesuffix("_policy")):
             raise ValueError("portfolio transformation policy differs from the factor panel")
     coverage = request.policies["evaluation_policy"].settings
-    if set(coverage) != {"minimum_coverage_bps"}:
-        raise ValueError("unsupported evaluation coverage policy")
+    resolve_statistics(request.policies["evaluation_policy"])
     minimum = _integer(coverage["minimum_coverage_bps"], 0, 10000)
     result = computed.result
     if not result.eligible_observations or (
@@ -253,7 +266,7 @@ def _reference(content: bytes) -> CachedObject:
 
 def _materialize(
     evidence: Path, view: Path, request: BacktestRequest, deadline: _Deadline
-) -> tuple[BacktestReceipt, dict[str, bytes], Callable[[], None]]:
+) -> PortfolioReplay:
     request = BacktestRequest.model_validate_json(request.model_dump_json(by_alias=True))
     inputs: list[tuple[CachedObject, bytes]] = []
 
@@ -346,7 +359,7 @@ def _materialize(
         fills=ledger.fills,
         ending_nav_usd=decimal_text(ledger.ending_nav),
     )
-    return receipt, ledger.artifacts, check
+    return PortfolioReplay(receipt, ledger.artifacts, sessions, computed, work, check)
 
 
 def _paths(evidence: Path, view: Path, store: Path) -> None:
@@ -386,13 +399,14 @@ def run_backtest(
     """
     deadline = _Deadline(timeout_seconds, clock)
     _paths(evidence, view, store)
-    receipt, artifacts, check = _materialize(evidence, view, request, deadline)
-    for content in artifacts.values():
+    result = _materialize(evidence, view, request, deadline)
+    for content in result.artifacts.values():
         deadline.check()
         publish(store, content)
-    check()
+    result.check()
     return _report(
-        publish(store, canonical_bytes(receipt.model_dump(mode="json", by_alias=True))), receipt
+        publish(store, canonical_bytes(result.receipt.model_dump(mode="json", by_alias=True))),
+        result.receipt,
     )
 
 
@@ -412,17 +426,38 @@ def validate_backtest(
     """
     deadline = _Deadline(timeout_seconds, clock)
     _paths(evidence, view, store)
-    reference, content = read_receipt(store, digest)
+    reference, _ = read_receipt(store, digest)
+    result = reconstruct(evidence, view, store, reference, deadline)
+    return _report(reference, result.receipt)
+
+
+def reconstruct(
+    evidence: Path, view: Path, store: Path, reference: CachedObject, deadline: _Deadline
+) -> PortfolioReplay:
+    """Verify every ledger byte and retain input/output guards for downstream stats.
+
+    This is administrative reconstruction, not capability resolution. The caller
+    must check the returned guards again before publishing dependent receipts.
+    """
+    if reference.byte_size > 128 * 1024:
+        raise ValueError("portfolio receipt byte budget")
+    content = read_cached(store, reference)
     decode_object(content)
     original = BacktestReceipt.model_validate_json(content)
-    receipt, artifacts, check = _materialize(evidence, view, original.request, deadline)
-    if canonical_bytes(receipt.model_dump(mode="json", by_alias=True)) != content:
+    result = _materialize(evidence, view, original.request, deadline)
+    if canonical_bytes(result.receipt.model_dump(mode="json", by_alias=True)) != content:
         raise ValueError("portfolio receipt differs from actual replay")
-    for name, expected in artifacts.items():
-        deadline.check()
-        if read_cached(store, getattr(receipt.artifacts, name)) != expected:
-            raise ValueError("portfolio output differs from actual replay")
+
+    def check() -> None:
+        result.check()
+        for name, expected in result.artifacts.items():
+            deadline.check()
+            if read_cached(store, getattr(result.receipt.artifacts, name)) != expected:
+                raise ValueError("portfolio output differs from actual replay")
+        if read_cached(store, reference) != content:
+            raise ValueError("portfolio receipt changed during replay")
+
     check()
-    if read_cached(store, reference) != content:
-        raise ValueError("portfolio receipt changed during replay")
-    return _report(reference, receipt)
+    return PortfolioReplay(
+        result.receipt, result.artifacts, result.sessions, result.computed, result.work, check
+    )

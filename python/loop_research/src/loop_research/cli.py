@@ -81,6 +81,23 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--evidence", type=Path, required=True)
         command.add_argument("--view", type=Path, required=True)
         command.add_argument("--store", type=Path, required=True)
+    statistics = commands.add_parser(
+        "statistics-run", help="Evaluate a verified portfolio and complete trial family"
+    )
+    statistics.add_argument("request", type=Path)
+    statistics_check = commands.add_parser(
+        "statistics-validate", help="Read-only statistical evidence reconstruction"
+    )
+    statistics_check.add_argument("--receipt", required=True)
+    for command in (statistics, statistics_check):
+        command.add_argument("--evidence", type=Path, required=True)
+        command.add_argument("--view", type=Path, required=True)
+        command.add_argument("--store", type=Path, required=True)
+    binding = commands.add_parser(
+        "statistics-bind", help="Prepare a trial binding before freezing its plan policy"
+    )
+    binding.add_argument("request", type=Path)
+    binding.add_argument("--evidence", type=Path, required=True)
     correlation = commands.add_parser("nav-correlation", help="Read-only local NAV diagnostics")
     correlation.add_argument("left", type=Path)
     correlation.add_argument("right", type=Path)
@@ -150,6 +167,35 @@ def main() -> None:
             # Never echo record bodies, vendor payloads or private local paths.
             parser.error("PIT query failed: invalid clocks, records, selection or input file")
         print(pit_report.model_dump_json(by_alias=True))
+    elif args.command == "statistics-bind":
+        from google.protobuf.message import DecodeError  # type: ignore[import-untyped]
+
+        from loop_research.backtest import load_request
+        from loop_research.statistics_workflow import bind_request
+
+        try:
+            binding_identity = bind_request(args.evidence, load_request(args.request))
+        except OSError, ValueError, DecodeError:
+            parser.error("trial binding failed: invalid request or work evidence")
+        print(json.dumps({"binding_sha256": binding_identity}))
+    elif args.command in ("statistics-run", "statistics-validate"):
+        from loop_research.statistics_workflow import (
+            load_statistics,
+            run_statistics,
+            validate_statistics,
+        )
+
+        try:
+            statistics_report = (
+                run_statistics(args.evidence, args.view, args.store, load_statistics(args.request))
+                if args.command == "statistics-run"
+                else validate_statistics(args.evidence, args.view, args.store, args.receipt)
+            )
+        except OSError, ValueError, TimeoutError:
+            parser.error("statistics operation failed: invalid evidence, policy, family or budget")
+        except KeyboardInterrupt:
+            parser.exit(130, "statistics operation cancelled; preserve immutable input evidence\n")
+        print(statistics_report.model_dump_json(by_alias=True))
     elif args.command in ("backtest-run", "backtest-validate"):
         from loop_research.backtest import load_request, run_backtest, validate_backtest
 
