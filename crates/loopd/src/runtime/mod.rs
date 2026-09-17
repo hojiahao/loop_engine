@@ -6,6 +6,7 @@ mod authority;
 mod capability;
 mod deployment;
 mod evaluation;
+mod portfolio;
 mod service;
 #[cfg(test)]
 mod tests;
@@ -15,4 +16,5 @@ pub use artifacts::{ArtifactBroker, DataPin};
 pub use authority::{Identity, JobPin, Role, RuntimeAuthority};
 pub use deployment::RuntimeDeployment;
 pub use evaluation::FactorExecutor;
+pub use portfolio::PortfolioExecutor;
 pub use service::{RuntimeService, serve};

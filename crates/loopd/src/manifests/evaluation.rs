@@ -192,12 +192,26 @@ impl EvaluationResolver {
                 })
             })
             .ok_or(StoreError::Invalid("frozen minimum coverage"))?;
-        if resolved.dataset.snapshots.len() != 1 {
+        let panels: Vec<_> = resolved
+            .dataset
+            .snapshots
+            .iter()
+            .filter(|snapshot| {
+                snapshot
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact.schema.name == "loop.factor_panel")
+            })
+            .collect();
+        if panels.len() != 1 {
             return Err(StoreError::Invalid(
                 "evaluation requires one explicit panel snapshot",
             ));
         }
-        let snapshot = &resolved.dataset.snapshots[0];
+        // Additional frozen execution snapshots may accompany this panel. The
+        // evaluator only consumes panel artifacts; the portfolio worker later
+        // reads execution observations through the same authorized data view.
+        let snapshot = panels[0];
         let artifact = snapshot
             .artifacts
             .iter()

@@ -15,8 +15,10 @@ mod library;
 mod lifecycle;
 pub(crate) use lifecycle::validate_context as validate_runtime_context;
 mod perturbation;
+mod portfolio;
 mod postgres;
 mod rejection;
+mod research_ledger;
 mod runtime;
 mod submission;
 
@@ -41,7 +43,9 @@ pub use library::{
 };
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
+pub use portfolio::PortfolioLineage;
 pub use postgres::{PgJobStore, StoreOptions};
+pub use research_ledger::{TrialEntry, TrialLedger};
 pub(crate) use runtime::live_lease;
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
@@ -49,6 +53,13 @@ pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, Submissio
 /// evidence; no error creates a new factor rejection or an execution result.
 #[derive(Debug, Error)]
 pub enum StoreError {
+    /// Primary portfolio evidence lacks mandatory independent reconciliation.
+    /// This is an unresolved decision prerequisite, not a numerical rejection.
+    #[error("independent portfolio reconciliation pending")]
+    IndependentPending,
+    /// New accepted work or a retry changed the statistical search denominator.
+    #[error("global research trial accounting changed")]
+    StaleTrials,
     /// The caller supplied an invalid command envelope.
     #[error("invalid storage command: {0}")]
     Invalid(&'static str),

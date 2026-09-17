@@ -5,6 +5,7 @@ package loop.jobs.v1;
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "loop/v1/artifact.proto";
+import "loop/v1/backtest.proto";
 import "loop/v1/common.proto";
 import "loop/v1/job.proto";
 
@@ -21,6 +22,16 @@ service JobService {
   // lease. The caller cannot submit output bytes, code, paths or worker identity.
   // Same command replay verifies immutable output instead of recomputing it.
   rpc EvaluateFactor(EvaluateFactorRequest) returns (EvaluateFactorResponse);
+  // Execute only the pinned installed portfolio producer on a development
+  // lease. Metrics, trial subsets, worker paths and holdouts are not accepted.
+  rpc ExecuteBacktest(ExecuteBacktestRequest) returns (ExecuteBacktestResponse);
+  // Reconstruct current evidence; historical job metadata is not a freshness claim.
+  rpc ReadBacktest(ReadBacktestRequest) returns (ReadBacktestResponse);
+  // Audit metadata release before responding; artifact access remains separate.
+  rpc ExportBacktest(ExportBacktestRequest) returns (ExportBacktestResponse);
+  // Ordinary admission/readmission share the same durable command. Missing
+  // independent validation remains a dependency failure, never an approval.
+  rpc DecideFactor(DecideFactorRequest) returns (DecideFactorResponse);
 }
 
 message GetJobRequest {
@@ -105,4 +116,65 @@ message EvaluateFactorRequest {
 
 message EvaluateFactorResponse {
   loop.v1.JobRecord job = 1;
+}
+
+message ExecuteBacktestRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+}
+
+message ExecuteBacktestResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message ReadBacktestRequest {
+  loop.v1.JobId job_id = 1;
+  string context_id = 2;
+}
+
+message ReadBacktestResponse {
+  loop.v1.BacktestResult result = 1;
+}
+
+message ExportBacktestRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  string context_id = 3;
+  google.protobuf.Timestamp deadline = 4;
+}
+
+message ExportBacktestResponse {
+  loop.v1.BacktestResult result = 1;
+  google.protobuf.Timestamp accepted_at = 2;
+  bool replayed = 3;
+}
+
+message DecideFactorRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId source_job_id = 2;
+  string context_id = 3;
+  uint64 expected_revision = 4;
+  string reason = 5;
+  string override_reason = 6;
+  string override_approval_id = 7;
+  google.protobuf.Timestamp deadline = 8;
+}
+
+message FactorDecisionState {
+  loop.v1.FactorSpecId factor_spec_id = 1;
+  uint64 revision = 2;
+  string status = 3;
+  uint64 admissions = 4;
+  uint64 retirements = 5;
+  loop.v1.JobId source_job_id = 6;
+}
+
+message DecideFactorResponse {
+  repeated FactorDecisionState states = 1;
+  string rejection_code = 2;
+  bool override_applied = 3;
+  google.protobuf.Timestamp accepted_at = 4;
+  bool replayed = 5;
 }

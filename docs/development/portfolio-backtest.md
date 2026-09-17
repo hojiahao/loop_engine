@@ -78,7 +78,10 @@ statistical selection policy retrospectively.
 The administrator remains responsible for selecting the correct runtime input
 records. This command verifies bytes and computation, but job/lease IDs and the
 recorded configuration/data registry hashes do not authenticate the caller or
-certify a durable trial. The authorized runtime integration is Phase 7 unit 4.
+certify a durable trial. The separate
+[authorized runtime workflow](authorized-portfolios.md) verifies a registered
+factor predecessor, frozen execution sources and global trial accounting before
+lease-fenced completion. This administrative CLI alone grants no such authority.
 
 ## Execution tape
 

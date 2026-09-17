@@ -79,10 +79,14 @@ primary portfolio backtester. Raw evaluation requires empty preprocessing and
 neutralization settings. Explicit version-2 transforms use `factor-evaluator.3`
 and bind their policy documents to both the FactorSpec and this context.
 
-Each raw development snapshot contains exactly two artifacts:
+Exactly one snapshot contains the raw factor panel, with exactly two artifacts:
 
 - `loop.factor_panel`, version 1, `application/json`.
 - `loop.factor_panel_values`, version 1, `text/csv`.
+
+Additional execution snapshots may be frozen in the same dataset for the
+authorized portfolio workflow. They are byte-verified but are not used as factor
+inputs. Multiple factor-panel snapshots remain invalid.
 
 The canonical `loop.factor-panel/v1` JSON field order is `schema`, `quality`,
 `sessions`, `securities`, `fields`, `decision_times_ms`, `evaluation_start`,
@@ -125,8 +129,9 @@ alone are not completion authority.
 
 The worker is limited to the smaller of 60 seconds and the current lease's
 remaining lifetime, which is already capped by the original job deadline. Data
-preparation does not reset that deadline. The runtime RPC has a 90-second outer
-timeout; timeout or request cancellation drops and kills the subprocess. These
+preparation does not reset that deadline. The shared runtime RPC has a 240-second
+outer timeout; the factor child retains its 60-second ceiling. Timeout or request
+cancellation drops and kills the subprocess. These
 are ceilings, not throughput estimates. Full-market runtime must be measured
 with the licensed dataset, universe and expression depth of the actual study.
 

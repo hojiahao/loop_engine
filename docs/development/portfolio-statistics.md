@@ -87,8 +87,13 @@ multiple testing explicitly reports `missing_experiment_evidence`.
 
 This profile verifies a **declared finite family**, not a researcher's complete
 prior/adaptive search. Registration here is an administrative immutable file;
-its creation time and authorship are not authenticated. Phase 7 unit 4 must
-connect the global durable trial registry before statistical admission.
+its creation time and authorship are not authenticated. The
+[authorized runtime](authorized-portfolios.md) separately binds database-wide
+job/attempt accounting and reports a conservative global BY upper bound. Its
+global DSR/PBO remain unavailable without a complete synchronous matrix. This
+declared-family workflow does not replace that check. Runtime admission still
+requires independent reconciliation and complete decision evidence; numerical
+files alone cannot approve a factor.
 
 1. Prepare each candidate's expression, direction, eight non-evaluation policies,
    sample, data, seed and execution tape. Use the existing raw-factor evaluation

@@ -119,6 +119,101 @@ pub struct EvaluateFactorResponse {
     #[prost(message, optional, tag = "1")]
     pub job: ::core::option::Option<super::super::v1::JobRecord>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExecuteBacktestRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "3")]
+    pub lease_id: ::core::option::Option<super::super::v1::LeaseId>,
+    #[prost(uint64, tag = "4")]
+    pub expected_revision: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteBacktestResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadBacktestRequest {
+    #[prost(message, optional, tag = "1")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(string, tag = "2")]
+    pub context_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadBacktestResponse {
+    #[prost(message, optional, tag = "1")]
+    pub result: ::core::option::Option<super::super::v1::BacktestResult>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExportBacktestRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(string, tag = "3")]
+    pub context_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub deadline: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExportBacktestResponse {
+    #[prost(message, optional, tag = "1")]
+    pub result: ::core::option::Option<super::super::v1::BacktestResult>,
+    #[prost(message, optional, tag = "2")]
+    pub accepted_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(bool, tag = "3")]
+    pub replayed: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DecideFactorRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub source_job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(string, tag = "3")]
+    pub context_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub expected_revision: u64,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub override_reason: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub override_approval_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "8")]
+    pub deadline: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FactorDecisionState {
+    #[prost(message, optional, tag = "1")]
+    pub factor_spec_id: ::core::option::Option<super::super::v1::FactorSpecId>,
+    #[prost(uint64, tag = "2")]
+    pub revision: u64,
+    #[prost(string, tag = "3")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "4")]
+    pub admissions: u64,
+    #[prost(uint64, tag = "5")]
+    pub retirements: u64,
+    #[prost(message, optional, tag = "6")]
+    pub source_job_id: ::core::option::Option<super::super::v1::JobId>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DecideFactorResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub states: ::prost::alloc::vec::Vec<FactorDecisionState>,
+    #[prost(string, tag = "2")]
+    pub rejection_code: ::prost::alloc::string::String,
+    #[prost(bool, tag = "3")]
+    pub override_applied: bool,
+    #[prost(message, optional, tag = "4")]
+    pub accepted_at: ::core::option::Option<::prost_types::Timestamp>,
+    #[prost(bool, tag = "5")]
+    pub replayed: bool,
+}
 /// Generated client implementations.
 pub mod job_service_client {
     #![allow(
@@ -377,6 +472,102 @@ pub mod job_service_client {
                 .insert(GrpcMethod::new("loop.jobs.v1.JobService", "EvaluateFactor"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn execute_backtest(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExecuteBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteBacktestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ExecuteBacktest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ExecuteBacktest"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn read_backtest(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadBacktestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ReadBacktest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ReadBacktest"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn export_backtest(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExportBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExportBacktestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ExportBacktest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ExportBacktest"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn decide_factor(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DecideFactorRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::DecideFactorResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/DecideFactor",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "DecideFactor"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -436,6 +627,34 @@ pub mod job_service_server {
             request: tonic::Request<super::EvaluateFactorRequest>,
         ) -> std::result::Result<
             tonic::Response<super::EvaluateFactorResponse>,
+            tonic::Status,
+        >;
+        async fn execute_backtest(
+            &self,
+            request: tonic::Request<super::ExecuteBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteBacktestResponse>,
+            tonic::Status,
+        >;
+        async fn read_backtest(
+            &self,
+            request: tonic::Request<super::ReadBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadBacktestResponse>,
+            tonic::Status,
+        >;
+        async fn export_backtest(
+            &self,
+            request: tonic::Request<super::ExportBacktestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExportBacktestResponse>,
+            tonic::Status,
+        >;
+        async fn decide_factor(
+            &self,
+            request: tonic::Request<super::DecideFactorRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::DecideFactorResponse>,
             tonic::Status,
         >;
     }
@@ -815,6 +1034,186 @@ pub mod job_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = EvaluateFactorSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ExecuteBacktest" => {
+                    #[allow(non_camel_case_types)]
+                    struct ExecuteBacktestSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ExecuteBacktestRequest>
+                    for ExecuteBacktestSvc<T> {
+                        type Response = super::ExecuteBacktestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ExecuteBacktestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::execute_backtest(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ExecuteBacktestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ReadBacktest" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadBacktestSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ReadBacktestRequest>
+                    for ReadBacktestSvc<T> {
+                        type Response = super::ReadBacktestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadBacktestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::read_backtest(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadBacktestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ExportBacktest" => {
+                    #[allow(non_camel_case_types)]
+                    struct ExportBacktestSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ExportBacktestRequest>
+                    for ExportBacktestSvc<T> {
+                        type Response = super::ExportBacktestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ExportBacktestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::export_backtest(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ExportBacktestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/DecideFactor" => {
+                    #[allow(non_camel_case_types)]
+                    struct DecideFactorSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::DecideFactorRequest>
+                    for DecideFactorSvc<T> {
+                        type Response = super::DecideFactorResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DecideFactorRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::decide_factor(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DecideFactorSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

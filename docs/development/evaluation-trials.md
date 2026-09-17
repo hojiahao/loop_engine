@@ -96,8 +96,10 @@ implementation is part of the authority boundary, not caller input.
 
 The integration tests use genuine computed factor values and explicitly
 synthetic portfolio/review artifacts. Their admitted fixture state proves the
-shared handler's wiring only. A formal US portfolio producer, transaction costs,
-portfolio statistics and independent reconciliation remain later phases.
+shared handler's wiring only. The installed development portfolio producer,
+costs and statistics now reach that boundary through
+[authorized portfolios](authorized-portfolios.md). Independent reconciliation
+remains Phase 8, and primary-only evidence cannot admit a factor.
 
 ## Verification and rollback
 

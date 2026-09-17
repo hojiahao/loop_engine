@@ -69,6 +69,26 @@ class JobServiceStub:
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.SerializeToString,
                 response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.FromString,
                 _registered_method=True)
+        self.ExecuteBacktest = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ExecuteBacktest',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.FromString,
+                _registered_method=True)
+        self.ReadBacktest = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ReadBacktest',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestResponse.FromString,
+                _registered_method=True)
+        self.ExportBacktest = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ExportBacktest',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestResponse.FromString,
+                _registered_method=True)
+        self.DecideFactor = channel.unary_unary(
+                '/loop.jobs.v1.JobService/DecideFactor',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorResponse.FromString,
+                _registered_method=True)
 
 
 class JobServiceServicer:
@@ -121,6 +141,36 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExecuteBacktest(self, request, context):
+        """Execute only the pinned installed portfolio producer on a development
+        lease. Metrics, trial subsets, worker paths and holdouts are not accepted.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReadBacktest(self, request, context):
+        """Reconstruct current evidence; historical job metadata is not a freshness claim.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExportBacktest(self, request, context):
+        """Audit metadata release before responding; artifact access remains separate.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DecideFactor(self, request, context):
+        """Ordinary admission/readmission share the same durable command. Missing
+        independent validation remains a dependency failure, never an approval.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_JobServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -158,6 +208,26 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.EvaluateFactor,
                     request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.FromString,
                     response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.SerializeToString,
+            ),
+            'ExecuteBacktest': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExecuteBacktest,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.SerializeToString,
+            ),
+            'ReadBacktest': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReadBacktest,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestResponse.SerializeToString,
+            ),
+            'ExportBacktest': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExportBacktest,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestResponse.SerializeToString,
+            ),
+            'DecideFactor': grpc.unary_unary_rpc_method_handler(
+                    servicer.DecideFactor,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -349,6 +419,114 @@ class JobService:
             '/loop.jobs.v1.JobService/EvaluateFactor',
             loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorRequest.SerializeToString,
             loop_dot_jobs_dot_v1_dot_service__pb2.EvaluateFactorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExecuteBacktest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ExecuteBacktest',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReadBacktest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ReadBacktest',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExportBacktest(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ExportBacktest',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExportBacktestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DecideFactor(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/DecideFactor',
+            loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.DecideFactorResponse.FromString,
             options,
             channel_credentials,
             insecure,

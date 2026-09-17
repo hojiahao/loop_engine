@@ -31,6 +31,7 @@ pub(super) struct ResolvedContext {
     pub policy_documents: Vec<model::PolicyDocument>,
     pub engine: model::Engine,
     pub engine_version: String,
+    pub portfolio_request: Option<ObjectRef>,
 }
 
 impl<'a> Materializer<'a> {
@@ -182,6 +183,7 @@ impl<'a> Materializer<'a> {
             policy_documents,
             engine: configuration.backtest_engine,
             engine_version: configuration.backtest_engine_version,
+            portfolio_request: configuration.portfolio_request,
         })
     }
 

@@ -8,7 +8,9 @@ import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { ArtifactRef } from "../../v1/artifact_pb.js";
 import { file_loop_v1_artifact } from "../../v1/artifact_pb.js";
-import type { CommandContext, JobId, LeaseId, Sha256Digest } from "../../v1/common_pb.js";
+import type { BacktestResult } from "../../v1/backtest_pb.js";
+import { file_loop_v1_backtest } from "../../v1/backtest_pb.js";
+import type { CommandContext, FactorSpecId, JobId, LeaseId, Sha256Digest } from "../../v1/common_pb.js";
 import { file_loop_v1_common } from "../../v1/common_pb.js";
 import type { JobOutcome, JobRecord } from "../../v1/job_pb.js";
 import { file_loop_v1_job } from "../../v1/job_pb.js";
@@ -18,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/jobs/v1/service.proto.
  */
 export const file_loop_jobs_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCIxCg5HZXRKb2JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCK0AQoWQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEjUKEnJlcXVlc3RlZF9kdXJhdGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI6ChdBY3F1aXJlSm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLbAQoYSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSNgoTcmVxdWVzdGVkX2V4dGVuc2lvbhgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI8ChlIZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIsMBChJDb21wbGV0ZUpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIkCgdvdXRjb21lGAUgASgLMhMubG9vcC52MS5Kb2JPdXRjb21lIjYKE0NvbXBsZXRlSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQihwEKEENhbmNlbEpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIOCgZyZWFzb24YBCABKAkiNAoRQ2FuY2VsSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQipQEKGlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQigAIKG1ByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAIgASgLMhAubG9vcC52MS5MZWFzZUlkEjMKFGRhdGFfbWFuaWZlc3Rfc2hhMjU2GAMgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSJwoJYXJ0aWZhY3RzGAQgAygLMhQubG9vcC52MS5BcnRpZmFjdFJlZhIuCgpleHBpcmVzX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd2aWV3X2lkGAYgASgJIqABChVFdmFsdWF0ZUZhY3RvclJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBCI5ChZFdmFsdWF0ZUZhY3RvclJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkMoIFCgpKb2JTZXJ2aWNlEkMKBkdldEpvYhIbLmxvb3Auam9icy52MS5HZXRKb2JSZXF1ZXN0GhwubG9vcC5qb2JzLnYxLkdldEpvYlJlc3BvbnNlEl4KD0FjcXVpcmVKb2JMZWFzZRIkLmxvb3Auam9icy52MS5BY3F1aXJlSm9iTGVhc2VSZXF1ZXN0GiUubG9vcC5qb2JzLnYxLkFjcXVpcmVKb2JMZWFzZVJlc3BvbnNlEmQKEUhlYXJ0YmVhdEpvYkxlYXNlEiYubG9vcC5qb2JzLnYxLkhlYXJ0YmVhdEpvYkxlYXNlUmVxdWVzdBonLmxvb3Auam9icy52MS5IZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlElIKC0NvbXBsZXRlSm9iEiAubG9vcC5qb2JzLnYxLkNvbXBsZXRlSm9iUmVxdWVzdBohLmxvb3Auam9icy52MS5Db21wbGV0ZUpvYlJlc3BvbnNlEkwKCUNhbmNlbEpvYhIeLmxvb3Auam9icy52MS5DYW5jZWxKb2JSZXF1ZXN0Gh8ubG9vcC5qb2JzLnYxLkNhbmNlbEpvYlJlc3BvbnNlEmoKE1ByZXBhcmVKb2JBcnRpZmFjdHMSKC5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1JlcXVlc3QaKS5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1Jlc3BvbnNlElsKDkV2YWx1YXRlRmFjdG9yEiMubG9vcC5qb2JzLnYxLkV2YWx1YXRlRmFjdG9yUmVxdWVzdBokLmxvb3Auam9icy52MS5FdmFsdWF0ZUZhY3RvclJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_artifact, file_loop_v1_common, file_loop_v1_job]);
+  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCIxCg5HZXRKb2JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCK0AQoWQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEjUKEnJlcXVlc3RlZF9kdXJhdGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI6ChdBY3F1aXJlSm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLbAQoYSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSNgoTcmVxdWVzdGVkX2V4dGVuc2lvbhgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI8ChlIZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIsMBChJDb21wbGV0ZUpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIkCgdvdXRjb21lGAUgASgLMhMubG9vcC52MS5Kb2JPdXRjb21lIjYKE0NvbXBsZXRlSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQihwEKEENhbmNlbEpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIOCgZyZWFzb24YBCABKAkiNAoRQ2FuY2VsSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQipQEKGlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQigAIKG1ByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAIgASgLMhAubG9vcC52MS5MZWFzZUlkEjMKFGRhdGFfbWFuaWZlc3Rfc2hhMjU2GAMgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSJwoJYXJ0aWZhY3RzGAQgAygLMhQubG9vcC52MS5BcnRpZmFjdFJlZhIuCgpleHBpcmVzX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd2aWV3X2lkGAYgASgJIqABChVFdmFsdWF0ZUZhY3RvclJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBCI5ChZFdmFsdWF0ZUZhY3RvclJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIqEBChZFeGVjdXRlQmFja3Rlc3RSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQiOgoXRXhlY3V0ZUJhY2t0ZXN0UmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQiSQoTUmVhZEJhY2t0ZXN0UmVxdWVzdBIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEhIKCmNvbnRleHRfaWQYAiABKAkiPwoUUmVhZEJhY2t0ZXN0UmVzcG9uc2USJwoGcmVzdWx0GAEgASgLMhcubG9vcC52MS5CYWNrdGVzdFJlc3VsdCKjAQoVRXhwb3J0QmFja3Rlc3RSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSEgoKY29udGV4dF9pZBgDIAEoCRIsCghkZWFkbGluZRgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAihAEKFkV4cG9ydEJhY2t0ZXN0UmVzcG9uc2USJwoGcmVzdWx0GAEgASgLMhcubG9vcC52MS5CYWNrdGVzdFJlc3VsdBIvCgthY2NlcHRlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIcmVwbGF5ZWQYAyABKAgiigIKE0RlY2lkZUZhY3RvclJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSJQoNc291cmNlX2pvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSEgoKY29udGV4dF9pZBgDIAEoCRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIOCgZyZWFzb24YBSABKAkSFwoPb3ZlcnJpZGVfcmVhc29uGAYgASgJEhwKFG92ZXJyaWRlX2FwcHJvdmFsX2lkGAcgASgJEiwKCGRlYWRsaW5lGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCK2AQoTRmFjdG9yRGVjaXNpb25TdGF0ZRItCg5mYWN0b3Jfc3BlY19pZBgBIAEoCzIVLmxvb3AudjEuRmFjdG9yU3BlY0lkEhAKCHJldmlzaW9uGAIgASgEEg4KBnN0YXR1cxgDIAEoCRISCgphZG1pc3Npb25zGAQgASgEEhMKC3JldGlyZW1lbnRzGAUgASgEEiUKDXNvdXJjZV9qb2JfaWQYBiABKAsyDi5sb29wLnYxLkpvYklkIr4BChREZWNpZGVGYWN0b3JSZXNwb25zZRIxCgZzdGF0ZXMYASADKAsyIS5sb29wLmpvYnMudjEuRmFjdG9yRGVjaXNpb25TdGF0ZRIWCg5yZWplY3Rpb25fY29kZRgCIAEoCRIYChBvdmVycmlkZV9hcHBsaWVkGAMgASgIEi8KC2FjY2VwdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghyZXBsYXllZBgFIAEoCDLtBwoKSm9iU2VydmljZRJDCgZHZXRKb2ISGy5sb29wLmpvYnMudjEuR2V0Sm9iUmVxdWVzdBocLmxvb3Auam9icy52MS5HZXRKb2JSZXNwb25zZRJeCg9BY3F1aXJlSm9iTGVhc2USJC5sb29wLmpvYnMudjEuQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBolLmxvb3Auam9icy52MS5BY3F1aXJlSm9iTGVhc2VSZXNwb25zZRJkChFIZWFydGJlYXRKb2JMZWFzZRImLmxvb3Auam9icy52MS5IZWFydGJlYXRKb2JMZWFzZVJlcXVlc3QaJy5sb29wLmpvYnMudjEuSGVhcnRiZWF0Sm9iTGVhc2VSZXNwb25zZRJSCgtDb21wbGV0ZUpvYhIgLmxvb3Auam9icy52MS5Db21wbGV0ZUpvYlJlcXVlc3QaIS5sb29wLmpvYnMudjEuQ29tcGxldGVKb2JSZXNwb25zZRJMCglDYW5jZWxKb2ISHi5sb29wLmpvYnMudjEuQ2FuY2VsSm9iUmVxdWVzdBofLmxvb3Auam9icy52MS5DYW5jZWxKb2JSZXNwb25zZRJqChNQcmVwYXJlSm9iQXJ0aWZhY3RzEigubG9vcC5qb2JzLnYxLlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0GikubG9vcC5qb2JzLnYxLlByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRJbCg5FdmFsdWF0ZUZhY3RvchIjLmxvb3Auam9icy52MS5FdmFsdWF0ZUZhY3RvclJlcXVlc3QaJC5sb29wLmpvYnMudjEuRXZhbHVhdGVGYWN0b3JSZXNwb25zZRJeCg9FeGVjdXRlQmFja3Rlc3QSJC5sb29wLmpvYnMudjEuRXhlY3V0ZUJhY2t0ZXN0UmVxdWVzdBolLmxvb3Auam9icy52MS5FeGVjdXRlQmFja3Rlc3RSZXNwb25zZRJVCgxSZWFkQmFja3Rlc3QSIS5sb29wLmpvYnMudjEuUmVhZEJhY2t0ZXN0UmVxdWVzdBoiLmxvb3Auam9icy52MS5SZWFkQmFja3Rlc3RSZXNwb25zZRJbCg5FeHBvcnRCYWNrdGVzdBIjLmxvb3Auam9icy52MS5FeHBvcnRCYWNrdGVzdFJlcXVlc3QaJC5sb29wLmpvYnMudjEuRXhwb3J0QmFja3Rlc3RSZXNwb25zZRJVCgxEZWNpZGVGYWN0b3ISIS5sb29wLmpvYnMudjEuRGVjaWRlRmFjdG9yUmVxdWVzdBoiLmxvb3Auam9icy52MS5EZWNpZGVGYWN0b3JSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_artifact, file_loop_v1_backtest, file_loop_v1_common, file_loop_v1_job]);
 
 /**
  * @generated from message loop.jobs.v1.GetJobRequest
@@ -389,6 +391,284 @@ export const EvaluateFactorResponseSchema: GenMessage<EvaluateFactorResponse> = 
   messageDesc(file_loop_jobs_v1_service, 13);
 
 /**
+ * @generated from message loop.jobs.v1.ExecuteBacktestRequest
+ */
+export type ExecuteBacktestRequest = Message<"loop.jobs.v1.ExecuteBacktestRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.LeaseId lease_id = 3;
+   */
+  leaseId?: LeaseId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 4;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExecuteBacktestRequest.
+ * Use `create(ExecuteBacktestRequestSchema)` to create a new message.
+ */
+export const ExecuteBacktestRequestSchema: GenMessage<ExecuteBacktestRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 14);
+
+/**
+ * @generated from message loop.jobs.v1.ExecuteBacktestResponse
+ */
+export type ExecuteBacktestResponse = Message<"loop.jobs.v1.ExecuteBacktestResponse"> & {
+  /**
+   * @generated from field: loop.v1.JobRecord job = 1;
+   */
+  job?: JobRecord | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExecuteBacktestResponse.
+ * Use `create(ExecuteBacktestResponseSchema)` to create a new message.
+ */
+export const ExecuteBacktestResponseSchema: GenMessage<ExecuteBacktestResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 15);
+
+/**
+ * @generated from message loop.jobs.v1.ReadBacktestRequest
+ */
+export type ReadBacktestRequest = Message<"loop.jobs.v1.ReadBacktestRequest"> & {
+  /**
+   * @generated from field: loop.v1.JobId job_id = 1;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: string context_id = 2;
+   */
+  contextId: string;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ReadBacktestRequest.
+ * Use `create(ReadBacktestRequestSchema)` to create a new message.
+ */
+export const ReadBacktestRequestSchema: GenMessage<ReadBacktestRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 16);
+
+/**
+ * @generated from message loop.jobs.v1.ReadBacktestResponse
+ */
+export type ReadBacktestResponse = Message<"loop.jobs.v1.ReadBacktestResponse"> & {
+  /**
+   * @generated from field: loop.v1.BacktestResult result = 1;
+   */
+  result?: BacktestResult | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ReadBacktestResponse.
+ * Use `create(ReadBacktestResponseSchema)` to create a new message.
+ */
+export const ReadBacktestResponseSchema: GenMessage<ReadBacktestResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 17);
+
+/**
+ * @generated from message loop.jobs.v1.ExportBacktestRequest
+ */
+export type ExportBacktestRequest = Message<"loop.jobs.v1.ExportBacktestRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: string context_id = 3;
+   */
+  contextId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp deadline = 4;
+   */
+  deadline?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExportBacktestRequest.
+ * Use `create(ExportBacktestRequestSchema)` to create a new message.
+ */
+export const ExportBacktestRequestSchema: GenMessage<ExportBacktestRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 18);
+
+/**
+ * @generated from message loop.jobs.v1.ExportBacktestResponse
+ */
+export type ExportBacktestResponse = Message<"loop.jobs.v1.ExportBacktestResponse"> & {
+  /**
+   * @generated from field: loop.v1.BacktestResult result = 1;
+   */
+  result?: BacktestResult | undefined;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp accepted_at = 2;
+   */
+  acceptedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: bool replayed = 3;
+   */
+  replayed: boolean;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExportBacktestResponse.
+ * Use `create(ExportBacktestResponseSchema)` to create a new message.
+ */
+export const ExportBacktestResponseSchema: GenMessage<ExportBacktestResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 19);
+
+/**
+ * @generated from message loop.jobs.v1.DecideFactorRequest
+ */
+export type DecideFactorRequest = Message<"loop.jobs.v1.DecideFactorRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId source_job_id = 2;
+   */
+  sourceJobId?: JobId | undefined;
+
+  /**
+   * @generated from field: string context_id = 3;
+   */
+  contextId: string;
+
+  /**
+   * @generated from field: uint64 expected_revision = 4;
+   */
+  expectedRevision: bigint;
+
+  /**
+   * @generated from field: string reason = 5;
+   */
+  reason: string;
+
+  /**
+   * @generated from field: string override_reason = 6;
+   */
+  overrideReason: string;
+
+  /**
+   * @generated from field: string override_approval_id = 7;
+   */
+  overrideApprovalId: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp deadline = 8;
+   */
+  deadline?: Timestamp | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.DecideFactorRequest.
+ * Use `create(DecideFactorRequestSchema)` to create a new message.
+ */
+export const DecideFactorRequestSchema: GenMessage<DecideFactorRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 20);
+
+/**
+ * @generated from message loop.jobs.v1.FactorDecisionState
+ */
+export type FactorDecisionState = Message<"loop.jobs.v1.FactorDecisionState"> & {
+  /**
+   * @generated from field: loop.v1.FactorSpecId factor_spec_id = 1;
+   */
+  factorSpecId?: FactorSpecId | undefined;
+
+  /**
+   * @generated from field: uint64 revision = 2;
+   */
+  revision: bigint;
+
+  /**
+   * @generated from field: string status = 3;
+   */
+  status: string;
+
+  /**
+   * @generated from field: uint64 admissions = 4;
+   */
+  admissions: bigint;
+
+  /**
+   * @generated from field: uint64 retirements = 5;
+   */
+  retirements: bigint;
+
+  /**
+   * @generated from field: loop.v1.JobId source_job_id = 6;
+   */
+  sourceJobId?: JobId | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.FactorDecisionState.
+ * Use `create(FactorDecisionStateSchema)` to create a new message.
+ */
+export const FactorDecisionStateSchema: GenMessage<FactorDecisionState> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 21);
+
+/**
+ * @generated from message loop.jobs.v1.DecideFactorResponse
+ */
+export type DecideFactorResponse = Message<"loop.jobs.v1.DecideFactorResponse"> & {
+  /**
+   * @generated from field: repeated loop.jobs.v1.FactorDecisionState states = 1;
+   */
+  states: FactorDecisionState[];
+
+  /**
+   * @generated from field: string rejection_code = 2;
+   */
+  rejectionCode: string;
+
+  /**
+   * @generated from field: bool override_applied = 3;
+   */
+  overrideApplied: boolean;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp accepted_at = 4;
+   */
+  acceptedAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: bool replayed = 5;
+   */
+  replayed: boolean;
+};
+
+/**
+ * Describes the message loop.jobs.v1.DecideFactorResponse.
+ * Use `create(DecideFactorResponseSchema)` to create a new message.
+ */
+export const DecideFactorResponseSchema: GenMessage<DecideFactorResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 22);
+
+/**
  * @generated from service loop.jobs.v1.JobService
  */
 export const JobService: GenService<{
@@ -454,6 +734,48 @@ export const JobService: GenService<{
     methodKind: "unary";
     input: typeof EvaluateFactorRequestSchema;
     output: typeof EvaluateFactorResponseSchema;
+  },
+  /**
+   * Execute only the pinned installed portfolio producer on a development
+   * lease. Metrics, trial subsets, worker paths and holdouts are not accepted.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.ExecuteBacktest
+   */
+  executeBacktest: {
+    methodKind: "unary";
+    input: typeof ExecuteBacktestRequestSchema;
+    output: typeof ExecuteBacktestResponseSchema;
+  },
+  /**
+   * Reconstruct current evidence; historical job metadata is not a freshness claim.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.ReadBacktest
+   */
+  readBacktest: {
+    methodKind: "unary";
+    input: typeof ReadBacktestRequestSchema;
+    output: typeof ReadBacktestResponseSchema;
+  },
+  /**
+   * Audit metadata release before responding; artifact access remains separate.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.ExportBacktest
+   */
+  exportBacktest: {
+    methodKind: "unary";
+    input: typeof ExportBacktestRequestSchema;
+    output: typeof ExportBacktestResponseSchema;
+  },
+  /**
+   * Ordinary admission/readmission share the same durable command. Missing
+   * independent validation remains a dependency failure, never an approval.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.DecideFactor
+   */
+  decideFactor: {
+    methodKind: "unary";
+    input: typeof DecideFactorRequestSchema;
+    output: typeof DecideFactorResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_jobs_v1_service, 0);

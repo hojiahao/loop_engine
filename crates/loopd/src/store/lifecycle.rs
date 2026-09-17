@@ -279,7 +279,9 @@ pub(super) async fn mutate(
         if job.specification != record.specification || job.revision != expected_revision + 1 {
             return Err(StoreError::Corrupt("lifecycle receipt binding"));
         }
-        backtest::verify_stored(&mut transaction, &job).await?;
+        if let Some(result) = backtest::verify_stored(&mut transaction, &job).await? {
+            backtest::validate_portfolio(store, &mut transaction, principal, &job, &result).await?;
+        }
         rejection::verify_stored(&mut transaction, &job).await?;
         super::evaluation::read(&mut transaction, &job).await?;
         if let Some(evidence) = &store.evaluation_evidence {
@@ -321,7 +323,7 @@ pub(super) async fn mutate(
         evidence.check(&record)?;
     }
     write_record(&mut transaction, &record, expected_revision).await?;
-    backtest::record_completion(store, &mut transaction, &record, now).await?;
+    backtest::record_completion(store, &mut transaction, &record, principal, now).await?;
     rejection::record_completion(&mut transaction, &record, now).await?;
     super::evaluation::record_completion(store, &mut transaction, &record).await?;
     audit::append(

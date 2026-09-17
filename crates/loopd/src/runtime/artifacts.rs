@@ -39,6 +39,38 @@ pub struct ArtifactBroker {
 }
 
 impl ArtifactBroker {
+    pub(crate) async fn portfolio_view(
+        &self,
+        job: &loop_protocol::wire::v1::JobSpecification,
+        lease: &str,
+    ) -> StoreResult<PathBuf> {
+        let id = &job
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value;
+        let pin = self.pins.get(id).ok_or(StoreError::AdmissionDenied)?;
+        if pin.protected
+            || !matches!(
+                job.input,
+                Some(loop_protocol::wire::v1::job_specification::Input::Backtest(
+                    _
+                ))
+            )
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        let evidence = data::resolve(&self.development, &pin.manifest, job, false).await?;
+        self.check_views()?;
+        let target = self.views.join(view_id(id, lease, &pin.manifest)?);
+        let metadata = std::fs::symlink_metadata(&target)?;
+        if !metadata.is_dir() || metadata.mode() & 0o777 != 0o555 {
+            return Err(StoreError::Corrupt("portfolio view permissions"));
+        }
+        self.verify_view(&target, &evidence.artifacts()).await?;
+        evidence.check(job)?;
+        Ok(target)
+    }
     pub(crate) async fn evaluation_view(
         &self,
         response: &PrepareJobArtifactsResponse,

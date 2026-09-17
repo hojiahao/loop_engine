@@ -62,6 +62,9 @@ async fn main() -> anyhow::Result<()> {
         .context("runtime deployment configuration is unavailable or invalid")?;
     if let Some(runtime) = &runtime {
         options.admission = runtime.authority.clone();
+        if let Some(portfolio) = &runtime.portfolio {
+            options.backtest_policy = portfolio.clone();
+        }
     }
     let store = PgJobStore::open(options)
         .await
@@ -91,6 +94,9 @@ async fn main() -> anyhow::Result<()> {
         let mut service = RuntimeService::new(store.clone(), runtime.authority, runtime.artifacts);
         if let Some(executor) = runtime.evaluator {
             service = service.with_factor_executor(executor);
+        }
+        if let Some(executor) = runtime.portfolio {
+            service = service.with_portfolio_executor(executor);
         }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)

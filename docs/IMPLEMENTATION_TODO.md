@@ -397,7 +397,7 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    market cases after the naming refactor; Ruff/format and strict mypy pass.
    Commit `4953dc9` is pushed; CI `35082001411` passed all seven jobs, including
    unified workspace and the clean DaoCloud container.
-3. Statistical evaluation (`in_progress`; ADR 0031): IC/Rank IC, grouped performance, turnover,
+3. Statistical evaluation (`complete`; ADR 0031): IC/Rank IC, grouped performance, turnover,
    drawdown, risk exposures and uncertainty; bind multiple-testing procedures
    and trial counts to complete experiment evidence. Insufficient inputs produce
    explicit unavailable results, not invented statistics or admissibility.
@@ -406,12 +406,22 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    completeness remains part of unit 4. Local combined regression: 187 passed,
    one native-environment verification timeout; the affected case passes alone
    in 6.42 seconds. All 65 new cases pass. Ruff, strict mypy, naming and Rust
-   formatting pass. Publication and exact-commit remote CI still gate delivery.
-4. Authorized execution and phase acceptance (`pending`): connect the installed
+   formatting pass. Commit `a512220` is pushed; all seven jobs in exact-commit
+   CI run `35180788482` pass.
+4. Authorized execution and phase acceptance (`in_progress`; ADR 0032): connect the installed
    producer to frozen contracts, runtime identity/data capability, lease fencing,
    durable results, current reads/exports and shared admission. Cover protected
    execution boundaries, independent processes, interrupted runs and deterministic
    replay; preserve the separate Phase 8 independent-validation requirement.
+   Implementation now includes the pinned mTLS producer, verified numerical
+   predecessor, complete database-local job/attempt commitment, conservative
+   global BY bound, atomic results, current reads/audited exports and the shared
+   admission prerequisite. Global DSR/PBO and Phase 8 independent reconciliation
+   remain explicitly unavailable. All 26 affected Python cases have passing
+   evidence across a combined run and one deadline-related isolated rerun;
+   local Clippy, TypeScript and naming gates pass. Initial Rust acceptance and
+   corrected cases are documented in the Phase 7 record; publication and the
+   exact-commit seven-job CI still gate phase closure.
 
 - [ ] Integrate portfolio/NAV generation with the Phase 4 authorization and
       numerical integrity gates; raw factor values and imported synthetic

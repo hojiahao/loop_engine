@@ -111,6 +111,11 @@ pub struct PgJobStore {
 }
 
 impl PgJobStore {
+    pub(crate) fn with_backtest_policy(&self, policy: Arc<dyn BacktestPolicy>) -> Self {
+        let mut prepared = self.clone();
+        prepared.backtest_policy = policy;
+        prepared
+    }
     pub(crate) fn with_evaluation_evidence(
         &self,
         evidence: crate::manifests::evaluation::EvaluationEvidence,

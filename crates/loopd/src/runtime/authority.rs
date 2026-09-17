@@ -340,8 +340,17 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.jobs.cancel"
                 | "loop.backtests.read_current"
                 | "loop.backtests.export_current"
+                | "loop.factors.read_trials"
+                | "loop.factors.decide"
         ),
-        Role::Research if operation == "loop.jobs.evaluate" => true,
+        Role::Research
+            if matches!(
+                operation,
+                "loop.jobs.evaluate" | "loop.jobs.backtest" | "loop.factors.read_trials"
+            ) =>
+        {
+            true
+        }
         Role::Research | Role::HoldoutWorker => matches!(
             operation,
             "loop.jobs.read"

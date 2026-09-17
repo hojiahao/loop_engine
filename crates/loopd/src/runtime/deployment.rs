@@ -9,8 +9,10 @@ use rustix::fs::{Mode, OFlags, open};
 use serde::Deserialize;
 use tonic::transport::{Certificate, Identity as TlsIdentity, ServerTlsConfig};
 
-use super::{ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, RuntimeAuthority};
-use crate::manifests::{EvaluationPin, EvaluationResolver};
+use super::{
+    ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, PortfolioExecutor, RuntimeAuthority,
+};
+use crate::manifests::{EvaluationPin, EvaluationResolver, PortfolioPin};
 use crate::store::{StoreError, StoreResult, SystemClock};
 
 #[derive(Deserialize)]
@@ -29,6 +31,8 @@ struct Configuration {
     data: Vec<DataPin>,
     #[serde(default)]
     evaluation: Option<EvaluationConfiguration>,
+    #[serde(default)]
+    portfolio: Option<PortfolioConfiguration>,
 }
 
 #[derive(Deserialize)]
@@ -37,6 +41,14 @@ struct EvaluationConfiguration {
     python: PathBuf,
     output_store: PathBuf,
     contexts: Vec<EvaluationPin>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PortfolioConfiguration {
+    python: PathBuf,
+    output_store: PathBuf,
+    jobs: Vec<PortfolioPin>,
 }
 
 /// Explicit startup-only runtime configuration. It deliberately has no Debug
@@ -50,6 +62,8 @@ pub struct RuntimeDeployment {
     pub artifacts: Arc<ArtifactBroker>,
     /// Optional fixed numerical implementation; absent means fail closed.
     pub evaluator: Option<Arc<FactorExecutor>>,
+    /// Optional portfolio execution and current-result reconstruction policy.
+    pub portfolio: Option<Arc<PortfolioExecutor>>,
     tls: ServerTlsConfig,
 }
 
@@ -80,6 +94,35 @@ impl RuntimeDeployment {
             &config.view_store,
             config.data,
         )?);
+        let portfolio = config
+            .portfolio
+            .map(|portfolio| {
+                let mut paths = vec![
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ];
+                if let Some(evaluation) = &config.evaluation {
+                    paths.push(&evaluation.output_store);
+                }
+                if paths.iter().any(|path| {
+                    portfolio.output_store.starts_with(path)
+                        || path.starts_with(&portfolio.output_store)
+                }) {
+                    return Err(StoreError::Invalid(
+                        "portfolio output overlaps input namespace",
+                    ));
+                }
+                PortfolioExecutor::open(
+                    &portfolio.python,
+                    &config.development_store,
+                    &portfolio.output_store,
+                    portfolio.jobs,
+                    artifacts.clone(),
+                )
+                .map(Arc::new)
+            })
+            .transpose()?;
         let evaluator = config
             .evaluation
             .map(|evaluation| {
@@ -110,6 +153,7 @@ impl RuntimeDeployment {
             authority,
             artifacts,
             evaluator,
+            portfolio,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),

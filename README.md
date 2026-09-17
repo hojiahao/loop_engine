@@ -16,7 +16,10 @@ Phase 6 的美股因子面板、数值评测和试验接线已验收。Phase 7 �
 IC/Rank IC、分组、换手、回撤、暴露、Newey–West，以及完整声明试验批次的 BY-FDR、
 DSR 和 CSCV/PBO，支持实际账本重算与只读验证，见
 [`统计评测说明`](docs/development/portfolio-statistics.md)。当前结果仍限于合成或开发级数据；
-授权回测接线、全局试验台账校验和独立复核尚待后续任务。
+第 4 项已接入授权组合执行、跨运行试验计数、结果登记及当前读取/审计导出，正在完成
+验收与发布。部署和接口见[`授权回测说明`](docs/development/authorized-portfolios.md)。
+全局检验使用保守 BY 上界，不把声明批次的 DSR/PBO 冒充全局结论；统一准入仍等待
+Phase 8 独立复核，当前没有据此放行正式美股因子。
 
 目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
 [`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；

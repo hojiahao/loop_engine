@@ -1,6 +1,6 @@
 # ADR 0031: Frozen statistics and complete declared experiment families
 
-- Status: Implemented; local acceptance recorded, publication and remote CI pending
+- Status: Accepted; commit a512220, exact-commit CI 35180788482 passed all seven jobs
 - Date: 2026-09-17
 - Owner: hojiahao
 

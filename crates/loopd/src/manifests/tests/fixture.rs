@@ -104,6 +104,7 @@ impl Fixture {
                 backtest_engine: model::Engine::PrimaryCrossSectional,
                 backtest_engine_version: "synthetic-producer.1".to_owned(),
                 policies: sorted_policies,
+                portfolio_request: None,
             },
         );
         let sample = model::Sample {

@@ -9,6 +9,7 @@ use crate::manifests::{EvaluationPin, EvaluationResolver, ObjectRef};
 use crate::runtime::FactorExecutor;
 use crate::store::{Clock, SystemClock};
 
+mod portfolio;
 mod workflow;
 
 struct Case {

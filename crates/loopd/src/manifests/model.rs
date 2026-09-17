@@ -82,6 +82,8 @@ pub(super) struct Configuration {
     pub backtest_engine: Engine,
     pub backtest_engine_version: String,
     pub policies: Vec<Policy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub portfolio_request: Option<ObjectRef>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -364,7 +366,7 @@ impl Artifact {
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct SchemaDocument {
+pub(crate) struct SchemaDocument {
     pub schema: String,
     pub name: String,
     pub version: u32,

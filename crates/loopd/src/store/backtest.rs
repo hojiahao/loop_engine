@@ -28,6 +28,16 @@ pub type BacktestPreparation<'a> =
 /// allowed in these synchronous transaction callbacks; pre-resolve immutable
 /// evidence under the owning service's identity. Defaults deny every operation.
 pub trait BacktestPolicy: Send + Sync {
+    /// Registered numerical predecessor and complete search accounting for the
+    /// installed portfolio producer. Fixtures/legacy imported formats return
+    /// `None` and cannot claim the authorized producer's version. Called only
+    /// after materialization; recheck file guards before returning metadata.
+    fn portfolio_lineage(
+        &self,
+        _job: &JobSpecification,
+    ) -> StoreResult<Option<super::PortfolioLineage>> {
+        Ok(None)
+    }
     /// Check catalog-level access before materializing files. This supplements
     /// the job/transport policy; it does not authenticate caller metadata.
     fn authorize_materialization(
@@ -301,6 +311,7 @@ pub(super) async fn current_in_transaction(
     let result = verify_stored(transaction, &record)
         .await?
         .ok_or(StoreError::InvalidTransition)?;
+    validate_portfolio(store, transaction, principal, &record, &result).await?;
     let success = success(&record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
     if store
         .backtest_policy
@@ -344,6 +355,7 @@ pub(super) async fn record_completion(
     store: &PgJobStore,
     transaction: &mut Transaction<'_, Postgres>,
     record: &JobRecord,
+    principal: &Actor,
     now: i64,
 ) -> StoreResult<()> {
     if !is_completed_backtest(record)? {
@@ -353,6 +365,7 @@ pub(super) async fn record_completion(
     let success = success(record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
     let result = store.backtest_policy.resolve_result(job, success)?;
     validate_result(&result, record)?;
+    validate_portfolio(store, transaction, principal, record, &result).await?;
     let blob = encode_message(&result)?;
     sqlx::query(
         "INSERT INTO backtest_results (job_id, job_revision, backtest_id, engine,
@@ -388,6 +401,26 @@ pub(super) async fn record_completion(
     .await?;
     #[cfg(test)]
     super::crash_tests::fault_point("result_after_insert").await;
+    Ok(())
+}
+
+pub(super) async fn validate_portfolio(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    record: &JobRecord,
+    result: &BacktestResult,
+) -> StoreResult<()> {
+    let proof = store
+        .backtest_policy
+        .portfolio_lineage(specification(record)?)?;
+    if result.engine_version == "authorized-portfolio.1" && proof.is_none() {
+        return Err(StoreError::AdmissionDenied);
+    }
+    if let Some(proof) = proof {
+        super::portfolio::validate(store, transaction, principal, record, Some(result), &proof)
+            .await?;
+    }
     Ok(())
 }
 

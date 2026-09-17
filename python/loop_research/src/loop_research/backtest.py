@@ -265,7 +265,12 @@ def _reference(content: bytes) -> CachedObject:
 
 
 def _materialize(
-    evidence: Path, view: Path, request: BacktestRequest, deadline: _Deadline
+    evidence: Path,
+    view: Path,
+    request: BacktestRequest,
+    deadline: _Deadline,
+    *,
+    market_read: Callable[[CachedObject], bytes] | None = None,
 ) -> PortfolioReplay:
     request = BacktestRequest.model_validate_json(request.model_dump_json(by_alias=True))
     inputs: list[tuple[CachedObject, bytes]] = []
@@ -285,7 +290,10 @@ def _materialize(
     completed_ms = result_document.get("completed_at_ms")
     if type(completed_ms) is not int or not 0 < completed_ms < 2**53:
         raise ValueError("invalid evaluation completion clock")
-    tape_bytes = read(request.execution_tape)
+    # Authorized execution supplies only the broker's immutable data view for
+    # market objects. Administrative workflows keep their existing private CAS.
+    read_market = market_read or read
+    tape_bytes = read_market(request.execution_tape)
     tape_document = decode_object(tape_bytes)
     tape = (
         MarketTape.model_validate_json(tape_bytes)
@@ -307,10 +315,10 @@ def _materialize(
     if isinstance(tape, MarketTape):
         if not isinstance(policy, MarketPolicy):
             raise ValueError("version-2 execution evidence requires frozen market policies")
-        content = read(tape.capture)
+        content = read_market(tape.capture)
         decode_object(content)
         capture = ExecutionCapture.model_validate_json(content)
-        market = prepare_market(capture, computed, read, deadline.check)
+        market = prepare_market(capture, computed, read_market, deadline.check)
         sessions = tuple(session.base for session in market)
         ledger = replay_market(
             market, policy, computed.factor.spec.direction, check_budget=deadline.check
@@ -319,7 +327,7 @@ def _materialize(
         if isinstance(policy, MarketPolicy):
             raise ValueError("market accounting requires version-2 execution evidence")
         try:
-            sessions = _sessions(read(tape.observations), computed, deadline)
+            sessions = _sessions(read_market(tape.observations), computed, deadline)
         except csv.Error as error:
             raise ValueError("invalid execution CSV encoding") from error
         ledger = replay(

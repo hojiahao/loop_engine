@@ -18,8 +18,11 @@ use tonic::{
 
 use super::authority::{CAPABILITY_HEADER, Principal};
 use super::capability::Capabilities;
-use super::{ArtifactBroker, FactorExecutor, RuntimeAuthority};
-use crate::store::{JobMutation, JobRepository, PgJobStore, StoreError, StoreResult};
+use super::{ArtifactBroker, FactorExecutor, PortfolioExecutor, RuntimeAuthority};
+use crate::store::{
+    BacktestRepository, FactorRepository, JobMutation, JobRepository, PgJobStore, StoreError,
+    StoreResult,
+};
 
 /// Optional mTLS-only job endpoint. The store must use this same deployment
 /// authority; public health/readiness routes never install this service.
@@ -30,6 +33,7 @@ pub struct RuntimeService {
     capabilities: Arc<Capabilities>,
     artifacts: Arc<ArtifactBroker>,
     evaluator: Option<Arc<FactorExecutor>>,
+    portfolio: Option<Arc<PortfolioExecutor>>,
 }
 
 impl RuntimeService {
@@ -47,6 +51,7 @@ impl RuntimeService {
             artifacts,
             capabilities: Arc::new(Capabilities::new()),
             evaluator: None,
+            portfolio: None,
         }
     }
 
@@ -54,6 +59,14 @@ impl RuntimeService {
     /// explicit attachment the evaluation RPC denies, including completed replays.
     pub fn with_factor_executor(mut self, executor: Arc<FactorExecutor>) -> Self {
         self.evaluator = Some(executor);
+        self
+    }
+
+    /// Attach the pinned installed portfolio producer and its numerical read
+    /// policy. Absent deployment configuration denies all portfolio execution.
+    pub fn with_portfolio_executor(mut self, executor: Arc<PortfolioExecutor>) -> Self {
+        self.store = self.store.with_backtest_policy(executor.clone());
+        self.portfolio = Some(executor);
         self
     }
 
@@ -105,7 +118,7 @@ pub async fn serve(
     Server::builder()
         .tls_config(tls.timeout(Duration::from_secs(10)))
         .map_err(|_| StoreError::Invalid("runtime TLS configuration"))?
-        .timeout(Duration::from_secs(90))
+        .timeout(Duration::from_secs(240))
         .concurrency_limit_per_connection(8)
         .max_concurrent_streams(8)
         .max_connection_age(Duration::from_secs(900))
@@ -122,6 +135,259 @@ pub async fn serve(
 
 #[tonic::async_trait]
 impl JobService for RuntimeService {
+    async fn read_backtest(
+        &self,
+        request: Request<v1::ReadBacktestRequest>,
+    ) -> Result<Response<v1::ReadBacktestResponse>, Status> {
+        let command = request.get_ref();
+        let (principal, _) = self
+            .job(
+                &request,
+                command.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.backtests.read_current",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        let result = self
+            .store
+            .current_backtest(
+                &principal.actor,
+                &command
+                    .job_id
+                    .as_ref()
+                    .ok_or_else(|| status(StoreError::Invalid("backtest ID")))?
+                    .value,
+                &command.context_id,
+            )
+            .await
+            .map_err(status)?;
+        Ok(Response::new(v1::ReadBacktestResponse {
+            result: Some(result),
+        }))
+    }
+
+    async fn export_backtest(
+        &self,
+        request: Request<v1::ExportBacktestRequest>,
+    ) -> Result<Response<v1::ExportBacktestResponse>, Status> {
+        let command = request.get_ref();
+        let (principal, _) = self
+            .job(
+                &request,
+                command.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.backtests.export_current",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        let result = self
+            .store
+            .export_current(
+                &principal.actor,
+                crate::store::ExportBacktest {
+                    context: command.context.clone(),
+                    job_id: command.job_id.clone(),
+                    context_id: command.context_id.clone(),
+                    deadline: command.deadline,
+                },
+            )
+            .await
+            .map_err(status)?;
+        Ok(Response::new(v1::ExportBacktestResponse {
+            result: Some(result.result),
+            accepted_at: Some(result.accepted_at),
+            replayed: result.replayed,
+        }))
+    }
+
+    async fn decide_factor(
+        &self,
+        request: Request<v1::DecideFactorRequest>,
+    ) -> Result<Response<v1::DecideFactorResponse>, Status> {
+        let command = request.get_ref();
+        let (principal, _) = self
+            .job(
+                &request,
+                command.source_job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.factors.decide",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        let result = self
+            .store
+            .decide_factor(
+                &principal.actor,
+                crate::store::DecideFactor {
+                    context: command.context.clone(),
+                    source_job_id: command.source_job_id.clone(),
+                    context_id: command.context_id.clone(),
+                    expected_revision: command.expected_revision,
+                    reason: command.reason.clone(),
+                    override_reason: command.override_reason.clone(),
+                    override_approval_id: command.override_approval_id.clone(),
+                    deadline: command.deadline,
+                },
+            )
+            .await
+            .map_err(status)?;
+        Ok(Response::new(v1::DecideFactorResponse {
+            states: result
+                .states
+                .into_iter()
+                .map(|state| v1::FactorDecisionState {
+                    factor_spec_id: Some(loop_protocol::wire::v1::FactorSpecId {
+                        value: state.factor_spec_id,
+                    }),
+                    revision: state.revision,
+                    status: state.status,
+                    admissions: state.admissions,
+                    retirements: state.retirements,
+                    source_job_id: Some(loop_protocol::wire::v1::JobId {
+                        value: state.source_job_id,
+                    }),
+                })
+                .collect(),
+            rejection_code: result.rejection_code,
+            override_applied: result.override_applied,
+            accepted_at: Some(result.accepted_at),
+            replayed: result.replayed,
+        }))
+    }
+
+    async fn execute_backtest(
+        &self,
+        request: Request<v1::ExecuteBacktestRequest>,
+    ) -> Result<Response<v1::ExecuteBacktestResponse>, Status> {
+        let command = request.get_ref();
+        let id = command.job_id.as_ref().map(|id| id.value.as_str());
+        let (principal, job) = self
+            .job(&request, id, "loop.jobs.backtest", false)
+            .await
+            .map_err(status)?;
+        crate::store::validate_runtime_context(command.context.as_ref(), &principal.actor)
+            .map_err(status)?;
+        let executor = self
+            .portfolio
+            .as_ref()
+            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
+        let specification = job
+            .specification
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Corrupt("portfolio job")))?;
+        let lease = command
+            .lease_id
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Invalid("portfolio lease")))?;
+        // Fence cancelled/expired work before any expensive input reads.
+        if job.state != JobState::Succeeded as i32 {
+            if job.revision != command.expected_revision {
+                return Err(status(StoreError::RevisionConflict));
+            }
+            crate::store::live_lease(
+                &job,
+                &principal.actor,
+                &lease.value,
+                self.authority.now().map_err(status)?,
+            )
+            .map_err(status)?;
+        }
+        let inputs = executor.inputs(specification).await.map_err(status)?;
+        let prepared = if job.state == JobState::Succeeded as i32 {
+            let Some(job_outcome::Outcome::Success(success)) = job
+                .outcome
+                .as_ref()
+                .and_then(|outcome| outcome.outcome.as_ref())
+            else {
+                return Err(status(StoreError::Corrupt("portfolio replay outcome")));
+            };
+            executor
+                .replay(inputs, specification, success)
+                .await
+                .map_err(status)?
+        } else {
+            let trials = self
+                .store
+                .trial_ledger(&principal.actor)
+                .await
+                .map_err(status)?;
+            self.store
+                .portfolio_source(&principal.actor, &job, &inputs.lineage(trials.clone()))
+                .await
+                .map_err(status)?;
+            let prepared = self
+                .artifacts
+                .prepare(
+                    &self.store,
+                    &principal.actor,
+                    &v1::PrepareJobArtifactsRequest {
+                        context: command.context.clone(),
+                        job_id: command.job_id.clone(),
+                        lease_id: command.lease_id.clone(),
+                        expected_revision: command.expected_revision,
+                    },
+                    &job,
+                )
+                .await
+                .map_err(status)?;
+            let view = self
+                .artifacts
+                .evaluation_view(&prepared)
+                .await
+                .map_err(status)?;
+            let (_, current) = self
+                .job(&request, id, "loop.jobs.backtest", false)
+                .await
+                .map_err(status)?;
+            if current.revision != command.expected_revision {
+                return Err(status(StoreError::RevisionConflict));
+            }
+            let now = self.authority.now().map_err(status)?;
+            let expires = crate::store::live_lease(&current, &principal.actor, &lease.value, now)
+                .map_err(status)?;
+            let remaining = Duration::from_millis(
+                u64::try_from(expires - now).map_err(|_| status(StoreError::LeaseFenced))?,
+            )
+            .min(Duration::from_secs(180));
+            let work = inputs.work(&lease.value, trials, None);
+            executor
+                .execute(inputs, &work, &view, remaining)
+                .await
+                .map_err(status)?
+        };
+        if prepared.lease_id.as_deref() != Some(lease.value.as_str()) {
+            return Err(status(StoreError::LeaseFenced));
+        }
+        let success = prepared
+            .success
+            .clone()
+            .ok_or_else(|| status(StoreError::Corrupt("portfolio output set")))?;
+        self.job(&request, id, "loop.jobs.backtest", false)
+            .await
+            .map_err(status)?;
+        let completed = self
+            .store
+            .with_backtest_policy(Arc::new(prepared))
+            .mutate(
+                &principal.actor,
+                JobMutation::Complete(v1::CompleteJobRequest {
+                    context: command.context.clone(),
+                    job_id: command.job_id.clone(),
+                    lease_id: command.lease_id.clone(),
+                    expected_revision: command.expected_revision,
+                    outcome: Some(JobOutcome {
+                        outcome: Some(job_outcome::Outcome::Success(success)),
+                    }),
+                }),
+            )
+            .await
+            .map_err(status)?;
+        Ok(Response::new(v1::ExecuteBacktestResponse {
+            job: Some(completed.job),
+        }))
+    }
+
     async fn evaluate_factor(
         &self,
         request: Request<v1::EvaluateFactorRequest>,
@@ -439,6 +705,21 @@ impl JobService for RuntimeService {
             )
             .await
             .map_err(status)?;
+        if matches!(
+            job.specification
+                .as_ref()
+                .and_then(|specification| specification.input.as_ref()),
+            Some(job_specification::Input::Backtest(_))
+        ) && matches!(
+            request
+                .get_ref()
+                .outcome
+                .as_ref()
+                .and_then(|outcome| outcome.outcome.as_ref()),
+            Some(job_outcome::Outcome::Success(_) | job_outcome::Outcome::FactorRejection(_))
+        ) {
+            return Err(status(StoreError::AdmissionDenied));
+        }
         if protected(&job) {
             self.capabilities
                 .command_lease(
@@ -604,6 +885,13 @@ pub(super) fn status(error: StoreError) -> Status {
             "runtime revision or request conflict",
             false,
         ),
+        StoreError::StaleTrials => (
+            Code::Aborted,
+            ErrorCategory::Conflict,
+            "trial_history_changed",
+            "global research trial accounting changed",
+            false,
+        ),
         StoreError::PreviouslyRejected => (
             Code::FailedPrecondition,
             ErrorCategory::Conflict,
@@ -616,6 +904,13 @@ pub(super) fn status(error: StoreError) -> Status {
             ErrorCategory::Conflict,
             "already_evaluated",
             "frozen factor context already evaluated",
+            false,
+        ),
+        StoreError::IndependentPending => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "independent_validation_pending",
+            "independent portfolio reconciliation pending",
             false,
         ),
         StoreError::LeaseFenced | StoreError::InvalidTransition => (

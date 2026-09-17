@@ -25,45 +25,64 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from loop.v1 import artifact_pb2 as loop_dot_v1_dot_artifact__pb2
+from loop.v1 import backtest_pb2 as loop_dot_v1_dot_backtest__pb2
 from loop.v1 import common_pb2 as loop_dot_v1_dot_common__pb2
 from loop.v1 import job_pb2 as loop_dot_v1_dot_job__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aloop/jobs/v1/service.proto\x12\x0cloop.jobs.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x16loop/v1/artifact.proto\x1a\x14loop/v1/common.proto\x1a\x11loop/v1/job.proto\"/\n\rGetJobRequest\x12\x1e\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.JobId\"1\n\x0eGetJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xb4\x01\n\x16\x41\x63quireJobLeaseRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\x12\x35\n\x12requested_duration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.Duration\":\n\x17\x41\x63quireJobLeaseResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xdb\x01\n\x18HeartbeatJobLeaseRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\x12\x36\n\x13requested_extension\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\"<\n\x19HeartbeatJobLeaseResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xc3\x01\n\x12\x43ompleteJobRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\x12$\n\x07outcome\x18\x05 \x01(\x0b\x32\x13.loop.v1.JobOutcome\"6\n\x13\x43ompleteJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\x87\x01\n\x10\x43\x61ncelJobRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\x12\x0e\n\x06reason\x18\x04 \x01(\t\"4\n\x11\x43\x61ncelJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xa5\x01\n\x1aPrepareJobArtifactsRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\"\x80\x02\n\x1bPrepareJobArtifactsResponse\x12\x1e\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x02 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x33\n\x14\x64\x61ta_manifest_sha256\x18\x03 \x01(\x0b\x32\x15.loop.v1.Sha256Digest\x12\'\n\tartifacts\x18\x04 \x03(\x0b\x32\x14.loop.v1.ArtifactRef\x12.\n\nexpires_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07view_id\x18\x06 \x01(\t\"\xa0\x01\n\x15\x45valuateFactorRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\"9\n\x16\x45valuateFactorResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord2\x82\x05\n\nJobService\x12\x43\n\x06GetJob\x12\x1b.loop.jobs.v1.GetJobRequest\x1a\x1c.loop.jobs.v1.GetJobResponse\x12^\n\x0f\x41\x63quireJobLease\x12$.loop.jobs.v1.AcquireJobLeaseRequest\x1a%.loop.jobs.v1.AcquireJobLeaseResponse\x12\x64\n\x11HeartbeatJobLease\x12&.loop.jobs.v1.HeartbeatJobLeaseRequest\x1a\'.loop.jobs.v1.HeartbeatJobLeaseResponse\x12R\n\x0b\x43ompleteJob\x12 .loop.jobs.v1.CompleteJobRequest\x1a!.loop.jobs.v1.CompleteJobResponse\x12L\n\tCancelJob\x12\x1e.loop.jobs.v1.CancelJobRequest\x1a\x1f.loop.jobs.v1.CancelJobResponse\x12j\n\x13PrepareJobArtifacts\x12(.loop.jobs.v1.PrepareJobArtifactsRequest\x1a).loop.jobs.v1.PrepareJobArtifactsResponse\x12[\n\x0e\x45valuateFactor\x12#.loop.jobs.v1.EvaluateFactorRequest\x1a$.loop.jobs.v1.EvaluateFactorResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aloop/jobs/v1/service.proto\x12\x0cloop.jobs.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x16loop/v1/artifact.proto\x1a\x16loop/v1/backtest.proto\x1a\x14loop/v1/common.proto\x1a\x11loop/v1/job.proto\"/\n\rGetJobRequest\x12\x1e\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.JobId\"1\n\x0eGetJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xb4\x01\n\x16\x41\x63quireJobLeaseRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\x12\x35\n\x12requested_duration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.Duration\":\n\x17\x41\x63quireJobLeaseResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xdb\x01\n\x18HeartbeatJobLeaseRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\x12\x36\n\x13requested_extension\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\"<\n\x19HeartbeatJobLeaseResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xc3\x01\n\x12\x43ompleteJobRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\x12$\n\x07outcome\x18\x05 \x01(\x0b\x32\x13.loop.v1.JobOutcome\"6\n\x13\x43ompleteJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\x87\x01\n\x10\x43\x61ncelJobRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\x12\x0e\n\x06reason\x18\x04 \x01(\t\"4\n\x11\x43\x61ncelJobResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xa5\x01\n\x1aPrepareJobArtifactsRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\"\x80\x02\n\x1bPrepareJobArtifactsResponse\x12\x1e\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x02 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x33\n\x14\x64\x61ta_manifest_sha256\x18\x03 \x01(\x0b\x32\x15.loop.v1.Sha256Digest\x12\'\n\tartifacts\x18\x04 \x03(\x0b\x32\x14.loop.v1.ArtifactRef\x12.\n\nexpires_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07view_id\x18\x06 \x01(\t\"\xa0\x01\n\x15\x45valuateFactorRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\"9\n\x16\x45valuateFactorResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"\xa1\x01\n\x16\x45xecuteBacktestRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\"\n\x08lease_id\x18\x03 \x01(\x0b\x32\x10.loop.v1.LeaseId\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\":\n\x17\x45xecuteBacktestResponse\x12\x1f\n\x03job\x18\x01 \x01(\x0b\x32\x12.loop.v1.JobRecord\"I\n\x13ReadBacktestRequest\x12\x1e\n\x06job_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x12\n\ncontext_id\x18\x02 \x01(\t\"?\n\x14ReadBacktestResponse\x12\'\n\x06result\x18\x01 \x01(\x0b\x32\x17.loop.v1.BacktestResult\"\xa3\x01\n\x15\x45xportBacktestRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x12\n\ncontext_id\x18\x03 \x01(\t\x12,\n\x08\x64\x65\x61\x64line\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x84\x01\n\x16\x45xportBacktestResponse\x12\'\n\x06result\x18\x01 \x01(\x0b\x32\x17.loop.v1.BacktestResult\x12/\n\x0b\x61\x63\x63\x65pted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08replayed\x18\x03 \x01(\x08\"\x8a\x02\n\x13\x44\x65\x63ideFactorRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12%\n\rsource_job_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x12\n\ncontext_id\x18\x03 \x01(\t\x12\x19\n\x11\x65xpected_revision\x18\x04 \x01(\x04\x12\x0e\n\x06reason\x18\x05 \x01(\t\x12\x17\n\x0foverride_reason\x18\x06 \x01(\t\x12\x1c\n\x14override_approval_id\x18\x07 \x01(\t\x12,\n\x08\x64\x65\x61\x64line\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\xb6\x01\n\x13\x46\x61\x63torDecisionState\x12-\n\x0e\x66\x61\x63tor_spec_id\x18\x01 \x01(\x0b\x32\x15.loop.v1.FactorSpecId\x12\x10\n\x08revision\x18\x02 \x01(\x04\x12\x0e\n\x06status\x18\x03 \x01(\t\x12\x12\n\nadmissions\x18\x04 \x01(\x04\x12\x13\n\x0bretirements\x18\x05 \x01(\x04\x12%\n\rsource_job_id\x18\x06 \x01(\x0b\x32\x0e.loop.v1.JobId\"\xbe\x01\n\x14\x44\x65\x63ideFactorResponse\x12\x31\n\x06states\x18\x01 \x03(\x0b\x32!.loop.jobs.v1.FactorDecisionState\x12\x16\n\x0erejection_code\x18\x02 \x01(\t\x12\x18\n\x10override_applied\x18\x03 \x01(\x08\x12/\n\x0b\x61\x63\x63\x65pted_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x10\n\x08replayed\x18\x05 \x01(\x08\x32\xed\x07\n\nJobService\x12\x43\n\x06GetJob\x12\x1b.loop.jobs.v1.GetJobRequest\x1a\x1c.loop.jobs.v1.GetJobResponse\x12^\n\x0f\x41\x63quireJobLease\x12$.loop.jobs.v1.AcquireJobLeaseRequest\x1a%.loop.jobs.v1.AcquireJobLeaseResponse\x12\x64\n\x11HeartbeatJobLease\x12&.loop.jobs.v1.HeartbeatJobLeaseRequest\x1a\'.loop.jobs.v1.HeartbeatJobLeaseResponse\x12R\n\x0b\x43ompleteJob\x12 .loop.jobs.v1.CompleteJobRequest\x1a!.loop.jobs.v1.CompleteJobResponse\x12L\n\tCancelJob\x12\x1e.loop.jobs.v1.CancelJobRequest\x1a\x1f.loop.jobs.v1.CancelJobResponse\x12j\n\x13PrepareJobArtifacts\x12(.loop.jobs.v1.PrepareJobArtifactsRequest\x1a).loop.jobs.v1.PrepareJobArtifactsResponse\x12[\n\x0e\x45valuateFactor\x12#.loop.jobs.v1.EvaluateFactorRequest\x1a$.loop.jobs.v1.EvaluateFactorResponse\x12^\n\x0f\x45xecuteBacktest\x12$.loop.jobs.v1.ExecuteBacktestRequest\x1a%.loop.jobs.v1.ExecuteBacktestResponse\x12U\n\x0cReadBacktest\x12!.loop.jobs.v1.ReadBacktestRequest\x1a\".loop.jobs.v1.ReadBacktestResponse\x12[\n\x0e\x45xportBacktest\x12#.loop.jobs.v1.ExportBacktestRequest\x1a$.loop.jobs.v1.ExportBacktestResponse\x12U\n\x0c\x44\x65\x63ideFactor\x12!.loop.jobs.v1.DecideFactorRequest\x1a\".loop.jobs.v1.DecideFactorResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'loop.jobs.v1.service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_GETJOBREQUEST']._serialized_start=174
-  _globals['_GETJOBREQUEST']._serialized_end=221
-  _globals['_GETJOBRESPONSE']._serialized_start=223
-  _globals['_GETJOBRESPONSE']._serialized_end=272
-  _globals['_ACQUIREJOBLEASEREQUEST']._serialized_start=275
-  _globals['_ACQUIREJOBLEASEREQUEST']._serialized_end=455
-  _globals['_ACQUIREJOBLEASERESPONSE']._serialized_start=457
-  _globals['_ACQUIREJOBLEASERESPONSE']._serialized_end=515
-  _globals['_HEARTBEATJOBLEASEREQUEST']._serialized_start=518
-  _globals['_HEARTBEATJOBLEASEREQUEST']._serialized_end=737
-  _globals['_HEARTBEATJOBLEASERESPONSE']._serialized_start=739
-  _globals['_HEARTBEATJOBLEASERESPONSE']._serialized_end=799
-  _globals['_COMPLETEJOBREQUEST']._serialized_start=802
-  _globals['_COMPLETEJOBREQUEST']._serialized_end=997
-  _globals['_COMPLETEJOBRESPONSE']._serialized_start=999
-  _globals['_COMPLETEJOBRESPONSE']._serialized_end=1053
-  _globals['_CANCELJOBREQUEST']._serialized_start=1056
-  _globals['_CANCELJOBREQUEST']._serialized_end=1191
-  _globals['_CANCELJOBRESPONSE']._serialized_start=1193
-  _globals['_CANCELJOBRESPONSE']._serialized_end=1245
-  _globals['_PREPAREJOBARTIFACTSREQUEST']._serialized_start=1248
-  _globals['_PREPAREJOBARTIFACTSREQUEST']._serialized_end=1413
-  _globals['_PREPAREJOBARTIFACTSRESPONSE']._serialized_start=1416
-  _globals['_PREPAREJOBARTIFACTSRESPONSE']._serialized_end=1672
-  _globals['_EVALUATEFACTORREQUEST']._serialized_start=1675
-  _globals['_EVALUATEFACTORREQUEST']._serialized_end=1835
-  _globals['_EVALUATEFACTORRESPONSE']._serialized_start=1837
-  _globals['_EVALUATEFACTORRESPONSE']._serialized_end=1894
-  _globals['_JOBSERVICE']._serialized_start=1897
-  _globals['_JOBSERVICE']._serialized_end=2539
+  _globals['_GETJOBREQUEST']._serialized_start=198
+  _globals['_GETJOBREQUEST']._serialized_end=245
+  _globals['_GETJOBRESPONSE']._serialized_start=247
+  _globals['_GETJOBRESPONSE']._serialized_end=296
+  _globals['_ACQUIREJOBLEASEREQUEST']._serialized_start=299
+  _globals['_ACQUIREJOBLEASEREQUEST']._serialized_end=479
+  _globals['_ACQUIREJOBLEASERESPONSE']._serialized_start=481
+  _globals['_ACQUIREJOBLEASERESPONSE']._serialized_end=539
+  _globals['_HEARTBEATJOBLEASEREQUEST']._serialized_start=542
+  _globals['_HEARTBEATJOBLEASEREQUEST']._serialized_end=761
+  _globals['_HEARTBEATJOBLEASERESPONSE']._serialized_start=763
+  _globals['_HEARTBEATJOBLEASERESPONSE']._serialized_end=823
+  _globals['_COMPLETEJOBREQUEST']._serialized_start=826
+  _globals['_COMPLETEJOBREQUEST']._serialized_end=1021
+  _globals['_COMPLETEJOBRESPONSE']._serialized_start=1023
+  _globals['_COMPLETEJOBRESPONSE']._serialized_end=1077
+  _globals['_CANCELJOBREQUEST']._serialized_start=1080
+  _globals['_CANCELJOBREQUEST']._serialized_end=1215
+  _globals['_CANCELJOBRESPONSE']._serialized_start=1217
+  _globals['_CANCELJOBRESPONSE']._serialized_end=1269
+  _globals['_PREPAREJOBARTIFACTSREQUEST']._serialized_start=1272
+  _globals['_PREPAREJOBARTIFACTSREQUEST']._serialized_end=1437
+  _globals['_PREPAREJOBARTIFACTSRESPONSE']._serialized_start=1440
+  _globals['_PREPAREJOBARTIFACTSRESPONSE']._serialized_end=1696
+  _globals['_EVALUATEFACTORREQUEST']._serialized_start=1699
+  _globals['_EVALUATEFACTORREQUEST']._serialized_end=1859
+  _globals['_EVALUATEFACTORRESPONSE']._serialized_start=1861
+  _globals['_EVALUATEFACTORRESPONSE']._serialized_end=1918
+  _globals['_EXECUTEBACKTESTREQUEST']._serialized_start=1921
+  _globals['_EXECUTEBACKTESTREQUEST']._serialized_end=2082
+  _globals['_EXECUTEBACKTESTRESPONSE']._serialized_start=2084
+  _globals['_EXECUTEBACKTESTRESPONSE']._serialized_end=2142
+  _globals['_READBACKTESTREQUEST']._serialized_start=2144
+  _globals['_READBACKTESTREQUEST']._serialized_end=2217
+  _globals['_READBACKTESTRESPONSE']._serialized_start=2219
+  _globals['_READBACKTESTRESPONSE']._serialized_end=2282
+  _globals['_EXPORTBACKTESTREQUEST']._serialized_start=2285
+  _globals['_EXPORTBACKTESTREQUEST']._serialized_end=2448
+  _globals['_EXPORTBACKTESTRESPONSE']._serialized_start=2451
+  _globals['_EXPORTBACKTESTRESPONSE']._serialized_end=2583
+  _globals['_DECIDEFACTORREQUEST']._serialized_start=2586
+  _globals['_DECIDEFACTORREQUEST']._serialized_end=2852
+  _globals['_FACTORDECISIONSTATE']._serialized_start=2855
+  _globals['_FACTORDECISIONSTATE']._serialized_end=3037
+  _globals['_DECIDEFACTORRESPONSE']._serialized_start=3040
+  _globals['_DECIDEFACTORRESPONSE']._serialized_end=3230
+  _globals['_JOBSERVICE']._serialized_start=3233
+  _globals['_JOBSERVICE']._serialized_end=4238
 # @@protoc_insertion_point(module_scope)
