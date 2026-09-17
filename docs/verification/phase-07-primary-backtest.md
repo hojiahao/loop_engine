@@ -2,6 +2,30 @@
 
 ## Unit 4: authorized execution and global trial accounting (`in_progress`)
 
+Implementation commit `4addeb8100df4225a9b5035ec59c1e159594dc3e` is pushed.
+Exact-commit CI
+[`35196842306`](https://github.com/hojiahao/loop_engine/actions/runs/35196842306)
+finished with **six successful jobs and one timed-out Rust job**. This is not a
+seven-job pass. Both the unified workspace and clean DaoCloud container passed;
+the workspace executed every corrected portfolio case, including the 2/4/8
+independent-process completion race and all three commit-boundary crash cases.
+Its `loopd` library result is **117 passed, 0 failed, 5 ignored** in 1161.15 seconds;
+the ignored entries are child executables launched by their parent process tests.
+All subsequent Rust integration/doc tests passed. Research Python reports
+**921 passed**, protocol Python **301 passed**, legacy **216 passed / 1 skipped**,
+and TypeScript **116 passed** in this workspace run.
+
+The complete Rust execution interval was 07:58:58 to 08:20:31 UTC (about 21m33s),
+excluding compilation and setup. The standalone Rust job began at 07:53:57 UTC,
+completed its build at 07:57:22, passed every new portfolio case by 08:10:58,
+and was cancelled by the job budget at 08:14:10 during the remaining regression
+suite. There is no reported assertion failure in that job. Its 20-minute total
+budget cannot accommodate the measured suite; only `.github/workflows/ci.yml`'s
+Rust job limit changes to **35 minutes**, with bounded room for clean compilation,
+dependency setup and isolation checks. No production deadline, lease, test skip
+or assertion changes. A new exact-commit seven-job run remains required. The CI
+budget change can be reverted without modifying research or audit history.
+
 Requirement, tradeoffs and recovery: [ADR 0032](../adr/0032-authorized-portfolio-execution.md).
 Deployment and executable RPC inputs are documented in
 [authorized portfolios](../development/authorized-portfolios.md). The workflow

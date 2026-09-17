@@ -24,7 +24,8 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # CI 35196842306: tests alone take 21m33s; allow bounded build/setup headroom.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable

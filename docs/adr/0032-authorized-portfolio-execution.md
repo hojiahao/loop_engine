@@ -1,6 +1,6 @@
 # ADR 0032: Authorized portfolio execution and global trial accounting
 
-- Status: Implementation in progress; publication and remote gates pending
+- Status: Implementation published; final seven-job CI acceptance pending
 - Owner: hojiahao
 
 ## Requirement
@@ -57,6 +57,14 @@ Keep the independent-process 2/4/8 writer and commit-boundary crash matrices.
 Record precise local and remote evidence before marking the unit complete.
 Concurrency fixtures use one post-computation logical commit clock; expiry tests
 retain the live runtime clock. No production deadline is relaxed for slow tests.
+
+Published implementation `4addeb8` passes the complete unified workspace and
+clean DaoCloud-container gates in CI `35196842306`, including the 2/4/8-process
+and crash-recovery matrices. The standalone Rust job exhausted its 20-minute
+total budget; the same full Rust tests take 21m33s without build/setup time.
+Increase only that CI job's bounded budget to 35 minutes and require a new
+seven-job run. No test is skipped and no production timeout is changed. Reverting
+this CI setting affects validation capacity only, not stored research evidence.
 
 No new service, numerical dependency or database migration is required. Disable
 the optional portfolio deployment to stop new writers. Preserve all jobs,

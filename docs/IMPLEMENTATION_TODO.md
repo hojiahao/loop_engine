@@ -419,9 +419,12 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    admission prerequisite. Global DSR/PBO and Phase 8 independent reconciliation
    remain explicitly unavailable. All 26 affected Python cases have passing
    evidence across a combined run and one deadline-related isolated rerun;
-   local Clippy, TypeScript and naming gates pass. Initial Rust acceptance and
-   corrected cases are documented in the Phase 7 record; publication and the
-   exact-commit seven-job CI still gate phase closure.
+   local Clippy, TypeScript and naming gates pass. Commit `4addeb8` is pushed.
+   CI `35196842306` passes six jobs, including all corrected Rust/process cases
+   in the unified workspace and clean DaoCloud container. The standalone Rust
+   job hit its 20-minute total limit: the complete Rust tests take 21m33s before
+   build/setup overhead. Its bounded budget is now 35 minutes; production
+   deadlines are unchanged. The exact-commit seven-job rerun still gates closure.
 
 - [ ] Integrate portfolio/NAV generation with the Phase 4 authorization and
       numerical integrity gates; raw factor values and imported synthetic
