@@ -144,7 +144,9 @@ fi
   --all-packages --all-groups --locked
 "${loop_repo_dir}/scripts/verify-python-environment.sh"
 "${loop_repo_dir}/scripts/uv-alphalens.sh" run --locked loop-alphalens doctor
-"${loop_repo_dir}/scripts/uv-zipline.sh" run --locked loop-zipline doctor
+# The base image disables implicit interpreter downloads during ordinary runs.
+# Bootstrap alone may acquire the validator's exact secondary interpreter pin.
+UV_PYTHON_DOWNLOADS=automatic "${loop_repo_dir}/scripts/uv-zipline.sh" run --locked loop-zipline doctor
 
 "${loop_repo_dir}/scripts/pnpm.sh" install --frozen-lockfile --config.confirmModulesPurge=false
 cargo fetch --locked

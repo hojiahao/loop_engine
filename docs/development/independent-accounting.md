@@ -25,6 +25,9 @@ The main research service stays on Python 3.14.4/pandas 3.0.5. This validator
 uses Python 3.12.13/Zipline Reloaded 3.1.1/pandas 2.3.3. Upstream bcolz needs
 setuptools 80.9.0; its deprecation warnings remain visible. An upgrade requires
 new compatibility and numerical evidence.
+During bootstrap, the pinned secondary interpreter may be downloaded even when
+the development image disables implicit Python downloads. The exception is
+scoped to that one bootstrap command; subsequent checks and runs remain offline.
 
 First obtain an actual portfolio receipt using the
 [portfolio workflow](portfolio-backtest.md). Use its existing private evidence,

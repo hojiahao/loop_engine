@@ -97,7 +97,16 @@ byte revalidation. A deterministic hardlink-interleaving regression confirms
 that dependency reads can recover while CAS evidence reads still reject the
 same mutation. The final independent suite passed all 46 tests in 57.05s; the
 source/wheel build also passed. Upstream deprecation warnings remain visible.
-Commit, push and exact-commit remote CI are the remaining publication gates.
+Implementation `ce4e246` is pushed. Its independent Zipline CI step passed, but
+run `35317618068` exposed a clean-container bootstrap omission: the base image
+sets `UV_PYTHON_DOWNLOADS=never` and has no secondary Python 3.12.13 interpreter.
+Bootstrap now permits downloading only through the explicitly pinned validator
+command; ordinary container runs retain the original no-download setting.
+Cold-install verification used an empty, project-owned temporary interpreter
+directory: `never` reproduced the failure; the bootstrap-scoped automatic
+download installed the exact pin and passed the doctor; restoring `never` with
+`--offline` also passed. The root Python 3.14.4 single-environment check passed.
+The corrected exact-commit CI remains the final publication gate.
 
 Only the failed probe's source builds, unused Python 3.13.14 interpreter and
 identified CPython-3.13 numerical caches were removed (roughly 0.6 GiB). They
