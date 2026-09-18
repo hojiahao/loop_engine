@@ -30,5 +30,6 @@ export RUST_TEST_THREADS="${RUST_TEST_THREADS:-1}"
 ./scripts/verify-python-environment.sh
 export LOOP_WRDS_TEST_POSTGRES=1
 ./scripts/uv-research.sh run --locked --offline --no-sync pytest
+./scripts/uv-alphalens.sh run --locked --offline pytest
 ./scripts/uv-protocol.sh run --locked --offline --no-sync pytest
 ./scripts/uv.sh run --isolated --locked --offline pytest

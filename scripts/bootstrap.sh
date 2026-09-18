@@ -143,6 +143,7 @@ fi
 "${loop_repo_dir}/scripts/uv.sh" sync --python "${loop_python}" \
   --all-packages --all-groups --locked
 "${loop_repo_dir}/scripts/verify-python-environment.sh"
+"${loop_repo_dir}/scripts/uv-alphalens.sh" run --locked loop-alphalens doctor
 
 "${loop_repo_dir}/scripts/pnpm.sh" install --frozen-lockfile --config.confirmModulesPurge=false
 cargo fetch --locked

@@ -244,7 +244,7 @@ def _family(
 
 def _materialize(
     evidence: Path, view: Path, store: Path, request: StatisticsRequest, deadline: _Deadline
-) -> tuple[StatisticsReceipt, dict[str, bytes], Callable[[], None]]:
+) -> tuple[StatisticsReceipt, dict[str, bytes], PortfolioReplay, Callable[[], None]]:
     request = StatisticsRequest.model_validate_json(request.model_dump_json(by_alias=True))
     inputs: list[tuple[CachedObject, bytes]] = []
 
@@ -287,7 +287,7 @@ def _materialize(
         exposures=_reference(artifacts["exposures"]),
         multiple_testing=_reference(artifacts["multiple_testing"]),
     )
-    return receipt, artifacts, check
+    return receipt, artifacts, primary, check
 
 
 def run_statistics(
@@ -306,7 +306,7 @@ def run_statistics(
     """
     deadline = _Deadline(timeout_seconds, clock)
     _paths(evidence, view, store)
-    receipt, artifacts, check = _materialize(evidence, view, store, request, deadline)
+    receipt, artifacts, _, check = _materialize(evidence, view, store, request, deadline)
     for content in artifacts.values():
         deadline.check()
         publish(store, content)
@@ -327,16 +327,39 @@ def validate_statistics(
     """Reconstruct all numerical/family evidence without creating or repairing files."""
     deadline = _Deadline(timeout_seconds, clock)
     _paths(evidence, view, store)
+    report, _, check = reconstruct_statistics(evidence, view, store, digest, deadline)
+    check()
+    return report
+
+
+def reconstruct_statistics(
+    evidence: Path, view: Path, store: Path, digest: str, deadline: _Deadline
+) -> tuple[StatisticsReport, PortfolioReplay, Callable[[], None]]:
+    """Verify a complete receipt and return original frozen inputs for validators.
+
+    This read grants no authority, publishes nothing and retains input/output
+    guards for callers that subsequently export independent verification inputs.
+    """
     reference, content = read_receipt(store, digest)
     decode_object(content)
     original = StatisticsReceipt.model_validate_json(content)
-    receipt, artifacts, check = _materialize(evidence, view, store, original.request, deadline)
+    receipt, artifacts, primary, check = _materialize(
+        evidence, view, store, original.request, deadline
+    )
     if canonical_bytes(receipt.model_dump(mode="json", by_alias=True)) != content:
         raise ValueError("statistics receipt differs from actual replay")
     for name, expected in artifacts.items():
         if read_cached(store, getattr(receipt, name)) != expected:
             raise ValueError("statistics output differs from actual replay")
-    check()
-    if read_cached(store, reference) != content:
-        raise ValueError("statistics receipt changed during replay")
-    return StatisticsReport(receipt=reference, artifacts=receipt)
+
+    def guard() -> None:
+        check()
+        if read_cached(store, reference) != content:
+            raise ValueError("statistics receipt changed during replay")
+        for name, expected in artifacts.items():
+            deadline.check()
+            if read_cached(store, getattr(receipt, name)) != expected:
+                raise ValueError("statistics output changed during replay")
+
+    guard()
+    return StatisticsReport(receipt=reference, artifacts=receipt), primary, guard

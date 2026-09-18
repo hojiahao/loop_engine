@@ -1,6 +1,6 @@
 # ADR 0032: Authorized portfolio execution and global trial accounting
 
-- Status: Implementation published; final seven-job CI acceptance pending
+- Status: Accepted; implementation 4addeb8, correction 549cb11, CI 35202271352 is 7/7
 - Owner: hojiahao
 
 ## Requirement

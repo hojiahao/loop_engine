@@ -372,7 +372,13 @@ verify each before the next):
       `ResearchProvenance.source_code_sha256`.
 - [x] Add golden, property, determinism, and look-ahead tests.
 
-## Phase 7 - Primary backtester (`in_progress`)
+## Phase 7 - Primary backtester (`complete`)
+
+Final implementation `4addeb8` and CI-budget correction `549cb11` are pushed.
+Exact-commit run `35202271352` passed all seven jobs, including independent
+process/crash matrices, unified workspace and clean DaoCloud container gates.
+This closes the development primary-backtest scope. Licensed data, independent
+validation and production admission remain separate requirements.
 
 Delivery units, each with an executable workflow, negative-path tests, numerical
 goldens, documentation, a Simplified Chinese commit and remote acceptance:
@@ -408,7 +414,7 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    in 6.42 seconds. All 65 new cases pass. Ruff, strict mypy, naming and Rust
    formatting pass. Commit `a512220` is pushed; all seven jobs in exact-commit
    CI run `35180788482` pass.
-4. Authorized execution and phase acceptance (`in_progress`; ADR 0032): connect the installed
+4. Authorized execution and phase acceptance (`complete`; ADR 0032): connect the installed
    producer to frozen contracts, runtime identity/data capability, lease fencing,
    durable results, current reads/exports and shared admission. Cover protected
    execution boundaries, independent processes, interrupted runs and deterministic
@@ -424,20 +430,39 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    in the unified workspace and clean DaoCloud container. The standalone Rust
    job hit its 20-minute total limit: the complete Rust tests take 21m33s before
    build/setup overhead. Its bounded budget is now 35 minutes; production
-   deadlines are unchanged. The exact-commit seven-job rerun still gates closure.
+   deadlines are unchanged. The corrected exact-commit run `35202271352` passes
+   all seven jobs; Rust completes in 24m57s, workspace in 32m46s, container in 33m7s.
 
-- [ ] Integrate portfolio/NAV generation with the Phase 4 authorization and
+- [x] Integrate portfolio/NAV generation with the Phase 4 authorization and
       numerical integrity gates; raw factor values and imported synthetic
       results must never be presented as a completed portfolio backtest.
-- [ ] Implement next-tradable-time portfolios, costs, borrow, turnover,
+- [x] Implement next-tradable-time portfolios, costs, borrow, turnover,
       capacity, risk exposures, IC analytics, and multiple-testing controls.
-- [ ] Validate every accounting path against synthetic golden ledgers.
+- [x] Validate supported accounting paths against synthetic golden ledgers;
+      unsupported market events fail explicitly as described in ADR 0030.
 
-## Phase 8 - Independent validation (`pending`)
+## Phase 8 - Independent validation (`in_progress`)
 
-- [ ] Install Alphalens Reloaded in the research environment.
-- [ ] Isolate Zipline Reloaded in a compatible locked environment.
-- [ ] Reconcile factor statistics, positions, trades, costs, and returns.
+Delivery units (implementation, tests, documentation, Chinese commit and push
+together; finish one before starting the next):
+
+1. Alphalens statistics (`in_progress`; ADR 0033): isolated locked dependency,
+   verified raw-input export, actual IC/group/turnover calculation, explicit
+   differences, immutable reports and read-only replay. Confirm Python 3.14.4
+   compatibility without downgrading the primary pandas 3 environment.
+   Local acceptance: 37 independent-validator tests, 23 affected primary
+   regressions, full `just check` and the isolated package build pass. Publication
+   and exact-commit remote CI remain pending. Evidence and rollback are in
+   `docs/verification/phase-08-independent-validation.md`.
+2. Zipline accounting (`pending`): test compatibility and lock an independent
+   process; replay frozen execution inputs, then reconcile positions, trades,
+   costs, NAV and returns. Explain supported-profile differences and deny
+   unsupported financial semantics instead of copying the primary ledger.
+3. Authorized reconciliation (`pending`): bind both independent receipts to
+   actual registered primary evidence and frozen comparison policy, integrate
+   current reads/replay and shared admission, and test role/lease/staleness,
+   mismatch, interruption and rollback paths. Independent numerical agreement
+   cannot waive licensed-data quality, semantic review or other admission gates.
 
 ## Phase 9 - Provider platform (`pending`)
 

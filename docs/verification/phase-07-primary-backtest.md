@@ -1,6 +1,13 @@
 # Phase 7 primary portfolio backtest verification
 
-## Unit 4: authorized execution and global trial accounting (`in_progress`)
+## Unit 4: authorized execution and global trial accounting (`complete`)
+
+Final correction `549cb112625d4049d6d28228852fad7a23878ef9` is pushed; exact-commit
+[CI 35202271352](https://github.com/hojiahao/loop_engine/actions/runs/35202271352)
+passed all seven jobs. Rust completed in 24m57s, unified workspace in 32m46s and
+DaoCloud container in 33m7s. This supersedes the pending publication notes below
+and closes Phase 7's development-backtest implementation. It does not close
+Phase 5's deferred licensed-data gate or Phase 8 independent validation.
 
 Implementation commit `4addeb8100df4225a9b5035ec59c1e159594dc3e` is pushed.
 Exact-commit CI

@@ -31,6 +31,7 @@ crates/
   loop-tui/                    SSH terminal client
 python/
   loop_research/               primary data, factor, statistics, and backtest worker
+  alphalens_validation/        isolated statistical verification (ADR 0033)
   zipline_validation/          isolated independent event-driven replay
 proto/loop/v1/                 shared provider-neutral wire DTOs
 proto/loop/{role}/v1/          role-scoped gRPC service entry points

@@ -63,6 +63,11 @@ immutable artifact references, schemas, and SHA-256 digests with
 `loop_research`; it never becomes an import-time dependency of the primary
 research environment.
 
+ADR 0033 confirms Alphalens 0.4.6 on Python 3.14.4 but requires pandas 2.3.3,
+incompatible with the primary pandas 3.0.5. It therefore has a separate lock and
+ephemeral `uv run --isolated` process, retaining the same interpreter pin and
+the single persistent root `.venv`.
+
 ## Consequences
 
 - IDEs and shell tools discover the conventional root `.venv` automatically.

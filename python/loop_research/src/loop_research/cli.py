@@ -93,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("--evidence", type=Path, required=True)
         command.add_argument("--view", type=Path, required=True)
         command.add_argument("--store", type=Path, required=True)
+    alphalens = commands.add_parser(
+        "alphalens-prepare", help="Export verified raw inputs for independent statistics"
+    )
+    alphalens.add_argument("--statistics", required=True)
+    for name in ("evidence", "view", "store"):
+        alphalens.add_argument("--" + name, type=Path, required=True)
     binding = commands.add_parser(
         "statistics-bind", help="Prepare a trial binding before freezing its plan policy"
     )
@@ -178,6 +184,18 @@ def main() -> None:
         except OSError, ValueError, DecodeError:
             parser.error("trial binding failed: invalid request or work evidence")
         print(json.dumps({"binding_sha256": binding_identity}))
+    elif args.command == "alphalens-prepare":
+        from loop_research.alphalens_inputs import prepare_alphalens
+
+        try:
+            independent_input = prepare_alphalens(
+                args.evidence, args.view, args.store, args.statistics
+            )
+        except OSError, ValueError, TimeoutError:
+            parser.error("independent export failed: invalid statistics, provenance or budget")
+        except KeyboardInterrupt:
+            parser.exit(130, "independent export cancelled; preserve immutable evidence\n")
+        print(independent_input.model_dump_json())
     elif args.command in ("statistics-run", "statistics-validate"):
         from loop_research.statistics_workflow import (
             load_statistics,
