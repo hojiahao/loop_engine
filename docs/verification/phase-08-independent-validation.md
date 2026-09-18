@@ -49,13 +49,64 @@ denied, cross-language protocol compatibility, TypeScript checks, both Python
 packages and naming. The initial restricted run hit Node `spawnSync git` EPERM;
 the ordinary host rerun retained all checks. Strict mypy then identified a missing
 CSV row-list annotation, which was fixed before the successful final gate.
-Exact-commit remote CI, commit and push are still required before this unit can
-move from `in_progress` to `complete`.
+Commit `3be45a1` is pushed. Exact-commit CI
+[35306864434](https://github.com/hojiahao/loop_engine/actions/runs/35306864434)
+passed all seven jobs, including complete Rust/process regressions, Python
+research with the new isolated validator, unified workspace commands and the
+clean DaoCloud container. Unit 1 is accepted; Phase 8 remains in progress.
+
+## Unit 2: Zipline accounting
+
+Requirement, numerical bridges and rollback:
+[ADR 0034](../adr/0034-independent-accounting-validation.md).
+Executable commands: [independent accounting](../development/independent-accounting.md).
+
+Both existing primary profiles have independent next-opening replay using
+Zipline's actual blotter, transactions, commission application, position tracker
+and ledger. Independent exact-rational decisions handle sizing, capacity,
+dated costs, borrow, margin and corporate obligations. Primary ledger outputs
+are comparison targets only. Raw inputs and PIT export normalization remain
+shared dependencies. Native Zipline and economic NAV are retained side by side;
+delayed claims and split/financing extensions are explicit, not hidden offsets.
+
+Python 3.14.4 source installation reached its six-minute budget; the 3.13.14
+bcolz source installation reached three minutes. Neither timeout proves those
+versions cannot compile. Actual wheel-based imports and the doctor passed on
+Python 3.12.13, Zipline 3.1.1, bcolz 1.2.10, NumPy 2.5.2, pandas 2.3.3 and
+SciPy 1.18.1. bcolz requires the explicit setuptools 80.9.0 pin. The primary
+environment remains Python 3.14.4/pandas 3.0.5 and the sole persistent `.venv`.
+
+Handwritten goldens cover causal order sizing and earlier/later openings,
+whole-share long/short fractional splits, delayed dividend and delisting claims,
+SEC/TAF rounding, liquidity/impact, initial margin, borrow recall and weekend
+financing. Negative tests cover unsupported actions, calendar gaps, future marks,
+missing marks/borrow, policy drift, wrong quantities/prices/cash/returns,
+precision denial, changed bytes/build, cancellation and clock regression.
+
+The installed primary CLI and isolated Zipline worker reconcile both primary
+profiles and reproduce all artifacts without writes on replay. All 57 affected
+primary regressions passed in 658.47s, including portfolio, market-action,
+Alphalens export and Zipline export tests. Primary/independent Ruff and strict
+mypy pass, as do Rust formatting, Clippy with warnings denied, root lock and
+single-environment verification and the 3,733-declaration naming gate.
+
+A parallel local run exposed uv hardlink ctime races during dependency hashing:
+42 independent tests passed and two stopped before calculation. Source reads
+now retry at most twice with unchanged strict metadata checks and final full
+byte revalidation. A deterministic hardlink-interleaving regression confirms
+that dependency reads can recover while CAS evidence reads still reject the
+same mutation. The final independent suite passed all 46 tests in 57.05s; the
+source/wheel build also passed. Upstream deprecation warnings remain visible.
+Commit, push and exact-commit remote CI are the remaining publication gates.
+
+Only the failed probe's source builds, unused Python 3.13.14 interpreter and
+identified CPython-3.13 numerical caches were removed (roughly 0.6 GiB). They
+can be downloaded again. No data snapshots, audit history, unrelated project
+files or active Python 3.12/3.14 environments were removed.
 
 ## Remaining work and recovery
 
-Unit 2 must independently execute and reconcile portfolio accounting with
-Zipline. Unit 3 must bind both validator receipts to authenticated, registered
+Unit 2 awaits its final acceptance and publication. Unit 3 must bind both validator receipts to authenticated, registered
 primary evidence and shared admission. Passing this statistical comparison
 does not permit formal factor admission; licensed-data, semantic-review and
 multiple-testing requirements also remain enforceable.

@@ -29,4 +29,7 @@ node --test --test-isolation=none tests/toolchains/rust-download.test.mjs
 ./scripts/uv-alphalens.sh run --locked --offline ruff check src tests
 ./scripts/uv-alphalens.sh run --locked --offline ruff format --check src tests
 ./scripts/uv-alphalens.sh run --locked --offline mypy
+./scripts/uv-zipline.sh run --locked --offline ruff check src tests
+./scripts/uv-zipline.sh run --locked --offline ruff format --check src tests
+./scripts/uv-zipline.sh run --locked --offline mypy
 git diff --check

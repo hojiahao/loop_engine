@@ -6,6 +6,7 @@ cd "${loop_repo_dir}"
 
 ./scripts/cargo.sh build --locked --offline --workspace --all-features
 ./scripts/uv-alphalens.sh run --locked --offline hatchling build
+./scripts/uv-zipline.sh run --locked --offline hatchling build
 ./scripts/pnpm.sh build
 ./scripts/uv.sh sync --all-packages --all-groups --locked --offline
 ./scripts/verify-python-environment.sh

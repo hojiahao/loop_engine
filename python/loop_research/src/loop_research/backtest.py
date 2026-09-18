@@ -37,7 +37,7 @@ from loop_research.data.fetch_cache import (
 )
 from loop_research.data.fetch_json import decode_object
 from loop_research.data.fetch_records import CachedObject
-from loop_research.execution_inputs import prepare_market
+from loop_research.execution_inputs import MarketSession, prepare_market
 from loop_research.factor_worker import FactorComputation, compute, encode_manifest
 from loop_research.market_models import ExecutionCapture, MarketPolicy, MarketTape
 from loop_research.market_portfolio import replay_market
@@ -76,6 +76,8 @@ class PortfolioReplay:
     computed: FactorComputation
     work: FactorEvaluationWork
     check: Callable[[], None]
+    policy: PortfolioPolicy | MarketPolicy
+    market: tuple[MarketSession, ...] | None
 
 
 def load_request(path: Path) -> BacktestRequest:
@@ -312,6 +314,7 @@ def _materialize(
     if tape.quality != computed.loaded.manifest.quality:
         raise ValueError("execution and factor data quality differ")
     policy = _policy(request, computed)
+    market = None
     if isinstance(tape, MarketTape):
         if not isinstance(policy, MarketPolicy):
             raise ValueError("version-2 execution evidence requires frozen market policies")
@@ -367,7 +370,9 @@ def _materialize(
         fills=ledger.fills,
         ending_nav_usd=decimal_text(ledger.ending_nav),
     )
-    return PortfolioReplay(receipt, ledger.artifacts, sessions, computed, work, check)
+    return PortfolioReplay(
+        receipt, ledger.artifacts, sessions, computed, work, check, policy, market
+    )
 
 
 def _paths(evidence: Path, view: Path, store: Path) -> None:
@@ -467,5 +472,12 @@ def reconstruct(
 
     check()
     return PortfolioReplay(
-        result.receipt, result.artifacts, result.sessions, result.computed, result.work, check
+        result.receipt,
+        result.artifacts,
+        result.sessions,
+        result.computed,
+        result.work,
+        check,
+        result.policy,
+        result.market,
     )

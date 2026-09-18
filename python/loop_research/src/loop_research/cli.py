@@ -99,6 +99,12 @@ def build_parser() -> argparse.ArgumentParser:
     alphalens.add_argument("--statistics", required=True)
     for name in ("evidence", "view", "store"):
         alphalens.add_argument("--" + name, type=Path, required=True)
+    zipline = commands.add_parser(
+        "zipline-prepare", help="Export verified raw inputs for independent accounting"
+    )
+    zipline.add_argument("--backtest", required=True)
+    for name in ("evidence", "view", "store"):
+        zipline.add_argument("--" + name, type=Path, required=True)
     binding = commands.add_parser(
         "statistics-bind", help="Prepare a trial binding before freezing its plan policy"
     )
@@ -184,6 +190,16 @@ def main() -> None:
         except OSError, ValueError, DecodeError:
             parser.error("trial binding failed: invalid request or work evidence")
         print(json.dumps({"binding_sha256": binding_identity}))
+    elif args.command == "zipline-prepare":
+        from loop_research.zipline_inputs import prepare_zipline
+
+        try:
+            accounting_input = prepare_zipline(args.evidence, args.view, args.store, args.backtest)
+        except OSError, ValueError, TimeoutError:
+            parser.error("independent export failed: invalid portfolio, provenance or budget")
+        except KeyboardInterrupt:
+            parser.exit(130, "independent export cancelled; preserve immutable evidence\n")
+        print(accounting_input.model_dump_json())
     elif args.command == "alphalens-prepare":
         from loop_research.alphalens_inputs import prepare_alphalens
 

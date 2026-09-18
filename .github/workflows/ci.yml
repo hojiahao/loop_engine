@@ -104,6 +104,13 @@ jobs:
           ../../scripts/uv-alphalens.sh run --locked --offline ruff format --check src tests
           ../../scripts/uv-alphalens.sh run --locked --offline mypy
           ../../scripts/uv-alphalens.sh run --locked --offline pytest
+      - name: Verify independent Zipline execution and accounting
+        run: |
+          ../../scripts/uv-zipline.sh run --locked loop-zipline doctor
+          ../../scripts/uv-zipline.sh run --locked --offline ruff check src tests
+          ../../scripts/uv-zipline.sh run --locked --offline ruff format --check src tests
+          ../../scripts/uv-zipline.sh run --locked --offline mypy
+          ../../scripts/uv-zipline.sh run --locked --offline pytest
       - name: Test declared research dependencies in isolation
         run: |
           bash ../../scripts/postgres-test.sh start

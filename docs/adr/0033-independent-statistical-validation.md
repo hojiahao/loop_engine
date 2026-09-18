@@ -1,6 +1,6 @@
 # ADR 0033: Independent Alphalens statistics and immutable reconciliation
 
-- Status: Implementation in progress
+- Status: Accepted; commit 3be45a1, exact-commit CI 35306864434 passed all seven jobs
 - Owner: hojiahao
 
 ## Requirement

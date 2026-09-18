@@ -446,18 +446,24 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
 Delivery units (implementation, tests, documentation, Chinese commit and push
 together; finish one before starting the next):
 
-1. Alphalens statistics (`in_progress`; ADR 0033): isolated locked dependency,
+1. Alphalens statistics (`complete`; ADR 0033): isolated locked dependency,
    verified raw-input export, actual IC/group/turnover calculation, explicit
    differences, immutable reports and read-only replay. Confirm Python 3.14.4
    compatibility without downgrading the primary pandas 3 environment.
    Local acceptance: 37 independent-validator tests, 23 affected primary
-   regressions, full `just check` and the isolated package build pass. Publication
-   and exact-commit remote CI remain pending. Evidence and rollback are in
+   regressions, full `just check` and the isolated package build pass. Commit
+   `3be45a1` is pushed; exact-commit CI `35306864434` passes all seven jobs.
+   Evidence and rollback are in
    `docs/verification/phase-08-independent-validation.md`.
-2. Zipline accounting (`pending`): test compatibility and lock an independent
-   process; replay frozen execution inputs, then reconcile positions, trades,
-   costs, NAV and returns. Explain supported-profile differences and deny
-   unsupported financial semantics instead of copying the primary ledger.
+2. Zipline accounting (`in_progress`; ADR 0034): implementation and documentation
+   are present; final task gates and publication are pending. A separately locked
+   Python 3.12.13 process uses actual Zipline 3.1.1 blotter/ledger components,
+   independently computes both frozen execution profiles, compares all seven
+   ledgers and preserves native/economic NAV bridges and immutable replay.
+   The primary Python 3.14.4 environment is unchanged. Actual primary-export/
+   independent subprocess tests pass for both profiles; all 57 affected primary
+   regressions and 46 independent tests pass, as do the isolated build and local
+   style/type/lock gates. Commit, push and remote CI remain the publication gate.
 3. Authorized reconciliation (`pending`): bind both independent receipts to
    actual registered primary evidence and frozen comparison policy, integrate
    current reads/replay and shared admission, and test role/lease/staleness,

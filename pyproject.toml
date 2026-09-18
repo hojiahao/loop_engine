@@ -20,7 +20,7 @@ package = false
 index-url = "https://mirrors.aliyun.com/pypi/simple/"
 
 [tool.uv.workspace]
-exclude = ["python/alphalens_validation"]
+exclude = ["python/alphalens_validation", "python/zipline_validation"]
 members = [
     "python/loop_protocol",
     "python/loop_research",

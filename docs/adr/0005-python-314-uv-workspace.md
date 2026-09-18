@@ -68,6 +68,12 @@ incompatible with the primary pandas 3.0.5. It therefore has a separate lock and
 ephemeral `uv run --isolated` process, retaining the same interpreter pin and
 the single persistent root `.venv`.
 
+ADR 0034 records the separate Zipline 3.1.1 profile on Python 3.12.13 and
+pandas 2.3.3. Python 3.14/3.13 source-install probes exceeded their explicit
+time budgets; this is not a claim that source compilation is impossible.
+Use the reviewed wheel-based independent lock and ephemeral process. The
+primary interpreter and environment remain unchanged.
+
 ## Consequences
 
 - IDEs and shell tools discover the conventional root `.venv` automatically.

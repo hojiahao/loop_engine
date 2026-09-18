@@ -23,7 +23,9 @@ Phase 8 独立复核，当前没有据此放行正式美股因子。
 
 Phase 8 的 Alphalens 统计复核使用独立锁定的临时进程，支持原始输入导出、逐项差异报告
 和只读重放，见[`独立统计复核说明`](docs/development/independent-statistics.md)。
-Zipline 账本对账和授权复核接线仍未完成；Phase 5 的付费历史数据覆盖验收继续延期。
+Zipline 账本对账已实现独立执行、逐项差异报告和只读重放，正在进行本项验收，见
+[`独立账本复核说明`](docs/development/independent-accounting.md)。授权复核与准入接线
+仍待下一项完成；Phase 5 的付费历史数据覆盖验收继续延期。
 
 目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
 [`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；
