@@ -226,6 +226,27 @@ check pass. No production numerical,
 authorization, comparison or deadline rule changes. The correction's container
 and full exact-commit CI remain required before phase closure.
 
+The follow-up run
+[35495959030](https://github.com/hojiahao/loop_engine/actions/runs/35495959030)
+exposes one more container-only fixture omission: `uv python find --offline`
+still initializes and locks its cache. The lookup supplied the runtime-managed
+interpreter directory but omitted the corresponding `UV_CACHE_DIR`, so a
+container UID override could fall back to an unwritable image-home cache.
+The 16 reconciliation cases stopped at that lookup; bootstrap had installed
+Python 3.12.13 successfully and the separate research/independent-worker job
+passed. The five process-supervisor tests now pass in the container.
+
+The fixture now uses both bootstrap paths for interpreter discovery, includes
+lookup stderr in its prerequisite failure and has a focused regression with an
+unusable fallback cache. A direct offline probe reproduces the original cache
+initialization error and succeeds with the pinned runtime cache. No dependency,
+production path, numerical tolerance, authority or timeout changes. Reverting
+this test-only correction leaves all stored research and audit evidence intact.
+The focused Rust regression passes (1/1, 0.34s), as do `cargo fmt --check`,
+the repository naming check and workspace Clippy with warnings denied (9m19s).
+The prior run completes six of seven jobs successfully, including full Rust and
+unified workspace gates. The clean-container exact-commit gate is still required.
+
 ## Remaining work and recovery
 
 Unit 3 must complete and publish the remaining acceptance evidence. Passing this statistical comparison

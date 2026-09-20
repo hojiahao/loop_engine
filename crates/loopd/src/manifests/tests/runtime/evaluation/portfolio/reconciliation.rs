@@ -179,14 +179,11 @@ impl ValidationCase {
             .map(|path| path.join("uv"))
             .find(|path| path.is_file())
             .expect("installed uv");
-        let python = std::process::Command::new(&uv)
-            .args(["python", "find", "--offline", "3.12.13"])
-            .env("UV_PYTHON_INSTALL_DIR", runtime.join(".tools/python"))
-            .output()
-            .unwrap();
+        let python = python_lookup(&uv, &runtime).output().unwrap();
         assert!(
             python.status.success(),
-            "Zipline interpreter must be installed by bootstrap"
+            "Zipline interpreter must be installed by bootstrap: {}",
+            String::from_utf8_lossy(&python.stderr)
         );
         portfolio.validation = Some(ReconciliationConfig {
             uv,
@@ -300,6 +297,41 @@ impl ValidationCase {
             + 180;
         request
     }
+}
+
+fn python_lookup(uv: &Path, runtime: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new(uv);
+    // Even offline interpreter discovery takes a uv cache lock. Container UID
+    // overrides need the same writable cache as bootstrap, not the image home.
+    command
+        .args(["python", "find", "--offline", "3.12.13"])
+        .env("UV_PYTHON_INSTALL_DIR", runtime.join(".tools/python"))
+        .env("UV_CACHE_DIR", runtime.join(".tools/uv-cache"));
+    command
+}
+
+#[test]
+fn offline_interpreter_lookup() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
+    let runtime = std::env::var_os("LOOP_ENGINE_RUNTIME_ROOT")
+        .filter(|value| !value.is_empty())
+        .map_or(root, PathBuf::from);
+    let blocked = tempfile::NamedTempFile::new().unwrap();
+    // A file cannot contain the fallback cache. Discovery must use the pinned
+    // runtime cache even when an inherited XDG default is unusable.
+    let output = python_lookup(Path::new("uv"), &runtime)
+        .env("XDG_CACHE_HOME", blocked.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(Path::new(String::from_utf8(output.stdout).unwrap().trim()).is_file());
 }
 
 fn hex_bytes(value: &str) -> Vec<u8> {
