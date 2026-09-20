@@ -110,13 +110,17 @@ pub(super) async fn run(
 mod tests {
     use super::*;
 
+    fn python() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.venv/bin/python")
+    }
+
     #[tokio::test]
     async fn isolated_environment() {
         let directory = tempfile::Builder::new()
             .prefix("loop-validation-env-")
             .tempdir()
             .unwrap();
-        let mut worker = command(Path::new("/usr/bin/python3"), directory.path());
+        let mut worker = command(&python(), directory.path());
         worker.args(["-I", "-c", "import json,os,sys; print(json.dumps({'environment':dict(os.environ),'input':sys.stdin.read()}))"]);
         let (_, bytes) = run(&mut worker, b"request", Duration::from_secs(5), &[0])
             .await
@@ -145,7 +149,7 @@ mod tests {
             .tempdir()
             .unwrap();
         let path = directory.path().join("child.pid");
-        let mut worker = command(Path::new("/usr/bin/python3"), directory.path());
+        let mut worker = command(&python(), directory.path());
         worker.args(["-I", "-c", "import pathlib,subprocess,sys,time; p=subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(30)']); pathlib.Path(sys.argv[1]).write_text(str(p.pid)); print('started',flush=True); time.sleep(30)"]).arg(&path);
         let task =
             tokio::spawn(async move { run(&mut worker, b"", Duration::from_secs(10), &[0]).await });
@@ -185,7 +189,7 @@ mod tests {
             .prefix("loop-validation-failure-")
             .tempdir()
             .unwrap();
-        let mut worker = command(Path::new("/usr/bin/python3"), directory.path());
+        let mut worker = command(&python(), directory.path());
         worker.args(["-I", "-c", "raise SystemExit(1)"]);
         assert!(matches!(
             run(&mut worker, b"", Duration::from_secs(5), &[0]).await,
@@ -201,7 +205,7 @@ mod tests {
             .prefix("loop-validation-empty-")
             .tempdir()
             .unwrap();
-        let mut worker = command(Path::new("/usr/bin/python3"), directory.path());
+        let mut worker = command(&python(), directory.path());
         worker.args(["-I", "-c", "pass"]);
         assert!(matches!(
             run(&mut worker, b"", Duration::from_secs(5), &[0]).await,
@@ -215,7 +219,7 @@ mod tests {
             .prefix("loop-validation-limit-")
             .tempdir()
             .unwrap();
-        let mut worker = command(Path::new("/usr/bin/python3"), directory.path());
+        let mut worker = command(&python(), directory.path());
         worker.args(["-I", "-c", "print('x'*1048577)"]);
         assert!(matches!(
             run(&mut worker, b"", Duration::from_secs(5), &[0]).await,

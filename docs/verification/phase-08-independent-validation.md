@@ -206,6 +206,26 @@ part of that cleanup. The completed build's reproducible Rust incremental
 cache is also removed, recovering about 1.2 GiB and leaving about 2.2 GiB free
 on the root volume. Installed dependencies and the built executables remain.
 
+Implementation `eaa638a` is pushed. Its CI run
+[35493313870](https://github.com/hojiahao/loop_engine/actions/runs/35493313870)
+passes six of seven jobs, including the full Rust and unified workspace gates.
+The Rust log explicitly confirms all 2/4/8-process validation races and both
+commit-boundary crash recoveries; the earlier local 8-process failure therefore
+has actual passing CI evidence. Rust completes in 47m40s and the unified
+workspace in 56m29s. The research job passes all 934 primary tests, 37 Alphalens
+tests and 46 Zipline tests. The clean-container
+job exposes two test-fixture path assumptions: it installs the secondary
+interpreter under `LOOP_ENGINE_RUNTIME_ROOT`, while the new fixture looked only
+under the source tree; the process-supervisor tests also assumed
+`/usr/bin/python3`, whereas the image provides the pinned interpreter through
+the workspace `.venv`. The correction follows bootstrap's runtime-root rule for
+both the secondary interpreter and uv cache, and uses the primary workspace
+interpreter for all five supervisor cases. All five pass locally in 0.40s;
+formatting, Clippy with warnings denied (9m12s), and the 3,821-declaration naming
+check pass. No production numerical,
+authorization, comparison or deadline rule changes. The correction's container
+and full exact-commit CI remain required before phase closure.
+
 ## Remaining work and recovery
 
 Unit 3 must complete and publish the remaining acceptance evidence. Passing this statistical comparison

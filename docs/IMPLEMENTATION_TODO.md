@@ -471,6 +471,11 @@ together; finish one before starting the next):
    current reads/replay and shared admission, and test role/lease/staleness,
    mismatch, interruption and rollback paths. Independent numerical agreement
    cannot waive licensed-data quality, semantic review or other admission gates.
+   Implementation `eaa638a` is pushed. Local check/build/doctor pass; the first CI
+   passes six of seven jobs, including full Rust/2/4/8-process and unified
+   workspace gates, but exposes container-specific test interpreter/cache paths.
+   The path correction retains all tests and production bounds. Full exact-commit
+   CI with the correction, including the clean container, is still required.
 
 ## Phase 9 - Provider platform (`pending`)
 

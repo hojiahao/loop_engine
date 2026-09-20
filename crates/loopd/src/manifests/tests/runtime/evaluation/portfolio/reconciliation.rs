@@ -168,13 +168,20 @@ impl ValidationCase {
             .join("../..")
             .canonicalize()
             .unwrap();
+        // Bootstrap keeps interpreters and caches in the configured runtime
+        // volume; the source tree and primary .venv still live in the workspace.
+        let runtime = std::env::var_os("LOOP_ENGINE_RUNTIME_ROOT")
+            .filter(|value| !value.is_empty())
+            .map_or_else(|| root.clone(), PathBuf::from)
+            .canonicalize()
+            .unwrap();
         let uv = std::env::split_paths(&std::env::var_os("PATH").unwrap())
             .map(|path| path.join("uv"))
             .find(|path| path.is_file())
             .expect("installed uv");
         let python = std::process::Command::new(&uv)
             .args(["python", "find", "--offline", "3.12.13"])
-            .env("UV_PYTHON_INSTALL_DIR", root.join(".tools/python"))
+            .env("UV_PYTHON_INSTALL_DIR", runtime.join(".tools/python"))
             .output()
             .unwrap();
         assert!(
@@ -186,7 +193,7 @@ impl ValidationCase {
             zipline_python: PathBuf::from(String::from_utf8(python.stdout).unwrap().trim()),
             alphalens_project: root.join("python/alphalens_validation"),
             zipline_project: root.join("python/zipline_validation"),
-            cache: root.join(".tools/uv-cache"),
+            cache: runtime.join(".tools/uv-cache"),
             output_store: output.clone(),
             jobs: vec![ValidationPin {
                 job_id: "job.validation".to_owned(),
