@@ -112,6 +112,7 @@ def prepare_zipline(
     *,
     timeout_seconds: float = 180,
     clock: Callable[[], float] = time.monotonic,
+    readonly: bool = False,
 ) -> CachedObject:
     """Reconstruct actual primary evidence before publishing a diagnostic manifest.
 
@@ -122,7 +123,19 @@ def prepare_zipline(
     _paths(evidence, view, store)
     reference, _ = read_receipt(store, digest)
     primary = reconstruct(evidence, view, store, reference, deadline)
-    raw = publish(store, observations(primary, deadline.check))
+    return _export_zipline(store, reference, primary, deadline, readonly=readonly)
+
+
+def _export_zipline(
+    store: Path,
+    reference: CachedObject,
+    primary: PortfolioReplay,
+    deadline: _Deadline,
+    *,
+    readonly: bool,
+) -> CachedObject:
+    """Export from the caller's live verified reconstruction, retaining its guards."""
+    raw = publish(store, observations(primary, deadline.check), readonly=readonly)
     content = canonical_bytes(
         {
             "schema": "loop.zipline-input/v1",
@@ -144,4 +157,4 @@ def prepare_zipline(
         raise ValueError("independent manifest byte budget")
     primary.check()
     deadline.check()
-    return publish(store, content)
+    return publish(store, content, readonly=readonly)

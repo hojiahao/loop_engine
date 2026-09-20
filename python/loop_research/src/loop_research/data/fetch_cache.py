@@ -53,8 +53,18 @@ def private_directory(store: Path) -> int:
     return descriptor
 
 
-def publish(store: Path, content: bytes) -> CachedObject:
-    """Publish using the existing no-overwrite CAS; corruption never gets repaired silently."""
+def publish(store: Path, content: bytes, *, readonly: bool = False) -> CachedObject:
+    """Publish without overwrite, or verify existing bytes without any writes.
+
+    Read-only replay cannot create a temporary object or repair missing evidence.
+    """
+    if readonly:
+        reference = CachedObject(
+            sha256="sha256:" + hashlib.sha256(content).hexdigest(), byte_size=len(content)
+        )
+        if read_cached(store, reference) != content:
+            raise ValueError("cached replay differs")
+        return reference
     return CachedObject.model_validate(publish_object(store, content))
 
 

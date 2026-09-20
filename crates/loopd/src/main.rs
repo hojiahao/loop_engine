@@ -98,6 +98,9 @@ async fn main() -> anyhow::Result<()> {
         if let Some(executor) = runtime.portfolio {
             service = service.with_portfolio_executor(executor);
         }
+        if let Some(executor) = runtime.reconciliation {
+            service = service.with_reconciler(executor);
+        }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)
                 .await

@@ -70,6 +70,8 @@ message ReconciliationInput {
   loop.v1.BacktestId independent_backtest_id = 2;
   loop.v1.PolicyReference reconciliation_policy = 3;
   ResearchJobBudget budget = 4;
+  // Mutually exclusive with both legacy backtest IDs; server-resolved only.
+  loop.v1.IndependentValidationSource validation = 5;
 }
 
 message EnqueueFactorEvaluationRequest {

@@ -218,6 +218,10 @@ impl PortfolioResolver {
 }
 
 impl PortfolioInputs {
+    pub(crate) fn context_id(&self) -> &str {
+        &self.specification.context.sha256
+    }
+
     pub(crate) fn check(&self) -> StoreResult<()> {
         check_files(&self.files)
     }

@@ -229,7 +229,7 @@ def test_holdout_grant(
 @pytest.mark.parametrize("vector", SHARED_VECTORS, ids=[v["name"] for v in SHARED_VECTORS])
 # Scenario: shared job record matrix fails closed.
 def test_shared_job(vector: dict[str, str]) -> None:
-    assert len(SHARED_VECTORS) == 109
+    assert len(SHARED_VECTORS) == 114
     record = _record(vector)
     expected = vector["expected"]
     if expected == "accept":
@@ -585,6 +585,19 @@ def _job_budget(specification: job_pb2.JobSpecification) -> job_pb2.JobBudget:
 
 
 def _mutate(record: job_pb2.JobRecord, mutation: str) -> None:
+    if mutation.startswith("validation_"):
+        target = record.specification.reconciliation
+        if mutation != "validation_mixed":
+            target.ClearField("primary_backtest_id")
+            target.ClearField("independent_backtest_id")
+        target.validation.SetInParent()
+        if mutation != "validation_job_missing":
+            target.validation.primary_job_id.value = "job.primary"
+        if mutation != "validation_digest_missing":
+            target.validation.context_manifest_sha256.value = bytes([7]) * (
+                31 if mutation == "validation_digest_invalid" else 32
+            )
+        return
     if mutation == "none":
         return
     if mutation == "zero_revision":

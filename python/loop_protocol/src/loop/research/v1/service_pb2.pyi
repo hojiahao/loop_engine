@@ -80,16 +80,18 @@ class BacktestInput(_message.Message):
     def __init__(self, budget: _Optional[_Union[ResearchJobBudget, _Mapping]] = ..., factor_spec_id: _Optional[_Union[_common_pb2.FactorSpecId, _Mapping]] = ..., dataset: _Optional[_Union[_development_data_pb2.DevelopmentDatasetReference, _Mapping]] = ..., return_definition: _Optional[_Union[_research_common_pb2.ReturnDefinition, str]] = ..., provenance: _Optional[_Union[_research_common_pb2.ResearchProvenanceFingerprint, _Mapping]] = ..., deterministic_seed: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ...) -> None: ...
 
 class ReconciliationInput(_message.Message):
-    __slots__ = ("primary_backtest_id", "independent_backtest_id", "reconciliation_policy", "budget")
+    __slots__ = ("primary_backtest_id", "independent_backtest_id", "reconciliation_policy", "budget", "validation")
     PRIMARY_BACKTEST_ID_FIELD_NUMBER: _ClassVar[int]
     INDEPENDENT_BACKTEST_ID_FIELD_NUMBER: _ClassVar[int]
     RECONCILIATION_POLICY_FIELD_NUMBER: _ClassVar[int]
     BUDGET_FIELD_NUMBER: _ClassVar[int]
+    VALIDATION_FIELD_NUMBER: _ClassVar[int]
     primary_backtest_id: _common_pb2.BacktestId
     independent_backtest_id: _common_pb2.BacktestId
     reconciliation_policy: _common_pb2.PolicyReference
     budget: ResearchJobBudget
-    def __init__(self, primary_backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., independent_backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., reconciliation_policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ..., budget: _Optional[_Union[ResearchJobBudget, _Mapping]] = ...) -> None: ...
+    validation: _research_common_pb2.IndependentValidationSource
+    def __init__(self, primary_backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., independent_backtest_id: _Optional[_Union[_common_pb2.BacktestId, _Mapping]] = ..., reconciliation_policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ..., budget: _Optional[_Union[ResearchJobBudget, _Mapping]] = ..., validation: _Optional[_Union[_research_common_pb2.IndependentValidationSource, _Mapping]] = ...) -> None: ...
 
 class EnqueueFactorEvaluationRequest(_message.Message):
     __slots__ = ("context", "input")

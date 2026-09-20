@@ -8,6 +8,7 @@ mod loading;
 pub(crate) mod model;
 mod policy;
 pub(crate) mod portfolio;
+pub(crate) mod reconciliation;
 mod verification;
 
 pub use evaluation::{EvaluationPin, EvaluationResolver};

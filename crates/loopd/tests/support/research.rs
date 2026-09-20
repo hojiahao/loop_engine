@@ -55,6 +55,7 @@ pub fn command(key: &str) -> RoleCommand {
             primary_backtest_id: input.primary_backtest_id,
             independent_backtest_id: input.independent_backtest_id,
             reconciliation_policy: input.reconciliation_policy,
+            validation: input.validation,
             budget: Some(research::ResearchJobBudget {
                 maximum_steps: budget.maximum_steps,
                 maximum_input_tokens: budget.maximum_input_tokens,
@@ -128,6 +129,7 @@ pub fn inputs() -> Vec<(JobKind, job_specification::Input)> {
                 }),
                 reconciliation_policy: Some(policy("policy.fixture")),
                 budget: Some(budget()),
+                validation: None,
             }),
         ),
     ]

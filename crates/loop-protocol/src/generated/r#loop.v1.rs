@@ -1573,6 +1573,13 @@ pub struct ResearchProvenanceFingerprint {
     #[prost(message, optional, tag = "6")]
     pub environment_sha256: ::core::option::Option<Sha256Digest>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct IndependentValidationSource {
+    #[prost(message, optional, tag = "1")]
+    pub primary_job_id: ::core::option::Option<JobId>,
+    #[prost(message, optional, tag = "2")]
+    pub context_manifest_sha256: ::core::option::Option<Sha256Digest>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum ReturnDefinition {
@@ -1992,6 +1999,8 @@ pub struct ReconciliationJobInput {
     pub reconciliation_policy: ::core::option::Option<PolicyReference>,
     #[prost(message, optional, tag = "4")]
     pub budget: ::core::option::Option<JobBudget>,
+    #[prost(message, optional, tag = "5")]
+    pub validation: ::core::option::Option<IndependentValidationSource>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HoldoutBacktestJobInput {

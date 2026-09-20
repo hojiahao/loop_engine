@@ -444,21 +444,39 @@ def _validate_job_input(
         )
     elif input_name == "reconciliation":
         value = specification.reconciliation
-        primary = _require_token_id(
-            value.primary_backtest_id.value if value.HasField("primary_backtest_id") else None,
-            "specification.input.reconciliation.primary_backtest_id",
-        )
-        independent = _require_token_id(
-            value.independent_backtest_id.value
-            if value.HasField("independent_backtest_id")
-            else None,
-            "specification.input.reconciliation.independent_backtest_id",
-        )
-        if primary == independent:
-            _fail(
-                JobValidationCode.BINDING_MISMATCH,
-                "specification.input.reconciliation.backtest_ids",
+        if value.HasField("validation"):
+            if value.HasField("primary_backtest_id") or value.HasField("independent_backtest_id"):
+                _fail(
+                    JobValidationCode.BINDING_MISMATCH,
+                    "specification.input.reconciliation.validation",
+                )
+            source = value.validation
+            _require_token_id(
+                source.primary_job_id.value if source.HasField("primary_job_id") else None,
+                "specification.input.reconciliation.validation.primary_job_id",
             )
+            _require_digest(
+                source.context_manifest_sha256
+                if source.HasField("context_manifest_sha256")
+                else None,
+                "specification.input.reconciliation.validation.context_manifest_sha256",
+            )
+        else:
+            primary = _require_token_id(
+                value.primary_backtest_id.value if value.HasField("primary_backtest_id") else None,
+                "specification.input.reconciliation.primary_backtest_id",
+            )
+            independent = _require_token_id(
+                value.independent_backtest_id.value
+                if value.HasField("independent_backtest_id")
+                else None,
+                "specification.input.reconciliation.independent_backtest_id",
+            )
+            if primary == independent:
+                _fail(
+                    JobValidationCode.BINDING_MISMATCH,
+                    "specification.input.reconciliation.backtest_ids",
+                )
         _validate_policy(
             value.reconciliation_policy if value.HasField("reconciliation_policy") else None,
             "specification.input.reconciliation.reconciliation_policy",

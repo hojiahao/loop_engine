@@ -142,8 +142,9 @@ Both ordinary admission and re-admission use the existing `DecideFactor`
 handler. Genuine primary evidence reaches its current-result/lineage checks;
 missing independent reconciliation returns `FailedPrecondition` with the typed
 `independent_validation_pending` code. It cannot be confused with an infrastructure
-timeout. Phase 8 verification
-and later semantic review are still required. No factor is admitted, rejected or
+timeout. [Authorized independent reconciliation](authorized-reconciliation.md)
+connects both Phase 8 validators; licensed data, complete global statistics and
+later semantic review remain separate prerequisites. No factor is admitted, rejected or
 retired merely because this dependency is unavailable, and an override cannot
 waive it. All current output remains development-only.
 

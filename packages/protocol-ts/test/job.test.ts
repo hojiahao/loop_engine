@@ -84,6 +84,7 @@ import {
   ModelResolutionSnapshotSchema,
 } from "../src/generated/loop/v1/model_pb.js";
 import {
+  IndependentValidationSourceSchema,
   ResearchProvenanceFingerprintSchema,
   ReturnDefinition,
 } from "../src/generated/loop/v1/research_common_pb.js";
@@ -179,7 +180,7 @@ describe("JobRecord structural validation", () => {
   );
   it("executes every row in the shared fail-closed matrix", () => {
     const shared = vectors();
-    expect(shared).toHaveLength(109);
+    expect(shared).toHaveLength(114);
     for (const vector of shared) {
       const value = record(vector);
       if (vector.expected === "accept") {
@@ -473,6 +474,27 @@ function valid_specification(vector: Vector) {
 function mutate(record: JobRecord, mutation: string): void {
   const specification = record.specification;
   const lease = record.activeLease;
+  if (mutation.startsWith("validation_")) {
+    if (specification?.input.case !== "reconciliation") throw new Error("validation fixture");
+    const input = specification.input.value;
+    if (mutation !== "validation_mixed") {
+      input.primaryBacktestId = undefined;
+      input.independentBacktestId = undefined;
+    }
+    input.validation = create(IndependentValidationSourceSchema, {
+      primaryJobId:
+        mutation === "validation_job_missing"
+          ? undefined
+          : create(JobIdSchema, { value: "job.primary" }),
+      contextManifestSha256:
+        mutation === "validation_digest_missing"
+          ? undefined
+          : create(Sha256DigestSchema, {
+              value: new Uint8Array(mutation === "validation_digest_invalid" ? 31 : 32).fill(7),
+            }),
+    });
+    return;
+  }
   switch (mutation) {
     case "none":
       return;

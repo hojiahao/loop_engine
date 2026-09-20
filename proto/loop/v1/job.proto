@@ -102,6 +102,9 @@ message ReconciliationJobInput {
   BacktestId independent_backtest_id = 2;
   PolicyReference reconciliation_policy = 3;
   JobBudget budget = 4;
+  // Mutually exclusive with both legacy backtest IDs. New installed validation
+  // executes both engines against this registered primary development job.
+  IndependentValidationSource validation = 5;
 }
 
 // HoldoutBacktestJobInput is an internal durable input constructed only by

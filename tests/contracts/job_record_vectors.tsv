@@ -3,6 +3,11 @@ queued_discovery	accept	discovery	discovery	queued	absent	absent	0	none
 queued_factor_evaluation	accept	factor_evaluation	factor_evaluation	queued	absent	absent	0	none
 queued_backtest	accept	backtest	backtest	queued	absent	absent	0	none
 queued_reconciliation	accept	independent_reconciliation	reconciliation	queued	absent	absent	0	none
+validation_source	accept	independent_reconciliation	reconciliation	queued	absent	absent	0	validation_valid
+validation_mixed	binding_mismatch	independent_reconciliation	reconciliation	queued	absent	absent	0	validation_mixed
+validation_job_missing	missing_field	independent_reconciliation	reconciliation	queued	absent	absent	0	validation_job_missing
+validation_digest_missing	missing_field	independent_reconciliation	reconciliation	queued	absent	absent	0	validation_digest_missing
+validation_digest_invalid	invalid_identity	independent_reconciliation	reconciliation	queued	absent	absent	0	validation_digest_invalid
 queued_report	accept	report	artifact	queued	absent	absent	0	none
 queued_prospective	accept	prospective_observation	artifact	queued	absent	absent	0	none
 queued_holdout	accept	holdout_backtest	holdout_backtest	queued	absent	absent	0	none

@@ -2,6 +2,8 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod reconciliation;
+
 use loop_protocol::wire::jobs::v1::{
     self,
     job_service_server::{JobService, JobServiceServer},
@@ -18,7 +20,9 @@ use tonic::{
 
 use super::authority::{CAPABILITY_HEADER, Principal};
 use super::capability::Capabilities;
-use super::{ArtifactBroker, FactorExecutor, PortfolioExecutor, RuntimeAuthority};
+use super::{
+    ArtifactBroker, FactorExecutor, PortfolioExecutor, ReconciliationExecutor, RuntimeAuthority,
+};
 use crate::store::{
     BacktestRepository, FactorRepository, JobMutation, JobRepository, PgJobStore, StoreError,
     StoreResult,
@@ -34,6 +38,7 @@ pub struct RuntimeService {
     artifacts: Arc<ArtifactBroker>,
     evaluator: Option<Arc<FactorExecutor>>,
     portfolio: Option<Arc<PortfolioExecutor>>,
+    reconciler: Option<Arc<ReconciliationExecutor>>,
 }
 
 impl RuntimeService {
@@ -52,6 +57,7 @@ impl RuntimeService {
             capabilities: Arc::new(Capabilities::new()),
             evaluator: None,
             portfolio: None,
+            reconciler: None,
         }
     }
 
@@ -67,6 +73,13 @@ impl RuntimeService {
     pub fn with_portfolio_executor(mut self, executor: Arc<PortfolioExecutor>) -> Self {
         self.store = self.store.with_backtest_policy(executor.clone());
         self.portfolio = Some(executor);
+        self
+    }
+
+    /// Attach the explicit offline two-engine supervisor. Without it validation
+    /// execution, current reads and admission evidence remain unavailable.
+    pub fn with_reconciler(mut self, executor: Arc<ReconciliationExecutor>) -> Self {
+        self.reconciler = Some(executor);
         self
     }
 
@@ -215,8 +228,13 @@ impl JobService for RuntimeService {
             )
             .await
             .map_err(status)?;
-        let result = self
-            .store
+        crate::store::validate_runtime_context(command.context.as_ref(), &principal.actor)
+            .map_err(status)?;
+        let decision_store = self
+            .decision_store(&request, &principal)
+            .await
+            .map_err(status)?;
+        let result = decision_store
             .decide_factor(
                 &principal.actor,
                 crate::store::DecideFactor {
@@ -254,6 +272,26 @@ impl JobService for RuntimeService {
             accepted_at: Some(result.accepted_at),
             replayed: result.replayed,
         }))
+    }
+
+    async fn execute_reconciliation(
+        &self,
+        request: Request<v1::ExecuteReconciliationRequest>,
+    ) -> Result<Response<v1::ExecuteReconciliationResponse>, Status> {
+        self.execute_validation(request)
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+
+    async fn read_reconciliation(
+        &self,
+        request: Request<v1::ReadReconciliationRequest>,
+    ) -> Result<Response<v1::ReadReconciliationResponse>, Status> {
+        self.read_validation(request)
+            .await
+            .map(Response::new)
+            .map_err(status)
     }
 
     async fn execute_backtest(
@@ -911,6 +949,27 @@ pub(super) fn status(error: StoreError) -> Status {
             ErrorCategory::Dependency,
             "independent_validation_pending",
             "independent portfolio reconciliation pending",
+            false,
+        ),
+        StoreError::IndependentMismatch => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "independent_validation_differs",
+            "independent portfolio reconciliation differs",
+            false,
+        ),
+        StoreError::IndependentUnavailable => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "independent_validation_unavailable",
+            "independent portfolio reconciliation unavailable",
+            false,
+        ),
+        StoreError::AdmissionPrerequisite => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "production_admission_prerequisites",
+            "production admission requires licensed data, complete global statistics and semantic review",
             false,
         ),
         StoreError::LeaseFenced | StoreError::InvalidTransition => (

@@ -134,7 +134,12 @@ async fn execute(
             .ok_or(StoreError::Invalid("factor deadline"))?,
         true,
     )?;
-    if deadline <= requested || deadline - requested > 30_000 {
+    let maximum = if store.validation_evidence.is_some() {
+        super::VALIDATION_DEADLINE_MS
+    } else {
+        30_000
+    };
+    if deadline <= requested || deadline - requested > maximum {
         return Err(StoreError::Invalid("factor deadline"));
     }
     let prepared_store = store
@@ -183,6 +188,7 @@ async fn execute(
     if result.engine != BacktestEngineKind::PrimaryCrossSectional as i32 {
         return Err(StoreError::Invalid("primary IS result required"));
     }
+    super::reconciliation::admission(store, &mut transaction, principal, &source).await?;
     let evidence =
         store
             .backtest_policy

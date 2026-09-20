@@ -1,6 +1,6 @@
 # ADR 0034: Independent Zipline execution and accounting reconciliation
 
-- Status: Implemented; task acceptance, commit and push pending
+- Status: Accepted; commits ce4e246 and 7258607, exact-commit CI 35319727700 is 7/7
 - Owner: hojiahao
 - Extends: ADR 0005, ADR 0029, ADR 0030 and ADR 0033
 

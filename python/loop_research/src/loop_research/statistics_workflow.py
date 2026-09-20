@@ -305,14 +305,26 @@ def run_statistics(
     research admission or network request is authorized by this operation.
     """
     deadline = _Deadline(timeout_seconds, clock)
+    report, _, _ = prepare_statistics(evidence, view, store, request, deadline)
+    return report
+
+
+def prepare_statistics(
+    evidence: Path, view: Path, store: Path, request: StatisticsRequest, deadline: _Deadline
+) -> tuple[StatisticsReport, PortfolioReplay, Callable[[], None]]:
+    """Publish statistics and retain this operation's verified primary and guards.
+
+    Exporters can share this live reconstruction. It is never serialized as
+    authority and its guards must still pass before the final export receipt.
+    """
     _paths(evidence, view, store)
-    receipt, artifacts, _, check = _materialize(evidence, view, store, request, deadline)
+    receipt, artifacts, primary, check = _materialize(evidence, view, store, request, deadline)
     for content in artifacts.values():
         deadline.check()
         publish(store, content)
     check()
     reference = publish(store, canonical_bytes(receipt.model_dump(mode="json", by_alias=True)))
-    return StatisticsReport(receipt=reference, artifacts=receipt)
+    return StatisticsReport(receipt=reference, artifacts=receipt), primary, check
 
 
 def validate_statistics(

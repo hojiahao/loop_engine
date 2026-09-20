@@ -113,6 +113,7 @@ fn role_command(input: job_specification::Input, key: &str) -> RoleCommand {
             independent_backtest_id,
             reconciliation_policy,
             budget,
+            validation,
         }) => RoleCommand::Reconciliation(research::EnqueueReconciliationRequest {
             context,
             input: Some(research::ReconciliationInput {
@@ -120,6 +121,7 @@ fn role_command(input: job_specification::Input, key: &str) -> RoleCommand {
                 independent_backtest_id,
                 reconciliation_policy,
                 budget: budget.map(research_budget),
+                validation,
             }),
         }),
         _ => panic!("not a role-owned input"),

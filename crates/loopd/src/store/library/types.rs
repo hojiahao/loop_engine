@@ -26,7 +26,8 @@ pub struct DecideFactor {
     /// Independently resolved human approval, required with an override reason.
     #[prost(string, tag = "7")]
     pub override_approval_id: String,
-    /// Required absolute deadline, no more than 30 seconds after request time.
+    /// Required absolute deadline, no more than 30 seconds after request time,
+    /// or 180 seconds when the runtime supplies supervised independent evidence.
     #[prost(message, optional, tag = "8")]
     pub deadline: Option<Timestamp>,
 }

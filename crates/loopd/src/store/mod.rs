@@ -17,6 +17,8 @@ pub(crate) use lifecycle::validate_context as validate_runtime_context;
 mod perturbation;
 mod portfolio;
 mod postgres;
+pub(crate) use postgres::timestamp_millis;
+mod reconciliation;
 mod rejection;
 mod research_ledger;
 mod runtime;
@@ -49,6 +51,10 @@ pub use research_ledger::{TrialEntry, TrialLedger};
 pub(crate) use runtime::live_lease;
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
+// A decision with supervised independent evidence includes numerical replay.
+// Metadata-only admission commands retain their original 30-second span.
+pub(crate) const VALIDATION_DEADLINE_MS: i64 = 180_000;
+
 /// Fail-closed command errors. `PreviouslyRejected` identifies existing domain
 /// evidence; no error creates a new factor rejection or an execution result.
 #[derive(Debug, Error)]
@@ -57,6 +63,17 @@ pub enum StoreError {
     /// This is an unresolved decision prerequisite, not a numerical rejection.
     #[error("independent portfolio reconciliation pending")]
     IndependentPending,
+    /// Independent numerical engines disagree; this is not an economic rejection.
+    #[error("independent portfolio reconciliation differs")]
+    IndependentMismatch,
+    /// A required independent statistic or numerical range is unavailable.
+    #[error("independent portfolio reconciliation unavailable")]
+    IndependentUnavailable,
+    /// Numerical agreement cannot waive separately unresolved research gates.
+    #[error(
+        "production admission requires licensed data, complete global statistics and semantic review"
+    )]
+    AdmissionPrerequisite,
     /// New accepted work or a retry changed the statistical search denominator.
     #[error("global research trial accounting changed")]
     StaleTrials,

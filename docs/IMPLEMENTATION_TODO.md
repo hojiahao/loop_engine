@@ -455,16 +455,18 @@ together; finish one before starting the next):
    `3be45a1` is pushed; exact-commit CI `35306864434` passes all seven jobs.
    Evidence and rollback are in
    `docs/verification/phase-08-independent-validation.md`.
-2. Zipline accounting (`in_progress`; ADR 0034): implementation and documentation
-   are present; final task gates and publication are pending. A separately locked
+2. Zipline accounting (`complete`; ADR 0034): implementation `ce4e246` and the
+   clean-container bootstrap correction `7258607` are pushed. Exact-commit CI
+   `35319727700` passes all seven jobs after retrying a DaoCloud registry 503.
+   A separately locked
    Python 3.12.13 process uses actual Zipline 3.1.1 blotter/ledger components,
    independently computes both frozen execution profiles, compares all seven
    ledgers and preserves native/economic NAV bridges and immutable replay.
    The primary Python 3.14.4 environment is unchanged. Actual primary-export/
    independent subprocess tests pass for both profiles; all 57 affected primary
    regressions and 46 independent tests pass, as do the isolated build and local
-   style/type/lock gates. Commit, push and remote CI remain the publication gate.
-3. Authorized reconciliation (`pending`): bind both independent receipts to
+   style/type/lock gates.
+3. Authorized reconciliation (`in_progress`; ADR 0035): bind both independent receipts to
    actual registered primary evidence and frozen comparison policy, integrate
    current reads/replay and shared admission, and test role/lease/staleness,
    mismatch, interruption and rollback paths. Independent numerical agreement

@@ -339,16 +339,34 @@ function validate_job_input(specification: JobSpecification, submittedAt: Timest
       );
       return;
     case "reconciliation": {
-      const primary = require_token_id(
-        input.value.primaryBacktestId?.value,
-        "specification.input.reconciliation.primary_backtest_id",
-      );
-      const independent = require_token_id(
-        input.value.independentBacktestId?.value,
-        "specification.input.reconciliation.independent_backtest_id",
-      );
-      if (primary === independent) {
-        fail("binding_mismatch", "specification.input.reconciliation.backtest_ids");
+      const source = input.value.validation;
+      if (source !== undefined) {
+        if (
+          input.value.primaryBacktestId !== undefined ||
+          input.value.independentBacktestId !== undefined
+        ) {
+          fail("binding_mismatch", "specification.input.reconciliation.validation");
+        }
+        require_token_id(
+          source.primaryJobId?.value,
+          "specification.input.reconciliation.validation.primary_job_id",
+        );
+        require_digest(
+          source.contextManifestSha256,
+          "specification.input.reconciliation.validation.context_manifest_sha256",
+        );
+      } else {
+        const primary = require_token_id(
+          input.value.primaryBacktestId?.value,
+          "specification.input.reconciliation.primary_backtest_id",
+        );
+        const independent = require_token_id(
+          input.value.independentBacktestId?.value,
+          "specification.input.reconciliation.independent_backtest_id",
+        );
+        if (primary === independent) {
+          fail("binding_mismatch", "specification.input.reconciliation.backtest_ids");
+        }
       }
       validate_policy(
         input.value.reconciliationPolicy,

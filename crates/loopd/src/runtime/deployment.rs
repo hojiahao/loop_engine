@@ -10,7 +10,8 @@ use serde::Deserialize;
 use tonic::transport::{Certificate, Identity as TlsIdentity, ServerTlsConfig};
 
 use super::{
-    ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, PortfolioExecutor, RuntimeAuthority,
+    ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, PortfolioExecutor,
+    ReconciliationConfig, ReconciliationExecutor, RuntimeAuthority,
 };
 use crate::manifests::{EvaluationPin, EvaluationResolver, PortfolioPin};
 use crate::store::{StoreError, StoreResult, SystemClock};
@@ -33,6 +34,8 @@ struct Configuration {
     evaluation: Option<EvaluationConfiguration>,
     #[serde(default)]
     portfolio: Option<PortfolioConfiguration>,
+    #[serde(default)]
+    reconciliation: Option<ReconciliationConfig>,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +67,8 @@ pub struct RuntimeDeployment {
     pub evaluator: Option<Arc<FactorExecutor>>,
     /// Optional portfolio execution and current-result reconstruction policy.
     pub portfolio: Option<Arc<PortfolioExecutor>>,
+    /// Optional two-engine reconciliation; absent configuration keeps it disabled.
+    pub reconciliation: Option<Arc<ReconciliationExecutor>>,
     tls: ServerTlsConfig,
 }
 
@@ -123,6 +128,10 @@ impl RuntimeDeployment {
                 .map(Arc::new)
             })
             .transpose()?;
+        let evaluation_output = config
+            .evaluation
+            .as_ref()
+            .map(|evaluation| evaluation.output_store.clone());
         let evaluator = config
             .evaluation
             .map(|evaluation| {
@@ -148,12 +157,48 @@ impl RuntimeDeployment {
                     .map(Arc::new)
             })
             .transpose()?;
+        let reconciliation = config
+            .reconciliation
+            .map(|reconciliation| {
+                let mut namespaces = vec![
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ];
+                if let Some(portfolio) = &portfolio {
+                    namespaces.push(&portfolio.output);
+                }
+                if let Some(output) = &evaluation_output {
+                    namespaces.push(output);
+                }
+                for path in [
+                    &reconciliation.output_store,
+                    &reconciliation.cache,
+                    &reconciliation.alphalens_project,
+                    &reconciliation.zipline_project,
+                ] {
+                    if namespaces
+                        .iter()
+                        .any(|namespace| super::reconciliation::overlaps(path, namespace))
+                    {
+                        return Err(StoreError::Invalid(
+                            "validation namespace overlaps research storage",
+                        ));
+                    }
+                }
+                let primary = portfolio.clone().ok_or(StoreError::Invalid(
+                    "validation requires portfolio deployment",
+                ))?;
+                ReconciliationExecutor::open(reconciliation, primary).map(Arc::new)
+            })
+            .transpose()?;
         Ok(Self {
             bind: config.bind,
             authority,
             artifacts,
             evaluator,
             portfolio,
+            reconciliation,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),

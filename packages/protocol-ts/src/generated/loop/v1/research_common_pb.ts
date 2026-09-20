@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Sha256Digest } from "./common_pb.js";
+import type { JobId, Sha256Digest } from "./common_pb.js";
 import { file_loop_v1_common } from "./common_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/v1/research_common.proto.
  */
 export const file_loop_v1_research_common: GenFile = /*@__PURE__*/
-  fileDesc("Ch1sb29wL3YxL3Jlc2VhcmNoX2NvbW1vbi5wcm90bxIHbG9vcC52MSLgAgodUmVzZWFyY2hQcm92ZW5hbmNlRmluZ2VycHJpbnQSMQoSc291cmNlX2NvZGVfc2hhMjU2GAEgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSNwoYb3BlcmF0b3JfcmVnaXN0cnlfc2hhMjU2GAIgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSMwoUY29uZmlndXJhdGlvbl9zaGEyNTYYAyABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIzChRkYXRhX21hbmlmZXN0X3NoYTI1NhgEIAEoCzIVLmxvb3AudjEuU2hhMjU2RGlnZXN0EjYKF3RyYWRpbmdfY2FsZW5kYXJfc2hhMjU2GAUgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSMQoSZW52aXJvbm1lbnRfc2hhMjU2GAYgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QqXgoQUmV0dXJuRGVmaW5pdGlvbhIhCh1SRVRVUk5fREVGSU5JVElPTl9VTlNQRUNJRklFRBAAEicKI1JFVFVSTl9ERUZJTklUSU9OX1NJTVBMRV9OQVZfUkVUVVJOEAFiBnByb3RvMw", [file_loop_v1_common]);
+  fileDesc("Ch1sb29wL3YxL3Jlc2VhcmNoX2NvbW1vbi5wcm90bxIHbG9vcC52MSLgAgodUmVzZWFyY2hQcm92ZW5hbmNlRmluZ2VycHJpbnQSMQoSc291cmNlX2NvZGVfc2hhMjU2GAEgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSNwoYb3BlcmF0b3JfcmVnaXN0cnlfc2hhMjU2GAIgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSMwoUY29uZmlndXJhdGlvbl9zaGEyNTYYAyABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIzChRkYXRhX21hbmlmZXN0X3NoYTI1NhgEIAEoCzIVLmxvb3AudjEuU2hhMjU2RGlnZXN0EjYKF3RyYWRpbmdfY2FsZW5kYXJfc2hhMjU2GAUgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSMQoSZW52aXJvbm1lbnRfc2hhMjU2GAYgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QifQobSW5kZXBlbmRlbnRWYWxpZGF0aW9uU291cmNlEiYKDnByaW1hcnlfam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZBI2Chdjb250ZXh0X21hbmlmZXN0X3NoYTI1NhgCIAEoCzIVLmxvb3AudjEuU2hhMjU2RGlnZXN0Kl4KEFJldHVybkRlZmluaXRpb24SIQodUkVUVVJOX0RFRklOSVRJT05fVU5TUEVDSUZJRUQQABInCiNSRVRVUk5fREVGSU5JVElPTl9TSU1QTEVfTkFWX1JFVFVSThABYgZwcm90bzM", [file_loop_v1_common]);
 
 /**
  * ResearchProvenanceFingerprint makes metrics stale if any computational,
@@ -60,6 +60,33 @@ export type ResearchProvenanceFingerprint = Message<"loop.v1.ResearchProvenanceF
  */
 export const ResearchProvenanceFingerprintSchema: GenMessage<ResearchProvenanceFingerprint> = /*@__PURE__*/
   messageDesc(file_loop_v1_research_common, 0);
+
+/**
+ * Development-only validation of one registered primary portfolio. The server
+ * resolves its result and invokes both independent engines; callers cannot
+ * supply validator receipts or a selected subset of checks. No holdout grant
+ * or data reference can be represented here.
+ *
+ * @generated from message loop.v1.IndependentValidationSource
+ */
+export type IndependentValidationSource = Message<"loop.v1.IndependentValidationSource"> & {
+  /**
+   * @generated from field: loop.v1.JobId primary_job_id = 1;
+   */
+  primaryJobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest context_manifest_sha256 = 2;
+   */
+  contextManifestSha256?: Sha256Digest | undefined;
+};
+
+/**
+ * Describes the message loop.v1.IndependentValidationSource.
+ * Use `create(IndependentValidationSourceSchema)` to create a new message.
+ */
+export const IndependentValidationSourceSchema: GenMessage<IndependentValidationSource> = /*@__PURE__*/
+  messageDesc(file_loop_v1_research_common, 1);
 
 /**
  * ReturnDefinition is explicit so a NAV delta can never masquerade as a

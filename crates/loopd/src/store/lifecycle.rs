@@ -218,6 +218,9 @@ pub(super) async fn mutate(
     store
         .admission
         .authorize_job_command(operation, principal, &record)?;
+    if let JobMutation::Complete(input) = &command {
+        super::reconciliation::check_lease(store, &record, input)?;
+    }
     if let JobMutation::Complete(input) = &command
         && matches!(
             record
@@ -284,6 +287,7 @@ pub(super) async fn mutate(
         }
         rejection::verify_stored(&mut transaction, &job).await?;
         super::evaluation::read(&mut transaction, &job).await?;
+        super::reconciliation::verify(store, &mut transaction, principal, &job).await?;
         if let Some(evidence) = &store.evaluation_evidence {
             evidence.check(&job)?;
         }
@@ -315,6 +319,11 @@ pub(super) async fn mutate(
         .await?;
     }
     let previous_state = state_name(record.state)?;
+    let validation_lease = if store.validation_evidence.is_some() {
+        Some(record.clone())
+    } else {
+        None
+    };
     apply(&mut record, &command, principal, now)?;
     record.revision += 1;
     record.updated_at = Some(timestamp(now));
@@ -326,6 +335,7 @@ pub(super) async fn mutate(
     backtest::record_completion(store, &mut transaction, &record, principal, now).await?;
     rejection::record_completion(&mut transaction, &record, now).await?;
     super::evaluation::record_completion(store, &mut transaction, &record).await?;
+    super::reconciliation::verify(store, &mut transaction, principal, &record).await?;
     audit::append(
         &mut transaction,
         &store.ledger_id,
@@ -366,6 +376,10 @@ pub(super) async fn mutate(
     )
     .await?;
     #[cfg(test)]
+    if super::reconciliation::completed(&record) {
+        super::crash_tests::fault_point("validation_before_commit").await;
+    }
+    #[cfg(test)]
     if backtest::is_completed_backtest(&record)? {
         super::crash_tests::fault_point("result_before_commit").await;
     }
@@ -373,7 +387,23 @@ pub(super) async fn mutate(
     if rejection::is_rejected_backtest(&record) {
         super::crash_tests::fault_point("rejection_before_commit").await;
     }
+    if let Some(original) = &validation_lease {
+        let proof = store
+            .validation_evidence
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        proof.check_record(&record)?;
+        let committed = store.observe_clock(&mut transaction).await?;
+        super::live_lease(original, principal, &proof.document.lease_id, committed)?;
+        store
+            .admission
+            .authorize_job_command(operation, principal, &record)?;
+    }
     transaction.commit().await?;
+    #[cfg(test)]
+    if super::reconciliation::completed(&record) {
+        super::crash_tests::fault_point("validation_after_commit").await;
+    }
     #[cfg(test)]
     if super::evaluation::completed(&record) {
         super::crash_tests::fault_point("evaluation_after_commit").await;

@@ -23,3 +23,12 @@ message ResearchProvenanceFingerprint {
   Sha256Digest trading_calendar_sha256 = 5;
   Sha256Digest environment_sha256 = 6;
 }
+
+// Development-only validation of one registered primary portfolio. The server
+// resolves its result and invokes both independent engines; callers cannot
+// supply validator receipts or a selected subset of checks. No holdout grant
+// or data reference can be represented here.
+message IndependentValidationSource {
+  JobId primary_job_id = 1;
+  Sha256Digest context_manifest_sha256 = 2;
+}

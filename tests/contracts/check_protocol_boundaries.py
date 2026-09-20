@@ -274,6 +274,17 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in evaluate.field)
     assert {field.name for field in messages["EvaluateFactorResponse"].field} == {"job"}
 
+    reconcile = messages["ExecuteReconciliationRequest"]
+    assert {field.name for field in reconcile.field} == {
+        "context", "job_id", "lease_id", "expected_revision"
+    }
+    assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in reconcile.field)
+    assert {field.name for field in messages["ExecuteReconciliationResponse"].field} == {"job"}
+    assert {field.name for field in messages["ReadReconciliationRequest"].field} == {"job_id"}
+    response = messages["ReadReconciliationResponse"]
+    assert {field.name for field in response.field} == {"job", "report"}
+    assert next(field for field in response.field if field.name == "report").type_name == ".loop.v1.ArtifactRef"
+
 
 def assert_service(
     file: FileDescriptorProto,

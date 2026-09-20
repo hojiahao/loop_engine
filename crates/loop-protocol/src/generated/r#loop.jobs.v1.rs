@@ -136,6 +136,34 @@ pub struct ExecuteBacktestResponse {
     pub job: ::core::option::Option<super::super::v1::JobRecord>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExecuteReconciliationRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "3")]
+    pub lease_id: ::core::option::Option<super::super::v1::LeaseId>,
+    #[prost(uint64, tag = "4")]
+    pub expected_revision: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteReconciliationResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadReconciliationRequest {
+    #[prost(message, optional, tag = "1")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadReconciliationResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+    #[prost(message, optional, tag = "2")]
+    pub report: ::core::option::Option<super::super::v1::ArtifactRef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReadBacktestRequest {
     #[prost(message, optional, tag = "1")]
     pub job_id: ::core::option::Option<super::super::v1::JobId>,
@@ -496,6 +524,58 @@ pub mod job_service_client {
                 .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ExecuteBacktest"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn execute_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExecuteReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteReconciliationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ExecuteReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("loop.jobs.v1.JobService", "ExecuteReconciliation"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn read_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadReconciliationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ReadReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("loop.jobs.v1.JobService", "ReadReconciliation"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn read_backtest(
             &mut self,
             request: impl tonic::IntoRequest<super::ReadBacktestRequest>,
@@ -634,6 +714,20 @@ pub mod job_service_server {
             request: tonic::Request<super::ExecuteBacktestRequest>,
         ) -> std::result::Result<
             tonic::Response<super::ExecuteBacktestResponse>,
+            tonic::Status,
+        >;
+        async fn execute_reconciliation(
+            &self,
+            request: tonic::Request<super::ExecuteReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteReconciliationResponse>,
+            tonic::Status,
+        >;
+        async fn read_reconciliation(
+            &self,
+            request: tonic::Request<super::ReadReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadReconciliationResponse>,
             tonic::Status,
         >;
         async fn read_backtest(
@@ -1079,6 +1173,98 @@ pub mod job_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ExecuteBacktestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ExecuteReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct ExecuteReconciliationSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ExecuteReconciliationRequest>
+                    for ExecuteReconciliationSvc<T> {
+                        type Response = super::ExecuteReconciliationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ExecuteReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::execute_reconciliation(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ExecuteReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ReadReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadReconciliationSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ReadReconciliationRequest>
+                    for ReadReconciliationSvc<T> {
+                        type Response = super::ReadReconciliationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::read_reconciliation(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadReconciliationSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -25,7 +25,7 @@ pub enum RoleCommand {
     FactorEvaluation(research::EnqueueFactorEvaluationRequest),
     /// Queue a development backtest with frozen provenance.
     Backtest(research::EnqueueBacktestRequest),
-    /// Compare two already registered, independent backtest results.
+    /// Compare registered results or validate a registered development primary.
     Reconciliation(research::EnqueueReconciliationRequest),
 }
 
@@ -177,6 +177,7 @@ impl RoleCommand {
                         independent_backtest_id: input.independent_backtest_id.clone(),
                         reconciliation_policy: input.reconciliation_policy.clone(),
                         budget: research_budget(input.budget.as_ref()),
+                        validation: input.validation.clone(),
                     }),
                 )
             }

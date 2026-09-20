@@ -10,12 +10,20 @@ pub(super) struct PortfolioCase {
     pub(super) pin: PortfolioPin,
     pub(super) output: PathBuf,
     pub(super) jobs: Vec<JobSpecification>,
+    pub(super) validation: Option<crate::runtime::ReconciliationConfig>,
 }
 
 impl PortfolioCase {
     pub(super) async fn new() -> Self {
+        Self::with_history(false).await
+    }
+
+    pub(super) async fn with_history(extended: bool) -> Self {
         let mut f = fixture_with_minimum(false, 6666).await;
-        configure(&mut f);
+        if extended {
+            super::reconciliation::extend_panel(&mut f);
+        }
+        configure(&mut f, extended);
         let base = Case::open(f).await;
         let request = base.request().await;
         base.client().await.evaluate_factor(request).await.unwrap();
@@ -149,6 +157,7 @@ impl PortfolioCase {
             pin,
             output,
             jobs,
+            validation: None,
         };
         case.restart().await;
         case.base
@@ -313,9 +322,15 @@ impl PortfolioCase {
         c.store = PgJobStore::open(options).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         c.address = listener.local_addr().unwrap();
-        let service = RuntimeService::new(c.store.clone(), c.authority.clone(), c.broker.clone())
-            .with_factor_executor(c.executor.clone())
-            .with_portfolio_executor(executor);
+        let mut service =
+            RuntimeService::new(c.store.clone(), c.authority.clone(), c.broker.clone())
+                .with_factor_executor(c.executor.clone())
+                .with_portfolio_executor(executor.clone());
+        if let Some(config) = &self.validation {
+            service = service.with_reconciler(Arc::new(
+                crate::runtime::ReconciliationExecutor::open(config.clone(), executor).unwrap(),
+            ));
+        }
         c.task = tokio::spawn(crate::runtime::serve(
             service,
             listener,
@@ -377,7 +392,7 @@ impl PortfolioCase {
     }
 }
 
-fn configure(f: &mut Fixture) {
+fn configure(f: &mut Fixture, extended: bool) {
     let mut configuration: model::Configuration =
         serde_json::from_slice(&std::fs::read(f.path(&f.context.configuration)).unwrap()).unwrap();
     for entry in &mut configuration.policies {
@@ -428,6 +443,9 @@ fn configure(f: &mut Fixture) {
         "session,security_id,open_at_ms,open_usd,close_known_at_ms,close_usd\n".to_owned();
     for (index, day) in panel["sessions"].as_array().unwrap().iter().enumerate() {
         let day = day.as_str().unwrap();
+        if day < panel["evaluation_start"].as_str().unwrap() {
+            continue;
+        }
         let date = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap();
         let opening = date
             .and_hms_opt(14, 30, 0)
@@ -444,7 +462,11 @@ fn configure(f: &mut Fixture) {
                 "{day},{},{opening},{},{closing},{}\n",
                 security.as_str().unwrap(),
                 10 + column,
-                10 + column + index
+                if extended {
+                    super::reconciliation::price(index, column)
+                } else {
+                    (10 + column + index).to_string()
+                }
             ));
         }
     }

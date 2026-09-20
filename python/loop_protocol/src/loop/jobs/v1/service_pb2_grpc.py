@@ -74,6 +74,16 @@ class JobServiceStub:
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.SerializeToString,
                 response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.FromString,
                 _registered_method=True)
+        self.ExecuteReconciliation = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ExecuteReconciliation',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationResponse.FromString,
+                _registered_method=True)
+        self.ReadReconciliation = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ReadReconciliation',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.FromString,
+                _registered_method=True)
         self.ReadBacktest = channel.unary_unary(
                 '/loop.jobs.v1.JobService/ReadBacktest',
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestRequest.SerializeToString,
@@ -149,6 +159,21 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExecuteReconciliation(self, request, context):
+        """Reconstruct a registered development primary and run both pinned independent
+        validators under this reconciliation job's lease. No caller result import.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReadReconciliation(self, request, context):
+        """Revalidate primary and independent evidence before returning its report.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReadBacktest(self, request, context):
         """Reconstruct current evidence; historical job metadata is not a freshness claim.
         """
@@ -213,6 +238,16 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.ExecuteBacktest,
                     request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.FromString,
                     response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.SerializeToString,
+            ),
+            'ExecuteReconciliation': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExecuteReconciliation,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationResponse.SerializeToString,
+            ),
+            'ReadReconciliation': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReadReconciliation,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.SerializeToString,
             ),
             'ReadBacktest': grpc.unary_unary_rpc_method_handler(
                     servicer.ReadBacktest,
@@ -446,6 +481,60 @@ class JobService:
             '/loop.jobs.v1.JobService/ExecuteBacktest',
             loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestRequest.SerializeToString,
             loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteBacktestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExecuteReconciliation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ExecuteReconciliation',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteReconciliationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReadReconciliation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ReadReconciliation',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.FromString,
             options,
             channel_credentials,
             insecure,

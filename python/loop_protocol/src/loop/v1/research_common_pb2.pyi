@@ -29,3 +29,11 @@ class ResearchProvenanceFingerprint(_message.Message):
     trading_calendar_sha256: _common_pb2.Sha256Digest
     environment_sha256: _common_pb2.Sha256Digest
     def __init__(self, source_code_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., operator_registry_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., configuration_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., data_manifest_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., trading_calendar_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., environment_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ...) -> None: ...
+
+class IndependentValidationSource(_message.Message):
+    __slots__ = ("primary_job_id", "context_manifest_sha256")
+    PRIMARY_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTEXT_MANIFEST_SHA256_FIELD_NUMBER: _ClassVar[int]
+    primary_job_id: _common_pb2.JobId
+    context_manifest_sha256: _common_pb2.Sha256Digest
+    def __init__(self, primary_job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., context_manifest_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ...) -> None: ...

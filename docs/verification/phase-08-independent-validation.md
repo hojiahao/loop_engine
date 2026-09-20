@@ -106,17 +106,109 @@ Cold-install verification used an empty, project-owned temporary interpreter
 directory: `never` reproduced the failure; the bootstrap-scoped automatic
 download installed the exact pin and passed the doctor; restoring `never` with
 `--offline` also passed. The root Python 3.14.4 single-environment check passed.
-The corrected exact-commit CI remains the final publication gate.
+Correction `7258607` is pushed. Exact-commit CI
+[35319727700](https://github.com/hojiahao/loop_engine/actions/runs/35319727700)
+passed all seven jobs. The first container attempt stopped at a DaoCloud
+registry HTTP 503/TLS timeout, before project bootstrap. Retrying only that
+failed job, with the same commit, DaoCloud sources and image digests, passed
+the complete clean-container gate in 27m38s. The unified workspace gate passed
+in 35m18s and the standalone Rust gate in 23m55s. Unit 2 is accepted.
 
 Only the failed probe's source builds, unused Python 3.13.14 interpreter and
 identified CPython-3.13 numerical caches were removed (roughly 0.6 GiB). They
 can be downloaded again. No data snapshots, audit history, unrelated project
 files or active Python 3.12/3.14 environments were removed.
 
+## Unit 3: Authorized reconciliation (acceptance in progress)
+
+Requirement and recovery: [ADR 0035](../adr/0035-authorized-reconciliation.md).
+Deployment and RPC usage:
+[authorized reconciliation](../development/authorized-reconciliation.md).
+
+The optional mTLS path binds one registered primary job to both installed
+validators and a deployment-pinned comparison policy. It reconstructs the actual
+primary and global trial evidence, supervises both independent processes, then
+registers the immutable report through the existing lease-fenced PostgreSQL
+job/receipt/audit transaction. No new table, migration or numerical dependency is
+introduced. Generic completion cannot import an administrative success as proof.
+Current reads and command retries are read-only numerical replays. The shared
+admission/readmission handler retains all production prerequisites.
+
+All 33 affected Python export/statistics regressions pass together, including the
+six new authorized-export cases and actual isolated Alphalens/Zipline replay.
+The export now shares one live verified primary reconstruction between its two
+exporters, retaining the original final integrity guards; it does not cache
+authority or reuse evidence across operations. Ruff formatting/lint and strict
+mypy pass for the primary research package. The five Rust process-supervisor
+tests pass environment isolation, cancellation of a descendant, output-bound
+enforcement, worker-failure classification and rejection of empty success output.
+
+Actual mTLS/PostgreSQL execution has reached accepted Alphalens/Zipline numerical
+agreement, durable registration, restart command replay and current reads. Its
+first admission check exposed the inherited 30-second envelope expiring during
+independent replay. ADR 0035 now assigns the evidence-bearing path an explicit
+180-second maximum; ordinary admission remains at 30 seconds. The completed
+integration run verifies both this path and rejection above the bound.
+
+Test-fixture corrections separate ma(2) warmup from the statistical/execution
+sample and use the declared factor-panel-value schema. Production validators
+were not weakened. Protocol changes retain the historical pair-of-backtests
+shape and add five shared input cases, extending the matrix to 114. TypeScript
+contracts (115 tests), Python job contracts (138 tests), and TypeScript
+format/lint/type gates have passed. The complete Rust suite, the corrected
+8-process case, commit, push and exact-commit CI remain acceptance gates.
+
+Only project Rust incremental compilation files were removed to recover about
+1.8 GiB; they are reproducible. Sources, research artifacts, audit history,
+installed dependencies and other projects' temporary files were preserved.
+
+Interrupted interactive sessions did not produce a final Rust result. Local
+acceptance therefore runs as a bounded transient task. Its first launch inherited
+systemd's 1,024-descriptor soft limit and failed while pinning numerical manifest
+files; the ordinary host uses 65,535. After matching that limit, the next launch
+exposed a full 804 MiB `/tmp` filesystem. Six confirmed, inactive project test
+directories were removed, releasing about 756 MiB and reducing `/tmp` usage from
+100% to 6%. Those environmental failures do not count as passing acceptance.
+
+The completed resumed integration run reports 13 passed, two failed and one
+subprocess-only helper ignored in 4,217.81 seconds. Accepted registration,
+restart/read replay, admission/override denial, unavailable evidence and both
+commit-boundary crash recoveries pass. The 2/4-process commit cases pass before
+the 8-process case reaches a parent marker timeout: that parent allowed 180s,
+although each child first replays the primary (up to 180s) and then reconstructs
+independent evidence (up to another 180s). The test setup budget is now 420s,
+with 30s for the transaction where needed; all production bounds are unchanged.
+The 2/4/8 cases now have separate test names. The second failure occurs during
+the unregistered-source fixture's existing file-verification budget, before the
+behavior under test. Its isolated rerun passes in 71.13s without changing that
+production verification budget. Early decision-attribution denial passes in
+68.27s, and all five subprocess-supervision cases pass in 0.34s, including the
+new failure/empty-output distinction.
+
+The corrected 8-process attempt stops during its factor-evaluation fixture,
+before any competing writer starts: the real factor worker returns an
+unavailable error. This is not a passed concurrency test. The host has about
+1.6 GiB RAM; the bounded targeted run records about 936 MiB peak memory and
+696 MiB peak swap use. These observations do not establish the failure's cause.
+The full matrix must pass on the exact implementation commit in CI before
+unit 3 or Phase 8 can be accepted; the failure is not skipped or suppressed.
+
+Final local `just check`, `just build` and `just doctor` pass at
+2026-09-20T05:39:03Z. Checks take 381.07s and build takes 191.46s. They include
+Rust formatting and Clippy with warnings denied, protocol generation/wire/
+compatibility checks, TypeScript and all four Python package style/type checks,
+3,820 Python/Rust/shell and 343 TypeScript/JavaScript function-name checks,
+all workspace/independent-package builds and the single Python 3.14.4 root
+environment check. The disposable PostgreSQL test container has been stopped.
+After recording these results, the completed runners' temporary scripts, logs
+and owned scratch directory are removed; no research or audit artifacts are
+part of that cleanup. The completed build's reproducible Rust incremental
+cache is also removed, recovering about 1.2 GiB and leaving about 2.2 GiB free
+on the root volume. Installed dependencies and the built executables remain.
+
 ## Remaining work and recovery
 
-Unit 2 awaits its final acceptance and publication. Unit 3 must bind both validator receipts to authenticated, registered
-primary evidence and shared admission. Passing this statistical comparison
+Unit 3 must complete and publish the remaining acceptance evidence. Passing this statistical comparison
 does not permit formal factor admission; licensed-data, semantic-review and
 multiple-testing requirements also remain enforceable.
 

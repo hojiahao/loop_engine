@@ -108,9 +108,19 @@ pub struct PgJobStore {
     pub(super) holdout_policy: Arc<dyn HoldoutPolicy>,
     pub(super) backtest_policy: Arc<dyn BacktestPolicy>,
     pub(super) evaluation_evidence: Option<Arc<crate::manifests::evaluation::EvaluationEvidence>>,
+    pub(super) validation_evidence:
+        Option<Arc<crate::manifests::reconciliation::ValidationEvidence>>,
 }
 
 impl PgJobStore {
+    pub(crate) fn with_validation_evidence(
+        &self,
+        evidence: Arc<crate::manifests::reconciliation::ValidationEvidence>,
+    ) -> Self {
+        let mut prepared = self.clone();
+        prepared.validation_evidence = Some(evidence);
+        prepared
+    }
     pub(crate) fn with_backtest_policy(&self, policy: Arc<dyn BacktestPolicy>) -> Self {
         let mut prepared = self.clone();
         prepared.backtest_policy = policy;
@@ -224,6 +234,7 @@ impl PgJobStore {
             holdout_policy: options.holdout_policy,
             backtest_policy: options.backtest_policy,
             evaluation_evidence: None,
+            validation_evidence: None,
         })
     }
 
@@ -658,7 +669,7 @@ pub(super) fn deadline_millis(specification: &JobSpecification) -> StoreResult<i
     i64::try_from(nanos / 1_000_000).map_err(|_| StoreError::Invalid("deadline range"))
 }
 
-pub(super) fn timestamp_millis(value: &Timestamp, round_up: bool) -> StoreResult<i64> {
+pub(crate) fn timestamp_millis(value: &Timestamp, round_up: bool) -> StoreResult<i64> {
     if value.seconds < 0 || !(0..1_000_000_000).contains(&value.nanos) {
         return Err(StoreError::Invalid("timestamp range"));
     }

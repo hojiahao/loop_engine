@@ -90,7 +90,7 @@ fn factor_execution_identity() {
 // Scenario: shared job record matrix fails closed.
 fn shared_job_matrix() {
     let vectors = vectors().collect::<Vec<_>>();
-    assert_eq!(vectors.len(), 109, "all shared rows must execute");
+    assert_eq!(vectors.len(), 114, "all shared rows must execute");
     for vector in vectors {
         let record = record(&vector);
         match validate_job_record(&record) {
@@ -343,6 +343,30 @@ fn valid_specification(vector: &Vector<'_>) -> JobSpecification {
 }
 
 fn mutate(record: &mut JobRecord, mutation: &str) {
+    if mutation.starts_with("validation_") {
+        let Some(job_specification::Input::Reconciliation(input)) =
+            &mut record.specification.as_mut().unwrap().input
+        else {
+            unreachable!()
+        };
+        if mutation != "validation_mixed" {
+            input.primary_backtest_id = None;
+            input.independent_backtest_id = None;
+        }
+        input.validation = Some(IndependentValidationSource {
+            primary_job_id: if mutation == "validation_job_missing" {
+                None
+            } else {
+                Some(job_id("job.primary"))
+            },
+            context_manifest_sha256: match mutation {
+                "validation_digest_missing" => None,
+                "validation_digest_invalid" => Some(Sha256Digest { value: vec![1; 31] }),
+                _ => Some(digest(7)),
+            },
+        });
+        return;
+    }
     match mutation {
         "none" => {}
         "zero_revision" => record.revision = 0,
@@ -659,6 +683,7 @@ fn input(value: &str) -> Option<job_specification::Input> {
                 }),
                 reconciliation_policy: Some(policy("policy.reconciliation")),
                 budget: Some(valid_budget()),
+                validation: None,
             },
         )),
         "holdout_backtest" => Some(job_specification::Input::HoldoutBacktest(holdout_input())),
@@ -1222,3 +1247,4 @@ fn state(value: &str) -> i32 {
         other => panic!("unknown fixture state {other}"),
     }
 }
+use loop_protocol::wire::v1::IndependentValidationSource;

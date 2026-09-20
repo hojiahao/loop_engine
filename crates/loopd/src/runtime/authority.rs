@@ -316,7 +316,7 @@ impl AdmissionPolicy for RuntimeAuthority {
                 job_specification::Input::Backtest(_)
                     | job_specification::Input::FactorEvaluation(_)
             )
-        );
+        ) || matches!(&job.input, Some(job_specification::Input::Reconciliation(input)) if input.validation.is_some());
         let allowed = role_operation(identity.role, operation)
             && match identity.role {
                 Role::Operator => !protected,
@@ -340,13 +340,19 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.jobs.cancel"
                 | "loop.backtests.read_current"
                 | "loop.backtests.export_current"
+                | "loop.reconciliation.read_current"
                 | "loop.factors.read_trials"
                 | "loop.factors.decide"
         ),
         Role::Research
             if matches!(
                 operation,
-                "loop.jobs.evaluate" | "loop.jobs.backtest" | "loop.factors.read_trials"
+                "loop.jobs.evaluate"
+                    | "loop.jobs.backtest"
+                    | "loop.factors.read_trials"
+                    | "loop.jobs.reconcile"
+                    | "loop.reconciliation.read_current"
+                    | "loop.backtests.read_current"
             ) =>
         {
             true

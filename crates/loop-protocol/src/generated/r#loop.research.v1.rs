@@ -54,6 +54,10 @@ pub struct ReconciliationInput {
     pub reconciliation_policy: ::core::option::Option<super::super::v1::PolicyReference>,
     #[prost(message, optional, tag = "4")]
     pub budget: ::core::option::Option<ResearchJobBudget>,
+    #[prost(message, optional, tag = "5")]
+    pub validation: ::core::option::Option<
+        super::super::v1::IndependentValidationSource,
+    >,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EnqueueFactorEvaluationRequest {

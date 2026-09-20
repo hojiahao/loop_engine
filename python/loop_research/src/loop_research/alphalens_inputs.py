@@ -8,11 +8,11 @@ from pathlib import Path
 
 from loop_protocol.canonical import FactorDirection
 
-from loop_research.backtest import _Deadline, _paths
+from loop_research.backtest import PortfolioReplay, _Deadline, _paths
 from loop_research.build_identity import canonical_bytes
 from loop_research.data.fetch_cache import publish
 from loop_research.data.fetch_records import CachedObject
-from loop_research.statistics_models import resolve_statistics
+from loop_research.statistics_models import StatisticsReport, resolve_statistics
 from loop_research.statistics_workflow import reconstruct_statistics
 
 
@@ -24,6 +24,7 @@ def prepare_alphalens(
     *,
     timeout_seconds: float = 180,
     clock: Callable[[], float] = time.monotonic,
+    readonly: bool = False,
 ) -> CachedObject:
     """Publish validator input only after actual portfolio/statistics replay.
 
@@ -35,6 +36,19 @@ def prepare_alphalens(
     deadline = _Deadline(timeout_seconds, clock)
     _paths(evidence, view, store)
     report, primary, check = reconstruct_statistics(evidence, view, store, digest, deadline)
+    return _export_alphalens(store, report, primary, check, deadline, readonly=readonly)
+
+
+def _export_alphalens(
+    store: Path,
+    report: StatisticsReport,
+    primary: PortfolioReplay,
+    check: Callable[[], None],
+    deadline: _Deadline,
+    *,
+    readonly: bool,
+) -> CachedObject:
+    """Export from the caller's live verified reconstruction, retaining its guards."""
     policy = resolve_statistics(primary.receipt.request.policies["evaluation_policy"])
     if policy is None:
         raise ValueError("independent validation requires frozen statistics")
@@ -67,7 +81,7 @@ def prepare_alphalens(
     content = stream.getvalue().encode("ascii")
     if len(content) > 32 * 1024 * 1024:
         raise ValueError("independent observation byte budget")
-    raw = publish(store, content)
+    raw = publish(store, content, readonly=readonly)
     document = {
         "schema": "loop.alphalens-input/v1",
         "profile": "alphalens-statistics.1",
@@ -94,4 +108,4 @@ def prepare_alphalens(
         raise ValueError("independent input manifest byte budget")
     check()
     deadline.check()
-    return publish(store, payload)
+    return publish(store, payload, readonly=readonly)

@@ -515,22 +515,36 @@ fn validate_job_input(
             Ok(())
         }
         job_specification::Input::Reconciliation(value) => {
-            let primary = require_token_id(
-                value
-                    .primary_backtest_id
-                    .as_ref()
-                    .map(|identity| identity.value.as_str()),
-                "specification.input.reconciliation.primary_backtest_id",
-            )?;
-            let independent = require_token_id(
-                value
-                    .independent_backtest_id
-                    .as_ref()
-                    .map(|identity| identity.value.as_str()),
-                "specification.input.reconciliation.independent_backtest_id",
-            )?;
-            if primary == independent {
-                return binding_mismatch("specification.input.reconciliation.backtest_ids");
+            if let Some(source) = &value.validation {
+                if value.primary_backtest_id.is_some() || value.independent_backtest_id.is_some() {
+                    return binding_mismatch("specification.input.reconciliation.validation");
+                }
+                require_token_id(
+                    source.primary_job_id.as_ref().map(|id| id.value.as_str()),
+                    "specification.input.reconciliation.validation.primary_job_id",
+                )?;
+                require_digest(
+                    source.context_manifest_sha256.as_ref(),
+                    "specification.input.reconciliation.validation.context_manifest_sha256",
+                )?;
+            } else {
+                let primary = require_token_id(
+                    value
+                        .primary_backtest_id
+                        .as_ref()
+                        .map(|identity| identity.value.as_str()),
+                    "specification.input.reconciliation.primary_backtest_id",
+                )?;
+                let independent = require_token_id(
+                    value
+                        .independent_backtest_id
+                        .as_ref()
+                        .map(|identity| identity.value.as_str()),
+                    "specification.input.reconciliation.independent_backtest_id",
+                )?;
+                if primary == independent {
+                    return binding_mismatch("specification.input.reconciliation.backtest_ids");
+                }
             }
             validate_policy_reference(
                 value.reconciliation_policy.as_ref(),

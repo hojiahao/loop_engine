@@ -22,12 +22,12 @@ use crate::store::{BacktestPolicy, BacktestPreparation, StoreError, StoreResult}
 /// environment or protected namespace is exposed to its numerical process.
 pub struct PortfolioExecutor {
     resolver: PortfolioResolver,
-    outputs: LocalArtifacts,
-    python: PathBuf,
-    evidence: PathBuf,
-    output: PathBuf,
+    pub(super) outputs: LocalArtifacts,
+    pub(super) python: PathBuf,
+    pub(super) evidence: PathBuf,
+    pub(super) output: PathBuf,
     identity: (u64, u64),
-    broker: Arc<ArtifactBroker>,
+    pub(super) broker: Arc<ArtifactBroker>,
     permits: tokio::sync::Semaphore,
 }
 
@@ -239,7 +239,7 @@ impl BacktestPolicy for PortfolioExecutor {
     }
 }
 
-fn manifest_artifact(success: &JobSuccess) -> StoreResult<model::Artifact> {
+pub(super) fn manifest_artifact(success: &JobSuccess) -> StoreResult<model::Artifact> {
     let manifests: Vec<_> = success
         .outputs
         .iter()

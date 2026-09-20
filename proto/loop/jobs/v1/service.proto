@@ -25,6 +25,11 @@ service JobService {
   // Execute only the pinned installed portfolio producer on a development
   // lease. Metrics, trial subsets, worker paths and holdouts are not accepted.
   rpc ExecuteBacktest(ExecuteBacktestRequest) returns (ExecuteBacktestResponse);
+  // Reconstruct a registered development primary and run both pinned independent
+  // validators under this reconciliation job's lease. No caller result import.
+  rpc ExecuteReconciliation(ExecuteReconciliationRequest) returns (ExecuteReconciliationResponse);
+  // Revalidate primary and independent evidence before returning its report.
+  rpc ReadReconciliation(ReadReconciliationRequest) returns (ReadReconciliationResponse);
   // Reconstruct current evidence; historical job metadata is not a freshness claim.
   rpc ReadBacktest(ReadBacktestRequest) returns (ReadBacktestResponse);
   // Audit metadata release before responding; artifact access remains separate.
@@ -127,6 +132,27 @@ message ExecuteBacktestRequest {
 
 message ExecuteBacktestResponse {
   loop.v1.JobRecord job = 1;
+}
+
+message ExecuteReconciliationRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+}
+
+message ExecuteReconciliationResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message ReadReconciliationRequest {
+  loop.v1.JobId job_id = 1;
+}
+
+message ReadReconciliationResponse {
+  loop.v1.JobRecord job = 1;
+  // Small immutable manifest, never datasets or full numerical ledgers in RPC.
+  loop.v1.ArtifactRef report = 2;
 }
 
 message ReadBacktestRequest {

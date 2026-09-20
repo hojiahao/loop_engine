@@ -5,7 +5,7 @@ use crate::store::{AdmissionPolicy, BacktestPolicy, JobMutation, StoreError, Sto
 use std::process::{Child, Command, Stdio};
 use std::time::Instant;
 
-struct Worker(Child);
+pub(super) struct Worker(pub(super) Child);
 impl Drop for Worker {
     fn drop(&mut self) {
         let _ = self.0.kill();
@@ -13,7 +13,7 @@ impl Drop for Worker {
     }
 }
 
-struct Pinned(Vec<JobSpecification>);
+pub(super) struct Pinned(pub(super) Vec<JobSpecification>);
 impl AdmissionPolicy for Pinned {
     fn validate_submission(&self, job: &JobSpecification) -> StoreResult<()> {
         if self.0.contains(job) {
@@ -39,19 +39,20 @@ impl AdmissionPolicy for Pinned {
     }
 }
 
-async fn wait_file(path: &Path, seconds: u64) {
+pub(super) async fn wait_file(path: &Path, seconds: u64) {
     let deadline = Instant::now() + Duration::from_secs(seconds);
     while !path.exists() {
         assert!(
             Instant::now() < deadline,
-            "portfolio writer marker deadline"
+            "portfolio writer marker deadline: {}",
+            path.display()
         );
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
 
-async fn finish(worker: &mut Worker) {
-    let deadline = Instant::now() + Duration::from_secs(120);
+pub(super) async fn finish(worker: &mut Worker, seconds: u64) {
+    let deadline = Instant::now() + Duration::from_secs(seconds);
     loop {
         if let Some(status) = worker.0.try_wait().unwrap() {
             assert!(status.success(), "portfolio writer failed: {status}");
@@ -277,7 +278,7 @@ async fn independent_portfolio_writers() {
         }
         std::fs::write(case.base.fixture.directory.path().join("release"), b"ready").unwrap();
         for child in &mut children {
-            finish(child).await;
+            finish(child, 120).await;
         }
         assert_eq!(count(&case).await, 1);
         assert_eq!(case.record().await.revision, 3);
@@ -307,7 +308,7 @@ async fn killed_portfolio_atomic() {
             i64::from(point == "result_after_commit")
         );
         let mut retry = spawn(&case, 1, None);
-        finish(&mut retry).await;
+        finish(&mut retry, 120).await;
         assert_eq!(count(&case).await, 1);
         assert_eq!(
             case.base.store.audit_events(0, 100).await.unwrap().len(),
