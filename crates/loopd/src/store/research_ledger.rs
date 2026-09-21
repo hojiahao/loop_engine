@@ -36,7 +36,30 @@ pub struct TrialLedger {
     pub entries: Vec<TrialEntry>,
 }
 
+/// Exact whole-population records retained only inside the trusted runtime.
+/// Reports serialize a bounded revision/state projection; final registration
+/// compares these complete records inside the existing ledger transaction.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TrialSnapshot {
+    pub ledger: TrialLedger,
+    pub records: Vec<JobRecord>,
+}
+
 impl PgJobStore {
+    /// Read the entire authorized development population with exact revisions
+    /// and states, within 30 seconds. Missing/corrupt/unauthorized members deny
+    /// the whole snapshot. Cancellation rolls back; no writes or receipts occur.
+    /// Report registration must recapture it under the writer lock.
+    pub(crate) async fn trial_snapshot(&self, principal: &Actor) -> StoreResult<TrialSnapshot> {
+        tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            let mut transaction = self.pool.begin().await?;
+            let snapshot = capture_records(self, &mut transaction, principal).await?;
+            transaction.commit().await?;
+            Ok(snapshot)
+        })
+        .await
+        .map_err(|_| StoreError::Unavailable("trial snapshot deadline"))?
+    }
     /// Capture all development trials after authenticating the principal at the
     /// transport. Authorize every member; an inaccessible run or scan overflow
     /// denies the whole result. No trial, receipt or audit mutation occurs.
@@ -59,6 +82,14 @@ pub(super) async fn capture(
     transaction: &mut Transaction<'_, Postgres>,
     principal: &Actor,
 ) -> StoreResult<TrialLedger> {
+    Ok(capture_records(store, transaction, principal).await?.ledger)
+}
+
+pub(super) async fn capture_records(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+) -> StoreResult<TrialSnapshot> {
     // LEFT JOIN also exposes a missing index row; filtering through the index
     // would silently omit corrupt/unmigrated research jobs from the denominator.
     let rows = sqlx::query(
@@ -76,6 +107,7 @@ pub(super) async fn capture(
         return Err(StoreError::Invalid("complete trial ledger bounds"));
     }
     let mut entries = Vec::with_capacity(rows.len());
+    let mut records = Vec::with_capacity(rows.len());
     let mut attempts = 0_u64;
     for row in rows {
         let record: JobRecord = record_from_row(&row)?;
@@ -118,9 +150,13 @@ pub(super) async fn capture(
             specification_sha256: format!("sha256:{digest:x}"),
             attempts: counted,
         });
+        records.push(record);
     }
-    Ok(TrialLedger {
-        schema: "loop.global-trials/v1".to_owned(),
-        entries,
+    Ok(TrialSnapshot {
+        ledger: TrialLedger {
+            schema: "loop.global-trials/v1".to_owned(),
+            entries,
+        },
+        records,
     })
 }

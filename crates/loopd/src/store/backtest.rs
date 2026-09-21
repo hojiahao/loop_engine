@@ -312,11 +312,23 @@ pub(super) async fn current_in_transaction(
         .await?
         .ok_or(StoreError::InvalidTransition)?;
     validate_portfolio(store, transaction, principal, &record, &result).await?;
-    let success = success(&record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
+    resolve_current_result(store, principal, &record, context_id, &result)?;
+    Ok((record, result))
+}
+
+pub(super) fn resolve_current_result(
+    store: &PgJobStore,
+    principal: &Actor,
+    record: &JobRecord,
+    context_id: &str,
+    result: &BacktestResult,
+) -> StoreResult<()> {
+    let specification = specification(record)?;
+    let success = success(record).ok_or(StoreError::Corrupt("successful backtest outcome"))?;
     if store
         .backtest_policy
         .resolve_result(specification, success)?
-        != result
+        != *result
     {
         return Err(StoreError::Corrupt(
             "resolved result differs from registered evidence",
@@ -332,7 +344,7 @@ pub(super) async fn current_in_transaction(
     let recorded = snapshot(result.provenance.as_ref())?;
     let frozen = frozen_provenance(specification)?;
     assess_provenance(&recorded, &frozen, current.as_ref())?.require_current()?;
-    Ok((record, result))
+    Ok(())
 }
 
 fn validate_current_request(principal: &Actor, job_id: &str, context_id: &str) -> StoreResult<()> {

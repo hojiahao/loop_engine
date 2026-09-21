@@ -47,6 +47,46 @@ pub(super) async fn validate(
     if super::research_ledger::capture(store, transaction, principal).await? != lineage.trials {
         return Err(StoreError::StaleTrials);
     }
+    validate_lineage(store, transaction, principal, record, result, lineage).await
+}
+
+// A new global report recomputes search-adjusted statistics. Its numerical
+// sources retain their original search commitment; this check never makes the
+// historical adjusted statistics current or permits deletion of past trials.
+pub(super) async fn validate_history(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    record: &JobRecord,
+    result: &BacktestResult,
+    lineage: &PortfolioLineage,
+    current: &TrialLedger,
+) -> StoreResult<()> {
+    for old in &lineage.trials.entries {
+        let index = current
+            .entries
+            .binary_search_by(|entry| entry.job_id.cmp(&old.job_id))
+            .map_err(|_| StoreError::StaleTrials)?;
+        let new = &current.entries[index];
+        if old.run_id != new.run_id
+            || old.factor_spec_id != new.factor_spec_id
+            || old.specification_sha256 != new.specification_sha256
+            || old.attempts > new.attempts
+        {
+            return Err(StoreError::StaleTrials);
+        }
+    }
+    validate_lineage(store, transaction, principal, record, Some(result), lineage).await
+}
+
+async fn validate_lineage(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    record: &JobRecord,
+    result: Option<&BacktestResult>,
+    lineage: &PortfolioLineage,
+) -> StoreResult<()> {
     let work = &lineage.work;
     let id = &work
         .job_id

@@ -15,8 +15,9 @@ pub(super) fn price(row: usize, column: usize) -> String {
 }
 
 pub(super) fn extend_panel(f: &mut Fixture) {
+    // One warmup and one initial NAV leave 16 returns for four equal CSCV blocks.
     let days = [
-        4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 19, 20, 21, 22, 25, 26, 27,
+        4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 19, 20, 21, 22, 25, 26, 27, 28,
     ];
     let sessions: Vec<_> = days.iter().map(|day| format!("2010-01-{day:02}")).collect();
     let securities: Vec<_> = (1..=6).map(|value| format!("US.{value:03}")).collect();
@@ -79,7 +80,7 @@ pub(super) fn extend_panel(f: &mut Fixture) {
         sample: model::Sample {
             role: model::SampleRole::InSample,
             start: "2010-01-05".to_owned(),
-            end: "2010-01-27".to_owned(),
+            end: "2010-01-28".to_owned(),
         },
         quality: model::Quality::Synthetic,
         snapshots: vec![model::Snapshot {

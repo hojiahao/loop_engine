@@ -11,7 +11,8 @@ use tonic::transport::{Certificate, Identity as TlsIdentity, ServerTlsConfig};
 
 use super::{
     ArtifactBroker, DataPin, FactorExecutor, Identity, JobPin, PortfolioExecutor,
-    ReconciliationConfig, ReconciliationExecutor, RuntimeAuthority,
+    ReconciliationConfig, ReconciliationExecutor, RuntimeAuthority, StatisticsConfig,
+    StatisticsExecutor,
 };
 use crate::manifests::{EvaluationPin, EvaluationResolver, PortfolioPin};
 use crate::store::{StoreError, StoreResult, SystemClock};
@@ -36,6 +37,8 @@ struct Configuration {
     portfolio: Option<PortfolioConfiguration>,
     #[serde(default)]
     reconciliation: Option<ReconciliationConfig>,
+    #[serde(default)]
+    statistics: Option<StatisticsConfig>,
 }
 
 #[derive(Deserialize)]
@@ -69,6 +72,8 @@ pub struct RuntimeDeployment {
     pub portfolio: Option<Arc<PortfolioExecutor>>,
     /// Optional two-engine reconciliation; absent configuration keeps it disabled.
     pub reconciliation: Option<Arc<ReconciliationExecutor>>,
+    /// Optional complete-registry statistical reporter; absent means disabled.
+    pub statistics: Option<Arc<StatisticsExecutor>>,
     tls: ServerTlsConfig,
 }
 
@@ -157,6 +162,42 @@ impl RuntimeDeployment {
                     .map(Arc::new)
             })
             .transpose()?;
+        let statistics = config
+            .statistics
+            .map(|statistics| {
+                let mut namespaces = vec![
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ];
+                if let Some(output) = &evaluation_output {
+                    namespaces.push(output);
+                }
+                if let Some(validation) = &config.reconciliation {
+                    namespaces.extend([
+                        &validation.output_store,
+                        &validation.cache,
+                        &validation.alphalens_project,
+                        &validation.zipline_project,
+                    ]);
+                }
+                if namespaces
+                    .iter()
+                    .any(|path| super::reconciliation::overlaps(path, &statistics.output_store))
+                {
+                    return Err(StoreError::Invalid(
+                        "statistics namespace overlaps research storage",
+                    ));
+                }
+                StatisticsExecutor::open(
+                    statistics,
+                    portfolio.clone().ok_or(StoreError::Invalid(
+                        "statistics requires portfolio deployment",
+                    ))?,
+                )
+                .map(Arc::new)
+            })
+            .transpose()?;
         let reconciliation = config
             .reconciliation
             .map(|reconciliation| {
@@ -199,6 +240,7 @@ impl RuntimeDeployment {
             evaluator,
             portfolio,
             reconciliation,
+            statistics,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),

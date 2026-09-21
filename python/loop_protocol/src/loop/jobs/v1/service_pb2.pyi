@@ -20,6 +20,38 @@ class GetJobRequest(_message.Message):
     job_id: _common_pb2.JobId
     def __init__(self, job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ...) -> None: ...
 
+class ExecuteStatisticsRequest(_message.Message):
+    __slots__ = ("context", "job_id", "lease_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    LEASE_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    lease_id: _common_pb2.LeaseId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., lease_id: _Optional[_Union[_common_pb2.LeaseId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class ExecuteStatisticsResponse(_message.Message):
+    __slots__ = ("job",)
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    job: _job_pb2.JobRecord
+    def __init__(self, job: _Optional[_Union[_job_pb2.JobRecord, _Mapping]] = ...) -> None: ...
+
+class ReadStatisticsRequest(_message.Message):
+    __slots__ = ("job_id",)
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    job_id: _common_pb2.JobId
+    def __init__(self, job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ...) -> None: ...
+
+class ReadStatisticsResponse(_message.Message):
+    __slots__ = ("job", "report")
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    REPORT_FIELD_NUMBER: _ClassVar[int]
+    job: _job_pb2.JobRecord
+    report: _artifact_pb2.ArtifactRef
+    def __init__(self, job: _Optional[_Union[_job_pb2.JobRecord, _Mapping]] = ..., report: _Optional[_Union[_artifact_pb2.ArtifactRef, _Mapping]] = ...) -> None: ...
+
 class GetJobResponse(_message.Message):
     __slots__ = ("job",)
     JOB_FIELD_NUMBER: _ClassVar[int]

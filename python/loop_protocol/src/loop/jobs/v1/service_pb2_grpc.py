@@ -84,6 +84,16 @@ class JobServiceStub:
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.SerializeToString,
                 response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.FromString,
                 _registered_method=True)
+        self.ExecuteStatistics = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ExecuteStatistics',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsResponse.FromString,
+                _registered_method=True)
+        self.ReadStatistics = channel.unary_unary(
+                '/loop.jobs.v1.JobService/ReadStatistics',
+                request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsRequest.SerializeToString,
+                response_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsResponse.FromString,
+                _registered_method=True)
         self.ReadBacktest = channel.unary_unary(
                 '/loop.jobs.v1.JobService/ReadBacktest',
                 request_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadBacktestRequest.SerializeToString,
@@ -174,6 +184,21 @@ class JobServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExecuteStatistics(self, request, context):
+        """Compute from the complete authorized development trial registry. The report
+        recipe and policy are frozen in an existing Report job; no subset is accepted.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReadStatistics(self, request, context):
+        """Revalidate complete registry membership and original numerical evidence.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ReadBacktest(self, request, context):
         """Reconstruct current evidence; historical job metadata is not a freshness claim.
         """
@@ -248,6 +273,16 @@ def add_JobServiceServicer_to_server(servicer, server):
                     servicer.ReadReconciliation,
                     request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.FromString,
                     response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.SerializeToString,
+            ),
+            'ExecuteStatistics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExecuteStatistics,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsResponse.SerializeToString,
+            ),
+            'ReadStatistics': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReadStatistics,
+                    request_deserializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsRequest.FromString,
+                    response_serializer=loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsResponse.SerializeToString,
             ),
             'ReadBacktest': grpc.unary_unary_rpc_method_handler(
                     servicer.ReadBacktest,
@@ -535,6 +570,60 @@ class JobService:
             '/loop.jobs.v1.JobService/ReadReconciliation',
             loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationRequest.SerializeToString,
             loop_dot_jobs_dot_v1_dot_service__pb2.ReadReconciliationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExecuteStatistics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ExecuteStatistics',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ExecuteStatisticsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReadStatistics(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.jobs.v1.JobService/ReadStatistics',
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsRequest.SerializeToString,
+            loop_dot_jobs_dot_v1_dot_service__pb2.ReadStatisticsResponse.FromString,
             options,
             channel_credentials,
             insecure,

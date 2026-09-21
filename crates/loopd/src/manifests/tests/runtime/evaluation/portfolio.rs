@@ -8,6 +8,7 @@ use crate::store::FactorRepository;
 mod fixture;
 mod processes;
 mod reconciliation;
+mod statistics;
 use fixture::PortfolioCase;
 
 #[tokio::test]

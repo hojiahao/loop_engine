@@ -1,6 +1,6 @@
 # ADR 0035: Authorized independent reconciliation and admission evidence
 
-- Status: In implementation; acceptance and publication pending
+- Status: Accepted; implementation eaa638a, corrections ca7b26d/cf4cc09, CI 35498968066 is 7/7
 - Owner: hojiahao
 - Extends: ADR 0032, ADR 0033 and ADR 0034
 

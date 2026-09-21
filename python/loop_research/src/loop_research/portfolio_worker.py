@@ -8,13 +8,14 @@ import json
 import math
 import sys
 import time
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, model_validator
 
-from loop_research.backtest import _Deadline, _materialize, _paths, _reference
+from loop_research.backtest import PortfolioReplay, _Deadline, _materialize, _paths, _reference
 from loop_research.backtest_models import BacktestRequest
 from loop_research.build_identity import canonical_bytes
 from loop_research.data.fetch_cache import publish, read_cached
@@ -23,7 +24,7 @@ from loop_research.data.fetch_records import CachedObject
 from loop_research.data.models import Identifier, ImmutableRecord
 from loop_research.panel_io import ContentRef, _read
 from loop_research.portfolio import decimal_text
-from loop_research.portfolio_statistics import summarize
+from loop_research.portfolio_statistics import PortfolioStatistics, summarize
 from loop_research.statistics_models import resolve_statistics, unavailable
 
 
@@ -104,7 +105,9 @@ def global_statistics(ledger: TrialLedger, job_id: str, p_value: float | None) -
     )
 
 
-def execute(work: PortfolioWork, *, evidence: Path, view: Path, output: Path) -> dict[str, object]:
+def _execute(
+    work: PortfolioWork, *, evidence: Path, view: Path, output: Path
+) -> tuple[dict[str, object], PortfolioReplay, PortfolioStatistics, Callable[[], None]]:
     """Reconstruct frozen inputs; publish last, or verify every byte without writes.
 
     The launcher authenticates identity/data/lease and checks the registered
@@ -283,7 +286,37 @@ def execute(work: PortfolioWork, *, evidence: Path, view: Path, output: Path) ->
     replay.check()
     for guard in market_guards:
         guard.check()
-    return artifact
+
+    def check() -> None:
+        replay.check()
+        for guard in market_guards:
+            guard.check()
+        if read_cached(evidence, work.request) != request_bytes:
+            raise ValueError("portfolio request changed")
+        for digest, value in pending.items():
+            if read_cached(output, CachedObject(sha256=digest, byte_size=len(value))) != value:
+                raise ValueError("portfolio artifacts changed after reconstruction")
+
+    return artifact, replay, statistics, check
+
+
+def execute(work: PortfolioWork, *, evidence: Path, view: Path, output: Path) -> dict[str, object]:
+    """Run the fixed producer or verify its original immutable output on replay."""
+    return _execute(work, evidence=evidence, view=view, output=output)[0]
+
+
+def replay_portfolio(
+    work: PortfolioWork, *, evidence: Path, view: Path, output: Path
+) -> tuple[PortfolioReplay, PortfolioStatistics, Callable[[], None]]:
+    """Retain live numerical guards for a report using an original registered result.
+
+    Registration and authorization remain the runtime's responsibility. This
+    entry point requires existing output and never publishes or repairs it.
+    """
+    if work.manifest is None:
+        raise ValueError("global statistics require an existing portfolio")
+    _, replay, statistics, check = _execute(work, evidence=evidence, view=view, output=output)
+    return replay, statistics, check
 
 
 def main() -> int:

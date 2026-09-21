@@ -110,9 +110,21 @@ pub struct PgJobStore {
     pub(super) evaluation_evidence: Option<Arc<crate::manifests::evaluation::EvaluationEvidence>>,
     pub(super) validation_evidence:
         Option<Arc<crate::manifests::reconciliation::ValidationEvidence>>,
+    pub(super) statistics_evidence: Option<Arc<crate::manifests::statistics::StatisticsEvidence>>,
 }
 
 impl PgJobStore {
+    /// Attach operation-local supervised proof; caller artifacts cannot create
+    /// this evidence. No state change occurs here. Completion/read transactions
+    /// recheck identity, files, trial revisions, authorization and lease/replay.
+    pub(crate) fn with_statistics_evidence(
+        &self,
+        evidence: Arc<crate::manifests::statistics::StatisticsEvidence>,
+    ) -> Self {
+        let mut prepared = self.clone();
+        prepared.statistics_evidence = Some(evidence);
+        prepared
+    }
     pub(crate) fn with_validation_evidence(
         &self,
         evidence: Arc<crate::manifests::reconciliation::ValidationEvidence>,
@@ -235,6 +247,7 @@ impl PgJobStore {
             backtest_policy: options.backtest_policy,
             evaluation_evidence: None,
             validation_evidence: None,
+            statistics_evidence: None,
         })
     }
 

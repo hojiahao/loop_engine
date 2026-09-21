@@ -372,13 +372,15 @@ verify each before the next):
       `ResearchProvenance.source_code_sha256`.
 - [x] Add golden, property, determinism, and look-ahead tests.
 
-## Phase 7 - Primary backtester (`complete`)
+## Phase 7 - Primary backtester (`in_progress`)
 
 Final implementation `4addeb8` and CI-budget correction `549cb11` are pushed.
 Exact-commit run `35202271352` passed all seven jobs, including independent
 process/crash matrices, unified workspace and clean DaoCloud container gates.
-This closes the development primary-backtest scope. Licensed data, independent
-validation and production admission remain separate requirements.
+Those four delivery units close the original development primary-backtest scope.
+The owner's 2026-09-20 instruction reopens the phase to complete the remaining
+authenticated cross-trial statistics path below. Licensed data and completed
+semantic review remain separate prerequisites; no subscription is authorized.
 
 Delivery units, each with an executable workflow, negative-path tests, numerical
 goldens, documentation, a Simplified Chinese commit and remote acceptance:
@@ -441,6 +443,20 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
 - [x] Validate supported accounting paths against synthetic golden ledgers;
       unsupported market events fail explicitly as described in ADR 0030.
 
+5. Global statistical evidence (`in_progress`; ADR 0036): capture the complete
+   authorized database trial population, resolve registered portfolio lineage,
+   build an exactly synchronous strategy-return matrix, and reuse the existing
+   DSR/CSCV kernels. Register and reread the report through existing job/lease/
+   receipt/audit transactions. Retain incomplete, failed, incompatible and retry
+   evidence explicitly; do not select only successful trials or call job counts
+   independent strategies. Include numerical, authority, drift and replay gates.
+   This is one implementation/test/documentation delivery unit, followed by its
+   Chinese commit, push and exact-commit CI. Local acceptance now includes six
+   actual mTLS/PostgreSQL cases, 78 combined numerical regressions, an expanded
+   eight-case worker suite, 306 protocol cases and TypeScript/protocol gates.
+   Publication and full remote acceptance remain pending; see
+   `docs/verification/phase-07-global-statistics.md`.
+
 ## Phase 8 - Independent validation (`in_progress`)
 
 Delivery units (implementation, tests, documentation, Chinese commit and push
@@ -466,7 +482,7 @@ together; finish one before starting the next):
    independent subprocess tests pass for both profiles; all 57 affected primary
    regressions and 46 independent tests pass, as do the isolated build and local
    style/type/lock gates.
-3. Authorized reconciliation (`in_progress`; ADR 0035): bind both independent receipts to
+3. Authorized reconciliation (`complete`; ADR 0035): bind both independent receipts to
    actual registered primary evidence and frozen comparison policy, integrate
    current reads/replay and shared admission, and test role/lease/staleness,
    mismatch, interruption and rollback paths. Independent numerical agreement
@@ -474,8 +490,17 @@ together; finish one before starting the next):
    Implementation `eaa638a` is pushed. Local check/build/doctor pass; the first CI
    passes six of seven jobs, including full Rust/2/4/8-process and unified
    workspace gates, but exposes container-specific test interpreter/cache paths.
-   The path correction retains all tests and production bounds. Full exact-commit
-   CI with the correction, including the clean container, is still required.
+   Corrections `ca7b26d` and `cf4cc09` retain all tests and production bounds.
+   Exact-commit CI `35498968066` passes all seven jobs, including the clean
+   DaoCloud container. The real local acceptance/restart/admission regression
+   also passes. Unit 3 is accepted.
+4. Global statistical evidence binding (`pending`, depends on Phase 7 unit 5):
+   bind the registered full-population report to each independently reconciled
+   candidate and the shared admission command. Missing, stale or unavailable
+   statistical evidence must remain explicit. Preserve existing immutable
+   reports and the separate licensed-data/semantic-review prerequisites. Deliver
+   implementation, negative-path tests, documentation and one Chinese commit
+   before moving to the Provider platform.
 
 ## Phase 9 - Provider platform (`pending`)
 

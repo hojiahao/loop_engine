@@ -20,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/jobs/v1/service.proto.
  */
 export const file_loop_jobs_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCIxCg5HZXRKb2JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCK0AQoWQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEjUKEnJlcXVlc3RlZF9kdXJhdGlvbhgEIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI6ChdBY3F1aXJlSm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLbAQoYSGVhcnRiZWF0Sm9iTGVhc2VSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSNgoTcmVxdWVzdGVkX2V4dGVuc2lvbhgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiI8ChlIZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIsMBChJDb21wbGV0ZUpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIkCgdvdXRjb21lGAUgASgLMhMubG9vcC52MS5Kb2JPdXRjb21lIjYKE0NvbXBsZXRlSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQihwEKEENhbmNlbEpvYlJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIOCgZyZWFzb24YBCABKAkiNAoRQ2FuY2VsSm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQipQEKGlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQigAIKG1ByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAIgASgLMhAubG9vcC52MS5MZWFzZUlkEjMKFGRhdGFfbWFuaWZlc3Rfc2hhMjU2GAMgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSJwoJYXJ0aWZhY3RzGAQgAygLMhQubG9vcC52MS5BcnRpZmFjdFJlZhIuCgpleHBpcmVzX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIPCgd2aWV3X2lkGAYgASgJIqABChVFdmFsdWF0ZUZhY3RvclJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBCI5ChZFdmFsdWF0ZUZhY3RvclJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIqEBChZFeGVjdXRlQmFja3Rlc3RSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQiOgoXRXhlY3V0ZUJhY2t0ZXN0UmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQipwEKHEV4ZWN1dGVSZWNvbmNpbGlhdGlvblJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgDIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBCJACh1FeGVjdXRlUmVjb25jaWxpYXRpb25SZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCI7ChlSZWFkUmVjb25jaWxpYXRpb25SZXF1ZXN0Eh4KBmpvYl9pZBgBIAEoCzIOLmxvb3AudjEuSm9iSWQiYwoaUmVhZFJlY29uY2lsaWF0aW9uUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQSJAoGcmVwb3J0GAIgASgLMhQubG9vcC52MS5BcnRpZmFjdFJlZiJJChNSZWFkQmFja3Rlc3RSZXF1ZXN0Eh4KBmpvYl9pZBgBIAEoCzIOLmxvb3AudjEuSm9iSWQSEgoKY29udGV4dF9pZBgCIAEoCSI/ChRSZWFkQmFja3Rlc3RSZXNwb25zZRInCgZyZXN1bHQYASABKAsyFy5sb29wLnYxLkJhY2t0ZXN0UmVzdWx0IqMBChVFeHBvcnRCYWNrdGVzdFJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBISCgpjb250ZXh0X2lkGAMgASgJEiwKCGRlYWRsaW5lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCKEAQoWRXhwb3J0QmFja3Rlc3RSZXNwb25zZRInCgZyZXN1bHQYASABKAsyFy5sb29wLnYxLkJhY2t0ZXN0UmVzdWx0Ei8KC2FjY2VwdGVkX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghyZXBsYXllZBgDIAEoCCKKAgoTRGVjaWRlRmFjdG9yUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIlCg1zb3VyY2Vfam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBISCgpjb250ZXh0X2lkGAMgASgJEhkKEWV4cGVjdGVkX3JldmlzaW9uGAQgASgEEg4KBnJlYXNvbhgFIAEoCRIXCg9vdmVycmlkZV9yZWFzb24YBiABKAkSHAoUb3ZlcnJpZGVfYXBwcm92YWxfaWQYByABKAkSLAoIZGVhZGxpbmUYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrYBChNGYWN0b3JEZWNpc2lvblN0YXRlEi0KDmZhY3Rvcl9zcGVjX2lkGAEgASgLMhUubG9vcC52MS5GYWN0b3JTcGVjSWQSEAoIcmV2aXNpb24YAiABKAQSDgoGc3RhdHVzGAMgASgJEhIKCmFkbWlzc2lvbnMYBCABKAQSEwoLcmV0aXJlbWVudHMYBSABKAQSJQoNc291cmNlX2pvYl9pZBgGIAEoCzIOLmxvb3AudjEuSm9iSWQivgEKFERlY2lkZUZhY3RvclJlc3BvbnNlEjEKBnN0YXRlcxgBIAMoCzIhLmxvb3Auam9icy52MS5GYWN0b3JEZWNpc2lvblN0YXRlEhYKDnJlamVjdGlvbl9jb2RlGAIgASgJEhgKEG92ZXJyaWRlX2FwcGxpZWQYAyABKAgSLwoLYWNjZXB0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhAKCHJlcGxheWVkGAUgASgIMsgJCgpKb2JTZXJ2aWNlEkMKBkdldEpvYhIbLmxvb3Auam9icy52MS5HZXRKb2JSZXF1ZXN0GhwubG9vcC5qb2JzLnYxLkdldEpvYlJlc3BvbnNlEl4KD0FjcXVpcmVKb2JMZWFzZRIkLmxvb3Auam9icy52MS5BY3F1aXJlSm9iTGVhc2VSZXF1ZXN0GiUubG9vcC5qb2JzLnYxLkFjcXVpcmVKb2JMZWFzZVJlc3BvbnNlEmQKEUhlYXJ0YmVhdEpvYkxlYXNlEiYubG9vcC5qb2JzLnYxLkhlYXJ0YmVhdEpvYkxlYXNlUmVxdWVzdBonLmxvb3Auam9icy52MS5IZWFydGJlYXRKb2JMZWFzZVJlc3BvbnNlElIKC0NvbXBsZXRlSm9iEiAubG9vcC5qb2JzLnYxLkNvbXBsZXRlSm9iUmVxdWVzdBohLmxvb3Auam9icy52MS5Db21wbGV0ZUpvYlJlc3BvbnNlEkwKCUNhbmNlbEpvYhIeLmxvb3Auam9icy52MS5DYW5jZWxKb2JSZXF1ZXN0Gh8ubG9vcC5qb2JzLnYxLkNhbmNlbEpvYlJlc3BvbnNlEmoKE1ByZXBhcmVKb2JBcnRpZmFjdHMSKC5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1JlcXVlc3QaKS5sb29wLmpvYnMudjEuUHJlcGFyZUpvYkFydGlmYWN0c1Jlc3BvbnNlElsKDkV2YWx1YXRlRmFjdG9yEiMubG9vcC5qb2JzLnYxLkV2YWx1YXRlRmFjdG9yUmVxdWVzdBokLmxvb3Auam9icy52MS5FdmFsdWF0ZUZhY3RvclJlc3BvbnNlEl4KD0V4ZWN1dGVCYWNrdGVzdBIkLmxvb3Auam9icy52MS5FeGVjdXRlQmFja3Rlc3RSZXF1ZXN0GiUubG9vcC5qb2JzLnYxLkV4ZWN1dGVCYWNrdGVzdFJlc3BvbnNlEnAKFUV4ZWN1dGVSZWNvbmNpbGlhdGlvbhIqLmxvb3Auam9icy52MS5FeGVjdXRlUmVjb25jaWxpYXRpb25SZXF1ZXN0GisubG9vcC5qb2JzLnYxLkV4ZWN1dGVSZWNvbmNpbGlhdGlvblJlc3BvbnNlEmcKElJlYWRSZWNvbmNpbGlhdGlvbhInLmxvb3Auam9icy52MS5SZWFkUmVjb25jaWxpYXRpb25SZXF1ZXN0GigubG9vcC5qb2JzLnYxLlJlYWRSZWNvbmNpbGlhdGlvblJlc3BvbnNlElUKDFJlYWRCYWNrdGVzdBIhLmxvb3Auam9icy52MS5SZWFkQmFja3Rlc3RSZXF1ZXN0GiIubG9vcC5qb2JzLnYxLlJlYWRCYWNrdGVzdFJlc3BvbnNlElsKDkV4cG9ydEJhY2t0ZXN0EiMubG9vcC5qb2JzLnYxLkV4cG9ydEJhY2t0ZXN0UmVxdWVzdBokLmxvb3Auam9icy52MS5FeHBvcnRCYWNrdGVzdFJlc3BvbnNlElUKDERlY2lkZUZhY3RvchIhLmxvb3Auam9icy52MS5EZWNpZGVGYWN0b3JSZXF1ZXN0GiIubG9vcC5qb2JzLnYxLkRlY2lkZUZhY3RvclJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_artifact, file_loop_v1_backtest, file_loop_v1_common, file_loop_v1_job]);
+  fileDesc("Chpsb29wL2pvYnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5qb2JzLnYxIi8KDUdldEpvYlJlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCKjAQoYRXhlY3V0ZVN0YXRpc3RpY3NSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQiPAoZRXhlY3V0ZVN0YXRpc3RpY3NSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCI3ChVSZWFkU3RhdGlzdGljc1JlcXVlc3QSHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZCJfChZSZWFkU3RhdGlzdGljc1Jlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkEiQKBnJlcG9ydBgCIAEoCzIULmxvb3AudjEuQXJ0aWZhY3RSZWYiMQoOR2V0Sm9iUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQitAEKFkFjcXVpcmVKb2JMZWFzZVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBI1ChJyZXF1ZXN0ZWRfZHVyYXRpb24YBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iOgoXQWNxdWlyZUpvYkxlYXNlUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQi2wEKGEhlYXJ0YmVhdEpvYkxlYXNlUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAMgASgLMhAubG9vcC52MS5MZWFzZUlkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAQgASgEEjYKE3JlcXVlc3RlZF9leHRlbnNpb24YBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iPAoZSGVhcnRiZWF0Sm9iTGVhc2VSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCLDAQoSQ29tcGxldGVKb2JSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQSJAoHb3V0Y29tZRgFIAEoCzITLmxvb3AudjEuSm9iT3V0Y29tZSI2ChNDb21wbGV0ZUpvYlJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIocBChBDYW5jZWxKb2JSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQSDgoGcmVhc29uGAQgASgJIjQKEUNhbmNlbEpvYlJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIqUBChpQcmVwYXJlSm9iQXJ0aWZhY3RzUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAMgASgLMhAubG9vcC52MS5MZWFzZUlkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAQgASgEIoACChtQcmVwYXJlSm9iQXJ0aWZhY3RzUmVzcG9uc2USHgoGam9iX2lkGAEgASgLMg4ubG9vcC52MS5Kb2JJZBIiCghsZWFzZV9pZBgCIAEoCzIQLmxvb3AudjEuTGVhc2VJZBIzChRkYXRhX21hbmlmZXN0X3NoYTI1NhgDIAEoCzIVLmxvb3AudjEuU2hhMjU2RGlnZXN0EicKCWFydGlmYWN0cxgEIAMoCzIULmxvb3AudjEuQXJ0aWZhY3RSZWYSLgoKZXhwaXJlc19hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASDwoHdmlld19pZBgGIAEoCSKgAQoVRXZhbHVhdGVGYWN0b3JSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQiOQoWRXZhbHVhdGVGYWN0b3JSZXNwb25zZRIfCgNqb2IYASABKAsyEi5sb29wLnYxLkpvYlJlY29yZCKhAQoWRXhlY3V0ZUJhY2t0ZXN0UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEiIKCGxlYXNlX2lkGAMgASgLMhAubG9vcC52MS5MZWFzZUlkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAQgASgEIjoKF0V4ZWN1dGVCYWNrdGVzdFJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkIqcBChxFeGVjdXRlUmVjb25jaWxpYXRpb25SZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSIgoIbGVhc2VfaWQYAyABKAsyEC5sb29wLnYxLkxlYXNlSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YBCABKAQiQAodRXhlY3V0ZVJlY29uY2lsaWF0aW9uUmVzcG9uc2USHwoDam9iGAEgASgLMhIubG9vcC52MS5Kb2JSZWNvcmQiOwoZUmVhZFJlY29uY2lsaWF0aW9uUmVxdWVzdBIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkImMKGlJlYWRSZWNvbmNpbGlhdGlvblJlc3BvbnNlEh8KA2pvYhgBIAEoCzISLmxvb3AudjEuSm9iUmVjb3JkEiQKBnJlcG9ydBgCIAEoCzIULmxvb3AudjEuQXJ0aWZhY3RSZWYiSQoTUmVhZEJhY2t0ZXN0UmVxdWVzdBIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEhIKCmNvbnRleHRfaWQYAiABKAkiPwoUUmVhZEJhY2t0ZXN0UmVzcG9uc2USJwoGcmVzdWx0GAEgASgLMhcubG9vcC52MS5CYWNrdGVzdFJlc3VsdCKjAQoVRXhwb3J0QmFja3Rlc3RSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSEgoKY29udGV4dF9pZBgDIAEoCRIsCghkZWFkbGluZRgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAihAEKFkV4cG9ydEJhY2t0ZXN0UmVzcG9uc2USJwoGcmVzdWx0GAEgASgLMhcubG9vcC52MS5CYWNrdGVzdFJlc3VsdBIvCgthY2NlcHRlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIcmVwbGF5ZWQYAyABKAgiigIKE0RlY2lkZUZhY3RvclJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSJQoNc291cmNlX2pvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSEgoKY29udGV4dF9pZBgDIAEoCRIZChFleHBlY3RlZF9yZXZpc2lvbhgEIAEoBBIOCgZyZWFzb24YBSABKAkSFwoPb3ZlcnJpZGVfcmVhc29uGAYgASgJEhwKFG92ZXJyaWRlX2FwcHJvdmFsX2lkGAcgASgJEiwKCGRlYWRsaW5lGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCK2AQoTRmFjdG9yRGVjaXNpb25TdGF0ZRItCg5mYWN0b3Jfc3BlY19pZBgBIAEoCzIVLmxvb3AudjEuRmFjdG9yU3BlY0lkEhAKCHJldmlzaW9uGAIgASgEEg4KBnN0YXR1cxgDIAEoCRISCgphZG1pc3Npb25zGAQgASgEEhMKC3JldGlyZW1lbnRzGAUgASgEEiUKDXNvdXJjZV9qb2JfaWQYBiABKAsyDi5sb29wLnYxLkpvYklkIr4BChREZWNpZGVGYWN0b3JSZXNwb25zZRIxCgZzdGF0ZXMYASADKAsyIS5sb29wLmpvYnMudjEuRmFjdG9yRGVjaXNpb25TdGF0ZRIWCg5yZWplY3Rpb25fY29kZRgCIAEoCRIYChBvdmVycmlkZV9hcHBsaWVkGAMgASgIEi8KC2FjY2VwdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIQCghyZXBsYXllZBgFIAEoCDKLCwoKSm9iU2VydmljZRJDCgZHZXRKb2ISGy5sb29wLmpvYnMudjEuR2V0Sm9iUmVxdWVzdBocLmxvb3Auam9icy52MS5HZXRKb2JSZXNwb25zZRJeCg9BY3F1aXJlSm9iTGVhc2USJC5sb29wLmpvYnMudjEuQWNxdWlyZUpvYkxlYXNlUmVxdWVzdBolLmxvb3Auam9icy52MS5BY3F1aXJlSm9iTGVhc2VSZXNwb25zZRJkChFIZWFydGJlYXRKb2JMZWFzZRImLmxvb3Auam9icy52MS5IZWFydGJlYXRKb2JMZWFzZVJlcXVlc3QaJy5sb29wLmpvYnMudjEuSGVhcnRiZWF0Sm9iTGVhc2VSZXNwb25zZRJSCgtDb21wbGV0ZUpvYhIgLmxvb3Auam9icy52MS5Db21wbGV0ZUpvYlJlcXVlc3QaIS5sb29wLmpvYnMudjEuQ29tcGxldGVKb2JSZXNwb25zZRJMCglDYW5jZWxKb2ISHi5sb29wLmpvYnMudjEuQ2FuY2VsSm9iUmVxdWVzdBofLmxvb3Auam9icy52MS5DYW5jZWxKb2JSZXNwb25zZRJqChNQcmVwYXJlSm9iQXJ0aWZhY3RzEigubG9vcC5qb2JzLnYxLlByZXBhcmVKb2JBcnRpZmFjdHNSZXF1ZXN0GikubG9vcC5qb2JzLnYxLlByZXBhcmVKb2JBcnRpZmFjdHNSZXNwb25zZRJbCg5FdmFsdWF0ZUZhY3RvchIjLmxvb3Auam9icy52MS5FdmFsdWF0ZUZhY3RvclJlcXVlc3QaJC5sb29wLmpvYnMudjEuRXZhbHVhdGVGYWN0b3JSZXNwb25zZRJeCg9FeGVjdXRlQmFja3Rlc3QSJC5sb29wLmpvYnMudjEuRXhlY3V0ZUJhY2t0ZXN0UmVxdWVzdBolLmxvb3Auam9icy52MS5FeGVjdXRlQmFja3Rlc3RSZXNwb25zZRJwChVFeGVjdXRlUmVjb25jaWxpYXRpb24SKi5sb29wLmpvYnMudjEuRXhlY3V0ZVJlY29uY2lsaWF0aW9uUmVxdWVzdBorLmxvb3Auam9icy52MS5FeGVjdXRlUmVjb25jaWxpYXRpb25SZXNwb25zZRJnChJSZWFkUmVjb25jaWxpYXRpb24SJy5sb29wLmpvYnMudjEuUmVhZFJlY29uY2lsaWF0aW9uUmVxdWVzdBooLmxvb3Auam9icy52MS5SZWFkUmVjb25jaWxpYXRpb25SZXNwb25zZRJkChFFeGVjdXRlU3RhdGlzdGljcxImLmxvb3Auam9icy52MS5FeGVjdXRlU3RhdGlzdGljc1JlcXVlc3QaJy5sb29wLmpvYnMudjEuRXhlY3V0ZVN0YXRpc3RpY3NSZXNwb25zZRJbCg5SZWFkU3RhdGlzdGljcxIjLmxvb3Auam9icy52MS5SZWFkU3RhdGlzdGljc1JlcXVlc3QaJC5sb29wLmpvYnMudjEuUmVhZFN0YXRpc3RpY3NSZXNwb25zZRJVCgxSZWFkQmFja3Rlc3QSIS5sb29wLmpvYnMudjEuUmVhZEJhY2t0ZXN0UmVxdWVzdBoiLmxvb3Auam9icy52MS5SZWFkQmFja3Rlc3RSZXNwb25zZRJbCg5FeHBvcnRCYWNrdGVzdBIjLmxvb3Auam9icy52MS5FeHBvcnRCYWNrdGVzdFJlcXVlc3QaJC5sb29wLmpvYnMudjEuRXhwb3J0QmFja3Rlc3RSZXNwb25zZRJVCgxEZWNpZGVGYWN0b3ISIS5sb29wLmpvYnMudjEuRGVjaWRlRmFjdG9yUmVxdWVzdBoiLmxvb3Auam9icy52MS5EZWNpZGVGYWN0b3JSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_artifact, file_loop_v1_backtest, file_loop_v1_common, file_loop_v1_job]);
 
 /**
  * @generated from message loop.jobs.v1.GetJobRequest
@@ -40,6 +40,94 @@ export const GetJobRequestSchema: GenMessage<GetJobRequest> = /*@__PURE__*/
   messageDesc(file_loop_jobs_v1_service, 0);
 
 /**
+ * @generated from message loop.jobs.v1.ExecuteStatisticsRequest
+ */
+export type ExecuteStatisticsRequest = Message<"loop.jobs.v1.ExecuteStatisticsRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.LeaseId lease_id = 3;
+   */
+  leaseId?: LeaseId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 4;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExecuteStatisticsRequest.
+ * Use `create(ExecuteStatisticsRequestSchema)` to create a new message.
+ */
+export const ExecuteStatisticsRequestSchema: GenMessage<ExecuteStatisticsRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 1);
+
+/**
+ * @generated from message loop.jobs.v1.ExecuteStatisticsResponse
+ */
+export type ExecuteStatisticsResponse = Message<"loop.jobs.v1.ExecuteStatisticsResponse"> & {
+  /**
+   * @generated from field: loop.v1.JobRecord job = 1;
+   */
+  job?: JobRecord | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ExecuteStatisticsResponse.
+ * Use `create(ExecuteStatisticsResponseSchema)` to create a new message.
+ */
+export const ExecuteStatisticsResponseSchema: GenMessage<ExecuteStatisticsResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 2);
+
+/**
+ * @generated from message loop.jobs.v1.ReadStatisticsRequest
+ */
+export type ReadStatisticsRequest = Message<"loop.jobs.v1.ReadStatisticsRequest"> & {
+  /**
+   * @generated from field: loop.v1.JobId job_id = 1;
+   */
+  jobId?: JobId | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ReadStatisticsRequest.
+ * Use `create(ReadStatisticsRequestSchema)` to create a new message.
+ */
+export const ReadStatisticsRequestSchema: GenMessage<ReadStatisticsRequest> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 3);
+
+/**
+ * @generated from message loop.jobs.v1.ReadStatisticsResponse
+ */
+export type ReadStatisticsResponse = Message<"loop.jobs.v1.ReadStatisticsResponse"> & {
+  /**
+   * @generated from field: loop.v1.JobRecord job = 1;
+   */
+  job?: JobRecord | undefined;
+
+  /**
+   * @generated from field: loop.v1.ArtifactRef report = 2;
+   */
+  report?: ArtifactRef | undefined;
+};
+
+/**
+ * Describes the message loop.jobs.v1.ReadStatisticsResponse.
+ * Use `create(ReadStatisticsResponseSchema)` to create a new message.
+ */
+export const ReadStatisticsResponseSchema: GenMessage<ReadStatisticsResponse> = /*@__PURE__*/
+  messageDesc(file_loop_jobs_v1_service, 4);
+
+/**
  * @generated from message loop.jobs.v1.GetJobResponse
  */
 export type GetJobResponse = Message<"loop.jobs.v1.GetJobResponse"> & {
@@ -54,7 +142,7 @@ export type GetJobResponse = Message<"loop.jobs.v1.GetJobResponse"> & {
  * Use `create(GetJobResponseSchema)` to create a new message.
  */
 export const GetJobResponseSchema: GenMessage<GetJobResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 1);
+  messageDesc(file_loop_jobs_v1_service, 5);
 
 /**
  * @generated from message loop.jobs.v1.AcquireJobLeaseRequest
@@ -86,7 +174,7 @@ export type AcquireJobLeaseRequest = Message<"loop.jobs.v1.AcquireJobLeaseReques
  * Use `create(AcquireJobLeaseRequestSchema)` to create a new message.
  */
 export const AcquireJobLeaseRequestSchema: GenMessage<AcquireJobLeaseRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 2);
+  messageDesc(file_loop_jobs_v1_service, 6);
 
 /**
  * @generated from message loop.jobs.v1.AcquireJobLeaseResponse
@@ -103,7 +191,7 @@ export type AcquireJobLeaseResponse = Message<"loop.jobs.v1.AcquireJobLeaseRespo
  * Use `create(AcquireJobLeaseResponseSchema)` to create a new message.
  */
 export const AcquireJobLeaseResponseSchema: GenMessage<AcquireJobLeaseResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 3);
+  messageDesc(file_loop_jobs_v1_service, 7);
 
 /**
  * @generated from message loop.jobs.v1.HeartbeatJobLeaseRequest
@@ -140,7 +228,7 @@ export type HeartbeatJobLeaseRequest = Message<"loop.jobs.v1.HeartbeatJobLeaseRe
  * Use `create(HeartbeatJobLeaseRequestSchema)` to create a new message.
  */
 export const HeartbeatJobLeaseRequestSchema: GenMessage<HeartbeatJobLeaseRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 4);
+  messageDesc(file_loop_jobs_v1_service, 8);
 
 /**
  * @generated from message loop.jobs.v1.HeartbeatJobLeaseResponse
@@ -157,7 +245,7 @@ export type HeartbeatJobLeaseResponse = Message<"loop.jobs.v1.HeartbeatJobLeaseR
  * Use `create(HeartbeatJobLeaseResponseSchema)` to create a new message.
  */
 export const HeartbeatJobLeaseResponseSchema: GenMessage<HeartbeatJobLeaseResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 5);
+  messageDesc(file_loop_jobs_v1_service, 9);
 
 /**
  * @generated from message loop.jobs.v1.CompleteJobRequest
@@ -194,7 +282,7 @@ export type CompleteJobRequest = Message<"loop.jobs.v1.CompleteJobRequest"> & {
  * Use `create(CompleteJobRequestSchema)` to create a new message.
  */
 export const CompleteJobRequestSchema: GenMessage<CompleteJobRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 6);
+  messageDesc(file_loop_jobs_v1_service, 10);
 
 /**
  * @generated from message loop.jobs.v1.CompleteJobResponse
@@ -211,7 +299,7 @@ export type CompleteJobResponse = Message<"loop.jobs.v1.CompleteJobResponse"> & 
  * Use `create(CompleteJobResponseSchema)` to create a new message.
  */
 export const CompleteJobResponseSchema: GenMessage<CompleteJobResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 7);
+  messageDesc(file_loop_jobs_v1_service, 11);
 
 /**
  * @generated from message loop.jobs.v1.CancelJobRequest
@@ -243,7 +331,7 @@ export type CancelJobRequest = Message<"loop.jobs.v1.CancelJobRequest"> & {
  * Use `create(CancelJobRequestSchema)` to create a new message.
  */
 export const CancelJobRequestSchema: GenMessage<CancelJobRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 8);
+  messageDesc(file_loop_jobs_v1_service, 12);
 
 /**
  * @generated from message loop.jobs.v1.CancelJobResponse
@@ -260,7 +348,7 @@ export type CancelJobResponse = Message<"loop.jobs.v1.CancelJobResponse"> & {
  * Use `create(CancelJobResponseSchema)` to create a new message.
  */
 export const CancelJobResponseSchema: GenMessage<CancelJobResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 9);
+  messageDesc(file_loop_jobs_v1_service, 13);
 
 /**
  * @generated from message loop.jobs.v1.PrepareJobArtifactsRequest
@@ -292,7 +380,7 @@ export type PrepareJobArtifactsRequest = Message<"loop.jobs.v1.PrepareJobArtifac
  * Use `create(PrepareJobArtifactsRequestSchema)` to create a new message.
  */
 export const PrepareJobArtifactsRequestSchema: GenMessage<PrepareJobArtifactsRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 10);
+  messageDesc(file_loop_jobs_v1_service, 14);
 
 /**
  * An immutable acceptance record, not bearer authority. Replays recheck the
@@ -339,7 +427,7 @@ export type PrepareJobArtifactsResponse = Message<"loop.jobs.v1.PrepareJobArtifa
  * Use `create(PrepareJobArtifactsResponseSchema)` to create a new message.
  */
 export const PrepareJobArtifactsResponseSchema: GenMessage<PrepareJobArtifactsResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 11);
+  messageDesc(file_loop_jobs_v1_service, 15);
 
 /**
  * @generated from message loop.jobs.v1.EvaluateFactorRequest
@@ -371,7 +459,7 @@ export type EvaluateFactorRequest = Message<"loop.jobs.v1.EvaluateFactorRequest"
  * Use `create(EvaluateFactorRequestSchema)` to create a new message.
  */
 export const EvaluateFactorRequestSchema: GenMessage<EvaluateFactorRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 12);
+  messageDesc(file_loop_jobs_v1_service, 16);
 
 /**
  * @generated from message loop.jobs.v1.EvaluateFactorResponse
@@ -388,7 +476,7 @@ export type EvaluateFactorResponse = Message<"loop.jobs.v1.EvaluateFactorRespons
  * Use `create(EvaluateFactorResponseSchema)` to create a new message.
  */
 export const EvaluateFactorResponseSchema: GenMessage<EvaluateFactorResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 13);
+  messageDesc(file_loop_jobs_v1_service, 17);
 
 /**
  * @generated from message loop.jobs.v1.ExecuteBacktestRequest
@@ -420,7 +508,7 @@ export type ExecuteBacktestRequest = Message<"loop.jobs.v1.ExecuteBacktestReques
  * Use `create(ExecuteBacktestRequestSchema)` to create a new message.
  */
 export const ExecuteBacktestRequestSchema: GenMessage<ExecuteBacktestRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 14);
+  messageDesc(file_loop_jobs_v1_service, 18);
 
 /**
  * @generated from message loop.jobs.v1.ExecuteBacktestResponse
@@ -437,7 +525,7 @@ export type ExecuteBacktestResponse = Message<"loop.jobs.v1.ExecuteBacktestRespo
  * Use `create(ExecuteBacktestResponseSchema)` to create a new message.
  */
 export const ExecuteBacktestResponseSchema: GenMessage<ExecuteBacktestResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 15);
+  messageDesc(file_loop_jobs_v1_service, 19);
 
 /**
  * @generated from message loop.jobs.v1.ExecuteReconciliationRequest
@@ -469,7 +557,7 @@ export type ExecuteReconciliationRequest = Message<"loop.jobs.v1.ExecuteReconcil
  * Use `create(ExecuteReconciliationRequestSchema)` to create a new message.
  */
 export const ExecuteReconciliationRequestSchema: GenMessage<ExecuteReconciliationRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 16);
+  messageDesc(file_loop_jobs_v1_service, 20);
 
 /**
  * @generated from message loop.jobs.v1.ExecuteReconciliationResponse
@@ -486,7 +574,7 @@ export type ExecuteReconciliationResponse = Message<"loop.jobs.v1.ExecuteReconci
  * Use `create(ExecuteReconciliationResponseSchema)` to create a new message.
  */
 export const ExecuteReconciliationResponseSchema: GenMessage<ExecuteReconciliationResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 17);
+  messageDesc(file_loop_jobs_v1_service, 21);
 
 /**
  * @generated from message loop.jobs.v1.ReadReconciliationRequest
@@ -503,7 +591,7 @@ export type ReadReconciliationRequest = Message<"loop.jobs.v1.ReadReconciliation
  * Use `create(ReadReconciliationRequestSchema)` to create a new message.
  */
 export const ReadReconciliationRequestSchema: GenMessage<ReadReconciliationRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 18);
+  messageDesc(file_loop_jobs_v1_service, 22);
 
 /**
  * @generated from message loop.jobs.v1.ReadReconciliationResponse
@@ -527,7 +615,7 @@ export type ReadReconciliationResponse = Message<"loop.jobs.v1.ReadReconciliatio
  * Use `create(ReadReconciliationResponseSchema)` to create a new message.
  */
 export const ReadReconciliationResponseSchema: GenMessage<ReadReconciliationResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 19);
+  messageDesc(file_loop_jobs_v1_service, 23);
 
 /**
  * @generated from message loop.jobs.v1.ReadBacktestRequest
@@ -549,7 +637,7 @@ export type ReadBacktestRequest = Message<"loop.jobs.v1.ReadBacktestRequest"> & 
  * Use `create(ReadBacktestRequestSchema)` to create a new message.
  */
 export const ReadBacktestRequestSchema: GenMessage<ReadBacktestRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 20);
+  messageDesc(file_loop_jobs_v1_service, 24);
 
 /**
  * @generated from message loop.jobs.v1.ReadBacktestResponse
@@ -566,7 +654,7 @@ export type ReadBacktestResponse = Message<"loop.jobs.v1.ReadBacktestResponse"> 
  * Use `create(ReadBacktestResponseSchema)` to create a new message.
  */
 export const ReadBacktestResponseSchema: GenMessage<ReadBacktestResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 21);
+  messageDesc(file_loop_jobs_v1_service, 25);
 
 /**
  * @generated from message loop.jobs.v1.ExportBacktestRequest
@@ -598,7 +686,7 @@ export type ExportBacktestRequest = Message<"loop.jobs.v1.ExportBacktestRequest"
  * Use `create(ExportBacktestRequestSchema)` to create a new message.
  */
 export const ExportBacktestRequestSchema: GenMessage<ExportBacktestRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 22);
+  messageDesc(file_loop_jobs_v1_service, 26);
 
 /**
  * @generated from message loop.jobs.v1.ExportBacktestResponse
@@ -625,7 +713,7 @@ export type ExportBacktestResponse = Message<"loop.jobs.v1.ExportBacktestRespons
  * Use `create(ExportBacktestResponseSchema)` to create a new message.
  */
 export const ExportBacktestResponseSchema: GenMessage<ExportBacktestResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 23);
+  messageDesc(file_loop_jobs_v1_service, 27);
 
 /**
  * @generated from message loop.jobs.v1.DecideFactorRequest
@@ -677,7 +765,7 @@ export type DecideFactorRequest = Message<"loop.jobs.v1.DecideFactorRequest"> & 
  * Use `create(DecideFactorRequestSchema)` to create a new message.
  */
 export const DecideFactorRequestSchema: GenMessage<DecideFactorRequest> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 24);
+  messageDesc(file_loop_jobs_v1_service, 28);
 
 /**
  * @generated from message loop.jobs.v1.FactorDecisionState
@@ -719,7 +807,7 @@ export type FactorDecisionState = Message<"loop.jobs.v1.FactorDecisionState"> & 
  * Use `create(FactorDecisionStateSchema)` to create a new message.
  */
 export const FactorDecisionStateSchema: GenMessage<FactorDecisionState> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 25);
+  messageDesc(file_loop_jobs_v1_service, 29);
 
 /**
  * @generated from message loop.jobs.v1.DecideFactorResponse
@@ -756,7 +844,7 @@ export type DecideFactorResponse = Message<"loop.jobs.v1.DecideFactorResponse"> 
  * Use `create(DecideFactorResponseSchema)` to create a new message.
  */
 export const DecideFactorResponseSchema: GenMessage<DecideFactorResponse> = /*@__PURE__*/
-  messageDesc(file_loop_jobs_v1_service, 26);
+  messageDesc(file_loop_jobs_v1_service, 30);
 
 /**
  * @generated from service loop.jobs.v1.JobService
@@ -856,6 +944,27 @@ export const JobService: GenService<{
     methodKind: "unary";
     input: typeof ReadReconciliationRequestSchema;
     output: typeof ReadReconciliationResponseSchema;
+  },
+  /**
+   * Compute from the complete authorized development trial registry. The report
+   * recipe and policy are frozen in an existing Report job; no subset is accepted.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.ExecuteStatistics
+   */
+  executeStatistics: {
+    methodKind: "unary";
+    input: typeof ExecuteStatisticsRequestSchema;
+    output: typeof ExecuteStatisticsResponseSchema;
+  },
+  /**
+   * Revalidate complete registry membership and original numerical evidence.
+   *
+   * @generated from rpc loop.jobs.v1.JobService.ReadStatistics
+   */
+  readStatistics: {
+    methodKind: "unary";
+    input: typeof ReadStatisticsRequestSchema;
+    output: typeof ReadStatisticsResponseSchema;
   },
   /**
    * Reconstruct current evidence; historical job metadata is not a freshness claim.

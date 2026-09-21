@@ -10,6 +10,7 @@ mod portfolio;
 mod process;
 mod reconciliation;
 mod service;
+mod statistics;
 #[cfg(test)]
 mod tests;
 
@@ -22,3 +23,5 @@ pub use portfolio::PortfolioExecutor;
 pub(crate) use reconciliation::ValidationTask;
 pub use reconciliation::{ReconciliationConfig, ReconciliationExecutor, ValidationPin};
 pub use service::{RuntimeService, serve};
+pub(crate) use statistics::StatisticsTask;
+pub use statistics::{StatisticsConfig, StatisticsExecutor};

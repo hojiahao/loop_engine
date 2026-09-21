@@ -249,8 +249,17 @@ unified workspace gates. The clean-container exact-commit gate is still required
 
 ## Remaining work and recovery
 
-Unit 3 must complete and publish the remaining acceptance evidence. Passing this statistical comparison
-does not permit formal factor admission; licensed-data, semantic-review and
+Unit 3 is accepted: `cf4cc09` is pushed and exact-commit CI
+[35498968066](https://github.com/hojiahao/loop_engine/actions/runs/35498968066)
+passes all seven jobs, including the clean DaoCloud container. The focused
+offline-interpreter regression passes locally, as does the real authenticated
+Alphalens/Zipline acceptance, restart, current-read and admission-denial test
+(927.06 seconds on this small host). Its temporary fixture was automatically
+removed after completion.
+
+The newly reopened Phase 7 global-statistics path needs a subsequent Phase 8
+binding task after its own complete acceptance and publication. Passing this
+statistical comparison does not permit formal factor admission; licensed-data, semantic-review and
 multiple-testing requirements also remain enforceable.
 
 Rollback disables new administrative writers or reverts the task commit while

@@ -30,6 +30,11 @@ service JobService {
   rpc ExecuteReconciliation(ExecuteReconciliationRequest) returns (ExecuteReconciliationResponse);
   // Revalidate primary and independent evidence before returning its report.
   rpc ReadReconciliation(ReadReconciliationRequest) returns (ReadReconciliationResponse);
+  // Compute from the complete authorized development trial registry. The report
+  // recipe and policy are frozen in an existing Report job; no subset is accepted.
+  rpc ExecuteStatistics(ExecuteStatisticsRequest) returns (ExecuteStatisticsResponse);
+  // Revalidate complete registry membership and original numerical evidence.
+  rpc ReadStatistics(ReadStatisticsRequest) returns (ReadStatisticsResponse);
   // Reconstruct current evidence; historical job metadata is not a freshness claim.
   rpc ReadBacktest(ReadBacktestRequest) returns (ReadBacktestResponse);
   // Audit metadata release before responding; artifact access remains separate.
@@ -41,6 +46,26 @@ service JobService {
 
 message GetJobRequest {
   loop.v1.JobId job_id = 1;
+}
+
+message ExecuteStatisticsRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  loop.v1.LeaseId lease_id = 3;
+  uint64 expected_revision = 4;
+}
+
+message ExecuteStatisticsResponse {
+  loop.v1.JobRecord job = 1;
+}
+
+message ReadStatisticsRequest {
+  loop.v1.JobId job_id = 1;
+}
+
+message ReadStatisticsResponse {
+  loop.v1.JobRecord job = 1;
+  loop.v1.ArtifactRef report = 2;
 }
 
 message GetJobResponse {

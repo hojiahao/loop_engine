@@ -22,6 +22,7 @@ mod reconciliation;
 mod rejection;
 mod research_ledger;
 mod runtime;
+mod statistics;
 mod submission;
 
 use std::future::Future;
@@ -47,6 +48,7 @@ pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
 pub use portfolio::PortfolioLineage;
 pub use postgres::{PgJobStore, StoreOptions};
+pub(crate) use research_ledger::TrialSnapshot;
 pub use research_ledger::{TrialEntry, TrialLedger};
 pub(crate) use runtime::live_lease;
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};

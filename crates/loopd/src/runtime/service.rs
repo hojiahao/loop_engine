@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod reconciliation;
+mod statistics;
 
 use loop_protocol::wire::jobs::v1::{
     self,
@@ -22,6 +23,7 @@ use super::authority::{CAPABILITY_HEADER, Principal};
 use super::capability::Capabilities;
 use super::{
     ArtifactBroker, FactorExecutor, PortfolioExecutor, ReconciliationExecutor, RuntimeAuthority,
+    StatisticsExecutor,
 };
 use crate::store::{
     BacktestRepository, FactorRepository, JobMutation, JobRepository, PgJobStore, StoreError,
@@ -39,6 +41,7 @@ pub struct RuntimeService {
     evaluator: Option<Arc<FactorExecutor>>,
     portfolio: Option<Arc<PortfolioExecutor>>,
     reconciler: Option<Arc<ReconciliationExecutor>>,
+    statistician: Option<Arc<StatisticsExecutor>>,
 }
 
 impl RuntimeService {
@@ -58,6 +61,7 @@ impl RuntimeService {
             evaluator: None,
             portfolio: None,
             reconciler: None,
+            statistician: None,
         }
     }
 
@@ -80,6 +84,13 @@ impl RuntimeService {
     /// execution, current reads and admission evidence remain unavailable.
     pub fn with_reconciler(mut self, executor: Arc<ReconciliationExecutor>) -> Self {
         self.reconciler = Some(executor);
+        self
+    }
+
+    /// Enable the installed whole-registry reporter. Without this explicit
+    /// deployment attachment execution and current reads remain default-deny.
+    pub fn with_statistician(mut self, executor: Arc<StatisticsExecutor>) -> Self {
+        self.statistician = Some(executor);
         self
     }
 
@@ -148,6 +159,25 @@ pub async fn serve(
 
 #[tonic::async_trait]
 impl JobService for RuntimeService {
+    async fn execute_statistics(
+        &self,
+        request: Request<v1::ExecuteStatisticsRequest>,
+    ) -> Result<Response<v1::ExecuteStatisticsResponse>, Status> {
+        self.execute_global(request)
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
+
+    async fn read_statistics(
+        &self,
+        request: Request<v1::ReadStatisticsRequest>,
+    ) -> Result<Response<v1::ReadStatisticsResponse>, Status> {
+        self.read_global(request)
+            .await
+            .map(Response::new)
+            .map_err(status)
+    }
     async fn read_backtest(
         &self,
         request: Request<v1::ReadBacktestRequest>,

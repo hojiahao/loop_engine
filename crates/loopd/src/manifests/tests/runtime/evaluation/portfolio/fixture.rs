@@ -11,6 +11,8 @@ pub(super) struct PortfolioCase {
     pub(super) output: PathBuf,
     pub(super) jobs: Vec<JobSpecification>,
     pub(super) validation: Option<crate::runtime::ReconciliationConfig>,
+    pub(super) statistics: Option<crate::runtime::StatisticsConfig>,
+    pub(super) extra_pins: Vec<PortfolioPin>,
 }
 
 impl PortfolioCase {
@@ -158,6 +160,8 @@ impl PortfolioCase {
             output,
             jobs,
             validation: None,
+            statistics: None,
+            extra_pins: vec![],
         };
         case.restart().await;
         case.base
@@ -310,7 +314,9 @@ impl PortfolioCase {
                 &python(),
                 &c.fixture.root,
                 &self.output,
-                vec![self.pin.clone()],
+                std::iter::once(self.pin.clone())
+                    .chain(self.extra_pins.iter().cloned())
+                    .collect(),
                 c.broker.clone(),
             )
             .unwrap(),
@@ -328,7 +334,13 @@ impl PortfolioCase {
                 .with_portfolio_executor(executor.clone());
         if let Some(config) = &self.validation {
             service = service.with_reconciler(Arc::new(
-                crate::runtime::ReconciliationExecutor::open(config.clone(), executor).unwrap(),
+                crate::runtime::ReconciliationExecutor::open(config.clone(), executor.clone())
+                    .unwrap(),
+            ));
+        }
+        if let Some(config) = &self.statistics {
+            service = service.with_statistician(Arc::new(
+                crate::runtime::StatisticsExecutor::open(config.clone(), executor).unwrap(),
             ));
         }
         c.task = tokio::spawn(crate::runtime::serve(

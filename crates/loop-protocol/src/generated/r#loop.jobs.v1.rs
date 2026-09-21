@@ -4,6 +4,34 @@ pub struct GetJobRequest {
     #[prost(message, optional, tag = "1")]
     pub job_id: ::core::option::Option<super::super::v1::JobId>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExecuteStatisticsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "3")]
+    pub lease_id: ::core::option::Option<super::super::v1::LeaseId>,
+    #[prost(uint64, tag = "4")]
+    pub expected_revision: u64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteStatisticsResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReadStatisticsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReadStatisticsResponse {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<super::super::v1::JobRecord>,
+    #[prost(message, optional, tag = "2")]
+    pub report: ::core::option::Option<super::super::v1::ArtifactRef>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetJobResponse {
     #[prost(message, optional, tag = "1")]
@@ -576,6 +604,54 @@ pub mod job_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn execute_statistics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExecuteStatisticsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteStatisticsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ExecuteStatistics",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ExecuteStatistics"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn read_statistics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReadStatisticsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadStatisticsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.jobs.v1.JobService/ReadStatistics",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("loop.jobs.v1.JobService", "ReadStatistics"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn read_backtest(
             &mut self,
             request: impl tonic::IntoRequest<super::ReadBacktestRequest>,
@@ -728,6 +804,20 @@ pub mod job_service_server {
             request: tonic::Request<super::ReadReconciliationRequest>,
         ) -> std::result::Result<
             tonic::Response<super::ReadReconciliationResponse>,
+            tonic::Status,
+        >;
+        async fn execute_statistics(
+            &self,
+            request: tonic::Request<super::ExecuteStatisticsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteStatisticsResponse>,
+            tonic::Status,
+        >;
+        async fn read_statistics(
+            &self,
+            request: tonic::Request<super::ReadStatisticsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReadStatisticsResponse>,
             tonic::Status,
         >;
         async fn read_backtest(
@@ -1265,6 +1355,96 @@ pub mod job_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ReadReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ExecuteStatistics" => {
+                    #[allow(non_camel_case_types)]
+                    struct ExecuteStatisticsSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ExecuteStatisticsRequest>
+                    for ExecuteStatisticsSvc<T> {
+                        type Response = super::ExecuteStatisticsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ExecuteStatisticsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::execute_statistics(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ExecuteStatisticsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.jobs.v1.JobService/ReadStatistics" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReadStatisticsSvc<T: JobService>(pub Arc<T>);
+                    impl<
+                        T: JobService,
+                    > tonic::server::UnaryService<super::ReadStatisticsRequest>
+                    for ReadStatisticsSvc<T> {
+                        type Response = super::ReadStatisticsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReadStatisticsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as JobService>::read_statistics(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReadStatisticsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
