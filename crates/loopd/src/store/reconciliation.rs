@@ -28,6 +28,28 @@ pub(super) async fn verify(
         .as_ref()
         .ok_or(StoreError::AdmissionDenied)?;
     evidence.check_record(record)?;
+    if let Some(statistics) = &evidence.statistics {
+        let prepared = store.with_statistics_evidence(statistics.proof.clone());
+        let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
+            .bind(&statistics.proof.document.job_id)
+            .fetch_optional(&mut **transaction)
+            .await?
+            .ok_or(StoreError::StatisticsPending)?;
+        let registered = super::postgres::record_from_row(&row)?;
+        store.admission.authorize_job_command(
+            "loop.statistics.read_current",
+            principal,
+            &registered,
+        )?;
+        if registered != statistics.record || registered.state != JobState::Succeeded as i32 {
+            return Err(StoreError::StatisticsPending);
+        }
+        // This rechecks every source and exact state/revision in the same
+        // transaction. Old primary adjusted statistics do not become current.
+        super::statistics::verify(&prepared, transaction, principal, &registered).await?;
+        statistics.binding(&evidence.primary_record)?;
+        return evidence.check();
+    }
     let prepared = store.with_backtest_policy(evidence.primary.clone());
     let (source, _) = backtest::current_in_transaction(
         &prepared,
@@ -53,6 +75,9 @@ impl PgJobStore {
     ) -> StoreResult<JobRecord> {
         evidence.check()?;
         let mut transaction = self.pool.begin().await?;
+        if evidence.statistics.is_some() {
+            self.observe_clock(&mut transaction).await?;
+        }
         let id = &evidence.document.job_id;
         let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
             .bind(id)
@@ -106,7 +131,11 @@ pub(super) async fn admission(
     match evidence.document.disposition {
         Disposition::Rejected => Err(StoreError::IndependentMismatch),
         Disposition::Unavailable => Err(StoreError::IndependentUnavailable),
-        Disposition::Accepted => Err(StoreError::AdmissionPrerequisite),
+        Disposition::Accepted => match &evidence.document.global_statistics {
+            None => Err(StoreError::StatisticsPending),
+            Some(binding) if !binding.available => Err(StoreError::StatisticsUnavailable),
+            Some(_) => Err(StoreError::AdmissionPrerequisite),
+        },
     }
 }
 

@@ -7,14 +7,14 @@ use crate::runtime::StatisticsConfig;
 use crate::store::{JobMutation, StoreError, SubmitJob};
 use serde::Serialize;
 
-struct ReportCase {
-    portfolio: PortfolioCase,
-    job: JobSpecification,
+pub(super) struct ReportCase {
+    pub(super) portfolio: PortfolioCase,
+    pub(super) job: JobSpecification,
     output: PathBuf,
 }
 
 impl ReportCase {
-    async fn new(multiple: bool) -> Self {
+    pub(super) async fn new(multiple: bool) -> Self {
         let mut portfolio = PortfolioCase::with_history(true).await;
         if multiple {
             // Finish the first strategy before registering the second. The
@@ -94,7 +94,9 @@ impl ReportCase {
         }
     }
 
-    async fn client(&self) -> job_service_client::JobServiceClient<tonic::transport::Channel> {
+    pub(super) async fn client(
+        &self,
+    ) -> job_service_client::JobServiceClient<tonic::transport::Channel> {
         self.portfolio
             .base
             .tls
@@ -107,7 +109,7 @@ impl ReportCase {
             .unwrap()
     }
 
-    async fn run_portfolios(&self) {
+    pub(super) async fn run_portfolios(&self) {
         for job in self
             .portfolio
             .jobs
@@ -158,7 +160,7 @@ impl ReportCase {
         }
     }
 
-    async fn request(&self) -> ExecuteStatisticsRequest {
+    pub(super) async fn request(&self) -> ExecuteStatisticsRequest {
         let record = self
             .client()
             .await
@@ -440,10 +442,7 @@ async fn snapshot_fences_commit() {
         )
         .await
         .unwrap_err();
-    assert!(matches!(
-        error,
-        StoreError::Invalid("global trial snapshot changed")
-    ));
+    assert!(matches!(error, StoreError::StaleTrials));
     assert_eq!(
         case.portfolio
             .base

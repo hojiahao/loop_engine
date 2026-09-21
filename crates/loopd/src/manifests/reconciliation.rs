@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::files::VerifiedFile;
 use super::portfolio::{PortfolioWork, PreparedPortfolio};
+use super::statistics::StatisticsEvidence;
 use super::{ObjectRef, model};
 use crate::store::{StoreError, StoreResult};
 
@@ -25,11 +26,17 @@ pub(crate) struct ComparisonPolicy {
     pub dollar_absolute: String,
     pub return_absolute: String,
     pub accounting_relative: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub statistics_job: Option<String>,
 }
 
 impl ComparisonPolicy {
     pub(crate) fn validate(&self) -> StoreResult<()> {
-        model::schema(&self.schema, "loop.reconciliation-policy/v1")?;
+        match (&*self.schema, &self.statistics_job) {
+            ("loop.reconciliation-policy/v1", None) => {}
+            ("loop.reconciliation-policy/v2", Some(id)) => crate::store::validate_id(id)?,
+            _ => return Err(StoreError::Invalid("comparison statistics policy")),
+        }
         if self.profile != "alphalens-zipline-development.1"
             || self.statistics_absolute != "0.000000000001"
             || self.statistics_relative != "0.0000000001"
@@ -169,6 +176,107 @@ pub(crate) struct ValidationDocument {
     pub production_eligible: bool,
     pub admission_prerequisites: Vec<String>,
     pub started_at_ms: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub global_statistics: Option<StatisticalBinding>,
+}
+
+/// Immutable provenance and availability, never an economic acceptance verdict.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct StatisticalBinding {
+    pub job_id: String,
+    pub revision: u64,
+    pub manifest: ObjectRef,
+    pub summary: ObjectRef,
+    pub strategy_binding: Option<String>,
+    pub available: bool,
+    pub reasons: Vec<String>,
+}
+
+/// Registered report plus fresh operation-local reconstruction, not caller JSON.
+pub(crate) struct RegisteredStatistics {
+    pub record: JobRecord,
+    pub proof: Arc<StatisticsEvidence>,
+}
+
+impl RegisteredStatistics {
+    pub(crate) fn binding(&self, primary: &JobRecord) -> StoreResult<StatisticalBinding> {
+        self.proof.check_record(&self.record)?;
+        let id = primary
+            .specification
+            .as_ref()
+            .and_then(|job| job.job_id.as_ref())
+            .ok_or(StoreError::Corrupt("statistical candidate identity"))?;
+        if !self
+            .proof
+            .portfolios
+            .iter()
+            .any(|(record, _)| record == primary)
+        {
+            return Err(StoreError::Corrupt(
+                "candidate outside statistical population",
+            ));
+        }
+        let summary = &self.proof.summary;
+        if summary["schema"] != "loop.global-statistics/v1" {
+            return Err(StoreError::Corrupt("global summary schema"));
+        }
+        let complete = summary["complete_matrix"]
+            .as_bool()
+            .ok_or(StoreError::Corrupt("global matrix availability"))?;
+        let mut reasons = Vec::new();
+        let mut strategy_binding = None;
+        if complete {
+            let strategies = summary["strategies"]
+                .as_array()
+                .ok_or(StoreError::Corrupt("global strategy set"))?;
+            let candidates: Vec<_> = strategies
+                .iter()
+                .filter(|strategy| {
+                    strategy["job_ids"]
+                        .as_array()
+                        .is_some_and(|jobs| jobs.iter().any(|job| job == &id.value))
+                })
+                .collect();
+            let [candidate] = candidates.as_slice() else {
+                return Err(StoreError::Corrupt("global candidate membership"));
+            };
+            let binding = candidate["binding_sha256"]
+                .as_str()
+                .ok_or(StoreError::Corrupt("global strategy binding"))?;
+            loop_core::factor::ExpressionId::parse(binding)
+                .map_err(|_| StoreError::Corrupt("global strategy digest"))?;
+            strategy_binding = Some(binding.to_owned());
+            // Only interpret producer availability metadata. Numerical tests and
+            // economic thresholds belong to research, never this control plane.
+            if !candidate["global_by_upper_bound"].is_number() {
+                reasons.push("candidate_by_unavailable".to_owned());
+            }
+            for (name, metric) in [
+                ("candidate_dsr_unavailable", &candidate["dsr"]),
+                (
+                    "global_dsr_benchmark_unavailable",
+                    &summary["dsr_benchmark"],
+                ),
+                ("global_pbo_unavailable", &summary["pbo"]),
+            ] {
+                if metric["status"] != "available" {
+                    reasons.push(name.to_owned());
+                }
+            }
+        } else {
+            reasons.push("global_matrix_unavailable".to_owned());
+        }
+        Ok(StatisticalBinding {
+            job_id: self.proof.document.job_id.clone(),
+            revision: self.record.revision,
+            manifest: self.proof.report.object.clone(),
+            summary: self.proof.document.summary.clone(),
+            strategy_binding,
+            available: reasons.is_empty(),
+            reasons,
+        })
+    }
 }
 
 /// Operation-scoped proof, constructed only after actual supervised execution.
@@ -180,6 +288,7 @@ pub(crate) struct ValidationEvidence {
     pub document: ValidationDocument,
     pub report: model::Artifact,
     pub files: Vec<Arc<VerifiedFile>>,
+    pub statistics: Option<RegisteredStatistics>,
 }
 
 impl ValidationEvidence {
@@ -190,6 +299,15 @@ impl ValidationEvidence {
             .as_ref()
             .ok_or(StoreError::Corrupt("validation primary record"))?;
         self.primary.check(source)?;
+        if self
+            .statistics
+            .as_ref()
+            .map(|statistics| statistics.binding(&self.primary_record))
+            .transpose()?
+            != self.document.global_statistics
+        {
+            return Err(StoreError::Corrupt("validation statistics binding"));
+        }
         for file in &self.files {
             file.check()?;
         }

@@ -156,6 +156,7 @@ async fn write() -> StoreResult<()> {
         validator
             .execute(
                 ValidationTask {
+                    statistics: None,
                     job: &jobs[2],
                     lease: &request.lease_id.as_ref().unwrap().value,
                     record,

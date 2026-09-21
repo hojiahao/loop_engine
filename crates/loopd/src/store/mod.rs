@@ -71,9 +71,15 @@ pub enum StoreError {
     /// A required independent statistic or numerical range is unavailable.
     #[error("independent portfolio reconciliation unavailable")]
     IndependentUnavailable,
+    /// A frozen comparison lacks a completed registered global statistics report.
+    #[error("global statistical evidence pending")]
+    StatisticsPending,
+    /// The complete population or a required candidate statistic is unavailable.
+    #[error("global statistical evidence unavailable")]
+    StatisticsUnavailable,
     /// Numerical agreement cannot waive separately unresolved research gates.
     #[error(
-        "production admission requires licensed data, complete global statistics and semantic review"
+        "production admission requires licensed data, frozen statistical acceptance and semantic review"
     )]
     AdmissionPrerequisite,
     /// New accepted work or a retry changed the statistical search denominator.

@@ -243,7 +243,12 @@ def _family(
 
 
 def _materialize(
-    evidence: Path, view: Path, store: Path, request: StatisticsRequest, deadline: _Deadline
+    evidence: Path,
+    view: Path,
+    store: Path,
+    request: StatisticsRequest,
+    deadline: _Deadline,
+    verified: tuple[PortfolioReplay, PortfolioStatistics, Callable[[], None]] | None = None,
 ) -> tuple[StatisticsReceipt, dict[str, bytes], PortfolioReplay, Callable[[], None]]:
     request = StatisticsRequest.model_validate_json(request.model_dump_json(by_alias=True))
     inputs: list[tuple[CachedObject, bytes]] = []
@@ -257,12 +262,22 @@ def _materialize(
         inputs.append((reference, content))
         return content
 
-    primary = reconstruct(evidence, view, store, request.backtest, deadline)
-    policy = _policy(primary)
-    result = summarize(primary, policy, deadline.check)
+    if verified is None:
+        primary = reconstruct(evidence, view, store, request.backtest, deadline)
+        policy = _policy(primary)
+        result = summarize(primary, policy, deadline.check)
+    else:
+        primary, result, source_guard = verified
+        source_guard()
+        receipt_bytes = canonical_bytes(primary.receipt.model_dump(mode="json", by_alias=True))
+        if read_cached(store, request.backtest) != receipt_bytes:
+            raise ValueError("verified statistics primary differs from requested receipt")
+        policy = _policy(primary)
     multiple, guards = _family(
         request, primary, result, policy, evidence, view, store, deadline, read
     )
+    if verified is not None:
+        guards.append(verified[2])
     artifacts = {**result.artifacts, "multiple_testing": multiple}
     if sum(map(len, artifacts.values())) > 64 * 1024 * 1024:
         raise ValueError("statistics output byte budget")
@@ -310,7 +325,13 @@ def run_statistics(
 
 
 def prepare_statistics(
-    evidence: Path, view: Path, store: Path, request: StatisticsRequest, deadline: _Deadline
+    evidence: Path,
+    view: Path,
+    store: Path,
+    request: StatisticsRequest,
+    deadline: _Deadline,
+    *,
+    verified: tuple[PortfolioReplay, PortfolioStatistics, Callable[[], None]] | None = None,
 ) -> tuple[StatisticsReport, PortfolioReplay, Callable[[], None]]:
     """Publish statistics and retain this operation's verified primary and guards.
 
@@ -318,7 +339,9 @@ def prepare_statistics(
     authority and its guards must still pass before the final export receipt.
     """
     _paths(evidence, view, store)
-    receipt, artifacts, primary, check = _materialize(evidence, view, store, request, deadline)
+    receipt, artifacts, primary, check = _materialize(
+        evidence, view, store, request, deadline, verified
+    )
     for content in artifacts.values():
         deadline.check()
         publish(store, content)
@@ -345,7 +368,13 @@ def validate_statistics(
 
 
 def reconstruct_statistics(
-    evidence: Path, view: Path, store: Path, digest: str, deadline: _Deadline
+    evidence: Path,
+    view: Path,
+    store: Path,
+    digest: str,
+    deadline: _Deadline,
+    *,
+    verified: tuple[PortfolioReplay, PortfolioStatistics, Callable[[], None]] | None = None,
 ) -> tuple[StatisticsReport, PortfolioReplay, Callable[[], None]]:
     """Verify a complete receipt and return original frozen inputs for validators.
 
@@ -356,7 +385,7 @@ def reconstruct_statistics(
     decode_object(content)
     original = StatisticsReceipt.model_validate_json(content)
     receipt, artifacts, primary, check = _materialize(
-        evidence, view, store, original.request, deadline
+        evidence, view, store, original.request, deadline, verified
     )
     if canonical_bytes(receipt.model_dump(mode="json", by_alias=True)) != content:
         raise ValueError("statistics receipt differs from actual replay")

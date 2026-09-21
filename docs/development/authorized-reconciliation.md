@@ -2,7 +2,8 @@
 
 The optional runtime connects a registered primary portfolio to both installed
 independent validators. It records a durable comparison, not permission to trade
-or a production-ready factor. See [ADR 0035](../adr/0035-authorized-reconciliation.md)
+or a production-ready factor. See [ADR 0035](../adr/0035-authorized-reconciliation.md),
+[global report binding](../adr/0037-statistical-reconciliation-binding.md)
 and the [Phase 8 acceptance record](../verification/phase-08-independent-validation.md).
 
 ## Inputs and deployment
@@ -14,7 +15,7 @@ whitespace, then calculate its actual SHA-256 and byte size:
 
 ```json
 {
-  "schema": "loop.reconciliation-policy/v1",
+  "schema": "loop.reconciliation-policy/v2",
   "policy_id": "policy.reconciliation",
   "revision": "1",
   "profile": "alphalens-zipline-development.1",
@@ -23,13 +24,28 @@ whitespace, then calculate its actual SHA-256 and byte size:
   "price_absolute": "0.000000005",
   "dollar_absolute": "0.00001",
   "return_absolute": "0.000000000001",
-  "accounting_relative": "0"
+  "accounting_relative": "0",
+  "statistics_job": "job.statistics.example"
 }
 ```
 
 These constants correspond to the implemented independent comparison profiles.
 Changing an arbitrary tolerance cannot relax them. A new numerical profile
 requires an implementation review and new immutable policy evidence.
+
+Before this comparison, register the named report using the
+[global statistics workflow](global-statistics.md). Its complete database trial
+population must include this exact primary job and all other attempted research.
+The report ID is frozen in the policy, not chosen by an RPC caller or selected
+after seeing which report passes. The runtime needs both optional deployments.
+
+Version 1 policies omit `statistics_job` and keep their original serialization.
+Existing v1 reports remain diagnostic history; accepted numerical agreement now
+returns `global_statistics_pending` at admission. Create a new policy/job for v2;
+never edit a published policy or receipt in place. V2 uses the same numerical
+comparison profile and tolerances; the new version adds provenance binding only.
+Serialization compatibility does not waive build freshness: source/environment
+changes still make prior numerical evidence stale and require new research runs.
 
 Submit an `INDEPENDENT_RECONCILIATION` job through the existing trusted
 administrative submission boundary. Its `ReconciliationJobInput` contains:
@@ -117,7 +133,7 @@ terminates the worker process group, including uv's Python descendant.
 
 ## Report interpretation and freshness
 
-The final `loop.authorized-reconciliation/v1` document binds job/lease, primary
+The final `loop.authorized-reconciliation/v2` document binds job/lease, primary
 job/revision/result, context, frozen policy, prepared inputs, both receipts and
 attempt start time from its persisted lease. Concurrent retries therefore bind
 the same timestamp. The job and audit record hold the actual commit time.
@@ -126,6 +142,24 @@ build identity and detailed differences. Raw observations and their export
 normalization remain shared dependencies; this is not independent vendor data
 certification. See [statistics](independent-statistics.md) and
 [accounting](independent-accounting.md) for numerical limits.
+
+Its `global_statistics` member identifies the registered report job/revision,
+manifest and summary, the candidate's distinct strategy binding when available,
+and explicit availability reasons. The full summary retains numerical values and
+the original reasons for missing metrics. No return matrix is copied into an RPC
+or this reconciliation document. `available=true` requires a complete matrix,
+candidate BY/DSR and population DSR benchmark/PBO availability; it is not a test
+of profitability or a calibrated economic acceptance threshold.
+
+The runtime reconstructs the entire registered report before independent export,
+then checks that same report, every source and exact trial revision again in the
+completion/admission transaction. A primary made before later strategies can be
+used under this new global report without rewriting its old trial count. An
+ordinary current-primary read continues to reject its old search-adjusted
+statistics. Changed population returns `trial_history_changed`; missing completed
+reports return `global_statistics_pending`; an independently agreeing candidate
+with unavailable global diagnostics returns `global_statistics_unavailable`.
+Corruption, authority failures and timeouts remain operational errors.
 
 An operationally completed job may have any numerical disposition:
 
@@ -153,8 +187,10 @@ two independent numerical calculations.
 
 All currently supported synthetic/public-development profiles have
 `production_eligible=false`. Even agreement returns a separate production
-prerequisite error at admission: licensed historical coverage, complete global
-statistical-search evidence and completed semantic review are still required.
+prerequisite error at admission: licensed historical coverage, frozen economic
+statistical acceptance and completed semantic review are still required. This
+delivery binds diagnostic evidence; it does not invent acceptance thresholds or
+enable production enrollment.
 Ordinary admission, readmission and semantic overrides cannot waive these gates.
 
 ## Acceptance and rollback

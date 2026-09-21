@@ -6,6 +6,7 @@ use crate::manifests::tests::fixture::artifact;
 use crate::runtime::{ReconciliationConfig, ValidationPin};
 use crate::store::SubmitJob;
 
+mod binding;
 mod processes;
 
 pub(super) fn price(row: usize, column: usize) -> String {
@@ -118,10 +119,18 @@ struct ValidationCase {
 
 impl ValidationCase {
     async fn new(extended: bool) -> Self {
-        let mut portfolio = PortfolioCase::with_history(extended).await;
+        Self::attach(PortfolioCase::with_history(extended).await, None).await
+    }
+
+    async fn attach(mut portfolio: PortfolioCase, statistics_job: Option<String>) -> Self {
         let f = &portfolio.base.fixture;
         let policy = ComparisonPolicy {
-            schema: "loop.reconciliation-policy/v1".to_owned(),
+            schema: if statistics_job.is_some() {
+                "loop.reconciliation-policy/v2"
+            } else {
+                "loop.reconciliation-policy/v1"
+            }
+            .to_owned(),
             policy_id: "policy.reconciliation".to_owned(),
             revision: "1".to_owned(),
             profile: "alphalens-zipline-development.1".to_owned(),
@@ -131,6 +140,7 @@ impl ValidationCase {
             dollar_absolute: "0.00001".to_owned(),
             return_absolute: "0.000000000001".to_owned(),
             accounting_relative: "0".to_owned(),
+            statistics_job,
         };
         let reference = f.json(&policy);
         let mut job = portfolio.job.clone();
@@ -415,7 +425,9 @@ async fn accepted_replay() {
             .unwrap_err();
         assert_eq!(error.code(), Code::FailedPrecondition);
         assert!(
-            error.message().contains("production admission requires"),
+            error
+                .message()
+                .contains("global statistical evidence pending"),
             "{error}"
         );
     }
@@ -431,7 +443,11 @@ async fn accepted_replay() {
         .await
         .unwrap_err();
     assert_eq!(error.code(), Code::FailedPrecondition);
-    assert!(error.message().contains("production admission requires"));
+    assert!(
+        error
+            .message()
+            .contains("global statistical evidence pending")
+    );
 }
 
 #[tokio::test]

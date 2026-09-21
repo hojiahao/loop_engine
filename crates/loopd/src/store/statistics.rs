@@ -29,7 +29,7 @@ pub(super) async fn verify(
     if super::research_ledger::capture_records(store, transaction, principal).await?
         != proof.snapshot
     {
-        return Err(StoreError::Invalid("global trial snapshot changed"));
+        return Err(StoreError::StaleTrials);
     }
     for (original, portfolio) in &proof.portfolios {
         let prepared = store.with_backtest_policy(portfolio.clone());

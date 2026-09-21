@@ -1,7 +1,7 @@
 //! Narrow authenticated handlers; numerical reports never authorize themselves.
 
 use super::*;
-use crate::manifests::reconciliation::{ValidationEvidence, source};
+use crate::manifests::reconciliation::{RegisteredStatistics, ValidationEvidence, source};
 use crate::runtime::ValidationTask;
 
 impl RuntimeService {
@@ -136,12 +136,65 @@ impl RuntimeService {
         else {
             return Err(StoreError::Corrupt("primary outcome"));
         };
-        let inputs = portfolio.inputs(source_job).await?;
-        let prepared = Arc::new(portfolio.replay(inputs, source_job, success).await?);
-        self.store
-            .with_backtest_policy(prepared.clone())
-            .current_backtest(&principal.actor, source_id, &context)
-            .await?;
+        let statistics = match executor.statistics_job(job).await? {
+            Some(id) => {
+                let report = self
+                    .store
+                    .runtime_job(&principal.actor, &id, "loop.statistics.read_current")
+                    .await
+                    .map_err(|error| match error {
+                        StoreError::NotFound => StoreError::StatisticsPending,
+                        other => other,
+                    })?;
+                self.authority
+                    .authorize(principal, "loop.statistics.read_current", &report)?;
+                if report.state != JobState::Succeeded as i32 {
+                    return Err(StoreError::StatisticsPending);
+                }
+                let proof = self.statistical_evidence(principal, &report, None).await?;
+                let registered = self
+                    .store
+                    .with_statistics_evidence(proof.clone())
+                    .current_statistics(&principal.actor, &proof)
+                    .await?;
+                if registered != report {
+                    return Err(StoreError::Corrupt("registered statistics changed"));
+                }
+                Some(RegisteredStatistics {
+                    record: registered,
+                    proof,
+                })
+            }
+            None => None,
+        };
+        let prepared = if let Some(statistics) = &statistics {
+            let (_, prepared) = statistics
+                .proof
+                .portfolios
+                .iter()
+                .find(|(record, _)| *record == primary_record)
+                .ok_or(StoreError::Corrupt(
+                    "candidate outside statistical population",
+                ))?;
+            if prepared.inputs.context_id() != context {
+                return Err(StoreError::Corrupt("statistical candidate context"));
+            }
+            prepared.clone()
+        } else {
+            let inputs = portfolio.inputs(source_job).await?;
+            let artifact = crate::runtime::portfolio::manifest_artifact(success)?;
+            let prepared = Arc::new(inputs.seal(&portfolio.outputs, &artifact).await?);
+            if prepared.success.as_ref() != Some(success) {
+                return Err(StoreError::Corrupt("validation source outputs"));
+            }
+            self.store
+                .with_backtest_policy(prepared.clone())
+                .current_backtest(&principal.actor, source_id, &context)
+                .await?;
+            // The fixed export worker reconstructs these authenticated source
+            // bytes before either independent validator or receipt publication.
+            prepared
+        };
         let prior = if record.state == JobState::Succeeded as i32 {
             match record
                 .outcome
@@ -171,6 +224,7 @@ impl RuntimeService {
                     lease,
                     record: primary_record,
                     primary: prepared,
+                    statistics,
                     prior,
                     started_ms: crate::store::timestamp_millis(
                         record

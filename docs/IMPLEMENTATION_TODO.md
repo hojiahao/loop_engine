@@ -372,7 +372,7 @@ verify each before the next):
       `ResearchProvenance.source_code_sha256`.
 - [x] Add golden, property, determinism, and look-ahead tests.
 
-## Phase 7 - Primary backtester (`in_progress`)
+## Phase 7 - Primary backtester (`complete`)
 
 Final implementation `4addeb8` and CI-budget correction `549cb11` are pushed.
 Exact-commit run `35202271352` passed all seven jobs, including independent
@@ -443,7 +443,7 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
 - [x] Validate supported accounting paths against synthetic golden ledgers;
       unsupported market events fail explicitly as described in ADR 0030.
 
-5. Global statistical evidence (`in_progress`; ADR 0036): capture the complete
+5. Global statistical evidence (`complete`; ADR 0036): capture the complete
    authorized database trial population, resolve registered portfolio lineage,
    build an exactly synchronous strategy-return matrix, and reuse the existing
    DSR/CSCV kernels. Register and reread the report through existing job/lease/
@@ -454,7 +454,10 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    Chinese commit, push and exact-commit CI. Local acceptance now includes six
    actual mTLS/PostgreSQL cases, 78 combined numerical regressions, an expanded
    eight-case worker suite, 306 protocol cases and TypeScript/protocol gates.
-   Publication and full remote acceptance remain pending; see
+   Commit `e325368` is pushed; exact-commit CI `35569521771` passes all seven
+   jobs, including full Rust/process/crash, unified workspace and clean DaoCloud
+   container gates. This closes the development primary/statistical scope;
+   licensed data and economic/semantic acceptance are not waived. See
    `docs/verification/phase-07-global-statistics.md`.
 
 ## Phase 8 - Independent validation (`in_progress`)
@@ -494,13 +497,19 @@ together; finish one before starting the next):
    Exact-commit CI `35498968066` passes all seven jobs, including the clean
    DaoCloud container. The real local acceptance/restart/admission regression
    also passes. Unit 3 is accepted.
-4. Global statistical evidence binding (`pending`, depends on Phase 7 unit 5):
+4. Global statistical evidence binding (`in_progress`, ADR 0037; depends on Phase 7 unit 5):
    bind the registered full-population report to each independently reconciled
    candidate and the shared admission command. Missing, stale or unavailable
    statistical evidence must remain explicit. Preserve existing immutable
    reports and the separate licensed-data/semantic-review prerequisites. Deliver
    implementation, negative-path tests, documentation and one Chinese commit
    before moving to the Provider platform.
+   V2 policy/report binding, whole-population transaction rechecks and explicit
+   pending/stale/unavailable gates are implemented locally. All six new real
+   mTLS/PostgreSQL/Alphalens/Zipline cases and 26 affected Python workflows pass.
+   The full v1 Rust compatibility/restart/admission case and final all-targets
+   Clippy also pass. Publication and exact-commit CI remain pending; see
+   `docs/verification/phase-08-statistical-binding.md`.
 
 ## Phase 9 - Provider platform (`pending`)
 
@@ -518,6 +527,10 @@ together; finish one before starting the next):
 
 - [ ] Implement persistent discovery, maker/checker validation, feedback,
       perturbation, failure memory, bounded termination, and human escalation.
+- [ ] Connect preregistered deterministic economic acceptance criteria and
+      completed semantic review to the existing shared admission prerequisites.
+      Statistical availability or independent agreement alone is not acceptance;
+      licensed-data eligibility remains a separate Phase 5/13 gate.
 
 ## Phase 12 - Web and TUI (`pending`)
 

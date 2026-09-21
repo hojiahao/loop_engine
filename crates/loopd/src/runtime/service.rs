@@ -999,7 +999,21 @@ pub(super) fn status(error: StoreError) -> Status {
             Code::FailedPrecondition,
             ErrorCategory::Dependency,
             "production_admission_prerequisites",
-            "production admission requires licensed data, complete global statistics and semantic review",
+            "production admission requires licensed data, frozen statistical acceptance and semantic review",
+            false,
+        ),
+        StoreError::StatisticsPending => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "global_statistics_pending",
+            "global statistical evidence pending",
+            false,
+        ),
+        StoreError::StatisticsUnavailable => (
+            Code::FailedPrecondition,
+            ErrorCategory::Dependency,
+            "global_statistics_unavailable",
+            "global statistical evidence unavailable",
             false,
         ),
         StoreError::LeaseFenced | StoreError::InvalidTransition => (

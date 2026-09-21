@@ -42,8 +42,13 @@ def mtimes(directory: Path) -> dict[str, int]:
     return {path.name: path.stat().st_mtime_ns for path in directory.iterdir()}
 
 
-def test_export_replay(extended: Case) -> None:
+def test_export_replay(extended: Case, monkeypatch: pytest.MonkeyPatch) -> None:
     work, output = setup(extended)
+
+    def duplicate_reconstruction(*args: object, **kwargs: object) -> None:
+        raise AssertionError("export must reuse this operation's verified primary")
+
+    monkeypatch.setattr("loop_research.statistics_workflow.reconstruct", duplicate_reconstruction)
     result = export(extended, work, output)
     reference = CachedObject.model_validate(result["reference"])
     inputs = json.loads(read_cached(output, reference))

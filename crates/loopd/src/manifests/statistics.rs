@@ -139,6 +139,7 @@ pub(crate) struct StatisticsEvidence {
     pub snapshot: TrialSnapshot,
     pub portfolios: Vec<(JobRecord, Arc<PreparedPortfolio>)>,
     pub document: StatisticsDocument,
+    pub summary: serde_json::Value,
     pub report: model::Artifact,
     pub files: Vec<Arc<VerifiedFile>>,
 }

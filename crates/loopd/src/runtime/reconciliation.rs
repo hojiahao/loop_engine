@@ -17,8 +17,8 @@ use super::{PortfolioExecutor, process};
 use crate::manifests::files::{ReadBudget, VerifiedFile};
 use crate::manifests::portfolio::PreparedPortfolio;
 use crate::manifests::reconciliation::{
-    AlphalensReceipt, ComparisonPolicy, PreparedHandle, PreparedInputs, ValidationDocument,
-    ValidationEvidence, ValidationWork, WorkerHandle, ZiplineReceipt, source,
+    AlphalensReceipt, ComparisonPolicy, PreparedHandle, PreparedInputs, RegisteredStatistics,
+    ValidationDocument, ValidationEvidence, ValidationWork, WorkerHandle, ZiplineReceipt, source,
 };
 use crate::manifests::{LocalArtifacts, ObjectRef, model};
 use crate::store::{StoreError, StoreResult};
@@ -74,6 +74,7 @@ pub(crate) struct ValidationTask<'a> {
     pub primary: Arc<PreparedPortfolio>,
     pub prior: Option<&'a JobSuccess>,
     pub started_ms: i64,
+    pub statistics: Option<RegisteredStatistics>,
 }
 
 impl ReconciliationExecutor {
@@ -161,6 +162,58 @@ impl ReconciliationExecutor {
             .map(|pin| pin.job_id.as_str())
     }
 
+    pub(crate) async fn statistics_job(
+        &self,
+        job: &JobSpecification,
+    ) -> StoreResult<Option<String>> {
+        Ok(self.policy(job).await?.1.statistics_job)
+    }
+
+    async fn policy(
+        &self,
+        job: &JobSpecification,
+    ) -> StoreResult<(Arc<VerifiedFile>, ComparisonPolicy)> {
+        let id = &job
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value;
+        let pin = self.pins.get(id).ok_or(StoreError::AdmissionDenied)?;
+        let (primary, _) = source(job)?;
+        let file = self
+            .source
+            .load(&pin.policy, true, &mut ReadBudget::new())
+            .await?;
+        let policy: ComparisonPolicy = file.json()?;
+        policy.validate()?;
+        let Some(job_specification::Input::Reconciliation(input)) = &job.input else {
+            return Err(StoreError::AdmissionDenied);
+        };
+        let reference = input
+            .reconciliation_policy
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        let digest = pin.policy.digest()?;
+        if pin.primary_job_id != primary
+            || policy
+                .statistics_job
+                .as_ref()
+                .is_some_and(|report| report == id || report == primary)
+            || reference
+                .policy_id
+                .as_ref()
+                .is_none_or(|id| id.value != policy.policy_id)
+            || reference.revision != policy.revision
+            || reference
+                .sha256
+                .as_ref()
+                .is_none_or(|value| value.value != digest)
+        {
+            return Err(StoreError::Corrupt("comparison policy binding"));
+        }
+        Ok((file, policy))
+    }
+
     pub(crate) async fn lease(&self, success: &JobSuccess) -> StoreResult<String> {
         self.check_output()?;
         let [artifact] = success.outputs.as_slice() else {
@@ -221,6 +274,7 @@ impl ReconciliationExecutor {
             primary,
             prior,
             started_ms,
+            statistics,
         } = task;
         self.check_output()?;
         let id = &job
@@ -252,29 +306,17 @@ impl ReconciliationExecutor {
             return Err(StoreError::InvalidTransition);
         };
         let manifest = super::portfolio::manifest_artifact(success)?;
-        let mut budget = ReadBudget::new();
-        let policy_file = self.source.load(&pin.policy, true, &mut budget).await?;
-        let policy: ComparisonPolicy = policy_file.json()?;
-        policy.validate()?;
-        let Some(job_specification::Input::Reconciliation(input)) = &job.input else {
-            return Err(StoreError::AdmissionDenied);
-        };
-        let reference = input
-            .reconciliation_policy
+        let (policy_file, policy) = self.policy(job).await?;
+        let global_statistics = statistics
             .as_ref()
-            .ok_or(StoreError::AdmissionDenied)?;
-        let policy_digest = pin.policy.digest()?;
-        if reference
-            .policy_id
-            .as_ref()
-            .is_none_or(|id| id.value != policy.policy_id)
-            || reference.revision != policy.revision
-            || reference
-                .sha256
+            .map(|proof| proof.binding(&record))
+            .transpose()?;
+        if policy.statistics_job.as_deref()
+            != global_statistics
                 .as_ref()
-                .is_none_or(|value| value.value != policy_digest)
+                .map(|proof| proof.job_id.as_str())
         {
-            return Err(StoreError::Corrupt("comparison policy binding"));
+            return Err(StoreError::StatisticsPending);
         }
         let mut files = vec![policy_file];
         let old = if let Some(success) = prior {
@@ -355,8 +397,20 @@ impl ReconciliationExecutor {
         let (alpha, zipline) = self
             .run_validators(&inputs, old.as_ref().map(|(_, value)| value), &mut files)
             .await?;
+        let version = if global_statistics.is_some() { 2 } else { 1 };
+        let mut prerequisites = vec!["licensed_historical_data".to_owned()];
+        if global_statistics
+            .as_ref()
+            .is_none_or(|binding| !binding.available)
+        {
+            prerequisites.push("global_synchronous_trial_returns".to_owned());
+        }
+        if global_statistics.is_some() {
+            prerequisites.push("completed_statistical_acceptance".to_owned());
+        }
+        prerequisites.push("completed_semantic_review".to_owned());
         let document = ValidationDocument {
-            schema: "loop.authorized-reconciliation/v1".to_owned(),
+            schema: format!("loop.authorized-reconciliation/v{version}"),
             job_id: id.clone(),
             lease_id: lease.to_owned(),
             primary_job_id: source_id.to_owned(),
@@ -372,14 +426,11 @@ impl ReconciliationExecutor {
                 .disposition
                 .combined(zipline.artifacts.disposition),
             production_eligible: false,
-            admission_prerequisites: vec![
-                "licensed_historical_data".to_owned(),
-                "global_synchronous_trial_returns".to_owned(),
-                "completed_semantic_review".to_owned(),
-            ],
+            admission_prerequisites: prerequisites,
             started_at_ms: old
                 .as_ref()
                 .map_or(started_ms, |(_, document)| document.started_at_ms),
+            global_statistics,
         };
         if old
             .as_ref()
@@ -395,7 +446,7 @@ impl ReconciliationExecutor {
         let schema = model::SchemaDocument {
             schema: "loop.artifact-schema/v1".to_owned(),
             name: "loop.authorized_reconciliation".to_owned(),
-            version: 1,
+            version,
             media_type: "application/json".to_owned(),
             columns: vec![],
         };
@@ -411,7 +462,7 @@ impl ReconciliationExecutor {
             object: reference.clone(),
             schema: model::SchemaRef {
                 name: schema.name,
-                version: 1,
+                version,
                 document: schema_ref.clone(),
             },
             media_type: schema.media_type,
@@ -431,6 +482,7 @@ impl ReconciliationExecutor {
             document,
             report,
             files,
+            statistics,
         };
         proof.check()?;
         if let Some(success) = prior {

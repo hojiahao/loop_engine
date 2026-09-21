@@ -176,6 +176,10 @@ async fn execute(
         return Err(StoreError::AdmissionDenied);
     }
     let trial = trials::verify(&mut transaction, &source).await?;
+    // Bound independent/global evidence has its own complete-population
+    // freshness path. Never mistake an older primary's adjusted statistics for
+    // the current population or bypass this gate with a semantic override.
+    super::reconciliation::admission(store, &mut transaction, principal, &source).await?;
     let (_, result) = backtest::current_in_transaction(
         store,
         &mut transaction,
@@ -188,7 +192,6 @@ async fn execute(
     if result.engine != BacktestEngineKind::PrimaryCrossSectional as i32 {
         return Err(StoreError::Invalid("primary IS result required"));
     }
-    super::reconciliation::admission(store, &mut transaction, principal, &source).await?;
     let evidence =
         store
             .backtest_policy

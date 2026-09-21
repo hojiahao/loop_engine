@@ -19,7 +19,7 @@ from loop_research.data.fetch_cache import publish, read_cached
 from loop_research.data.fetch_json import decode_object
 from loop_research.data.fetch_records import CachedObject
 from loop_research.data.models import Identifier, ImmutableRecord
-from loop_research.portfolio_worker import PortfolioWork, execute
+from loop_research.portfolio_worker import PortfolioWork, replay_portfolio
 from loop_research.statistics_models import StatisticsRequest
 from loop_research.statistics_workflow import prepare_statistics, reconstruct_statistics
 from loop_research.zipline_inputs import _export_zipline
@@ -71,7 +71,7 @@ def prepare(
     decode_object(policy)
     # This verifies every original registered primary artifact, including its
     # statistical cross sections and global ledger, without repairing the store.
-    execute(work.primary, evidence=evidence, view=view, output=primary_store)
+    verified = replay_portfolio(work.primary, evidence=evidence, view=view, output=primary_store)
     original = read_cached(primary_store, work.primary.manifest)
     document = decode_object(original)
     result = document["result"]
@@ -103,13 +103,18 @@ def prepare(
         decode_object(old_bytes)
         old = PreparedInputs.model_validate_json(old_bytes)
         statistics, primary, guard = reconstruct_statistics(
-            evidence, view, output, old.statistics.sha256, deadline
+            evidence, view, output, old.statistics.sha256, deadline, verified=verified
         )
         if statistics.artifacts.request != StatisticsRequest(backtest=portfolio):
             raise ValueError("validation statistics source differs")
     else:
         statistics, primary, guard = prepare_statistics(
-            evidence, view, output, StatisticsRequest(backtest=portfolio), deadline
+            evidence,
+            view,
+            output,
+            StatisticsRequest(backtest=portfolio),
+            deadline,
+            verified=verified,
         )
     deadline.check()
     alpha = _export_alphalens(output, statistics, primary, guard, deadline, readonly=readonly)

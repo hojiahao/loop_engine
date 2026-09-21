@@ -172,6 +172,17 @@ impl StatisticsExecutor {
             Some(value) => Some(self.identity(value).await?),
             None => None,
         };
+        if let Some(old) = &old {
+            let original = self
+                .outputs
+                .load(&old.snapshot, true, &mut ReadBudget::new())
+                .await?;
+            let current = serde_json::to_vec(&GlobalSnapshot::project(&snapshot)?)
+                .map_err(|_| StoreError::Corrupt("statistics snapshot encoding"))?;
+            if original.bytes()? != current {
+                return Err(StoreError::StaleTrials);
+            }
+        }
         let mut work = StatisticsWork {
             schema: "loop.global-statistics-work/v1",
             job_id: job
@@ -297,11 +308,13 @@ impl StatisticsExecutor {
             return Err(StoreError::Corrupt("statistics request commitment"));
         }
         files.push(request_file);
-        files.push(
-            self.outputs
-                .load(&document.summary, true, &mut budget)
-                .await?,
-        );
+        let summary_file = self
+            .outputs
+            .load(&document.summary, true, &mut budget)
+            .await?;
+        let summary = serde_json::from_slice(summary_file.bytes()?)
+            .map_err(|_| StoreError::Corrupt("statistics summary JSON"))?;
+        files.push(summary_file);
         // The return matrix is data, not metadata. Retain its byte/version guard
         // without materializing it in Rust or returning its rows over RPC.
         files.push(
@@ -315,6 +328,7 @@ impl StatisticsExecutor {
             snapshot,
             portfolios,
             document,
+            summary,
             report,
             files,
         };

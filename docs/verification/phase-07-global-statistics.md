@@ -1,7 +1,7 @@
 # Phase 7 unit 5: authenticated global statistics
 
-Status: implemented; local acceptance passes. Commit, push and exact-commit
-remote CI are required before closing the delivery unit.
+Status: accepted. Commit `e325368` is pushed; exact-commit CI `35569521771`
+passes all seven jobs. This closes Phase 7's development implementation scope.
 Decision: ADR 0036. Workflow: `docs/development/global-statistics.md`.
 
 ## Final local acceptance, 2026-09-21
@@ -24,7 +24,9 @@ Test directories created for the Python/protocol runs were removed; completed
 Rust fixtures left no `loop-manifests-*` directory. One identified obsolete test
 executable was removed, recovering about 172 MiB of reproducible build output.
 The disposable PostgreSQL test container and its network were removed.
-Full remote workspace, process/crash and DaoCloud-container gates remain pending.
+Full remote workspace, process/crash and DaoCloud-container gates pass. Rust
+completed in 52m13s, unified workspace in 61m22s and the clean DaoCloud container
+in 54m04s. These are complete CI job durations, not a single factor's latency.
 
 ## Delivered code under verification
 
@@ -70,16 +72,14 @@ visible, and supported development data never opens production admission.
   have been refreshed. Full protocol generation, wire-producer consistency,
   backward compatibility and service-boundary checks pass.
 
-Pending: Simplified Chinese commit, push and exact-commit
-remote CI. This record
-does not close Phase 7 or waive the separate Phase 8/data/semantic-review gates.
+Publication and exact-commit CI are complete. The separate Phase 8, licensed-data,
+economic acceptance and semantic-review gates remain required.
 
 The first six authenticated cases exposed a fixture/config mismatch: policy
 revision `v1` is invalid under the pre-existing positive-integer wire contract.
 The fixture, Python policy model, Rust policy validation and documented example
 now use revision `1`; invalid/zero/leading-zero/overflow revisions have explicit
-Python regressions. The protocol contract was not relaxed. The corrected Rust
-suite is being rebuilt and must pass before publication. A subsequent run passed
+Python regressions. The protocol contract was not relaxed. A subsequent run passed
 four cases and exposed an incorrect expired-lease expectation plus a read-budget
 bug: numerical runtime was included in the 10-second file-read budget. Lease
 errors retain their existing typed precondition mapping; separate bounded input

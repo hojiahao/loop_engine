@@ -1,6 +1,6 @@
 # ADR 0036: Authorized global strategy statistics
 
-- Status: Implemented; local acceptance passed, publication and remote CI pending
+- Status: Accepted; e325368 is pushed, CI 35569521771 passes all seven jobs
 - Owner: hojiahao
 - Date: 2026-09-20
 - Extends: ADR 0031 and ADR 0032

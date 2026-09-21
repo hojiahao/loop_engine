@@ -97,7 +97,7 @@ impl RuntimeService {
         })
     }
 
-    async fn statistical_evidence(
+    pub(super) async fn statistical_evidence(
         &self,
         principal: &Principal,
         record: &JobRecord,
