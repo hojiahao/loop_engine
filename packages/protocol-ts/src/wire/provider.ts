@@ -15,6 +15,8 @@ export {
   CommandContextSchema,
   type CorrelationId,
   CorrelationIdSchema,
+  ErrorCategory,
+  ErrorCategorySchema,
   type ExactDecimal,
   ExactDecimalSchema,
   type IdempotencyKey,
@@ -35,6 +37,8 @@ export {
   ProviderIdSchema,
   type RequestId,
   RequestIdSchema,
+  type ServiceError,
+  ServiceErrorSchema,
   type Sha256Digest,
   Sha256DigestSchema,
 } from "../generated/loop/v1/common_pb.js";

@@ -374,13 +374,14 @@ verify each before the next):
 
 ## Phase 7 - Primary backtester (`complete`)
 
-Final implementation `4addeb8` and CI-budget correction `549cb11` are pushed.
-Exact-commit run `35202271352` passed all seven jobs, including independent
-process/crash matrices, unified workspace and clean DaoCloud container gates.
-Those four delivery units close the original development primary-backtest scope.
-The owner's 2026-09-20 instruction reopens the phase to complete the remaining
-authenticated cross-trial statistics path below. Licensed data and completed
-semantic review remain separate prerequisites; no subscription is authorized.
+All five delivery units below are implemented, committed, pushed and accepted.
+Final global-statistics implementation `e325368` passes all seven jobs in
+exact-commit CI `35569521771`, including independent process/crash matrices,
+unified workspace and clean DaoCloud container gates. Phase 7 is complete.
+This includes the authenticated cross-trial statistics extension requested on
+2026-09-20. Licensed-data full retesting remains Phase 5/13; completed semantic
+and economic acceptance remain later gates. No subscription is authorized and
+development/synthetic evidence does not establish investment performance.
 
 Delivery units, each with an executable workflow, negative-path tests, numerical
 goldens, documentation, a Simplified Chinese commit and remote acceptance:
@@ -460,7 +461,13 @@ goldens, documentation, a Simplified Chinese commit and remote acceptance:
    licensed data and economic/semantic acceptance are not waived. See
    `docs/verification/phase-07-global-statistics.md`.
 
-## Phase 8 - Independent validation (`in_progress`)
+## Phase 8 - Independent validation (`complete`)
+
+Final implementation `8f30526` and bounded CI correction `989584b` are pushed.
+Exact-commit run `35686353676` passes all seven jobs: Rust 55m08s, unified
+workspace 69m48s and clean DaoCloud container 73m25s. All four development
+delivery units below are accepted. Licensed production data, preregistered
+economic thresholds and completed semantic review remain separate gates.
 
 Delivery units (implementation, tests, documentation, Chinese commit and push
 together; finish one before starting the next):
@@ -497,7 +504,7 @@ together; finish one before starting the next):
    Exact-commit CI `35498968066` passes all seven jobs, including the clean
    DaoCloud container. The real local acceptance/restart/admission regression
    also passes. Unit 3 is accepted.
-4. Global statistical evidence binding (`in_progress`, ADR 0037; depends on Phase 7 unit 5):
+4. Global statistical evidence binding (`complete`, ADR 0037; depends on Phase 7 unit 5):
    bind the registered full-population report to each independently reconciled
    candidate and the shared admission command. Missing, stale or unavailable
    statistical evidence must remain explicit. Preserve existing immutable
@@ -512,10 +519,53 @@ together; finish one before starting the next):
    six jobs, including full workspace and clean-container gates; the standalone
    Rust job reaches its 60-minute total limit while tests are still passing.
    A workflow-only correction gives that job 75 minutes without removing tests
-   or changing application deadlines. Corrected exact-commit CI remains pending; see
+   or changing application deadlines. Corrected exact-commit run `35686353676`
+   passes all seven jobs; see
    `docs/verification/phase-08-statistical-binding.md`.
 
-## Phase 9 - Provider platform (`pending`)
+## Phase 9 - Provider platform (`in_progress`)
+
+Delivery units (each includes an executable workflow, negative-path contract
+tests, usage/recovery documentation, a Chinese commit, push and remote gates):
+
+1. Native OpenAI/Anthropic invocation (`in_progress`): connect the existing ProviderService to
+   OpenAI Responses/Chat and Anthropic Messages through isolated TypeScript
+   plugins; authenticate callers independently of Actor metadata, pin model and
+   request policy, bound requests/cost/time, and return typed redacted failures.
+   Exercise actual TLS/gRPC and local HTTP vendor fixtures. Unsupported content
+   and operations fail explicitly; offline evidence is not live verification.
+   Local native contracts now pass 52 tests, including the compiled executable,
+   real TLS/gRPC, 2/4/8 independent journal writers, kill/restart, cancellation,
+   clock regression and budget failures. Full `just check`, 115 TypeScript
+   protocol tests and clean TypeScript check/test/build pass. Publication and exact-commit remote
+   acceptance are pending. See ADR 0038 and
+   `docs/verification/phase-09-native-providers.md`.
+2. Streaming and rich messages: connect ordered stream events, tool calls/results,
+   structured output, reasoning continuation, prompt caching and prompt-safe
+   artifacts where each native protocol supports them. Test cancellation,
+   truncated streams, interleaved blocks, malformed output and namespace denial.
+3. Additional native protocols: implement Google GenerateContent/Interactions
+   and Cohere V2 Chat as independent plugins with executable contract matrices,
+   explicit capability differences and provider-specific errors/usage.
+4. Cloud deployments: implement AWS Bedrock Converse/ConverseStream, Azure
+   OpenAI and Google Vertex AI authentication, region/deployment/model mapping
+   and native parameter translation; verify with signed-request fixtures.
+5. First-class vendor plugins: Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
+   Together, Fireworks, Cerebras, Perplexity, GLM/Zhipu, Kimi/Moonshot and MiniMax.
+   Share a wire codec only when the official protocol permits it; preserve each
+   vendor's authentication, parameters, capabilities, errors and usage.
+6. Compatible/self-hosted/gateway paths: OpenAI/Anthropic-compatible endpoints,
+   Ollama, vLLM, SGLang, llama.cpp, LM Studio, NVIDIA NIM, LiteLLM, Portkey and
+   OpenRouter. Distinguish gateway identity from the upstream supplier and deny
+   unproven capabilities. Administrative endpoint configuration is not model input.
+7. Model catalog: merge versioned built-ins, official discovery, verified remote
+   catalogs and administrative overrides; atomically reload validated snapshots
+   without changing a running model resolution. Track implemented/contract/live
+   verification separately from unavailability, deprecation and retirement.
+8. Platform acceptance: verify bounded rate limits/retries and cost accounting,
+   actual provider process/data isolation, dependency boundaries and the combined
+   protocol matrix. Live smoke tests require credentials and explicit budgets;
+   absent credentials remain an honest verification limitation, never a fake pass.
 
 - [ ] Implement native OpenAI, Anthropic, Gemini, Bedrock, and Cohere codecs.
 - [ ] Implement cloud deployment adapters and first-class vendor plugins.

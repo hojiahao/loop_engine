@@ -7,12 +7,18 @@
   "repository": "https://github.com/hojiahao/loop_engine",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "corepack pnpm --filter @loop-engine/protocol build && tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "test": "corepack pnpm --filter @loop-engine/protocol build && tsc -p tsconfig.json && tsc -p tsconfig.test.json && vitest run",
+    "typecheck": "corepack pnpm --filter @loop-engine/protocol build && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.127.0",
+    "@bufbuild/protobuf": "2.14.1",
+    "@connectrpc/connect": "2.2.0",
+    "@connectrpc/connect-node": "2.2.0",
+    "@loop-engine/protocol": "workspace:*",
+    "openai": "7.20.0",
     "zod": "4.5.4"
   }
 }

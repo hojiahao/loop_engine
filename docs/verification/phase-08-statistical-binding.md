@@ -1,8 +1,7 @@
 # Phase 8 unit 4: Global statistical evidence binding
 
-Status: implementation `8f30526` is published; local acceptance passed. The
-standalone Rust CI budget correction still requires exact-commit acceptance
-before phase closure.
+Status: accepted. Implementation `8f30526` and CI correction `989584b` are
+published; exact-commit run `35686353676` passes all seven jobs.
 
 ## Requirement and implementation
 
@@ -73,6 +72,12 @@ tolerances unchanged. The already-passing workspace/container jobs establish
 that the full suite can complete; the corrected commit must still pass its own
 remote gates. Reverting the workflow-only budget change restores the old CI
 limit without changing executable behavior or any research/audit data.
+
+The corrected run completes Rust in 55m08s, the unified workspace gate in
+69m48s and the clean DaoCloud container gate in 73m25s. Together with the local
+evidence above, this closes Phase 8's development independent-validation scope.
+It does not waive licensed data or economic/semantic acceptance, execute a
+protected holdout, enable production admission or merge the feature branch.
 
 ## Rollback
 
