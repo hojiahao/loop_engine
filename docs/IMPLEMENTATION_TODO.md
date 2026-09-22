@@ -508,7 +508,11 @@ together; finish one before starting the next):
    pending/stale/unavailable gates are implemented locally. All six new real
    mTLS/PostgreSQL/Alphalens/Zipline cases and 26 affected Python workflows pass.
    The full v1 Rust compatibility/restart/admission case and final all-targets
-   Clippy also pass. Publication and exact-commit CI remain pending; see
+   Clippy also pass. Implementation `8f30526` is pushed. Run `35587880648` passes
+   six jobs, including full workspace and clean-container gates; the standalone
+   Rust job reaches its 60-minute total limit while tests are still passing.
+   A workflow-only correction gives that job 75 minutes without removing tests
+   or changing application deadlines. Corrected exact-commit CI remains pending; see
    `docs/verification/phase-08-statistical-binding.md`.
 
 ## Phase 9 - Provider platform (`pending`)

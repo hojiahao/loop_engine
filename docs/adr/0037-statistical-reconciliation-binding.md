@@ -1,6 +1,6 @@
 # ADR 0037: Bind global statistics to independent reconciliation
 
-- Status: Implemented; local acceptance passed, publication and remote CI pending
+- Status: Published as `8f30526`; local acceptance passed, Rust CI budget correction pending
 - Owner: hojiahao
 - Extends: ADR 0035 and ADR 0036
 

@@ -1,7 +1,8 @@
 # Phase 8 unit 4: Global statistical evidence binding
 
-Status: implemented; local acceptance passed. Publication and exact-commit
-remote acceptance are required before phase closure.
+Status: implementation `8f30526` is published; local acceptance passed. The
+standalone Rust CI budget correction still requires exact-commit acceptance
+before phase closure.
 
 ## Requirement and implementation
 
@@ -54,6 +55,24 @@ members. The fixture now uses the existing replay method; production visibility
 and numerical authority boundaries were not widened. Runtime/lease deadlines
 and numerical tolerances are unchanged. Existing process/crash regressions remain
 part of the required exact-commit remote CI.
+
+## Remote acceptance correction
+
+Run `35587880648` on `8f30526` passed six jobs, including the complete unified
+workspace gate (69m28s) and clean DaoCloud container gate (72m22s). The Rust job
+was cancelled by its 60-minute total execution limit. Its check annotation says
+"The job has exceeded the maximum execution time of 1h0m0s". The six new binding
+cases, independent 2/4/8-process reconciliation writers and kill/restart cases
+had passed, and further tests were still passing immediately before cancellation.
+This is not a passing standalone Rust job or a closed phase.
+
+Increase only that job's bounded total budget to 75 minutes, accounting for
+dependency installation, compilation and the expanded real-worker regressions.
+Keep every test, the serial test policy, application/lease deadlines and numerical
+tolerances unchanged. The already-passing workspace/container jobs establish
+that the full suite can complete; the corrected commit must still pass its own
+remote gates. Reverting the workflow-only budget change restores the old CI
+limit without changing executable behavior or any research/audit data.
 
 ## Rollback
 
