@@ -202,6 +202,20 @@ describe("JobRecord structural validation", () => {
 });
 
 describe("ProtocolSelection canonical identity", () => {
+  it.each([undefined, "2", "-1", "1.00"])("validates optional cache-write price %s", (price) => {
+    const vector = vectors().find(
+      (entry) => entry.input === "discovery" && entry.expected === "accept",
+    );
+    if (!vector) throw new Error("missing_discovery_vector");
+    const specification = valid_specification(vector);
+    if (specification.input.case !== "discovery") throw new Error("missing_discovery_input");
+    const pricing = specification.input.value.makerModel?.pricing;
+    if (!pricing) throw new Error("missing_model_pricing");
+    pricing.cacheCreationPerMillionTokens = price === undefined ? undefined : money(price);
+    if (price === undefined || price === "2")
+      expect(() => validate_job_specification(specification)).not.toThrow();
+    else expect(() => validate_job_specification(specification)).toThrow(JobValidationError);
+  });
   it("matches the shared producer golden", () => {
     const fields = protocolGoldenText.trimEnd().split("\n")[1]?.split("\t");
     expect(fields).toHaveLength(3);

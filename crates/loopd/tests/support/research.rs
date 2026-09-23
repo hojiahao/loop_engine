@@ -222,6 +222,7 @@ fn model(resolution: &str) -> ModelResolutionSnapshot {
             input_per_million_tokens: Some(money("1")),
             output_per_million_tokens: Some(money("2")),
             cached_input_per_million_tokens: Some(money("0.5")),
+            cache_creation_per_million_tokens: None,
         }),
         capability_sha256: Some(digest(11)),
         catalog_sha256: Some(digest(12)),

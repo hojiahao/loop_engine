@@ -256,7 +256,7 @@ class StructuredOutputDefinition(_message.Message):
     def __init__(self, name: _Optional[str] = ..., description: _Optional[str] = ..., json_schema: _Optional[_Union[JsonSchema, _Mapping]] = ..., strict: _Optional[bool] = ...) -> None: ...
 
 class ModelCapabilities(_message.Message):
-    __slots__ = ("context_window_tokens", "maximum_output_tokens", "supports_tools", "supports_parallel_tools", "supports_structured_output", "supports_vision", "supports_reasoning", "supports_prompt_caching", "supports_streaming")
+    __slots__ = ("context_window_tokens", "maximum_output_tokens", "supports_tools", "supports_parallel_tools", "supports_structured_output", "supports_vision", "supports_reasoning", "supports_prompt_caching", "supports_streaming", "supports_documents")
     CONTEXT_WINDOW_TOKENS_FIELD_NUMBER: _ClassVar[int]
     MAXIMUM_OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     SUPPORTS_TOOLS_FIELD_NUMBER: _ClassVar[int]
@@ -266,6 +266,7 @@ class ModelCapabilities(_message.Message):
     SUPPORTS_REASONING_FIELD_NUMBER: _ClassVar[int]
     SUPPORTS_PROMPT_CACHING_FIELD_NUMBER: _ClassVar[int]
     SUPPORTS_STREAMING_FIELD_NUMBER: _ClassVar[int]
+    SUPPORTS_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     context_window_tokens: int
     maximum_output_tokens: int
     supports_tools: bool
@@ -275,17 +276,20 @@ class ModelCapabilities(_message.Message):
     supports_reasoning: bool
     supports_prompt_caching: bool
     supports_streaming: bool
-    def __init__(self, context_window_tokens: _Optional[int] = ..., maximum_output_tokens: _Optional[int] = ..., supports_tools: _Optional[bool] = ..., supports_parallel_tools: _Optional[bool] = ..., supports_structured_output: _Optional[bool] = ..., supports_vision: _Optional[bool] = ..., supports_reasoning: _Optional[bool] = ..., supports_prompt_caching: _Optional[bool] = ..., supports_streaming: _Optional[bool] = ...) -> None: ...
+    supports_documents: bool
+    def __init__(self, context_window_tokens: _Optional[int] = ..., maximum_output_tokens: _Optional[int] = ..., supports_tools: _Optional[bool] = ..., supports_parallel_tools: _Optional[bool] = ..., supports_structured_output: _Optional[bool] = ..., supports_vision: _Optional[bool] = ..., supports_reasoning: _Optional[bool] = ..., supports_prompt_caching: _Optional[bool] = ..., supports_streaming: _Optional[bool] = ..., supports_documents: _Optional[bool] = ...) -> None: ...
 
 class ModelPricing(_message.Message):
-    __slots__ = ("input_per_million_tokens", "output_per_million_tokens", "cached_input_per_million_tokens")
+    __slots__ = ("input_per_million_tokens", "output_per_million_tokens", "cached_input_per_million_tokens", "cache_creation_per_million_tokens")
     INPUT_PER_MILLION_TOKENS_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_PER_MILLION_TOKENS_FIELD_NUMBER: _ClassVar[int]
     CACHED_INPUT_PER_MILLION_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    CACHE_CREATION_PER_MILLION_TOKENS_FIELD_NUMBER: _ClassVar[int]
     input_per_million_tokens: _common_pb2.Money
     output_per_million_tokens: _common_pb2.Money
     cached_input_per_million_tokens: _common_pb2.Money
-    def __init__(self, input_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., output_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., cached_input_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ...) -> None: ...
+    cache_creation_per_million_tokens: _common_pb2.Money
+    def __init__(self, input_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., output_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., cached_input_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., cache_creation_per_million_tokens: _Optional[_Union[_common_pb2.Money, _Mapping]] = ...) -> None: ...
 
 class ModelResolutionSnapshot(_message.Message):
     __slots__ = ("resolution_id", "provider_id", "model_id", "requested_alias", "protocol_family", "capabilities", "pricing", "capability_sha256", "catalog_sha256", "resolved_at", "provider_plugin_name", "provider_plugin_version", "provider_plugin_sha256", "snapshot_sha256")
@@ -352,18 +356,20 @@ class ModelInvocation(_message.Message):
     def __init__(self, request_id: _Optional[_Union[_common_pb2.RequestId, _Mapping]] = ..., model: _Optional[_Union[ModelResolutionSnapshot, _Mapping]] = ..., messages: _Optional[_Iterable[_Union[ModelMessage, _Mapping]]] = ..., tools: _Optional[_Iterable[_Union[ToolDefinition, _Mapping]]] = ..., tool_choice: _Optional[_Union[ToolChoice, _Mapping]] = ..., structured_output: _Optional[_Union[StructuredOutputDefinition, _Mapping]] = ..., budget: _Optional[_Union[InvocationBudget, _Mapping]] = ..., request_policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ...) -> None: ...
 
 class ModelUsage(_message.Message):
-    __slots__ = ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens", "charged_cost")
+    __slots__ = ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens", "charged_cost", "cache_creation_input_tokens")
     INPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     CACHED_INPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     REASONING_TOKENS_FIELD_NUMBER: _ClassVar[int]
     CHARGED_COST_FIELD_NUMBER: _ClassVar[int]
+    CACHE_CREATION_INPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     input_tokens: int
     output_tokens: int
     cached_input_tokens: int
     reasoning_tokens: int
     charged_cost: _common_pb2.Money
-    def __init__(self, input_tokens: _Optional[int] = ..., output_tokens: _Optional[int] = ..., cached_input_tokens: _Optional[int] = ..., reasoning_tokens: _Optional[int] = ..., charged_cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ...) -> None: ...
+    cache_creation_input_tokens: int
+    def __init__(self, input_tokens: _Optional[int] = ..., output_tokens: _Optional[int] = ..., cached_input_tokens: _Optional[int] = ..., reasoning_tokens: _Optional[int] = ..., charged_cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., cache_creation_input_tokens: _Optional[int] = ...) -> None: ...
 
 class ModelResponse(_message.Message):
     __slots__ = ("request_id", "resolution_id", "content", "finish_reason", "usage")

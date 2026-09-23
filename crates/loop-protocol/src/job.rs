@@ -1016,6 +1016,9 @@ fn validate_model_resolution(
     validate_money(pricing.input_per_million_tokens.as_ref(), field)?;
     validate_money(pricing.output_per_million_tokens.as_ref(), field)?;
     validate_money(pricing.cached_input_per_million_tokens.as_ref(), field)?;
+    if let Some(price) = &pricing.cache_creation_per_million_tokens {
+        validate_money(Some(price), field)?;
+    }
     require_digest(model.capability_sha256.as_ref(), field)?;
     require_digest(model.catalog_sha256.as_ref(), field)?;
     require_digest(model.provider_plugin_sha256.as_ref(), field)?;

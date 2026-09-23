@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { createSecureServer, type Http2ServerRequest } from "node:http2";
 import { TLSSocket } from "node:tls";
+import { create } from "@bufbuild/protobuf";
 import {
   Code,
   type ConnectRouter,
@@ -13,7 +14,9 @@ import { connectNodeAdapter } from "@connectrpc/connect-node";
 import {
   ErrorCategory,
   type InvokeModelRequest,
+  InvokeModelRequestSchema,
   ProviderService,
+  type StreamModelRequest,
 } from "@loop-engine/protocol/provider";
 
 import { type Principal, read_private } from "./config.js";
@@ -85,14 +88,23 @@ export async function create_provider_rpc(host: ProviderHost, shutdown: AbortSig
       throw rpc_error(error);
     }
   }
-  function stream_model(): never {
-    throw rpc_error(
-      new ProviderError(
-        "provider_stream_unavailable",
-        Code.Unimplemented,
-        ErrorCategory.DEPENDENCY,
-      ),
-    );
+  async function* stream_model(request: StreamModelRequest, context: HandlerContext) {
+    try {
+      const principal = context.values.get(principal_key);
+      if (!principal)
+        throw new ProviderError(
+          "provider_identity_denied",
+          Code.Unauthenticated,
+          ErrorCategory.AUTHENTICATION,
+        );
+      const command = create(InvokeModelRequestSchema, {
+        context: request.context,
+        invocation: request.invocation,
+      });
+      for await (const event of host.stream(command, principal, context.signal)) yield { event };
+    } catch (error) {
+      throw rpc_error(error);
+    }
   }
   function routes(router: ConnectRouter) {
     router.rpc(ProviderService.method.invokeModel, invoke_model);

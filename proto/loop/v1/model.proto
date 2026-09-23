@@ -191,12 +191,16 @@ message ModelCapabilities {
   bool supports_reasoning = 7;
   bool supports_prompt_caching = 8;
   bool supports_streaming = 9;
+  bool supports_documents = 10;
 }
 
 message ModelPricing {
   Money input_per_million_tokens = 1;
   Money output_per_million_tokens = 2;
   Money cached_input_per_million_tokens = 3;
+  // Cache creation has a separate price on protocols such as Anthropic.
+  // Retention is pinned by the provider configuration for this resolution.
+  Money cache_creation_per_million_tokens = 4;
 }
 
 // ModelResolutionSnapshot freezes alias resolution and capabilities for the
@@ -250,6 +254,8 @@ message ModelUsage {
   uint64 cached_input_tokens = 3;
   uint64 reasoning_tokens = 4;
   Money charged_cost = 5;
+  // Included in input_tokens, separate from cached_input_tokens (cache reads).
+  uint64 cache_creation_input_tokens = 6;
 }
 
 message ModelResponse {

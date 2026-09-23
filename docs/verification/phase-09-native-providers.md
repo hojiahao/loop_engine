@@ -1,6 +1,8 @@
 # Phase 9 unit 1: Authenticated native text invocation
 
-Status: implemented locally; publication and exact-commit remote gates pending.
+Status: accepted. Implementation `fc0068073a37fb18b9468bd9b252cea0034e8c91`
+is pushed; GitHub Actions run `35701264148` passed all seven jobs, including
+Rust, unified workspace and the clean DaoCloud development container.
 
 ## Requirement and design
 
@@ -70,8 +72,8 @@ and protocol `dist` directories (about 1 MiB), proving the package scripts build
 their required bindings from an empty output directory. All 115 protocol tests
 and 52 Provider tests pass, followed by all TypeScript package builds. The Web
 bootstrap has no behavioral test files yet and is not counted as UI acceptance.
-The full unchanged Rust/research behavioral suite still requires exact-commit
-remote CI; the local native fixture count does not substitute for that gate.
+The full Rust/research behavioral suites also passed in exact-commit remote CI;
+the local native fixture count does not substitute for those gates.
 
 All supplier calls in these tests go to loopback fixtures. No paid model API,
 production database, licensed market data or holdout is accessed. Test-owned

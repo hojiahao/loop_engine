@@ -242,7 +242,7 @@ export function test_certificates(directory: string) {
     .digest("hex");
 }
 
-export async function test_fixture(directory: string) {
+export async function test_fixture(directory: string, configure?: (config: Deployment) => void) {
   const requests: {
     path: string;
     body: Record<string, unknown>;
@@ -257,6 +257,9 @@ export async function test_fixture(directory: string) {
     body: undefined as unknown,
     reply: undefined as unknown,
     on_request: undefined as (() => void) | undefined,
+    events: undefined as readonly Uint8Array[] | undefined,
+    chunk_delay: 0,
+    stream_closed: false,
   };
   const vendor = createServer(async (request, response) => {
     const chunks: Buffer[] = [];
@@ -272,6 +275,20 @@ export async function test_fixture(directory: string) {
     });
     state.on_request?.();
     if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
+    if (body.stream === true && state.events) {
+      response.writeHead(state.status, { "content-type": "text/event-stream" });
+      response.on("close", () => {
+        state.stream_closed = true;
+      });
+      for (const chunk of state.events) {
+        if (response.destroyed) break;
+        response.write(chunk);
+        if (state.chunk_delay)
+          await new Promise((resolve) => setTimeout(resolve, state.chunk_delay));
+      }
+      response.end();
+      return;
+    }
     response.writeHead(state.status, {
       "content-type": "application/json",
       location: "/redirected",
@@ -302,6 +319,7 @@ export async function test_fixture(directory: string) {
   const principal = config.principals[0];
   if (!principal) throw new Error("fixture_principal_missing");
   principal.certificate_sha256 = digest;
+  configure?.(config);
   await open_journal(config.journal);
   const host = new ProviderHost(
     config,

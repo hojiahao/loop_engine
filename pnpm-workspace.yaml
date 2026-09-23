@@ -2,6 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Keep host and CI installs equivalent; pnpm otherwise changes this default
+# with CI detection and may attempt an implicit reinstall before a script.
+enableGlobalVirtualStore: false
+
 allowBuilds:
   "@bufbuild/buf": true
 

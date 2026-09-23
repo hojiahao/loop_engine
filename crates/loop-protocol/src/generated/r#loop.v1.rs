@@ -854,6 +854,8 @@ pub struct ModelCapabilities {
     pub supports_prompt_caching: bool,
     #[prost(bool, tag = "9")]
     pub supports_streaming: bool,
+    #[prost(bool, tag = "10")]
+    pub supports_documents: bool,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ModelPricing {
@@ -863,6 +865,8 @@ pub struct ModelPricing {
     pub output_per_million_tokens: ::core::option::Option<Money>,
     #[prost(message, optional, tag = "3")]
     pub cached_input_per_million_tokens: ::core::option::Option<Money>,
+    #[prost(message, optional, tag = "4")]
+    pub cache_creation_per_million_tokens: ::core::option::Option<Money>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ModelResolutionSnapshot {
@@ -937,6 +941,8 @@ pub struct ModelUsage {
     pub reasoning_tokens: u64,
     #[prost(message, optional, tag = "5")]
     pub charged_cost: ::core::option::Option<Money>,
+    #[prost(uint64, tag = "6")]
+    pub cache_creation_input_tokens: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ModelResponse {

@@ -861,6 +861,8 @@ def _validate_model_resolution(
         else None,
         field,
     )
+    if pricing.HasField("cache_creation_per_million_tokens"):
+        _validate_money(pricing.cache_creation_per_million_tokens, field)
     for digest_name in (
         "capability_sha256",
         "catalog_sha256",

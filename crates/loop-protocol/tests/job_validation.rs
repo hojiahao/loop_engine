@@ -101,6 +101,32 @@ fn shared_job_matrix() {
 }
 
 #[test]
+fn cache_write_pricing() {
+    let vector = vectors()
+        .find(|entry| entry.input == "discovery" && entry.expected == "accept")
+        .unwrap();
+    for price in [None, Some("2"), Some("-1"), Some("1.00")] {
+        let mut specification = valid_specification(&vector);
+        let Some(job_specification::Input::Discovery(input)) = &mut specification.input else {
+            unreachable!()
+        };
+        input
+            .maker_model
+            .as_mut()
+            .unwrap()
+            .pricing
+            .as_mut()
+            .unwrap()
+            .cache_creation_per_million_tokens = price.map(money);
+        assert_eq!(
+            validate_job_specification(&specification).is_ok(),
+            matches!(price, None | Some("2")),
+            "{price:?}"
+        );
+    }
+}
+
+#[test]
 // Scenario: protocol selection producer matches shared golden.
 fn protocol_selection_producer() {
     let fields: Vec<_> = PROTOCOL_GOLDEN
@@ -894,6 +920,7 @@ fn model(resolution: &str) -> ModelResolutionSnapshot {
             input_per_million_tokens: Some(money("1")),
             output_per_million_tokens: Some(money("2")),
             cached_input_per_million_tokens: Some(money("0.5")),
+            cache_creation_per_million_tokens: None,
         }),
         capability_sha256: Some(digest(11)),
         catalog_sha256: Some(digest(12)),

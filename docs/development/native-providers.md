@@ -1,19 +1,20 @@
-# Native Provider invocation
+# Native Provider conversations
 
-Phase 9 unit 1 adds an optional TLS 1.3 / HTTP/2 gRPC listener to the existing
-TypeScript `providerd`. It implements `loop.provider.v1.ProviderService/InvokeModel`
-for three native paths: `openai_responses`, `openai_chat`, and `anthropic`.
+The TypeScript `providerd` has an optional TLS 1.3 / HTTP/2 gRPC listener. It
+implements `loop.provider.v1.ProviderService/InvokeModel` and `StreamModel` for
+three native paths: `openai_responses`, `openai_chat`, and `anthropic`.
 The bootstrap HTTP health endpoint remains at `127.0.0.1:8090` and cannot invoke
 a model. No listener is enabled by an API key alone.
 
-This delivery supports unary system/user/assistant **text** conversations ending
-with a user message, plus text/refusal responses and explicit length termination.
-All system messages must precede conversational messages. Tools, JSON-schema
-output, thinking continuation, images/documents and streaming are explicitly
-unavailable until delivery unit 2; no artifact path is resolved. Effective model
-capability snapshots reflect this subset. Other suppliers, model discovery and
-catalog reload are later Phase 9 units. Run-wide scheduling/budgets remain Phase
-10/11. This is not a completed autonomous research loop.
+Conversations support text, function-tool proposals/results, registered JSON-schema
+output, images/PDFs from private prompt artifacts and ordered streaming. Responses
+and Anthropic also support private reasoning continuation. All system messages
+precede conversational messages; a request ends with a user or tool-result turn.
+Optional capabilities default to **disabled** and must be verified for the exact
+configured model before enabling. A plugin's implementation does not prove that
+every model implements its features. Other suppliers, model discovery and catalog
+reload remain later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
+This is not a completed autonomous research loop.
 
 ## Private deployment
 
@@ -114,13 +115,172 @@ count. Anthropic uses its native Messages counter. Counters may differ from fina
 usage; an observed overrun is an explicit failure, not a reversible supplier
 charge. Maximum output tokens are also sent to the supplier.
 
-The preflight reserve uses the full input/output allowance and uncached pinned
-prices with integer nanodollar arithmetic, rounded up. No cache discount is
-assumed in that reserve. Reported cached input tokens are included in total input
-tokens for both suppliers. Cache creation is not requested; unexpected Anthropic
-cache writes are denied because their separate pricing is not represented here.
+The preflight reserve uses the full input/output allowance and pinned prices
+with integer nanodollar arithmetic, rounded up. The input price used is
+the maximum of uncached, cache-read and configured cache-creation prices. No
+cache hit is assumed. Reported cached tokens are included in total input tokens;
+Anthropic total input is uncached plus cache-read plus cache-creation tokens.
+Cache writes have their own `cache_creation_input_tokens` usage field.
 `ModelUsage.charged_cost` remains absent: token-price calculations are not invoices.
 These are per-call limits; do not treat them as a durable cumulative run budget.
+
+## Enabling model features
+
+Add the following object inside a model entry only for capabilities confirmed
+for that model. The example enables streaming and functions but keeps other
+optional features disabled:
+
+```json
+"features": {
+  "streaming": true,
+  "tools": true,
+  "parallel_tools": true,
+  "structured_output": false,
+  "vision": false,
+  "documents": false,
+  "prompt_caching": false
+}
+```
+
+`parallel_tools` requires `tools`; `documents` requires `vision`. Configuration
+changes require a restart and fresh `--describe` pins. Do not invent a capability
+by modifying a returned snapshot. The implemented native differences are:
+
+| Feature | Responses | Chat Completions | Anthropic Messages |
+| --- | --- | --- | --- |
+| Text, function tools, streaming | Supported | Supported | Supported |
+| Registered schema output | Native text format | Native response format | Native output config; strict required |
+| Prompt images/PDFs | Inline verified bytes | Inline verified bytes | Inline verified bytes; automatic image detail only |
+| Reasoning continuation | Encrypted native item | Unavailable | Signed/redacted thinking blocks |
+| Requested prompt cache retention | `in_memory` | Supplier automatic caching | Explicit 5-minute cache; separately priced writes |
+
+For Responses set `reasoning` to `low`, `medium` or `high` only when the exact model
+supports that effort and summary/continuation format. For Anthropic use `adaptive`,
+or `enabled` together with `thinking_tokens` (at least 1024, strictly below both
+configured and per-call maximum output tokens). Forced/named tool choice with
+Anthropic thinking is rejected before transport. Chat requires `reasoning: "off"`.
+
+Enabling Anthropic `prompt_caching` requires a separately verified
+`cache_creation_usd` price. This deployment profile requests only 5-minute
+retention; an observed one-hour cache write is rejected. Other plugins reject
+`cache_creation_usd`. The OpenAI transports still account for reported cache hits
+when no cache preference was requested. No cache hit or exact cost reduction is
+guaranteed by a capability flag.
+
+## Registered schemas and tools
+
+Only an administrator-registered JSON schema may enter the model request. Create
+a private file containing its exact RFC 8785 canonical UTF-8 JSON, without BOM or
+a trailing newline. Set mode `0600`, compute its SHA-256, and register the immutable
+file in the deployment:
+
+```json
+"schemas": [{
+  "id": "factor-window",
+  "version": 1,
+  "sha256": "REPLACE_WITH_CANONICAL_SCHEMA_SHA256",
+  "path": "/private/loop-provider/schemas/factor-window.json"
+}]
+```
+
+For example, the canonical bytes for a bounded integer window schema are:
+
+```json
+{"additionalProperties":false,"properties":{"window":{"minimum":1,"type":"integer"}},"required":["window"],"type":"object"}
+```
+
+Compute `sha256sum /private/loop-provider/schemas/factor-window.json`; its result
+must match both registration and `JsonSchema.schema_sha256`. The request also
+includes the same ID, version and canonical bytes. A changed, missing or unregistered
+schema fails before any supplier request. Registration is part of the policy pin.
+Schemas use the supported strict Ajv JSON Schema profile: no regex `pattern`,
+`patternProperties`, `format`, remote references, asynchronous validators or data
+extensions. Schemas are limited to 64 KiB; documents are limited to 256 KiB, depth
+32 and 16,384 parsed nodes. Duplicate keys, non-finite numbers and malformed
+Unicode are rejected; validation never coerces, inserts or removes fields.
+
+Set `ToolDefinition.strict` explicitly (including when choosing `false`) and use
+an object-root input schema. `ToolChoice` can be auto, none, required or a registered
+name. The host returns proposals and never executes them. After a completed
+`TOOL_CALL` result, append its assistant content, then exactly one `ToolResultContent`
+for each unanswered call under role `TOOL`, with explicit `SUCCESS` or `ERROR`.
+Each result must reference that call ID. Unmatched, duplicate and unresolved calls
+fail validation. Tool results may be text, registered JSON documents, or private
+text/JSON artifact references. Error results retain their error status on the wire.
+
+For final schema output, set `structured_output` and an explicit strict choice.
+The host validates completed JSON against the registered schema and returns a
+`StructuredOutputContent` containing the document's canonical digest. A length
+termination is explicitly `LENGTH`, with partial text retained; it is not validated
+schema success. Tool arguments are never accepted as an incomplete JSON fragment.
+
+## Prompt artifacts and reasoning state
+
+Optionally configure `prompts` as a private absolute directory separate from
+research and holdout storage. A trusted publisher supplies immutable files at:
+
+```text
+<prompts>/<SHA-256 of the authenticated actor ID's UTF-8 bytes>/<file SHA-256>
+```
+
+The root and actor directory must be owned by the service identity with mode
+`0700`; files require `0600`. Symlinks are denied at these checked paths. Publish
+with exclusive creation and filesystem durability before referencing the file;
+do not change bytes at an existing digest. The host is a read-only consumer, not
+an arbitrary URL fetcher or research-data exporter.
+
+`ArtifactRef` uses ID `<file SHA-256>`, URI `loop-prompt://sha256/<file SHA-256>`, raw
+SHA-256 bytes, exact byte size, media type and a non-future `created_at`. It has no
+row count or manifest. Its schema is `loop.prompt-artifact`, version 1, with the
+SHA-256 of RFC 8785 canonical `{"schema":"loop.prompt-artifact/v1","media_type":"<MIME>"}`.
+Allowed media are `text/plain`, `application/json`, `image/png`, `image/jpeg` and
+`application/pdf`. Images and documents use their respective content variants;
+text/JSON artifact references are for tool results. PNG/JPEG/PDF checks verify
+signatures, **not** complete file validity or sanitization. Publishers remain
+responsible for content preparation. Each artifact and the aggregate referenced
+bytes are capped at 4 MiB; text/JSON also has the tighter JSON/text bounds.
+Counting and generation use the same verified bytes, read once per request.
+
+Reasoning output exposes only a summary and an opaque continuation reference.
+Append that block unchanged to its assistant turn to continue. Native encrypted
+or signed state stays in checksummed private journal records, bound to the
+authenticated actor, provider, exact resolution and summary, with a 24-hour expiry.
+The filesystem receipt encoding is not additional at-rest encryption. References
+are not transferable across actors/models and cannot extend their expiry. A
+restart can continue a still-valid record; changing a summary or record fails
+closed. Preserve these records with the responses that reference them, including
+after expiry, until an explicit retention policy is introduced.
+
+## Streaming completion and cancellation
+
+Use `client.streamModel` with `StreamModelRequest`, containing the same context
+and invocation contract as unary calls. Each RPC item wraps its `ModelStreamEvent`
+in `event`. Sequence numbers start at 1 and increase without gaps:
+
+```text
+started -> contentDelta* -> usageUpdate -> completed
+```
+
+Content indices address blocks in the completed normalized response. For Chat,
+which has separate text/tool fields, blocks follow their first nonempty fragment
+arrival; an empty role/content chunk does not create a phantom block. Tool argument
+fragments and reasoning summaries are previews. Consumers must wait for the
+validated `completed.response` before executing a tool or accepting structured
+output. A refusal remains `CONTENT_FILTER`, not an accepted research proposal.
+
+The host checks lifecycle order, final content against previews, complete JSON,
+schemas, final usage and budget before durable publication and completion. It
+requires Chat's `[DONE]` and native completion for the other protocols, then EOF;
+unknown/trailing events, truncation and cancellation return non-OK RPC status.
+SSE decoding caps the response at 8 MiB, 16,384 events and 512 KiB per event; model
+content is capped at 256 KiB and 256 blocks. Pull-based decoding retains
+backpressure; HTTP/SDK transport buffers still exist within those bounded paths.
+Pass an `AbortSignal` to cancel, and always retain a bounded RPC deadline.
+
+An exact completed retry emits `started`, `usageUpdate`, `completed` from the saved
+response without regenerating previews or another supplier call. An interrupted
+claim remains ambiguous. Request identity is shared between unary and streaming
+calls; switching the RPC method does not authorize another charge.
 
 ## Duplicate calls and failures
 
@@ -160,6 +320,9 @@ kill/restart checks cover incomplete and published responses. Tests create their
 own `loop-provider-*` temporary directories and remove them after completion.
 
 Unset `PROVIDERD_DEPLOYMENT` and restart to restore health-only operation. Preserve
-the private journal, audit/research history and configuration snapshots. There is
-no SQL migration or production database change. The prior executable cannot serve
-new native calls; do not discard journals when deploying it.
+private invocation/continuation records, audit/research history and configuration
+snapshots. There is no SQL migration or production database change. To return to
+the text-only build, restore that build's configuration and obtain its own pins;
+do not reuse rich-content pins or discard journals. Additive wire fields preserve
+the original compatibility baseline. Offline fixtures do not establish paid
+supplier availability or `live_verified` status.

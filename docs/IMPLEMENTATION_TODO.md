@@ -6,6 +6,19 @@ documentation, commit, and remote push have passed the documented exit gate.
 
 Status values: `pending`, `in_progress`, `blocked`, `complete`.
 
+## Delivery order
+
+The owner's 2026-09-22 instruction is to finish every Phase 9 delivery unit
+before the first merge to `main`. Continue task-sized Chinese commits and pushes
+on `refactor/us-equities-loop-runtime`; do not merge an intermediate Provider
+checkpoint. After Phase 9 acceptance, prepare the product-oriented README and
+reviewed pull request before merging. The README describes usable capabilities,
+installation, configuration and workflows; phase progress and acceptance history
+stay in the repository's maintenance documentation. Do not include that history
+in product screens or production runtime images. Development/test containers may
+still need source documentation for their verification commands. The final
+release-documentation gate remains part of Phase 14.
+
 ## Global invariants
 
 - [ ] The Loop Runtime has no provider-specific branches.
@@ -528,7 +541,7 @@ together; finish one before starting the next):
 Delivery units (each includes an executable workflow, negative-path contract
 tests, usage/recovery documentation, a Chinese commit, push and remote gates):
 
-1. Native OpenAI/Anthropic invocation (`in_progress`): connect the existing ProviderService to
+1. Native OpenAI/Anthropic invocation (`complete`): connect the existing ProviderService to
    OpenAI Responses/Chat and Anthropic Messages through isolated TypeScript
    plugins; authenticate callers independently of Actor metadata, pin model and
    request policy, bound requests/cost/time, and return typed redacted failures.
@@ -537,13 +550,19 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    Local native contracts now pass 52 tests, including the compiled executable,
    real TLS/gRPC, 2/4/8 independent journal writers, kill/restart, cancellation,
    clock regression and budget failures. Full `just check`, 115 TypeScript
-   protocol tests and clean TypeScript check/test/build pass. Publication and exact-commit remote
-   acceptance are pending. See ADR 0038 and
+   protocol tests and clean TypeScript check/test/build pass. Commit `fc00680` is
+   pushed; all seven jobs in exact-commit CI run `35701264148` passed. See ADR 0038 and
    `docs/verification/phase-09-native-providers.md`.
-2. Streaming and rich messages: connect ordered stream events, tool calls/results,
+2. Streaming and rich messages (`in_progress`): connect ordered stream events, tool calls/results,
    structured output, reasoning continuation, prompt caching and prompt-safe
    artifacts where each native protocol supports them. Test cancellation,
    truncated streams, interleaved blocks, malformed output and namespace denial.
+   Native content/stream adapters, registered schemas, actor-private artifacts,
+   reasoning-state recovery and cache-write accounting are implemented. The
+   Provider suite passes 127 local tests with actual TLS/gRPC fixtures. Full
+   `just check`, TypeScript test/build, 310 Python protocol and 27 Rust protocol
+   tests pass. Chinese task commit, push and exact-commit CI remain pending;
+   see ADR 0039 and `docs/verification/phase-09-native-content.md`.
 3. Additional native protocols: implement Google GenerateContent/Interactions
    and Cohere V2 Chat as independent plugins with executable contract matrices,
    explicit capability differences and provider-specific errors/usage.

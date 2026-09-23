@@ -45,6 +45,7 @@ async function free_port() {
 }
 
 describe("installed provider executable", () => {
+  // The runner deadline includes the child's existing 10-second timeout and cleanup.
   it("prints exact non-secret pins without enabling a listener or calling a model", async () => {
     const fixture = await configuration();
     const result = await exec_file(process.execPath, [executable, "--describe"], {
@@ -56,7 +57,7 @@ describe("installed provider executable", () => {
     expect(pins.models[0].snapshot.providerPluginSha256.value).toBeTruthy();
     expect(result.stdout + result.stderr).not.toContain(TEST_SECRET);
     expect(result.stderr).toBe("");
-  });
+  }, 15_000);
 
   it("redacts invalid deployment values on startup", async () => {
     const fixture = await configuration();
@@ -67,7 +68,7 @@ describe("installed provider executable", () => {
         timeout: 10_000,
       }),
     ).rejects.toMatchObject({ stderr: "provider_start_failed\n", stdout: "" });
-  });
+  }, 15_000);
 
   it("serves health and authenticated RPC from the compiled entry point", async () => {
     const fixture = await configuration();

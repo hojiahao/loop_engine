@@ -182,7 +182,7 @@ describe("native mTLS invocation", () => {
     expect(fixture.requests).toHaveLength(0);
   });
 
-  it("denies streaming explicitly until its separate delivery unit", async () => {
+  it("denies streaming when absent from the model capability declaration", async () => {
     const request = request_copy();
     const stream = create(StreamModelRequestSchema, {
       context: request.context,

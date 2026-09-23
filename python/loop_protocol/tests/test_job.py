@@ -60,6 +60,21 @@ OTHER_FACTOR_ID = f"sha256:{'b' * 64}"
 SHARED_VECTORS = list(csv.DictReader(VECTORS.open(), delimiter="\t"))
 
 
+@pytest.mark.parametrize("price", [None, "2", "-1", "1.00"])
+def test_cache_pricing(price: str | None) -> None:
+    specification = job_pb2.JobSpecification()
+    _set_valid_specification(specification, {"kind": "discovery", "input": "discovery"})
+    if price is not None:
+        specification.discovery.maker_model.pricing.cache_creation_per_million_tokens.CopyFrom(
+            _money(price)
+        )
+    if price in {None, "2"}:
+        validate_job_specification(specification)
+    else:
+        with pytest.raises(JobValidationError):
+            validate_job_specification(specification)
+
+
 @pytest.mark.parametrize("missing", ["provenance", "deterministic_seed"])
 # Scenario: factor execution identity requires a complete pair.
 def test_factor_execution(missing: str) -> None:

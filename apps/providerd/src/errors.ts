@@ -33,7 +33,10 @@ export function rpc_error(error: unknown): ConnectError {
 }
 
 export function native_error(error: unknown, signal: AbortSignal): ProviderError {
-  if (error instanceof ProviderError) return error;
+  if (error instanceof ProviderError)
+    return error.category === ErrorCategory.VALIDATION
+      ? new ProviderError(error.code, Code.DataLoss, ErrorCategory.DEPENDENCY)
+      : error;
   if (signal.aborted)
     return new ProviderError("provider_cancelled", Code.Canceled, ErrorCategory.CANCELLED);
   const status =

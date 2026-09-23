@@ -691,6 +691,8 @@ function validate_model_resolution(
   validate_money(pricing.inputPerMillionTokens, field);
   validate_money(pricing.outputPerMillionTokens, field);
   validate_money(pricing.cachedInputPerMillionTokens, field);
+  if (pricing.cacheCreationPerMillionTokens !== undefined)
+    validate_money(pricing.cacheCreationPerMillionTokens, field);
   require_digest(model.capabilitySha256, field);
   require_digest(model.catalogSha256, field);
   require_digest(model.providerPluginSha256, field);

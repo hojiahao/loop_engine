@@ -8,6 +8,7 @@
     "key": "/private/loop-provider/server.key"
   },
   "journal": "/private/loop-provider/invocations",
+  "schemas": [],
   "principals": [
     {
       "certificate_sha256": "REPLACE_WITH_CLIENT_CERTIFICATE_DER_SHA256",
@@ -17,7 +18,7 @@
     }
   ],
   "policy": {
-    "id": "native-text",
+    "id": "native-conversation",
     "revision": "1",
     "input_tokens": 8192,
     "output_tokens": 1024,
@@ -36,6 +37,16 @@
       "input_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
       "output_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
       "cached_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "features": {
+        "streaming": false,
+        "tools": false,
+        "parallel_tools": false,
+        "structured_output": false,
+        "vision": false,
+        "documents": false,
+        "prompt_caching": false
+      },
+      "reasoning": "off",
       "secret_env": "LOOP_LLM_OPENAI_API_KEY"
     },
     {
@@ -48,6 +59,16 @@
       "input_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
       "output_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
       "cached_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "features": {
+        "streaming": false,
+        "tools": false,
+        "parallel_tools": false,
+        "structured_output": false,
+        "vision": false,
+        "documents": false,
+        "prompt_caching": false
+      },
+      "reasoning": "off",
       "secret_env": "LOOP_LLM_ANTHROPIC_API_KEY"
     }
   ]

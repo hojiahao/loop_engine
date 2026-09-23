@@ -1,5 +1,5 @@
 import { create, equals, fromBinary, toBinary, toJson } from "@bufbuild/protobuf";
-import { timestampDate } from "@bufbuild/protobuf/wkt";
+import { timestampDate, timestampNow } from "@bufbuild/protobuf/wkt";
 import { Code } from "@connectrpc/connect";
 import {
   ActorKind,
@@ -7,25 +7,22 @@ import {
   type InvokeModelRequest,
   InvokeModelRequestSchema,
   ModelResolutionSnapshotSchema,
+  type ModelResponse,
   ModelResponseSchema,
-  ModelRole,
+  type ModelStreamEvent,
+  ModelStreamEventSchema,
   PolicyReferenceSchema,
-  ToolChoiceMode,
 } from "@loop-engine/protocol/provider";
 
 import { type Deployment, model_snapshot, type Principal, request_policy } from "./config.js";
+import { ProviderContent } from "./content.js";
 import { ProviderError } from "./errors.js";
 import { digest_json, hex_digest } from "./identity.js";
 import { claim_invocation, finish_invocation, JournalError } from "./journal.js";
-import {
-  type NativePlugin,
-  response_blocks,
-  response_finish,
-  response_usage,
-  type TextMessage,
-} from "./native.js";
+import { type NativePlugin, type NativeReply, response_finish, response_usage } from "./native.js";
 import { anthropic_plugin } from "./native-anthropic.js";
 import { openai_plugin } from "./native-openai.js";
+import { StreamEvidence, stream_invalid } from "./stream.js";
 
 const factories = {
   openai_responses: (secret: string, fetcher: typeof fetch) =>
@@ -47,62 +44,12 @@ function validate_id(value: string | undefined): string {
   return value;
 }
 
-function text_messages(command: InvokeModelRequest): TextMessage[] {
-  const invocation = command.invocation;
-  if (
-    !invocation ||
-    invocation.messages.length < 1 ||
-    invocation.messages.length > 512 ||
-    invocation.tools.length ||
-    invocation.structuredOutput ||
-    (invocation.toolChoice &&
-      (invocation.toolChoice.mode !== ToolChoiceMode.NONE || invocation.toolChoice.namedTool))
-  ) {
-    throw new ProviderError("unsupported_request_content");
-  }
-  let non_system = false;
-  let bytes = 0;
-  const output = invocation.messages.map((message): TextMessage => {
-    const role =
-      message.role === ModelRole.SYSTEM
-        ? "system"
-        : message.role === ModelRole.USER
-          ? "user"
-          : message.role === ModelRole.ASSISTANT
-            ? "assistant"
-            : undefined;
-    if (
-      !role ||
-      (role === "system" && non_system) ||
-      message.content.length < 1 ||
-      message.content.length > 256
-    )
-      throw new ProviderError("unsupported_request_content");
-    non_system ||= role !== "system";
-    const parts = message.content.map((block) => {
-      if (block.content.case !== "text" || !block.content.value.text.isWellFormed())
-        throw new ProviderError("unsupported_request_content");
-      bytes += Buffer.byteLength(block.content.value.text);
-      return block.content.value.text;
-    });
-    return { role, text: parts.join("") };
-  });
-  if (
-    bytes < 1 ||
-    bytes > 262_144 ||
-    !output.some((message) => message.role === "user") ||
-    output.at(-1)?.role !== "user"
-  ) {
-    throw new ProviderError("invalid_text_conversation");
-  }
-  return output;
-}
-
 /** Native dispatch owns neither research state nor autonomous retry decisions. */
 export class ProviderHost {
   private active = 0;
   private last_time = 0;
   private readonly plugins = new Map<string, NativePlugin>();
+  private readonly content: ProviderContent;
   readonly models;
   readonly policy;
 
@@ -112,6 +59,7 @@ export class ProviderHost {
     secrets: Readonly<Record<string, string | undefined>>,
     fetcher: typeof fetch = fetch,
   ) {
+    this.content = new ProviderContent(config);
     this.models = config.models.map((model) => ({
       route: model,
       snapshot: model_snapshot(config, model, plugin),
@@ -124,7 +72,28 @@ export class ProviderHost {
     }
   }
 
-  async invoke(command: InvokeModelRequest, principal: Principal, signal: AbortSignal) {
+  async invoke(
+    command: InvokeModelRequest,
+    principal: Principal,
+    signal: AbortSignal,
+  ): Promise<ModelResponse> {
+    for await (const event of this.execute(command, principal, signal, false)) {
+      if (event.event.case === "completed" && event.event.value.response)
+        return event.event.value.response;
+    }
+    return stream_invalid();
+  }
+
+  stream(command: InvokeModelRequest, principal: Principal, signal: AbortSignal) {
+    return this.execute(command, principal, signal, true);
+  }
+
+  private async *execute(
+    command: InvokeModelRequest,
+    principal: Principal,
+    signal: AbortSignal,
+    streaming: boolean,
+  ): AsyncGenerator<ModelStreamEvent> {
     const now = Date.now();
     if (now < this.last_time)
       throw new ProviderError("provider_clock_regressed", Code.Unavailable, ErrorCategory.INTERNAL);
@@ -179,7 +148,12 @@ export class ProviderHost {
     }
     if (new Date(this.config.resolved_at).getTime() > timestampDate(context.requestedAt).getTime())
       throw new ProviderError("future_model_resolution");
-    const messages = text_messages(command);
+    if (streaming && !selected.route.features.streaming)
+      throw new ProviderError(
+        "provider_stream_unavailable",
+        Code.Unimplemented,
+        ErrorCategory.DEPENDENCY,
+      );
     const budget = invocation.budget;
     const maximum = budget?.maximumWallTime;
     if (
@@ -198,8 +172,15 @@ export class ProviderHost {
     }
     const wall_time = Number(maximum.seconds) * 1000 + Math.ceil(maximum.nanos / 1_000_000);
     const max_cost = decimal_units(budget.maximumCost.amount.value);
+    const input_price = [
+      selected.route.input_usd,
+      selected.route.cached_usd,
+      selected.route.cache_creation_usd ?? "0",
+    ]
+      .map(decimal_units)
+      .reduce((highest, price) => (price > highest ? price : highest), 0n);
     const reserved =
-      (budget.maximumInputTokens * decimal_units(selected.route.input_usd) +
+      (budget.maximumInputTokens * input_price +
         budget.maximumOutputTokens * decimal_units(selected.route.output_usd) +
         999_999n) /
       1_000_000n;
@@ -236,8 +217,34 @@ export class ProviderHost {
       );
     this.active += 1;
     const deadline = AbortSignal.timeout(wall_time);
-    const combined = AbortSignal.any([signal, deadline]);
+    const stopped = new AbortController();
+    const combined = AbortSignal.any([signal, deadline, stopped.signal]);
+    let sequence = 0n;
+    const stamp = (event: ModelStreamEvent["event"]) => {
+      const time = Date.now();
+      if (time < this.last_time)
+        throw new ProviderError(
+          "provider_clock_regressed",
+          Code.Unavailable,
+          ErrorCategory.INTERNAL,
+        );
+      this.last_time = time;
+      combined.throwIfAborted();
+      return create(ModelStreamEventSchema, {
+        requestId: invocation.requestId,
+        sequence: ++sequence,
+        emittedAt: timestampNow(),
+        event,
+      });
+    };
     try {
+      const input = await this.content.prepare(
+        invocation,
+        selected.route,
+        principal.actor_id,
+        selected.snapshot,
+      );
+      combined.throwIfAborted();
       const slot = await claim_invocation(this.config.journal, key, {
         schema: "loop.provider-claim/v1",
         actor: principal.actor_id,
@@ -245,6 +252,10 @@ export class ProviderHost {
           digest_json("loop.provider-invocation/v1", toJson(InvokeModelRequestSchema, command)),
         ),
         reserved_nano_usd: reserved.toString(),
+      });
+      yield stamp({
+        case: "started",
+        value: { $typeName: "loop.v1.StreamStarted", resolutionId: selected.snapshot.resolutionId },
       });
       if (slot.cached) {
         const cached = fromBinary(ModelResponseSchema, slot.cached);
@@ -261,14 +272,17 @@ export class ProviderHost {
             ErrorCategory.INTERNAL,
           );
         }
-        return cached;
+        yield stamp({
+          case: "usageUpdate",
+          value: { $typeName: "loop.v1.UsageUpdate", usage: cached.usage },
+        });
+        yield stamp({
+          case: "completed",
+          value: { $typeName: "loop.v1.StreamCompleted", response: cached },
+        });
+        return;
       }
       combined.throwIfAborted();
-      const input = {
-        model: selected.route,
-        messages,
-        output_tokens: Number(budget.maximumOutputTokens),
-      };
       const counted = await plugin.count_input(input, combined);
       if (
         BigInt(counted) > budget.maximumInputTokens ||
@@ -281,7 +295,21 @@ export class ProviderHost {
         );
       }
       combined.throwIfAborted();
-      const reply = await plugin.invoke(input, combined);
+      let reply: NativeReply | undefined;
+      if (streaming) {
+        const evidence = new StreamEvidence();
+        for await (const event of plugin.stream(input, combined)) {
+          if (reply) stream_invalid();
+          if (event.kind === "delta") {
+            evidence.record(event.delta);
+            yield stamp({ case: "contentDelta", value: event.delta });
+          } else {
+            evidence.verify(event.reply);
+            reply = event.reply;
+          }
+        }
+        if (!reply) stream_invalid();
+      } else reply = await plugin.invoke(input, combined);
       combined.throwIfAborted();
       const usage = response_usage(reply.usage);
       if (
@@ -294,15 +322,24 @@ export class ProviderHost {
           ErrorCategory.BUDGET_EXHAUSTED,
         );
       }
+      const content = await this.content
+        .response(reply, input, principal.actor_id, selected.snapshot)
+        .catch((error: unknown) => {
+          if (error instanceof ProviderError && error.category === ErrorCategory.VALIDATION)
+            throw new ProviderError(error.code, Code.DataLoss, ErrorCategory.DEPENDENCY);
+          throw error;
+        });
       const response = create(ModelResponseSchema, {
         requestId: invocation.requestId,
         resolutionId: selected.snapshot.resolutionId,
-        content: response_blocks(reply),
+        content,
         finishReason: response_finish(reply),
         usage,
       });
+      combined.throwIfAborted();
       await finish_invocation(this.config.journal, slot, toBinary(ModelResponseSchema, response));
-      return response;
+      yield stamp({ case: "usageUpdate", value: { $typeName: "loop.v1.UsageUpdate", usage } });
+      yield stamp({ case: "completed", value: { $typeName: "loop.v1.StreamCompleted", response } });
     } catch (error) {
       if (signal.aborted)
         throw new ProviderError("provider_cancelled", Code.Canceled, ErrorCategory.CANCELLED);
@@ -312,6 +349,7 @@ export class ProviderHost {
         throw new ProviderError(error.code, Code.FailedPrecondition, ErrorCategory.CONFLICT);
       throw error;
     } finally {
+      stopped.abort();
       this.active -= 1;
     }
   }

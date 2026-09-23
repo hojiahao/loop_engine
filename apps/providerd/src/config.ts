@@ -26,6 +26,20 @@ const model_schema = z.strictObject({
   input_usd: decimal,
   output_usd: decimal,
   cached_usd: decimal,
+  cache_creation_usd: decimal.optional(),
+  features: z
+    .strictObject({
+      streaming: z.boolean().default(false),
+      tools: z.boolean().default(false),
+      parallel_tools: z.boolean().default(false),
+      structured_output: z.boolean().default(false),
+      vision: z.boolean().default(false),
+      documents: z.boolean().default(false),
+      prompt_caching: z.boolean().default(false),
+    })
+    .prefault({}),
+  reasoning: z.enum(["off", "low", "medium", "high", "adaptive", "enabled"]).default("off"),
+  thinking_tokens: z.number().int().min(1024).max(99_999).optional(),
   secret_env: z.string().regex(/^LOOP_LLM_[A-Z0-9_]{1,64}$/),
 });
 
@@ -35,6 +49,18 @@ export const deployment_schema = z.strictObject({
   port: z.number().int().min(1024).max(65535),
   tls: z.strictObject({ ca: private_path, certificate: private_path, key: private_path }),
   journal: private_path,
+  prompts: private_path.optional(),
+  schemas: z
+    .array(
+      z.strictObject({
+        id: token,
+        version: z.number().int().min(1),
+        sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        path: private_path,
+      }),
+    )
+    .max(128)
+    .default([]),
   principals: z
     .array(
       z.strictObject({
@@ -90,7 +116,24 @@ export function validate_deployment(value: unknown): Deployment {
   if (
     models.size !== config.models.length ||
     certificates.size !== config.principals.length ||
-    config.models.some((model) => model.output_tokens > model.context_tokens) ||
+    new Set(config.schemas.map((schema) => schema.id)).size !== config.schemas.length ||
+    config.models.some(
+      (model) =>
+        model.output_tokens > model.context_tokens ||
+        (model.features.parallel_tools && !model.features.tools) ||
+        (model.features.documents && !model.features.vision) ||
+        (model.plugin === "anthropic" &&
+          model.features.prompt_caching &&
+          model.cache_creation_usd === undefined) ||
+        (model.plugin !== "anthropic" && model.cache_creation_usd !== undefined) ||
+        (model.plugin === "openai_chat" && model.reasoning !== "off") ||
+        (model.plugin === "anthropic" &&
+          !["off", "adaptive", "enabled"].includes(model.reasoning)) ||
+        (model.plugin !== "anthropic" && ["adaptive", "enabled"].includes(model.reasoning)) ||
+        (model.reasoning === "enabled" &&
+          (model.thinking_tokens === undefined || model.thinking_tokens >= model.output_tokens)) ||
+        (model.reasoning !== "enabled" && model.thinking_tokens !== undefined),
+    ) ||
     config.principals.some(
       (principal) =>
         new Set(principal.model_ids).size !== principal.model_ids.length ||
@@ -118,6 +161,14 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "native",
     "native-openai",
     "native-anthropic",
+    "openai-content",
+    "openai-stream",
+    "anthropic-content",
+    "anthropic-stream",
+    "json",
+    "content",
+    "private-state",
+    "stream",
     "host",
     "journal",
     "rpc",
@@ -147,11 +198,22 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
     maximumOutputTokens: BigInt(model.output_tokens),
+    supportsTools: model.features.tools,
+    supportsParallelTools: model.features.parallel_tools,
+    supportsStructuredOutput: model.features.structured_output,
+    supportsVision: model.features.vision,
+    supportsDocuments: model.features.documents,
+    supportsReasoning: model.reasoning !== "off",
+    supportsPromptCaching: model.features.prompt_caching,
+    supportsStreaming: model.features.streaming,
   };
   const capability = digest_json("loop.provider-capabilities/v1", {
     context_tokens: String(model.context_tokens),
     output_tokens: String(model.output_tokens),
-    profile: "unary-text.1",
+    features: model.features,
+    reasoning: model.reasoning,
+    thinking_tokens: model.thinking_tokens ?? null,
+    profile: "native-content.1",
   });
   const catalog = digest_json(
     "loop.provider-catalog/v1",
@@ -174,6 +236,14 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
       inputPerMillionTokens: { currencyCode: "USD", amount: { value: model.input_usd } },
       outputPerMillionTokens: { currencyCode: "USD", amount: { value: model.output_usd } },
       cachedInputPerMillionTokens: { currencyCode: "USD", amount: { value: model.cached_usd } },
+      ...(model.cache_creation_usd === undefined
+        ? {}
+        : {
+            cacheCreationPerMillionTokens: {
+              currencyCode: "USD",
+              amount: { value: model.cache_creation_usd },
+            },
+          }),
     },
     capabilitySha256: { value: capability },
     catalogSha256: { value: catalog },
@@ -196,6 +266,12 @@ export function request_policy(config: Deployment) {
   return create(PolicyReferenceSchema, {
     policyId: { value: config.policy.id },
     revision: config.policy.revision,
-    sha256: { value: digest_json("loop.provider-request-policy/v1", config.policy) },
+    sha256: {
+      value: digest_json("loop.provider-request-policy/v2", {
+        ...config.policy,
+        schemas: config.schemas.map(({ path: _path, ...schema }) => schema),
+        prompt_artifacts: config.prompts !== undefined,
+      }),
+    },
   });
 }

@@ -1,6 +1,6 @@
 # ADR 0038: Authenticated native model invocation
 
-- Status: Implemented; local acceptance passed, publication/remote gates pending
+- Status: Accepted; fc00680 pushed, CI 35701264148 passed all seven jobs
 - Owner: hojiahao
 - Extends: ADR 0001, ADR 0004 and ADR 0019
 
