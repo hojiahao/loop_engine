@@ -45,7 +45,12 @@ export function native_error(error: unknown, signal: AbortSignal): ProviderError
         ? error.status
         : "statusCode" in error
           ? error.statusCode
-          : undefined
+          : "$metadata" in error &&
+              typeof error.$metadata === "object" &&
+              error.$metadata !== null &&
+              "httpStatusCode" in error.$metadata
+            ? error.$metadata.httpStatusCode
+            : undefined
       : undefined;
   if (status === 429)
     return new ProviderError(

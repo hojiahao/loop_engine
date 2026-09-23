@@ -16,6 +16,43 @@ import { digest_json, hex_digest } from "./identity.js";
 const token = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/);
 const decimal = z.string().regex(/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{0,8}[1-9])?$/);
 const private_path = z.string().refine(isAbsolute);
+const secret_ref = z.string().regex(/^LOOP_LLM_[A-Z0-9_]{1,64}$/);
+const cloud_schema = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.literal("azure"),
+    resource: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/),
+    domain: z.enum(["openai.azure.com", "services.ai.azure.com"]).default("openai.azure.com"),
+    deployment: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/),
+    auth: z.enum(["api_key", "entra"]),
+  }),
+  z.strictObject({
+    kind: z.literal("vertex"),
+    project: z.string().regex(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/),
+    location: z.string().regex(/^(?:global|[a-z]+-[a-z]+[0-9]{1,2})$/),
+  }),
+  z.strictObject({
+    kind: z.literal("bedrock"),
+    region: z.string().regex(/^(?:us|eu|ap|ca|sa|me|af|il|mx)-(?:[a-z]+-)?[a-z]+-[0-9]$/),
+    model_id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/),
+    credentials: z
+      .strictObject({
+        access_key_env: secret_ref,
+        secret_key_env: secret_ref,
+        session_token_env: secret_ref.optional(),
+      })
+      .optional(),
+    guardrail: z
+      .strictObject({
+        id: z
+          .string()
+          .regex(/^(?:[a-z0-9]+|arn:aws:bedrock:[a-z0-9-]+:[0-9]{12}:guardrail\/[a-z0-9]+)$/),
+        version: z.string().regex(/^[1-9][0-9]{0,7}$/),
+        maximum_usd: decimal,
+      })
+      .optional(),
+    reasoning_dialect: z.enum(["none", "anthropic"]).default("none"),
+  }),
+]);
 const model_schema = z.strictObject({
   id: token,
   plugin: z.enum([
@@ -25,6 +62,10 @@ const model_schema = z.strictObject({
     "google_generate",
     "google_interactions",
     "cohere",
+    "azure_responses",
+    "azure_chat",
+    "vertex_generate",
+    "bedrock_converse",
   ]),
   model: token,
   alias: token,
@@ -49,7 +90,8 @@ const model_schema = z.strictObject({
     .prefault({}),
   reasoning: z.enum(["off", "low", "medium", "high", "adaptive", "enabled"]).default("off"),
   thinking_tokens: z.number().int().min(1024).max(99_999).optional(),
-  secret_env: z.string().regex(/^LOOP_LLM_[A-Z0-9_]{1,64}$/),
+  secret_env: secret_ref.optional(),
+  cloud: cloud_schema.optional(),
 });
 
 export const deployment_schema = z.strictObject({
@@ -97,6 +139,34 @@ export type Deployment = z.infer<typeof deployment_schema>;
 export type ModelRoute = z.infer<typeof model_schema>;
 export type Principal = Deployment["principals"][number];
 
+function cloud_valid(model: ModelRoute): boolean {
+  const cloud = model.cloud;
+  if (model.plugin.startsWith("azure"))
+    return (
+      cloud?.kind === "azure" &&
+      (cloud.auth === "api_key" ? model.secret_env !== undefined : model.secret_env === undefined)
+    );
+  if (model.plugin === "vertex_generate")
+    return cloud?.kind === "vertex" && model.secret_env === undefined;
+  if (model.plugin === "bedrock_converse")
+    return (
+      cloud?.kind === "bedrock" &&
+      model.secret_env === undefined &&
+      !cloud.region.startsWith("us-gov-") &&
+      (cloud.model_id.startsWith("arn:")
+        ? new RegExp(
+            `^arn:aws:bedrock:${cloud.region}:(?:[0-9]{12})?:(?:foundation-model|inference-profile|application-inference-profile|provisioned-model)/[A-Za-z0-9._:-]+$`,
+          ).test(cloud.model_id)
+        : /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(cloud.model_id)) &&
+      (model.reasoning === "off"
+        ? cloud.reasoning_dialect === "none"
+        : cloud.reasoning_dialect === "anthropic" &&
+          model.model.startsWith("anthropic.") &&
+          ["adaptive", "enabled"].includes(model.reasoning))
+    );
+  return cloud === undefined && model.secret_env !== undefined;
+}
+
 export async function read_private(path: string, limit = 1_048_576): Promise<Buffer> {
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
@@ -128,24 +198,33 @@ export function validate_deployment(value: unknown): Deployment {
     new Set(config.schemas.map((schema) => schema.id)).size !== config.schemas.length ||
     config.models.some(
       (model) =>
+        !cloud_valid(model) ||
         model.output_tokens > model.context_tokens ||
-        (["cohere", "google_interactions"].includes(model.plugin)
+        ([
+          "cohere",
+          "google_interactions",
+          "azure_responses",
+          "azure_chat",
+          "vertex_generate",
+          "bedrock_converse",
+        ].includes(model.plugin)
           ? model.input_token_limit === undefined || model.input_token_limit > model.context_tokens
           : model.input_token_limit !== undefined) ||
-        (model.plugin.startsWith("google") &&
+        ((model.plugin.startsWith("google") || model.plugin === "vertex_generate") &&
           !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(model.model)) ||
         (model.plugin === "cohere" &&
           (model.features.documents || !["off", "enabled"].includes(model.reasoning))) ||
         (model.features.parallel_tools && !model.features.tools) ||
         (model.features.documents && !model.features.vision) ||
-        (model.plugin === "anthropic" &&
+        (["anthropic", "bedrock_converse"].includes(model.plugin) &&
           model.features.prompt_caching &&
           model.cache_creation_usd === undefined) ||
-        (model.plugin !== "anthropic" && model.cache_creation_usd !== undefined) ||
-        (model.plugin === "openai_chat" && model.reasoning !== "off") ||
+        (!["anthropic", "bedrock_converse"].includes(model.plugin) &&
+          model.cache_creation_usd !== undefined) ||
+        (["openai_chat", "azure_chat"].includes(model.plugin) && model.reasoning !== "off") ||
         (model.plugin === "anthropic" &&
           !["off", "adaptive", "enabled"].includes(model.reasoning)) ||
-        (!["anthropic", "cohere"].includes(model.plugin) &&
+        (!["anthropic", "cohere", "bedrock_converse"].includes(model.plugin) &&
           ["adaptive", "enabled"].includes(model.reasoning)) ||
         (model.reasoning === "enabled" &&
           (model.thinking_tokens === undefined || model.thinking_tokens >= model.output_tokens)) ||
@@ -190,6 +269,12 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "native-cohere",
     "cohere-content",
     "cohere-stream",
+    "cloud-auth",
+    "cloud-plugins",
+    "native-bedrock",
+    "bedrock-content",
+    "bedrock-stream",
+    "bedrock-transport",
     "json",
     "content",
     "private-state",
@@ -222,6 +307,10 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
     google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
     google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
     cohere: ModelProtocolFamily.COHERE_V2_CHAT,
+    azure_responses: ModelProtocolFamily.OPENAI_RESPONSES,
+    azure_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+    vertex_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+    bedrock_converse: ModelProtocolFamily.AWS_BEDROCK_CONVERSE,
   }[model.plugin];
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
@@ -259,9 +348,15 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
     providerId: {
       value: model.plugin.startsWith("openai")
         ? "openai"
-        : model.plugin.startsWith("google")
-          ? "google"
-          : model.plugin,
+        : model.plugin.startsWith("azure")
+          ? "azure_openai"
+          : model.plugin === "vertex_generate"
+            ? "google_vertex"
+            : model.plugin === "bedrock_converse"
+              ? "aws_bedrock"
+              : model.plugin.startsWith("google")
+                ? "google"
+                : model.plugin,
     },
     modelId: { value: model.model },
     requestedAlias: model.alias,

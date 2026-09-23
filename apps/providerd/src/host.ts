@@ -13,7 +13,8 @@ import {
   ModelStreamEventSchema,
   PolicyReferenceSchema,
 } from "@loop-engine/protocol/provider";
-
+import type { CloudIdentity } from "./cloud-auth.js";
+import { azure_plugin, vertex_plugin } from "./cloud-plugins.js";
 import { type Deployment, model_snapshot, type Principal, request_policy } from "./config.js";
 import { ProviderContent } from "./content.js";
 import { ProviderError } from "./errors.js";
@@ -21,6 +22,7 @@ import { digest_json, hex_digest } from "./identity.js";
 import { claim_invocation, finish_invocation, JournalError } from "./journal.js";
 import { type NativePlugin, type NativeReply, response_finish, response_usage } from "./native.js";
 import { anthropic_plugin } from "./native-anthropic.js";
+import { bedrock_plugin } from "./native-bedrock.js";
 import { cohere_plugin } from "./native-cohere.js";
 import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
@@ -64,6 +66,7 @@ export class ProviderHost {
     plugin: Uint8Array,
     secrets: Readonly<Record<string, string | undefined>>,
     fetcher: typeof fetch = fetch,
+    identity: CloudIdentity = {},
   ) {
     this.content = new ProviderContent(config);
     this.models = config.models.map((model) => ({
@@ -72,9 +75,16 @@ export class ProviderHost {
     }));
     this.policy = request_policy(config);
     for (const model of config.models) {
-      const secret = secrets[model.secret_env];
-      if (secret && /^[\x21-\x7e]{1,4096}$/.test(secret))
-        this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
+      const secret = model.secret_env ? secrets[model.secret_env] : undefined;
+      const valid = secret !== undefined && /^[\x21-\x7e]{1,4096}$/.test(secret);
+      if (model.plugin === "azure_responses" || model.plugin === "azure_chat") {
+        if (valid || (model.cloud?.kind === "azure" && model.cloud.auth === "entra"))
+          this.plugins.set(model.id, azure_plugin(model, secret, fetcher, identity));
+      } else if (model.plugin === "vertex_generate")
+        this.plugins.set(model.id, vertex_plugin(model, fetcher, identity));
+      else if (model.plugin === "bedrock_converse")
+        this.plugins.set(model.id, bedrock_plugin(model, secrets, fetcher));
+      else if (valid) this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
     }
   }
 
@@ -189,7 +199,12 @@ export class ProviderHost {
       (budget.maximumInputTokens * input_price +
         budget.maximumOutputTokens * decimal_units(selected.route.output_usd) +
         999_999n) /
-      1_000_000n;
+        1_000_000n +
+      decimal_units(
+        selected.route.cloud?.kind === "bedrock"
+          ? (selected.route.cloud.guardrail?.maximum_usd ?? "0")
+          : "0",
+      );
     if (
       wall_time < 1 ||
       wall_time > this.config.policy.wall_time_ms ||

@@ -25,9 +25,10 @@ export async function* response_stream(
   client: OpenAI,
   input: NativeInput,
   signal: AbortSignal,
+  deployment?: string,
 ): AsyncGenerator<NativeEvent> {
   const events = await client.responses.create(
-    { ...response_parameters(input), stream: true },
+    { ...response_parameters(input), model: deployment ?? input.model.model, stream: true },
     { signal },
   );
   const items = new Map<number, OutputItem>();
@@ -251,9 +252,15 @@ export async function* chat_stream(
   client: OpenAI,
   input: NativeInput,
   signal: AbortSignal,
+  deployment?: string,
 ): AsyncGenerator<NativeEvent> {
   const events = await client.chat.completions.create(
-    { ...chat_parameters(input), stream: true, stream_options: { include_usage: true } },
+    {
+      ...chat_parameters(input),
+      model: deployment ?? input.model.model,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
     { signal },
   );
   const calls = new Map<number, { id: string; name: string; arguments: string; index: number }>();

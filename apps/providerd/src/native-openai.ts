@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { native_error } from "./errors.js";
-import { bounded_fetch, type NativePlugin, token_count } from "./native.js";
+import { bounded_fetch, input_ceiling, type NativePlugin, token_count } from "./native.js";
 import {
   chat_parameters,
   chat_result,
@@ -23,8 +23,20 @@ export function openai_plugin(
     logLevel: "off",
     fetch: bounded_fetch(fetcher),
   });
+  return openai_route(client, chat);
+}
+
+/** A cloud deployment name changes only the outbound model selector. Native
+ * response identity remains checked against the resolved model in NativeInput. */
+export function openai_route(client: OpenAI, chat: boolean, deployment?: string): NativePlugin {
   return {
     async count_input(input, signal) {
+      if (deployment !== undefined) {
+        signal.throwIfAborted();
+        if (chat) chat_parameters(input);
+        else response_parameters(input);
+        return input_ceiling(input);
+      }
       try {
         const {
           input: messages,
@@ -56,14 +68,18 @@ export function openai_plugin(
         if (chat)
           return chat_result(
             await client.chat.completions.create(
-              { ...chat_parameters(input), stream: false },
+              { ...chat_parameters(input), model: deployment ?? input.model.model, stream: false },
               { signal },
             ),
             input,
           );
         return response_result(
           await client.responses.create(
-            { ...response_parameters(input), stream: false },
+            {
+              ...response_parameters(input),
+              model: deployment ?? input.model.model,
+              stream: false,
+            },
             { signal },
           ),
           input,
@@ -75,8 +91,8 @@ export function openai_plugin(
     async *stream(input, signal) {
       try {
         const events = chat
-          ? chat_stream(client, input, signal)
-          : response_stream(client, input, signal);
+          ? chat_stream(client, input, signal, deployment)
+          : response_stream(client, input, signal, deployment);
         yield* events;
       } catch (error) {
         throw native_error(error, signal);

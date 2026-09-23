@@ -1,7 +1,8 @@
 # ADR 0040: Google and Cohere native protocols
 
-Status: implemented; local check/test/build passed. Publication and exact-commit
-remote CI pending. Phase 9 delivery unit 3.
+Status: implemented; local check/test/build passed; `d5d49de` committed and pushed.
+All seven jobs in exact-commit CI `35830578199` passed. Phase 9 delivery unit 3
+is complete.
 
 ## Requirement and boundary
 

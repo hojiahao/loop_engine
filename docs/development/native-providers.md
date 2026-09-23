@@ -2,8 +2,11 @@
 
 The TypeScript `providerd` has an optional TLS 1.3 / HTTP/2 gRPC listener. It
 implements `loop.provider.v1.ProviderService/InvokeModel` and `StreamModel` for
-six native paths: `openai_responses`, `openai_chat`, `anthropic`,
-`google_generate`, `google_interactions`, and `cohere`.
+six direct native paths: `openai_responses`, `openai_chat`, `anthropic`,
+`google_generate`, `google_interactions`, and `cohere`, plus cloud deployment
+routes `azure_responses`, `azure_chat`, `vertex_generate` and `bedrock_converse`.
+See [cloud Provider configuration](cloud-providers.md) for cloud identity,
+deployment mapping, native capability limits and rollback.
 The bootstrap HTTP health endpoint remains at `127.0.0.1:8090` and cannot invoke
 a model. No listener is enabled by an API key alone.
 
@@ -14,7 +17,7 @@ their own native continuation formats described below. All system messages
 precede conversational messages; a request ends with a user or tool-result turn.
 Optional capabilities default to **disabled** and must be verified for the exact
 configured model before enabling. A plugin's implementation does not prove that
-every model implements its features. Cloud deployments, other suppliers, model discovery and catalog
+every model implements its features. Other suppliers, model discovery and catalog
 reload remain later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
 This is not a completed autonomous research loop.
 
@@ -123,8 +126,8 @@ fields, so this one operation uses bounded native HTTP directly. Counters may di
 usage; an observed overrun is an explicit failure, not a reversible supplier
 charge. Maximum output tokens are also sent to the supplier.
 
-Cohere V2 and Google Interactions have no complete chat-request counter in this
-profile. Their deployment entries **must** specify `input_token_limit`, the
+Cohere V2, Google Interactions and cloud routes use a conservative reservation
+in this profile. Their deployment entries **must** specify `input_token_limit`, the
 vendor-documented maximum input for the exact model. Reserve that entire ceiling:
 `budget.maximum_input_tokens` and `policy.input_tokens` must cover it, and the
 USD budget must cover the full input/output reservation. Do not set this value

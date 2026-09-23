@@ -564,19 +564,28 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    tests pass. Chinese task commit `daae4d0` is pushed; all seven jobs in
    exact-commit CI run `35819112668` passed;
    see ADR 0039 and `docs/verification/phase-09-native-content.md`.
-3. Additional native protocols (`in_progress`): implement Google GenerateContent/Interactions
+3. Additional native protocols (`complete`): implement Google GenerateContent/Interactions
    and Cohere V2 Chat as independent plugins with executable contract matrices,
    explicit capability differences and provider-specific errors/usage.
    All three routes now share the authenticated invocation, stream, schema,
    artifact and continuation paths. Native tool/JSON/media handling and explicit
    input-ceiling reservations are implemented; 60 additional contract cases cover
    the new protocols. Local `just check`, 187 Provider tests, 119 TypeScript
-   protocol tests and TypeScript workspace build pass. Publication and exact-commit
-   remote CI are the remaining acceptance gates. See ADR 0040 and
+   protocol tests and TypeScript workspace build pass. Chinese task commit
+   `d5d49de` is pushed; all seven jobs in exact-commit CI `35830578199` passed.
+   See ADR 0040 and
    `docs/verification/phase-09-google-cohere.md`.
-4. Cloud deployments: implement AWS Bedrock Converse/ConverseStream, Azure
+4. Cloud deployments (`in_progress`): implement AWS Bedrock Converse/ConverseStream, Azure
    OpenAI and Google Vertex AI authentication, region/deployment/model mapping
    and native parameter translation; verify with signed-request fixtures.
+   Four routes share the existing authenticated invocation/journal path. Cloud
+   identity, conservative input/Guardrail cost reservations, native rich messages,
+   AWS binary framing, signed continuation and cancellation are implemented.
+   Local `just check`, 269 Provider tests (82 new cloud cases), 119 TypeScript
+   protocol tests and TypeScript workspace build pass. Publication and
+   exact-commit remote gates remain required; evidence is in ADR 0041 and
+   `docs/verification/phase-09-cloud-deployments.md`. This unit does not close
+   Phase 9, attest cloud entitlement or permit a merge to `main`.
 5. First-class vendor plugins: Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
    Together, Fireworks, Cerebras, Perplexity, GLM/Zhipu, Kimi/Moonshot and MiniMax.
    Share a wire codec only when the official protocol permits it; preserve each

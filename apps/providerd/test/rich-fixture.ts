@@ -24,31 +24,39 @@ export const TEST_SCHEMA = create(JsonSchemaSchema, {
   schemaSha256: { value: json_digest(SCHEMA_BYTES) },
 });
 
-export async function rich_fixture(directory: string, configure?: (config: Deployment) => void) {
+export async function rich_fixture(
+  directory: string,
+  configure?: (config: Deployment) => void,
+  cloud?: Parameters<typeof test_fixture>[2],
+) {
   const schema_path = join(directory, "window.json");
   await writeFile(schema_path, SCHEMA_BYTES, { mode: 0o600 });
-  return test_fixture(directory, (config) => {
-    config.prompts = join(directory, "prompts");
-    config.schemas.push({
-      id: "factor-window",
-      version: 1,
-      path: schema_path,
-      sha256: hex_digest(json_digest(SCHEMA_BYTES)),
-    });
-    for (const model of config.models) {
-      model.features = {
-        streaming: true,
-        tools: true,
-        parallel_tools: true,
-        structured_output: true,
-        vision: true,
-        documents: true,
-        prompt_caching: true,
-      };
-      if (model.plugin === "anthropic") model.cache_creation_usd = "2";
-    }
-    configure?.(config);
-  });
+  return test_fixture(
+    directory,
+    (config) => {
+      config.prompts = join(directory, "prompts");
+      config.schemas.push({
+        id: "factor-window",
+        version: 1,
+        path: schema_path,
+        sha256: hex_digest(json_digest(SCHEMA_BYTES)),
+      });
+      for (const model of config.models) {
+        model.features = {
+          streaming: true,
+          tools: true,
+          parallel_tools: true,
+          structured_output: true,
+          vision: true,
+          documents: true,
+          prompt_caching: true,
+        };
+        if (model.plugin === "anthropic") model.cache_creation_usd = "2";
+      }
+      configure?.(config);
+    },
+    cloud,
+  );
 }
 
 export function tool_request(

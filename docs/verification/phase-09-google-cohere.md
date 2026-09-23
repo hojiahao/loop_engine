@@ -1,7 +1,7 @@
 # Phase 9 unit 3: Google and Cohere native protocols
 
 Status: implemented; local check/test/build passed on 2026-09-23. Chinese task
-commit, push and exact-commit remote CI are the remaining publication gates.
+commit `d5d49de` is pushed. All seven jobs in exact-commit CI `35830578199` passed.
 This does not close Phase 9 or authorize a merge to `main`.
 
 ## Requirement and implementation

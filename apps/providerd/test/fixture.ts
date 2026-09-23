@@ -15,7 +15,7 @@ import {
   ModelRole,
   ProviderService,
 } from "@loop-engine/protocol/provider";
-
+import type { CloudIdentity } from "../src/cloud-auth.js";
 import { type Deployment, validate_deployment } from "../src/config.js";
 import { ProviderHost } from "../src/host.js";
 import { open_journal } from "../src/journal.js";
@@ -286,7 +286,14 @@ export function test_certificates(directory: string) {
     .digest("hex");
 }
 
-export async function test_fixture(directory: string, configure?: (config: Deployment) => void) {
+export async function test_fixture(
+  directory: string,
+  configure?: (config: Deployment) => void,
+  cloud?: {
+    identity?: CloudIdentity;
+    secrets?: Readonly<Record<string, string | undefined>>;
+  },
+) {
   const requests: {
     path: string;
     body: Record<string, unknown>;
@@ -294,6 +301,8 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
     key?: string;
     google_key?: string;
     version?: string;
+    headers: Record<string, string | string[] | undefined>;
+    raw: string;
   }[] = [];
   const state = {
     status: 200,
@@ -309,11 +318,14 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
   const vendor = createServer(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+    const raw = Buffer.concat(chunks).toString("utf8");
+    const body = JSON.parse(raw) as Record<string, unknown>;
     const path = request.url ?? "";
     requests.push({
       path,
       body,
+      raw,
+      headers: request.headers,
       authorization: request.headers.authorization,
       key: request.headers["x-api-key"] as string | undefined,
       google_key: request.headers["x-goog-api-key"] as string | undefined,
@@ -321,8 +333,17 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
     });
     state.on_request?.();
     if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
-    if ((body.stream === true || path.endsWith(":streamGenerateContent")) && state.events) {
-      response.writeHead(state.status, { "content-type": "text/event-stream" });
+    if (
+      (body.stream === true ||
+        path.endsWith(":streamGenerateContent") ||
+        path.endsWith("/converse-stream")) &&
+      state.events
+    ) {
+      response.writeHead(state.status, {
+        "content-type": path.endsWith("/converse-stream")
+          ? "application/vnd.amazon.eventstream"
+          : "text/event-stream",
+      });
       response.on("close", () => {
         state.stream_closed = true;
       });
@@ -376,8 +397,9 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
   const host = new ProviderHost(
     config,
     new Uint8Array(32).fill(1),
-    { LOOP_LLM_TEST: TEST_SECRET },
+    { LOOP_LLM_TEST: TEST_SECRET, ...cloud?.secrets },
     fetcher,
+    cloud?.identity,
   );
   const shutdown = new AbortController();
   const rpc = await create_provider_rpc(host, shutdown.signal);
