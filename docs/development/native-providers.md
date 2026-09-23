@@ -2,17 +2,19 @@
 
 The TypeScript `providerd` has an optional TLS 1.3 / HTTP/2 gRPC listener. It
 implements `loop.provider.v1.ProviderService/InvokeModel` and `StreamModel` for
-three native paths: `openai_responses`, `openai_chat`, and `anthropic`.
+six native paths: `openai_responses`, `openai_chat`, `anthropic`,
+`google_generate`, `google_interactions`, and `cohere`.
 The bootstrap HTTP health endpoint remains at `127.0.0.1:8090` and cannot invoke
 a model. No listener is enabled by an API key alone.
 
 Conversations support text, function-tool proposals/results, registered JSON-schema
 output, images/PDFs from private prompt artifacts and ordered streaming. Responses
-and Anthropic also support private reasoning continuation. All system messages
+and Anthropic support private reasoning continuation; Google and Cohere use
+their own native continuation formats described below. All system messages
 precede conversational messages; a request ends with a user or tool-result turn.
 Optional capabilities default to **disabled** and must be verified for the exact
 configured model before enabling. A plugin's implementation does not prove that
-every model implements its features. Other suppliers, model discovery and catalog
+every model implements its features. Cloud deployments, other suppliers, model discovery and catalog
 reload remain later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
 This is not a completed autonomous research loop.
 
@@ -58,8 +60,11 @@ a new resolution; never reuse a saved pin with a different build.
 
 For each model, verify the exact versioned model ID, its account availability,
 context/output limits and current USD-per-million token prices. The returned
-native model ID must equal the configured ID; mutable supplier aliases that
-resolve differently fail closed. `input_usd`, `output_usd` and `cached_usd` are
+native model ID must equal the configured ID when the protocol returns it;
+mutable supplier aliases that resolve differently fail closed. Cohere V2 does
+not echo the resolved model ID, so it attests only the exact requested ID, not
+independently proven supplier revision. Use a versioned Cohere ID, not a mutable
+alias. `input_usd`, `output_usd` and `cached_usd` are
 normalized non-negative decimal strings with at most nine fractional digits.
 `secret_env` names an environment variable beginning `LOOP_LLM_`; it never
 contains a secret value. Inject the keys through a protected service environment
@@ -111,9 +116,25 @@ endpoints are fixed to the official supplier origins, redirects are refused,
 SDK automatic retries/logging are disabled, and upstream decoded response bytes
 are bounded. OpenAI uses Responses input-token counting for both paths; a Chat
 model for which that counter is unavailable is denied rather than given a guessed
-count. Anthropic uses its native Messages counter. Counters may differ from final
+count. Anthropic uses its native Messages counter. Google GenerateContent sends
+the documented `generateContentRequest` envelope to countTokens, including system
+instructions and tool declarations. Its SDK's Developer API counter omits these
+fields, so this one operation uses bounded native HTTP directly. Counters may differ from final
 usage; an observed overrun is an explicit failure, not a reversible supplier
 charge. Maximum output tokens are also sent to the supplier.
+
+Cohere V2 and Google Interactions have no complete chat-request counter in this
+profile. Their deployment entries **must** specify `input_token_limit`, the
+vendor-documented maximum input for the exact model. Reserve that entire ceiling:
+`budget.maximum_input_tokens` and `policy.input_tokens` must cover it, and the
+USD budget must cover the full input/output reservation. Do not set this value
+to a guessed count or a smaller desired budget. The ceiling cannot exceed
+`context_tokens`. The context value is the verified combined input/output
+capacity; for a model with separately documented input/output capacities, use
+their verified combined capacity. Unlike a measured count, an upper bound plus
+maximum output need not fit simultaneously. The vendor can reject an oversized
+actual request; final input/output usage must fit the pinned context and both
+caller limits. No raw-text tokenize call is represented as an exact chat count.
 
 The preflight reserve uses the full input/output allowance and pinned prices
 with integer nanodollar arithmetic, rounded up. The input price used is
@@ -159,6 +180,83 @@ supports that effort and summary/continuation format. For Anthropic use `adaptiv
 or `enabled` together with `thinking_tokens` (at least 1024, strictly below both
 configured and per-call maximum output tokens). Forced/named tool choice with
 Anthropic thinking is rejected before transport. Chat requires `reasoning: "off"`.
+
+### Google and Cohere routes
+
+Add the required model entries to the same private deployment and grant their
+`id` values through the existing principal `model_ids` list. Use these plugin/key
+names; keys are secret references, not literal values:
+
+| Plugin | Official origin | Suggested secret reference | Extra configuration |
+| --- | --- | --- | --- |
+| `google_generate` | `https://generativelanguage.googleapis.com` | `LOOP_LLM_GOOGLE_API_KEY` | Bare versioned model ID, without `models/` prefix |
+| `google_interactions` | `https://generativelanguage.googleapis.com` | `LOOP_LLM_GOOGLE_API_KEY` | Bare versioned ID plus verified `input_token_limit` |
+| `cohere` | `https://api.cohere.com` | `LOOP_LLM_COHERE_API_KEY` | Versioned model ID plus verified `input_token_limit` |
+
+For example, this deliberately incomplete model entry must be filled with
+verified numeric limits and prices before it will validate:
+
+```json
+{
+  "id": "google-checker",
+  "plugin": "google_interactions",
+  "model": "REPLACE_WITH_VERSIONED_MODEL_ID",
+  "alias": "research-google-checker",
+  "context_tokens": "REPLACE_WITH_INTEGER_COMBINED_CAPACITY",
+  "input_token_limit": "REPLACE_WITH_INTEGER_MAXIMUM_INPUT",
+  "output_tokens": "REPLACE_WITH_INTEGER_MAXIMUM_OUTPUT",
+  "input_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+  "output_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+  "cached_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+  "features": {"streaming": true, "tools": true, "parallel_tools": true},
+  "reasoning": "low",
+  "secret_env": "LOOP_LLM_GOOGLE_API_KEY"
+}
+```
+
+For GenerateContent change `plugin` and remove `input_token_limit`; that route
+uses the complete native counter. For Cohere change the plugin/key and use
+`reasoning: "off"` for non-thinking models, or `enabled` with `thinking_tokens`
+for models supporting native thinking. Thinking budgets must be at least 1024
+and smaller than configured and requested output limits. Changing these fields
+changes the resolution and capability fingerprints. Google effort settings are
+`low`, `medium` or `high`, enabled only when the exact model supports them.
+Thinking models must use a thinking-enabled route even for signature-only turns.
+
+| Feature | Google GenerateContent | Google Interactions | Cohere V2 Chat |
+| --- | --- | --- | --- |
+| Text, functions, ordered streams | Supported | Supported | Supported |
+| Registered schema output | `responseJsonSchema` | Native text response format with schema | `json_object` and `json_schema`; incompatible with tools |
+| Image/PDF prompt artifacts | Inline bytes; automatic image detail | Inline bytes; automatic image detail | Image bytes; PDFs denied |
+| Thinking | Signed native Parts, including function calls | Separate signed thought steps | Native thinking content; private continuation reference |
+| Tool selection | Auto/none/required/named | Auto/none/required/named | Auto/none/required; named selection denied |
+| Strict functions | Native validated/required mode plus local schema checking | Native validated/required mode plus local checking | One `strict_tools` setting; mixed strict flags denied |
+| Cache usage | Reported implicit cache reads | Reported implicit cache reads | Explicit `usage.cached_tokens` only |
+
+All routes return client-executed function proposals; no hosted search, code
+execution, grounding, audio, video or generated media is enabled. Interactions
+uses the current step-based v1beta API with `store: false` and `background: false`,
+never `previous_interaction_id`. This disables the API's stored conversation
+feature, not the supplier's separate data-retention policy. Request/response
+schemas differ from the older output-based Interactions API.
+
+Google thinking token counts are added to output and reported as its measured
+subset; native prompt-tool tokens, if reported, are added to input. Complete
+native totals must reconcile. Cohere uses `usage.tokens`; `billed_units` is not
+interchangeable with actual tokens and does not prove cache hits. Cohere does not
+separate measured thinking tokens here, so that subset remains zero rather than
+being invented. Its tool plan is replayable assistant text. Neither route writes
+an explicit cache resource or claims cache-creation usage or an invoiced cost.
+
+Preserve all returned assistant content when continuing a Google thinking turn.
+GenerateContent stores the full signed Parts privately and checks their visible
+text/tool projections before replay; changing a tool invalidates that continuation.
+Legacy Gemini function calls without IDs receive stable local correlation IDs;
+these local IDs are not invented as native wire IDs. Interactions retains the
+separate thought signature. Missing signatures, unknown steps, malformed streams,
+model drift or usage mismatch fail closed. The host supports text thought summaries,
+not image thought summaries. Offline fixture success is `contract_verified`
+evidence only; no supplier credentials were used for this delivery.
 
 Enabling Anthropic `prompt_caching` requires a separately verified
 `cache_creation_usd` price. This deployment profile requests only 5-minute

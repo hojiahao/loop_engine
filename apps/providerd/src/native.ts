@@ -75,6 +75,14 @@ export interface NativePlugin {
   stream(input: NativeInput, signal: AbortSignal): AsyncIterable<NativeEvent>;
 }
 
+/** Conservative reservation, not a measured count. The deployment pins the
+ * vendor's full input limit separately from its combined context capacity. */
+export function input_ceiling(input: NativeInput): number {
+  const limit = input.model.input_token_limit;
+  if (!limit) throw new ProviderError("provider_input_limit_missing");
+  return limit;
+}
+
 export function token_count(value: unknown): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 2_000_000) {
     throw new ProviderError("invalid_provider_usage", Code.DataLoss, ErrorCategory.DEPENDENCY);

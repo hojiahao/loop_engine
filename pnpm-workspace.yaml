@@ -8,6 +8,10 @@ enableGlobalVirtualStore: false
 
 allowBuilds:
   "@bufbuild/buf": true
+  # Published SDKs are prebuilt. Google's preinstall is a no-op; protobufjs
+  # postinstall only prints a version-scheme warning. Neither is needed here.
+  "@google/genai": false
+  protobufjs: false
 
 # Do not admit packages published within the last 24 hours. This slows down
 # dependency-confusion and compromised-release propagation without weakening

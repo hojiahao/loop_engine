@@ -1,6 +1,7 @@
 # Phase 9 unit 2: Native streaming and rich messages
 
-Status: implemented; local acceptance passed, publication/remote gates pending.
+Status: accepted. Commit `daae4d0` is pushed; exact-commit CI run `35819112668`
+passes all seven jobs.
 
 ## Requirement and design
 
@@ -81,8 +82,8 @@ format/type checks. Clippy completes in 2m29s with cached dependencies. The Rust
 protocol suite passes 27 tests; Python protocol passes 310 tests. The final
 TypeScript workspace test run passes 119 protocol and 127 Provider tests. The Web
 bootstrap has no behavior tests yet and is not counted as UI acceptance. All
-TypeScript packages build successfully. Exact-commit remote CI remains the final
-acceptance gate after publication.
+TypeScript packages build successfully. Exact-commit remote CI passed after
+publication (`35819112668`, all seven jobs).
 
 The first Python protocol run caught a stale descriptor digest in the wire-fixture
 manifest (309 passing cases, one failure); the manifest was regenerated from all

@@ -21,6 +21,8 @@ import { digest_json, hex_digest } from "./identity.js";
 import { claim_invocation, finish_invocation, JournalError } from "./journal.js";
 import { type NativePlugin, type NativeReply, response_finish, response_usage } from "./native.js";
 import { anthropic_plugin } from "./native-anthropic.js";
+import { cohere_plugin } from "./native-cohere.js";
+import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
 import { StreamEvidence, stream_invalid } from "./stream.js";
 
@@ -29,6 +31,10 @@ const factories = {
     openai_plugin(secret, false, fetcher),
   openai_chat: (secret: string, fetcher: typeof fetch) => openai_plugin(secret, true, fetcher),
   anthropic: anthropic_plugin,
+  google_generate: (secret: string, fetcher: typeof fetch) => google_plugin(secret, false, fetcher),
+  google_interactions: (secret: string, fetcher: typeof fetch) =>
+    google_plugin(secret, true, fetcher),
+  cohere: cohere_plugin,
 };
 
 export function decimal_units(value: string): bigint {
@@ -286,7 +292,8 @@ export class ProviderHost {
       const counted = await plugin.count_input(input, combined);
       if (
         BigInt(counted) > budget.maximumInputTokens ||
-        counted + input.output_tokens > selected.route.context_tokens
+        (selected.route.input_token_limit === undefined &&
+          counted + input.output_tokens > selected.route.context_tokens)
       ) {
         throw new ProviderError(
           "provider_input_budget",
@@ -314,7 +321,8 @@ export class ProviderHost {
       const usage = response_usage(reply.usage);
       if (
         usage.inputTokens > budget.maximumInputTokens ||
-        usage.outputTokens > budget.maximumOutputTokens
+        usage.outputTokens > budget.maximumOutputTokens ||
+        usage.inputTokens + usage.outputTokens > BigInt(selected.route.context_tokens)
       ) {
         throw new ProviderError(
           "provider_usage_exceeded",

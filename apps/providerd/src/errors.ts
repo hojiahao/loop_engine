@@ -40,7 +40,13 @@ export function native_error(error: unknown, signal: AbortSignal): ProviderError
   if (signal.aborted)
     return new ProviderError("provider_cancelled", Code.Canceled, ErrorCategory.CANCELLED);
   const status =
-    typeof error === "object" && error !== null && "status" in error ? error.status : undefined;
+    typeof error === "object" && error !== null
+      ? "status" in error
+        ? error.status
+        : "statusCode" in error
+          ? error.statusCode
+          : undefined
+      : undefined;
   if (status === 429)
     return new ProviderError(
       "provider_rate_limited",

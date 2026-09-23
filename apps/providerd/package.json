@@ -17,9 +17,11 @@
     "@bufbuild/protobuf": "2.14.1",
     "@connectrpc/connect": "2.2.0",
     "@connectrpc/connect-node": "2.2.0",
+    "@google/genai": "2.24.0",
     "@loop-engine/protocol": "workspace:*",
     "ajv": "8.20.0",
     "canonicalize": "5.1.0",
+    "cohere-ai": "8.1.0",
     "jsonc-parser": "3.3.1",
     "openai": "7.20.0",
     "zod": "4.5.4"

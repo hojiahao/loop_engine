@@ -553,7 +553,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    protocol tests and clean TypeScript check/test/build pass. Commit `fc00680` is
    pushed; all seven jobs in exact-commit CI run `35701264148` passed. See ADR 0038 and
    `docs/verification/phase-09-native-providers.md`.
-2. Streaming and rich messages (`in_progress`): connect ordered stream events, tool calls/results,
+2. Streaming and rich messages (`complete`): connect ordered stream events, tool calls/results,
    structured output, reasoning continuation, prompt caching and prompt-safe
    artifacts where each native protocol supports them. Test cancellation,
    truncated streams, interleaved blocks, malformed output and namespace denial.
@@ -561,11 +561,19 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    reasoning-state recovery and cache-write accounting are implemented. The
    Provider suite passes 127 local tests with actual TLS/gRPC fixtures. Full
    `just check`, TypeScript test/build, 310 Python protocol and 27 Rust protocol
-   tests pass. Chinese task commit, push and exact-commit CI remain pending;
+   tests pass. Chinese task commit `daae4d0` is pushed; all seven jobs in
+   exact-commit CI run `35819112668` passed;
    see ADR 0039 and `docs/verification/phase-09-native-content.md`.
-3. Additional native protocols: implement Google GenerateContent/Interactions
+3. Additional native protocols (`in_progress`): implement Google GenerateContent/Interactions
    and Cohere V2 Chat as independent plugins with executable contract matrices,
    explicit capability differences and provider-specific errors/usage.
+   All three routes now share the authenticated invocation, stream, schema,
+   artifact and continuation paths. Native tool/JSON/media handling and explicit
+   input-ceiling reservations are implemented; 60 additional contract cases cover
+   the new protocols. Local `just check`, 187 Provider tests, 119 TypeScript
+   protocol tests and TypeScript workspace build pass. Publication and exact-commit
+   remote CI are the remaining acceptance gates. See ADR 0040 and
+   `docs/verification/phase-09-google-cohere.md`.
 4. Cloud deployments: implement AWS Bedrock Converse/ConverseStream, Azure
    OpenAI and Google Vertex AI authentication, region/deployment/model mapping
    and native parameter translation; verify with signed-request fixtures.

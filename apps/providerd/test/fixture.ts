@@ -110,6 +110,50 @@ export function test_request(host: ProviderHost, id = "responses") {
 }
 
 export function test_reply(path: string, body: Record<string, unknown>): unknown {
+  if (path.endsWith(":countTokens")) return { totalTokens: 12 };
+  if (path.endsWith(":generateContent"))
+    return {
+      responseId: "google-fixture",
+      modelVersion: path.split("/models/")[1]?.split(":")[0],
+      candidates: [
+        {
+          index: 0,
+          finishReason: "STOP",
+          content: { role: "model", parts: [{ text: "diagnostic idea" }] },
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 12,
+        candidatesTokenCount: 5,
+        totalTokenCount: 17,
+        cachedContentTokenCount: 3,
+      },
+    };
+  if (path.endsWith("/interactions"))
+    return {
+      id: "interaction-fixture",
+      object: "interaction",
+      model: body.model,
+      status: "completed",
+      steps: [{ type: "model_output", content: [{ type: "text", text: "diagnostic idea" }] }],
+      usage: {
+        total_input_tokens: 12,
+        total_output_tokens: 5,
+        total_tokens: 17,
+        total_cached_tokens: 3,
+      },
+    };
+  if (path.endsWith("/v2/chat"))
+    return {
+      id: "cohere-fixture",
+      finish_reason: "COMPLETE",
+      message: { role: "assistant", content: [{ type: "text", text: "diagnostic idea" }] },
+      usage: {
+        tokens: { input_tokens: 12, output_tokens: 5 },
+        billed_units: { input_tokens: 5, output_tokens: 5 },
+        cached_tokens: 3,
+      },
+    };
   if (path.endsWith("input_tokens") || path.endsWith("count_tokens"))
     return { input_tokens: 12, object: "response.input_tokens" };
   if (path.endsWith("/chat/completions"))
@@ -248,6 +292,7 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
     body: Record<string, unknown>;
     authorization?: string;
     key?: string;
+    google_key?: string;
     version?: string;
   }[] = [];
   const state = {
@@ -271,11 +316,12 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
       body,
       authorization: request.headers.authorization,
       key: request.headers["x-api-key"] as string | undefined,
+      google_key: request.headers["x-goog-api-key"] as string | undefined,
       version: request.headers["anthropic-version"] as string | undefined,
     });
     state.on_request?.();
     if (state.delay) await new Promise((resolve) => setTimeout(resolve, state.delay));
-    if (body.stream === true && state.events) {
+    if ((body.stream === true || path.endsWith(":streamGenerateContent")) && state.events) {
       response.writeHead(state.status, { "content-type": "text/event-stream" });
       response.on("close", () => {
         state.stream_closed = true;
@@ -293,13 +339,18 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
       "content-type": "application/json",
       location: "/redirected",
     });
-    const counting = path.endsWith("count_tokens") || path.endsWith("input_tokens");
+    const counting =
+      path.endsWith("count_tokens") ||
+      path.endsWith("input_tokens") ||
+      path.endsWith(":countTokens");
     response.end(
       JSON.stringify(
         state.body ??
           (counting
             ? state.count !== undefined
-              ? { input_tokens: state.count }
+              ? path.endsWith(":countTokens")
+                ? { totalTokens: state.count }
+                : { input_tokens: state.count }
               : test_reply(path, body)
             : (state.reply ?? test_reply(path, body))),
       ),
@@ -312,7 +363,8 @@ export async function test_fixture(directory: string, configure?: (config: Deplo
   const fetcher: typeof fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     seen_urls.push(url.origin);
-    return fetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
+    const target = `http://127.0.0.1:${address.port}${url.pathname}`;
+    return fetch(input instanceof Request ? new Request(target, input) : target, init);
   };
   const config = test_config(directory);
   const digest = test_certificates(directory);

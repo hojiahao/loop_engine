@@ -18,10 +18,19 @@ const decimal = z.string().regex(/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{0,8}[1-9])?$/
 const private_path = z.string().refine(isAbsolute);
 const model_schema = z.strictObject({
   id: token,
-  plugin: z.enum(["openai_responses", "openai_chat", "anthropic"]),
+  plugin: z.enum([
+    "openai_responses",
+    "openai_chat",
+    "anthropic",
+    "google_generate",
+    "google_interactions",
+    "cohere",
+  ]),
   model: token,
   alias: token,
   context_tokens: z.number().int().min(1).max(2_000_000),
+  // Vendor-documented maximum input, required where no full request counter exists.
+  input_token_limit: z.number().int().min(1).max(2_000_000).optional(),
   output_tokens: z.number().int().min(1).max(100_000),
   input_usd: decimal,
   output_usd: decimal,
@@ -120,6 +129,13 @@ export function validate_deployment(value: unknown): Deployment {
     config.models.some(
       (model) =>
         model.output_tokens > model.context_tokens ||
+        (["cohere", "google_interactions"].includes(model.plugin)
+          ? model.input_token_limit === undefined || model.input_token_limit > model.context_tokens
+          : model.input_token_limit !== undefined) ||
+        (model.plugin.startsWith("google") &&
+          !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(model.model)) ||
+        (model.plugin === "cohere" &&
+          (model.features.documents || !["off", "enabled"].includes(model.reasoning))) ||
         (model.features.parallel_tools && !model.features.tools) ||
         (model.features.documents && !model.features.vision) ||
         (model.plugin === "anthropic" &&
@@ -129,7 +145,8 @@ export function validate_deployment(value: unknown): Deployment {
         (model.plugin === "openai_chat" && model.reasoning !== "off") ||
         (model.plugin === "anthropic" &&
           !["off", "adaptive", "enabled"].includes(model.reasoning)) ||
-        (model.plugin !== "anthropic" && ["adaptive", "enabled"].includes(model.reasoning)) ||
+        (!["anthropic", "cohere"].includes(model.plugin) &&
+          ["adaptive", "enabled"].includes(model.reasoning)) ||
         (model.reasoning === "enabled" &&
           (model.thinking_tokens === undefined || model.thinking_tokens >= model.output_tokens)) ||
         (model.reasoning !== "enabled" && model.thinking_tokens !== undefined),
@@ -165,6 +182,14 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "openai-stream",
     "anthropic-content",
     "anthropic-stream",
+    "native-google",
+    "google-content",
+    "google-stream",
+    "interaction-content",
+    "interaction-stream",
+    "native-cohere",
+    "cohere-content",
+    "cohere-stream",
     "json",
     "content",
     "private-state",
@@ -194,6 +219,9 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
     openai_responses: ModelProtocolFamily.OPENAI_RESPONSES,
     openai_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
     anthropic: ModelProtocolFamily.ANTHROPIC_MESSAGES,
+    google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+    google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
+    cohere: ModelProtocolFamily.COHERE_V2_CHAT,
   }[model.plugin];
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
@@ -209,6 +237,7 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
   };
   const capability = digest_json("loop.provider-capabilities/v1", {
     context_tokens: String(model.context_tokens),
+    input_token_limit: model.input_token_limit ?? null,
     output_tokens: String(model.output_tokens),
     features: model.features,
     reasoning: model.reasoning,
@@ -227,7 +256,13 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
   });
   const snapshot = create(ModelResolutionSnapshotSchema, {
     resolutionId: { value: `resolution-${hex_digest(identity)}` },
-    providerId: { value: model.plugin.startsWith("openai") ? "openai" : "anthropic" },
+    providerId: {
+      value: model.plugin.startsWith("openai")
+        ? "openai"
+        : model.plugin.startsWith("google")
+          ? "google"
+          : model.plugin,
+    },
     modelId: { value: model.model },
     requestedAlias: model.alias,
     protocolFamily: family,

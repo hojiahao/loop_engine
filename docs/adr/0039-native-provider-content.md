@@ -1,6 +1,6 @@
 # ADR 0039: Native content and stream integrity
 
-- Status: Implemented; local acceptance passed, publication/remote gates pending
+- Status: Accepted; `daae4d0` pushed, exact-commit CI `35819112668` passed all seven jobs
 - Owner: hojiahao
 - Extends: ADR 0004, ADR 0019 and ADR 0038
 
