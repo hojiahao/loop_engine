@@ -10,6 +10,8 @@ deployment mapping, native capability limits and rollback.
 First-class Mistral, DeepSeek, Qwen, xAI, Groq, Together, Fireworks, Cerebras,
 Perplexity, GLM, Kimi and MiniMax routes use the same authenticated service;
 see [vendor configuration](vendor-providers.md) for their distinct protocols.
+Self-hosted servers and gateways use [compatible routes](compatible-providers.md),
+with administrator-owned endpoints and separately identified gateway suppliers.
 The bootstrap HTTP health endpoint remains at `127.0.0.1:8090` and cannot invoke
 a model. No listener is enabled by an API key alone.
 
@@ -20,8 +22,8 @@ their own native continuation formats described below. All system messages
 precede conversational messages; a request ends with a user or tool-result turn.
 Optional capabilities default to **disabled** and must be verified for the exact
 configured model before enabling. A plugin's implementation does not prove that
-every model implements its features. Gateways, model discovery and catalog
-reload remain later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
+every model implements its features. Model discovery and catalog reload remain
+later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
 This is not a completed autonomous research loop.
 
 ## Private deployment

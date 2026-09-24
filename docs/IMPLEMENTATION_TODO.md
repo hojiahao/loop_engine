@@ -587,7 +587,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    Evidence is in ADR 0041 and
    `docs/verification/phase-09-cloud-deployments.md`. This unit does not close
    Phase 9, attest cloud entitlement or permit a merge to `main`.
-5. First-class vendor plugins (`in_progress`): Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
+5. First-class vendor plugins (`complete`): Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
    Together, Fireworks, Cerebras, Perplexity, GLM/Zhipu, Kimi/Moonshot and MiniMax.
    Share a wire codec only when the official protocol permits it; preserve each
    vendor's authentication, parameters, capabilities, errors and usage.
@@ -596,12 +596,21 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    pass; the combined run passed 119 protocol and 421/422 Provider cases, with
    the unchanged CLI startup timeout passing all three isolated retest cases
    after disk cleanup. `just check` and TypeScript workspace build pass.
-   Task publication and exact-commit CI remain required. See ADR 0042 and
+   Chinese task commit `e1055c6` is pushed; all seven jobs in exact-commit CI
+   `35953153780` passed.
+   See ADR 0042 and
    `docs/verification/phase-09-vendor-plugins.md` for evidence and limitations.
-6. Compatible/self-hosted/gateway paths: OpenAI/Anthropic-compatible endpoints,
+6. Compatible/self-hosted/gateway paths (`in_progress`): OpenAI/Anthropic-compatible endpoints,
    Ollama, vLLM, SGLang, llama.cpp, LM Studio, NVIDIA NIM, LiteLLM, Portkey and
    OpenRouter. Distinguish gateway identity from the upstream supplier and deny
    unproven capabilities. Administrative endpoint configuration is not model input.
+   Twelve wire routes now use the existing authenticated service, budget and
+   journal. All 172 new local cases pass, including private continuation recovery,
+   gateway routing controls, contradictory receipts, cancellation and model
+   substitution denial. Complete TypeScript regression passes 594 Provider and
+   119 protocol cases; `just check` and workspace build pass. Task publication
+   and exact-commit CI remain required. See ADR 0043 and
+   `docs/verification/phase-09-compatible-routes.md`.
 7. Model catalog: merge versioned built-ins, official discovery, verified remote
    catalogs and administrative overrides; atomically reload validated snapshots
    without changing a running model resolution. Track implemented/contract/live

@@ -12,7 +12,13 @@ export function vendor_record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export function reasoning_field(model: ModelRoute): string {
+export interface ReplyDialect {
+  readonly reasoning_field: "none" | "reasoning" | "reasoning_content";
+  readonly stream_usage: "separate" | "terminal";
+}
+
+export function reasoning_field(model: ModelRoute, dialect?: ReplyDialect): string {
+  if (dialect) return dialect.reasoning_field;
   if (!vendor_id(model.plugin)) throw new ProviderError("invalid_vendor_route");
   return model.vendor?.reasoning_field ?? VENDORS[model.plugin].reasoning_field;
 }
@@ -94,9 +100,13 @@ function vendor_usage(value: unknown, model: ModelRoute): OpenAI.CompletionUsage
   };
 }
 
-function vendor_message(value: unknown, model: ModelRoute): Record<string, unknown> {
+function vendor_message(
+  value: unknown,
+  model: ModelRoute,
+  dialect?: ReplyDialect,
+): Record<string, unknown> {
   const message = { ...vendor_record(value) };
-  const field = reasoning_field(model);
+  const field = reasoning_field(model, dialect);
   let thought = message[field];
   if (field === "content") {
     thought = undefined;
@@ -133,7 +143,14 @@ function vendor_message(value: unknown, model: ModelRoute): Record<string, unkno
       throw new ProviderError("unexpected_vendor_thinking");
     message.reasoning_content = thought;
   }
-  for (const key of ["audio", "annotations", "citations", "images", "function_call"])
+  for (const key of [
+    "audio",
+    "annotations",
+    "citations",
+    "images",
+    "function_call",
+    "reasoning_details",
+  ])
     if (
       message[key] !== undefined &&
       message[key] !== null &&
@@ -161,12 +178,13 @@ function vendor_finish(value: unknown, model: ModelRoute): unknown {
 export function vendor_reply(
   value: OpenAI.Chat.Completions.ChatCompletion,
   input: NativeInput,
+  dialect?: ReplyDialect,
 ): NativeReply {
   const reply = vendor_envelope(value);
   if (!Array.isArray(reply.choices) || reply.choices.length !== 1)
     throw new ProviderError("invalid_vendor_output");
   const choice = vendor_record(reply.choices[0]);
-  const message = vendor_message(choice.message, input.model);
+  const message = vendor_message(choice.message, input.model, dialect);
   return normalized_reply(
     {
       ...reply,
@@ -180,6 +198,8 @@ export function vendor_reply(
       ],
     } as unknown as OpenAI.Chat.Completions.ChatCompletion,
     input,
+    undefined,
+    dialect,
   );
 }
 
@@ -187,6 +207,7 @@ export function normalized_reply(
   value: OpenAI.Chat.Completions.ChatCompletion,
   input: NativeInput,
   parts?: readonly Record<string, JsonValue>[],
+  dialect?: ReplyDialect,
 ): NativeReply {
   const reply = chat_result(value, input);
   const message = vendor_record(value.choices[0]?.message);
@@ -203,7 +224,7 @@ export function normalized_reply(
     text,
     state: {
       protocol: "loop.vendor-chat/v1",
-      field: reasoning_field(input.model),
+      field: reasoning_field(input.model, dialect),
       text,
       ...(thinking ? { parts: thinking } : {}),
     },
@@ -216,8 +237,9 @@ export function normalized_reply(
 export function vendor_chunks(
   value: OpenAI.Chat.Completions.ChatCompletionChunk,
   model: ModelRoute,
+  dialect?: ReplyDialect,
 ): readonly OpenAI.Chat.Completions.ChatCompletionChunk[] {
-  if (!vendor_id(model.plugin)) throw new ProviderError("invalid_vendor_route");
+  if (!dialect && !vendor_id(model.plugin)) throw new ProviderError("invalid_vendor_route");
   const source = vendor_envelope(value);
   if (!Array.isArray(source.choices) || source.choices.length > 1)
     throw new ProviderError("invalid_vendor_output");
@@ -239,13 +261,16 @@ export function vendor_chunks(
       choices: [
         {
           ...choice,
-          delta: vendor_message(choice.delta, model),
+          delta: vendor_message(choice.delta, model, dialect),
           finish_reason: vendor_finish(choice.finish_reason, model),
         },
       ],
     });
     if (usage != null && !choice.finish_reason) {
-      if (VENDORS[model.plugin].stream_usage !== "terminal")
+      if (
+        (dialect?.stream_usage ??
+          (vendor_id(model.plugin) ? VENDORS[model.plugin].stream_usage : undefined)) !== "terminal"
+      )
         throw new ProviderError("early_vendor_usage");
       vendor_usage(usage, model);
     }

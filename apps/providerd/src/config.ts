@@ -11,6 +11,7 @@ import {
 } from "@loop-engine/protocol/provider";
 import { z } from "zod";
 
+import { COMPATIBLE_IDS, compatible_id, compatible_valid } from "./compatible-config.js";
 import { digest_json, hex_digest } from "./identity.js";
 import { VENDOR_IDS, VENDORS, vendor_id, vendor_valid } from "./vendor-registry.js";
 
@@ -68,6 +69,7 @@ const model_schema = z.strictObject({
     "vertex_generate",
     "bedrock_converse",
     ...VENDOR_IDS,
+    ...COMPATIBLE_IDS,
   ]),
   model: token,
   alias: token,
@@ -103,6 +105,27 @@ const model_schema = z.strictObject({
         .optional(),
       reasoning_field: z.enum(["reasoning_content", "reasoning"]).optional(),
       maximum_extra_usd: decimal.optional(),
+    })
+    .optional(),
+  compatible: z
+    .strictObject({
+      base_url: z.string().max(2048),
+      wire: z.enum(["chat", "responses", "messages"]),
+      auth: z.enum(["bearer", "api_key", "none"]),
+      request_model: token.optional(),
+      strict_tools: z.boolean().default(false),
+      output_limit: z.enum(["max_tokens", "max_completion_tokens"]).default("max_tokens"),
+      thinking: z.enum(["none", "effort", "template"]).default("none"),
+      reasoning_field: z.enum(["none", "reasoning", "reasoning_content"]).default("none"),
+      stream_usage: z.enum(["separate", "terminal"]).default("separate"),
+      gateway: z
+        .strictObject({
+          upstream_provider: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/),
+          route_sha256: z.string().regex(/^[a-f0-9]{64}$/),
+          upstream_key_env: secret_ref.optional(),
+          maximum_extra_usd: decimal,
+        })
+        .optional(),
     })
     .optional(),
 });
@@ -177,7 +200,7 @@ function cloud_valid(model: ModelRoute): boolean {
           model.model.startsWith("anthropic.") &&
           ["adaptive", "enabled"].includes(model.reasoning))
     );
-  return cloud === undefined && model.secret_env !== undefined;
+  return cloud === undefined && (compatible_id(model.plugin) || model.secret_env !== undefined);
 }
 
 export async function read_private(path: string, limit = 1_048_576): Promise<Buffer> {
@@ -213,8 +236,10 @@ export function validate_deployment(value: unknown): Deployment {
       (model) =>
         !cloud_valid(model) ||
         !vendor_valid(model) ||
+        !compatible_valid(model) ||
         model.output_tokens > model.context_tokens ||
         (vendor_id(model.plugin) ||
+        compatible_id(model.plugin) ||
         [
           "cohere",
           "google_interactions",
@@ -231,15 +256,20 @@ export function validate_deployment(value: unknown): Deployment {
           (model.features.documents || !["off", "enabled"].includes(model.reasoning))) ||
         (model.features.parallel_tools && !model.features.tools) ||
         (model.features.documents && !model.features.vision) ||
-        (["anthropic", "bedrock_converse", "minimax"].includes(model.plugin) &&
+        (["anthropic", "bedrock_converse", "minimax", "anthropic_compatible"].includes(
+          model.plugin,
+        ) &&
           model.features.prompt_caching &&
           model.cache_creation_usd === undefined) ||
-        (!["anthropic", "bedrock_converse", "minimax"].includes(model.plugin) &&
+        (!["anthropic", "bedrock_converse", "minimax", "anthropic_compatible"].includes(
+          model.plugin,
+        ) &&
           model.cache_creation_usd !== undefined) ||
         (["openai_chat", "azure_chat"].includes(model.plugin) && model.reasoning !== "off") ||
         (model.plugin === "anthropic" &&
           !["off", "adaptive", "enabled"].includes(model.reasoning)) ||
         (!vendor_id(model.plugin) &&
+          !compatible_id(model.plugin) &&
           ((!["anthropic", "cohere", "bedrock_converse"].includes(model.plugin) &&
             ["adaptive", "enabled"].includes(model.reasoning)) ||
             model.reasoning === "max")) ||
@@ -296,6 +326,9 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "vendor-chat",
     "vendor-replies",
     "native-vendor",
+    "compatible-config",
+    "compatible-chat",
+    "native-compatible",
     "json",
     "content",
     "private-state",
@@ -320,25 +353,33 @@ export async function plugin_digest(): Promise<Uint8Array> {
   return hash.digest();
 }
 
+function protocol_family(model: ModelRoute): ModelProtocolFamily {
+  const wires = {
+    chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+    responses: ModelProtocolFamily.OPENAI_RESPONSES,
+    messages: ModelProtocolFamily.ANTHROPIC_MESSAGES,
+  };
+  if (compatible_id(model.plugin)) {
+    if (!model.compatible) throw new Error("invalid_provider_deployment");
+    return wires[model.compatible.wire];
+  }
+  if (vendor_id(model.plugin)) return wires[VENDORS[model.plugin].wire];
+  return {
+    openai_responses: ModelProtocolFamily.OPENAI_RESPONSES,
+    openai_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+    anthropic: ModelProtocolFamily.ANTHROPIC_MESSAGES,
+    google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+    google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
+    cohere: ModelProtocolFamily.COHERE_V2_CHAT,
+    azure_responses: ModelProtocolFamily.OPENAI_RESPONSES,
+    azure_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+    vertex_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+    bedrock_converse: ModelProtocolFamily.AWS_BEDROCK_CONVERSE,
+  }[model.plugin];
+}
+
 export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Uint8Array) {
-  const family = vendor_id(model.plugin)
-    ? {
-        chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
-        responses: ModelProtocolFamily.OPENAI_RESPONSES,
-        messages: ModelProtocolFamily.ANTHROPIC_MESSAGES,
-      }[VENDORS[model.plugin].wire]
-    : {
-        openai_responses: ModelProtocolFamily.OPENAI_RESPONSES,
-        openai_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
-        anthropic: ModelProtocolFamily.ANTHROPIC_MESSAGES,
-        google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
-        google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
-        cohere: ModelProtocolFamily.COHERE_V2_CHAT,
-        azure_responses: ModelProtocolFamily.OPENAI_RESPONSES,
-        azure_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
-        vertex_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
-        bedrock_converse: ModelProtocolFamily.AWS_BEDROCK_CONVERSE,
-      }[model.plugin];
+  const family = protocol_family(model);
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
     maximumOutputTokens: BigInt(model.output_tokens),
@@ -373,19 +414,20 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
   const snapshot = create(ModelResolutionSnapshotSchema, {
     resolutionId: { value: `resolution-${hex_digest(identity)}` },
     providerId: {
-      value: vendor_id(model.plugin)
-        ? model.plugin
-        : model.plugin.startsWith("openai")
-          ? "openai"
-          : model.plugin.startsWith("azure")
-            ? "azure_openai"
-            : model.plugin === "vertex_generate"
-              ? "google_vertex"
-              : model.plugin === "bedrock_converse"
-                ? "aws_bedrock"
-                : model.plugin.startsWith("google")
-                  ? "google"
-                  : model.plugin,
+      value:
+        vendor_id(model.plugin) || compatible_id(model.plugin)
+          ? model.plugin
+          : model.plugin.startsWith("openai")
+            ? "openai"
+            : model.plugin.startsWith("azure")
+              ? "azure_openai"
+              : model.plugin === "vertex_generate"
+                ? "google_vertex"
+                : model.plugin === "bedrock_converse"
+                  ? "aws_bedrock"
+                  : model.plugin.startsWith("google")
+                    ? "google"
+                    : model.plugin,
     },
     modelId: { value: model.model },
     requestedAlias: model.alias,

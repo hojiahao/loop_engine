@@ -15,6 +15,7 @@ import {
 } from "@loop-engine/protocol/provider";
 import type { CloudIdentity } from "./cloud-auth.js";
 import { azure_plugin, vertex_plugin } from "./cloud-plugins.js";
+import { compatible_id } from "./compatible-config.js";
 import { type Deployment, model_snapshot, type Principal, request_policy } from "./config.js";
 import { ProviderContent } from "./content.js";
 import { ProviderError } from "./errors.js";
@@ -24,6 +25,7 @@ import { type NativePlugin, type NativeReply, response_finish, response_usage } 
 import { anthropic_plugin } from "./native-anthropic.js";
 import { bedrock_plugin } from "./native-bedrock.js";
 import { cohere_plugin } from "./native-cohere.js";
+import { compatible_plugin } from "./native-compatible.js";
 import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
 import { vendor_plugin } from "./native-vendor.js";
@@ -86,7 +88,15 @@ export class ProviderHost {
         this.plugins.set(model.id, vertex_plugin(model, fetcher, identity));
       else if (model.plugin === "bedrock_converse")
         this.plugins.set(model.id, bedrock_plugin(model, secrets, fetcher));
-      else if (vendor_id(model.plugin)) {
+      else if (compatible_id(model.plugin)) {
+        const upstream_ref = model.compatible?.gateway?.upstream_key_env;
+        const upstream = upstream_ref ? secrets[upstream_ref] : undefined;
+        if (
+          (valid || model.compatible?.auth === "none") &&
+          (model.plugin !== "portkey" || (upstream && /^[\x21-\x7e]{1,4096}$/.test(upstream)))
+        )
+          this.plugins.set(model.id, compatible_plugin(model, secret, secrets, fetcher));
+      } else if (vendor_id(model.plugin)) {
         if (valid) this.plugins.set(model.id, vendor_plugin(model, secret, fetcher));
       } else if (valid) this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
     }
@@ -209,7 +219,8 @@ export class ProviderHost {
           ? (selected.route.cloud.guardrail?.maximum_usd ?? "0")
           : "0",
       ) +
-      decimal_units(selected.route.vendor?.maximum_extra_usd ?? "0");
+      decimal_units(selected.route.vendor?.maximum_extra_usd ?? "0") +
+      decimal_units(selected.route.compatible?.gateway?.maximum_extra_usd ?? "0");
     if (
       wall_time < 1 ||
       wall_time > this.config.policy.wall_time_ms ||

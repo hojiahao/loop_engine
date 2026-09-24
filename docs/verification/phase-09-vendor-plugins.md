@@ -1,8 +1,7 @@
 # Phase 9 unit 5: First-class vendor plugins
 
-Status: implemented; local quality gates, vendor contracts, CLI retest and
-workspace build passed on 2026-09-24. Task publication and exact-commit CI
-remain required. Phase 9 is not complete.
+Status: accepted on 2026-09-24. Chinese task commit `e1055c6` is pushed and all
+seven jobs in exact-commit CI `35953153780` passed. Phase 9 is not complete.
 
 ## Requirement and implementation
 
@@ -68,7 +67,9 @@ declarations meet the naming rule; protocol generation/compatibility and wire
 fixtures match; Rust fmt/Clippy (`-D warnings`), TypeScript format/lint/types and
 all four Python environment checks passed. TypeScript protocol, Provider and Web
 builds passed. The Web bootstrap has no behavior tests and is not UI acceptance.
-No Rust/Python behavior changed; the exact-commit remote suites remain required.
+No Rust/Python behavior changed. Exact-commit CI `35953153780` subsequently passed
+all seven jobs, including the complete TypeScript suite, Rust tests, unified
+workspace gates and clean DaoCloud development container.
 
 Commands (serial execution on this small host):
 

@@ -1,8 +1,8 @@
 # ADR 0042: First-class vendor plugins
 
-Status: implemented; local quality gates, vendor contracts, CLI retest and
-workspace build passed on 2026-09-24. Publication and exact-commit CI remain
-required. Phase 9 delivery unit 5.
+Status: accepted on 2026-09-24. Chinese task commit `e1055c6` is pushed; local
+gates and all seven jobs in exact-commit CI `35953153780` passed.
+Phase 9 delivery unit 5; the entire phase remains in progress.
 
 ## Requirement and decision
 
