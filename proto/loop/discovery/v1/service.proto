@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package loop.discovery.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "loop/v1/common.proto";
+import "loop/v1/development_data.proto";
+import "loop/v1/model.proto";
+
+// DiscoveryService has no holdout method, grant, period, approval, or protected
+// dataset input. Its runtime principal is never issued a holdout capability.
+service DiscoveryService {
+  rpc StartDiscovery(StartDiscoveryRequest) returns (StartDiscoveryResponse);
+}
+
+// DiscoveryJobStatus is a non-sensitive projection of durable orchestration
+// state. It cannot carry a job specification, input, lease, or outcome body.
+enum DiscoveryJobStatus {
+  DISCOVERY_JOB_STATUS_UNSPECIFIED = 0;
+  DISCOVERY_JOB_STATUS_QUEUED = 1;
+  DISCOVERY_JOB_STATUS_LEASED = 2;
+  DISCOVERY_JOB_STATUS_RUNNING = 3;
+  DISCOVERY_JOB_STATUS_SUCCEEDED = 4;
+  DISCOVERY_JOB_STATUS_FACTOR_REJECTED = 5;
+  DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED = 6;
+  DISCOVERY_JOB_STATUS_CANCELLED = 7;
+  DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED = 8;
+}
+
+// DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
+// exact; maximum_wall_time is required and must be positive.
+message DiscoveryJobBudget {
+  uint32 maximum_steps = 1;
+  uint64 maximum_input_tokens = 2;
+  uint64 maximum_output_tokens = 3;
+  loop.v1.Money maximum_cost = 4;
+  google.protobuf.Duration maximum_wall_time = 5;
+}
+
+// DiscoveryJobInput can carry only the narrow dataset-reference type. Before
+// persistence or execution, loopd resolves the opaque IDs through its
+// server-owned snapshot registry and proves they contain only warmup, IS, and
+// development snapshots; the current wire validator checks shape only. No
+// holdout identifier, grant, capability, or generic job union is reachable
+// from this message.
+message DiscoveryJobInput {
+  loop.v1.DevelopmentDatasetReference dataset = 1;
+  loop.v1.PolicyReference research_policy = 2;
+  loop.v1.ModelResolutionSnapshot maker_model = 3;
+  loop.v1.ModelResolutionSnapshot checker_model = 4;
+  DiscoveryJobBudget budget = 5;
+  uint32 maximum_candidates = 6;
+}
+
+message StartDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  DiscoveryJobInput discovery = 2;
+}
+
+// DiscoveryJobHandle deliberately omits the persisted JobSpecification,
+// inputs, leases, output artifacts, and outcome details.
+message DiscoveryJobHandle {
+  loop.v1.JobId job_id = 1;
+  DiscoveryJobStatus status = 2;
+  uint64 revision = 3;
+  google.protobuf.Timestamp submitted_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message StartDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}

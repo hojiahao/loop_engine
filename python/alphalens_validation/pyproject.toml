@@ -1,0 +1,46 @@
+[project]
+name = "loop-alphalens-validation"
+version = "0.2.0a1"
+description = "Independent Alphalens statistics verification for Loop Engine"
+authors = [{ name = "hojiahao", email = "hojiahao@outlook.com" }]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alphalens-reloaded==0.4.6",
+    "numpy==2.5.2",
+    "pandas==2.3.3",
+    "pydantic>=2.11,<3",
+    "scipy==1.18.1",
+]
+
+[project.scripts]
+loop-alphalens = "loop_alphalens.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/loop_alphalens"]
+
+[dependency-groups]
+dev = ["hatchling==1.32.0", "pytest>=9.1.1", "ruff>=0.12", "mypy>=1.17"]
+
+[tool.uv]
+index-url = "https://mirrors.aliyun.com/pypi/simple/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["loop_alphalens"]
+mypy_path = "src"

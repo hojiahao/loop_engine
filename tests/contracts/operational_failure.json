@@ -1,0 +1,19 @@
+{
+  "contract": "loop.rpc-operational-failure/v1",
+  "rpc": "/loop.provider.v1.ProviderService/InvokeModel",
+  "grpc_status_code": 14,
+  "grpc_status_name": "UNAVAILABLE",
+  "response_body_base64": "",
+  "details": [
+    {
+      "type_url": "type.googleapis.com/loop.v1.ServiceError",
+      "value_base64": "CAkSGGFydGlmYWN0X2RpZ2VzdF9taXNtYXRjaBocYXJ0aWZhY3QgdmVyaWZpY2F0aW9uIGZhaWxlZCAB"
+    }
+  ],
+  "expected": {
+    "category": "ERROR_CATEGORY_DEPENDENCY",
+    "code": "artifact_digest_mismatch",
+    "message": "artifact verification failed",
+    "retryable": true
+  }
+}

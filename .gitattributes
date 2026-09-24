@@ -1,0 +1,2 @@
+# Keep protoc-gen-es output byte-for-byte reproducible, including its final blank line.
+packages/protocol-ts/src/generated/** linguist-generated=true whitespace=-blank-at-eof

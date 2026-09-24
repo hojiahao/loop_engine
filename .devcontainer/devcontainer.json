@@ -1,0 +1,19 @@
+{
+  "name": "Loop Engine",
+  "dockerComposeFile": "../compose.yaml",
+  "service": "development",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "loop",
+  "updateRemoteUserUID": true,
+  "postCreateCommand": "just bootstrap",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "biomejs.biome",
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "rust-lang.rust-analyzer"
+      ]
+    }
+  }
+}

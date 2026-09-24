@@ -438,7 +438,7 @@ def review_expression(provider, node: Node, temperature: float = 0.1,
     return accept, reason
 
 
-def make_evolve_llm_hook(provider, rng: np.random.Generator | None = None,
+def make_evolve_hook(provider, rng: np.random.Generator | None = None,
                          boost: dict[str, float] | None = None):
     """适配 evolve.Evolver.llm_provider 的 callable:(tree, fields, rng, field_usage) -> Node。
     boost 默认用 MECHANISM_BOOST(跳空优先)。"""

@@ -1,0 +1,21 @@
+schema = "loop.development-fetch/v1"
+provider = "alpaca"
+symbols = ["AAPL", "MSFT"]
+feed = "iex"
+identity_basis = "current_asset"
+key_id_reference = "LOOP_ALPACA_KEY_ID"
+secret_key_reference = "LOOP_ALPACA_SECRET_KEY"
+paper = true
+probe_recent_sip = true
+start = 2026-08-03
+end = 2026-08-31
+
+[budget]
+requests = 12
+pages = 4
+response_bytes = 1048576
+total_bytes = 8388608
+records = 1000
+timeout_seconds = 60
+retries = 1
+interval_seconds = 0.5

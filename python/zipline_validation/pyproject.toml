@@ -1,0 +1,48 @@
+[project]
+name = "loop-zipline-validation"
+version = "0.2.0a1"
+description = "Independent Zipline accounting verification for Loop Engine"
+authors = [{ name = "hojiahao", email = "hojiahao@outlook.com" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "zipline-reloaded==3.1.1",
+    "bcolz-zipline==1.2.10",
+    "numpy==2.5.2",
+    "pandas==2.3.3",
+    "scipy==1.18.1",
+    "pydantic==2.13.5",
+    "setuptools==80.9.0",
+]
+
+[project.scripts]
+loop-zipline = "loop_zipline.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/loop_zipline"]
+
+[dependency-groups]
+dev = ["hatchling==1.32.0", "pytest>=9.1.1", "ruff>=0.12", "mypy>=1.17"]
+
+[tool.uv]
+index-url = "https://mirrors.aliyun.com/pypi/simple/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["loop_zipline"]
+mypy_path = "src"

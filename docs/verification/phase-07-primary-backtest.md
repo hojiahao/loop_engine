@@ -1,0 +1,310 @@
+# Phase 7 primary portfolio backtest verification
+
+## Unit 4: authorized execution and global trial accounting (`complete`)
+
+Final correction `549cb112625d4049d6d28228852fad7a23878ef9` is pushed; exact-commit
+[CI 35202271352](https://github.com/hojiahao/loop_engine/actions/runs/35202271352)
+passed all seven jobs. Rust completed in 24m57s, unified workspace in 32m46s and
+DaoCloud container in 33m7s. This supersedes the pending publication notes below
+and closes Phase 7's development-backtest implementation. It does not close
+Phase 5's deferred licensed-data gate or Phase 8 independent validation.
+
+Implementation commit `4addeb8100df4225a9b5035ec59c1e159594dc3e` is pushed.
+Exact-commit CI
+[`35196842306`](https://github.com/hojiahao/loop_engine/actions/runs/35196842306)
+finished with **six successful jobs and one timed-out Rust job**. This is not a
+seven-job pass. Both the unified workspace and clean DaoCloud container passed;
+the workspace executed every corrected portfolio case, including the 2/4/8
+independent-process completion race and all three commit-boundary crash cases.
+Its `loopd` library result is **117 passed, 0 failed, 5 ignored** in 1161.15 seconds;
+the ignored entries are child executables launched by their parent process tests.
+All subsequent Rust integration/doc tests passed. Research Python reports
+**921 passed**, protocol Python **301 passed**, legacy **216 passed / 1 skipped**,
+and TypeScript **116 passed** in this workspace run.
+
+The complete Rust execution interval was 07:58:58 to 08:20:31 UTC (about 21m33s),
+excluding compilation and setup. The standalone Rust job began at 07:53:57 UTC,
+completed its build at 07:57:22, passed every new portfolio case by 08:10:58,
+and was cancelled by the job budget at 08:14:10 during the remaining regression
+suite. There is no reported assertion failure in that job. Its 20-minute total
+budget cannot accommodate the measured suite; only `.github/workflows/ci.yml`'s
+Rust job limit changes to **35 minutes**, with bounded room for clean compilation,
+dependency setup and isolation checks. No production deadline, lease, test skip
+or assertion changes. A new exact-commit seven-job run remains required. The CI
+budget change can be reverted without modifying research or audit history.
+
+Requirement, tradeoffs and recovery: [ADR 0032](../adr/0032-authorized-portfolio-execution.md).
+Deployment and executable RPC inputs are documented in
+[authorized portfolios](../development/authorized-portfolios.md). The workflow
+reuses the existing PostgreSQL schema, broker and shared admission transaction;
+no new service, migration or numerical dependency is introduced.
+
+| Requirement | Executable acceptance |
+| --- | --- |
+| Real factor predecessor, portfolio computation and restart replay | `execute_and_replay`, installed Python over actual mTLS/PostgreSQL |
+| Current reads, audited export replay and unresolved admission dependency | `current_export_admission` |
+| No imported success or claimed transport identity | `imported_success_denied`, `spoofed_actor_denied` |
+| Cancellation, expired lease, operator misuse and missing deployment | Focused runtime denial cases |
+| Protected jobs never publish a development view | `protected_portfolio_denied`, research and holdout-worker identities |
+| Global run membership and immutable index completeness | `changed_trials_stale`, `ledger_scope_denied`, `ledger_index_missing` |
+| Queued/cancelled work stays counted without becoming an empirical loss | `cancelled_trial_counted` and Python global testing cases |
+| Corrupt results do not get repaired or silently returned | `corrupt_result_denied`, Python read-only replay tests |
+| Same completion raced by separate OS processes | `independent_portfolio_writers`, 2/4/8 writers |
+| Process death after result insert, before commit and after commit | `killed_portfolio_atomic`, exactly one result/receipt/audit after recovery |
+| Conservative global BY bound and strict count/ordering limits | `test_portfolio_worker.py`, comparison to the independent full-family kernel |
+| V1 and v2 market inputs restricted to the broker view | Worker replay and missing/read-write market/source cases |
+
+Initial local evidence: 22 new Python cases passed; the first installed-producer
+mTLS/database execution-and-restart case passed in 98.75 seconds after compilation.
+Ruff and strict mypy pass (54 source files). Expanded negative/process matrices,
+affected numerical regression and exact-commit remote gates are recorded below
+when completed. These preliminary results do not close the publication gate.
+
+The first expanded local Rust run finished with **10 passed, 6 failed, 1 ignored
+in 1610.59 seconds**. The ignored case is the executable child-process entry,
+launched explicitly by its process tests. Actual current read/export/admission,
+three commit-boundary kill/restarts, imported-output/actor/operator denial,
+missing/inaccessible trial index and protected/unconfigured denial passed.
+Four failures occurred in existing factor/data fixture or artifact-read deadlines
+before their intended assertion. The machine reported CPU/IO/memory pressure;
+these are recorded as failures, not silently retried into a passing total.
+
+One expired-lease test incorrectly expected `Aborted`; the existing lease contract
+correctly returned `FailedPrecondition`, and the assertion was corrected. The
+2/4-writer cases completed; the 8-writer case exceeded the first child's
+120-second barrier while later children reconstructed numerical evidence. The
+fixture now bounds the whole barrier to 300 seconds and uses a shared logical
+commit clock captured after genuine computation. Live lease expiry is tested
+separately. Production deadlines and verification limits are unchanged. Final
+acceptance still requires the corrected cases and exact-commit remote CI.
+
+The final affected Python run produced **25 passed, 1 setup error in 165.16
+seconds**. The error was the existing native-build verification deadline before
+`test_worker_replay` execution. That exact case then passed alone in **18.56
+seconds**, without source, timeout or skip changes. All 26 selected cases have
+passing evidence across those runs, including real v2 short/action accounting
+through the read-only view and refusal to read an omitted raw source from the
+private evidence store. Do not label the first run fully passing.
+
+Workspace Clippy with `-D warnings` passed in 9m29s. TypeScript formatting, lint
+and type checks, Python Ruff/format, strict mypy (54 files), and the 3,545-name
+Python/Rust/Shell gate pass. The protocol generator detected the expected stale
+wire fixture after the additive RPC change; it is regenerated by the pinned
+producer before publication. Exact-commit CI remains the final full Rust,
+concurrency, workspace and clean DaoCloud-container acceptance gate.
+
+The regenerated wire fixture and all three generated bindings now pass the
+protocol compatibility, role-reachability and operational-failure gates. The
+immutable compatibility baseline is unchanged. Final Rust formatting passes.
+
+```sh
+./scripts/cargo.sh test --locked --offline -p loopd --lib \
+  manifests::tests::runtime::evaluation::portfolio -- --nocapture --test-threads=1
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_portfolio_worker.py \
+  tests/test_market_workflow.py::test_action_replay \
+  tests/test_backtest_workflow.py::test_evaluation_ledger -rA
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_portfolio_worker.py::test_worker_replay -rA
+```
+
+This validates synthetic/development workflows, not investment performance,
+licensed coverage or final holdouts. The global denominator is all registered
+development jobs/acquired attempts in this database, not experiments conducted
+elsewhere. Global DSR/PBO are unavailable without a synchronous return matrix;
+the declared-family diagnostics retain their narrower scope. Primary evidence
+cannot waive Phase 8 independent reconciliation or semantic decision evidence.
+
+Rollback disables the optional portfolio writer and preserves jobs, trial/index
+history, immutable artifacts, receipts and audit. There is no destructive schema
+change. Compatible readers must be retained for the new producer format.
+
+## Unit 3: statistics and multiple testing (`complete`)
+
+Commit `a512220f7081aa809a2c42e00fe52533b47003ac` is pushed. Exact-commit CI
+[`35180788482`](https://github.com/hojiahao/loop_engine/actions/runs/35180788482)
+passed all seven jobs. This supersedes the pre-publication pending notes below;
+it closes unit 3 only, not runtime integration or independent validation.
+
+Requirement and exact assumptions: ADR 0031. The installed `statistics-run`,
+`statistics-validate` and plan-binding command use genuine numerical/portfolio
+reconstruction. Four cohesive numerical/contract/workflow modules reuse the
+existing CAS, evaluator and accounting. No dependency, service, database table
+or protected-data access is added.
+
+| Requirement | Executable acceptance |
+| --- | --- |
+| Intercept Newey–West covariance and normal uncertainty | `test_hac_golden`, independent SciPy SEM/t-stat comparison |
+| Average ranks, IC, groups, frozen direction and future-label missingness | `test_portfolio_statistics.py` goldens and causal eligibility cases |
+| BY-FDR on the full family | Hand-calculated adjusted p-values and permutation/monotonicity properties |
+| DSR moments and declared-count assumption | Independent SciPy skew/Pearson-kurtosis and equation checks |
+| Exhaustive CSCV and deterministic ties | Six hand-derived splits; missing/unequal/constant/short/budget negative cases |
+| Actual portfolio statistics with complete synchronous trials | `test_actual_statistics`, 17 XNYS sessions and two actual portfolio replays |
+| Failures remain in counts; no missing/duplicate/substituted trial | `test_failure_count`, family integrity and frozen-policy mismatch tests |
+| NAV ratio, drawdown, turnover and signed risk exposures | Small ledger/drawdown goldens and long/short exposure weights |
+| Repeatability, provenance, corruption, cancellation and deadline | Installed CLI round trip, read-only bytes/mtime checks, Decimal-context and interruption tests |
+
+The initial new numerical/workflow suite passed 41 tests in 199.88 seconds.
+A later regression run was stopped after a newly added constant-series guard
+referenced the wrong local variable; that run is not counted as passing. The
+guard was corrected, and explicit decimal constants, complete policy comparison
+and isolated Decimal contexts were added. The numerical/cross-section suite then
+passed **45 tests in 3.55 seconds**. Ruff lint/format (90 files), strict mypy
+(53 source files), and the 3,452-declaration Python/Rust/Shell naming gate pass.
+Final combined regression and exact-commit remote CI are recorded below when
+completed; this note alone does not close the delivery gate.
+
+Final affected-suite run: **187 passed, 1 setup error in 713.38 seconds**. All
+65 new statistics cases passed. The error was the existing
+`test_backtest_workflow.py::test_protected_window` fixture hitting
+`worker build verification timed out` while hashing the native environment;
+it did not reach protected-window execution. The same case passed alone in
+**6.42 seconds**, with no source, limit, assertion or skip changes. Do not describe
+the first run as completely passing. All 188 cases have passing local evidence
+across these two runs; exact-commit CI must also pass the complete gates.
+
+```sh
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_statistics_kernels.py tests/test_statistics_workflow.py \
+  tests/test_portfolio_statistics.py tests/test_backtest_workflow.py \
+  tests/test_portfolio.py tests/test_market_workflow.py tests/test_market_portfolio.py \
+  tests/test_factor_worker.py tests/test_transform_pipeline.py
+
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_backtest_workflow.py::test_protected_window
+```
+
+Ruff lint and format (90 files), strict mypy (53 source files), the handwritten
+naming gate and Rust formatting pass. Financial paths preserve their existing
+deadlines and numeric bounds. The seven-job remote workflow supplies the full
+workspace, Rust/Clippy and clean-container gates; its exact commit/run receipt
+will accompany publication and be pinned in the next task's checklist update.
+Temporary local fixtures and XML are disposable after this evidence is recorded.
+
+The family receipt proves completeness only of its declared batch. Plan timing,
+failure statements and the global search history are not authenticated here;
+they must be bound to the durable registry in unit 4. Every report remains
+`production_eligible=false`. The statistical values are synthetic acceptance
+evidence, not market profitability or independent out-of-sample conclusions.
+
+Rollback disables the new CLI writers or reverts this task's implementation,
+retaining all CAS plans, ledgers, statistics, receipts and audit history. There
+is no schema migration or destructive recovery action.
+
+## Unit 1: next-session ledger (`complete`)
+
+Commit `cf2750dd4aaacabccb258dfd6815cf034a1c452d` is pushed. GitHub Actions run
+[`35065117368`](https://github.com/hojiahao/loop_engine/actions/runs/35065117368)
+passes all seven jobs, including isolated Python research with its WRDS fixture,
+Rust, unified workspace and the clean DaoCloud development container. This closes
+unit 1, not Phase 7 or a production-data validation gate. The local history below
+is retained as evidence; the exact-commit CI supersedes its pending status.
+
+Requirement and scope: ADR 0029. Implementation provides bounded administrative
+`backtest-run` and read-only `backtest-validate`, using actual recomputed factor
+evidence, all frozen policy identities and explicit raw execution observations.
+No service, database table, dependency or production-data permission is added.
+
+| Requirement | Executable evidence |
+| --- | --- |
+| Cash/holdings/NAV reconciliation with opening gaps | `test_hand_accounting` |
+| Successive NAV returns, absent first return | `test_ratios_first` |
+| Fixed-share next-session orders, causal prefixes | `test_next_open`, `test_future_signals` |
+| Chronological sale funding | `test_late_sale` |
+| Commission/spread without double charging | `test_commission_spread` |
+| Missing observations and explicit terminal holdings | `test_unfilled_open`, missing-mark tests, `test_final_positions` |
+| Deterministic ties, direction, decimal context and conservation | Direction/tie/context tests and `test_flat_frictionless` |
+| Actual numerical source and installed CLI | `test_evaluation_ledger`, `test_installed_cli` |
+| Fail-closed evidence, policy, provenance, sample, clocks and corruption | `test_backtest_workflow.py` negative cases |
+
+Phase 6 closeout `4ea0316` is pushed and passes CI run `35060368321`; its
+underlying implementation remains `b792601` with run `35058329373`.
+Initial ledger-only acceptance: 18 passed. Implementation acceptance is recorded
+below; publication and the associated exact-commit CI still gate delivery.
+
+The first integration run passed 59 cases in 164.10 seconds. The expanded full
+research run, concurrent with local Clippy, produced 772 passed, 7 skipped,
+1 failed and 5 setup errors in 966.85 seconds. Five errors were explicit
+native-environment byte-verification timeouts; the installed CLI replay returned
+exit 2. The seven skipped cases require the optional disposable WRDS PostgreSQL
+fixture, which was not started for this local Python run. CI runs that fixture.
+
+All six failed/error cases subsequently passed serially in 43.26 seconds.
+The extraction now carries the encoded value CSV with the computed result,
+preserving the original factor worker's pre/post verification points without an
+extra full native scan. Portfolio release still verifies current build and all
+inputs before the final receipt; incomplete CAS objects grant no completion.
+Production timeout, byte/work limits and corruption checks are unchanged.
+
+Ruff lint/format and strict mypy pass (46 source files); Rust formatting and
+workspace Clippy with `-D warnings` pass. Clippy completed in 9m05s on this host.
+The final affected-suite run passes **77 tests in 281.46 seconds**, including
+all failed/error cases, actual raw/v2 factor computation, installed CLI replay,
+numerical goldens and full interruption/recovery behavior. Command:
+
+```sh
+./scripts/uv-research.sh run --locked --offline --no-sync pytest \
+  tests/test_backtest_workflow.py tests/test_factor_worker.py \
+  tests/test_portfolio.py tests/test_transform_pipeline.py
+```
+
+The complete exact-commit workspace/container run is delegated to the existing
+seven-job GitHub workflow after publication. Do not treat the resource-contended
+local full run as fully passing, or the affected-suite result as a complete
+production backtester. Publication/CI evidence accompanies this task commit and
+is pinned in the next phase-task update after its check run completes.
+
+At unit 1 closure, remaining Phase 7 units were action/financing/borrow/capacity accounting and PIT
+execution inputs; statistics/multiple-testing; authorized runtime completion,
+current reads/exports and admission. Independent validation remains Phase 8.
+Licensed historical production-data coverage remains deferred by the owner.
+
+Rollback: disable new portfolio writers or revert the unit's code commit,
+preserving immutable inputs/results/receipts. No schema migration or deletion of
+research/audit history is needed. Temporary test directories may be removed
+after evidence is recorded; actual market captures and research artifacts remain.
+
+## Unit 2: PIT actions, financing and capacity (`complete`)
+
+Commit `4953dc90f33cd86d38df1b9e2019a958631b487b` is pushed. GitHub Actions run
+[`35082001411`](https://github.com/hojiahao/loop_engine/actions/runs/35082001411)
+passed all seven jobs, including unified workspace and the clean DaoCloud
+container. This supersedes the pre-publication pending notes below and closes
+unit 2 only.
+
+Requirement and exact model: ADR 0030. Adds `pit-actions-long-short.1` through the
+existing installed CLI, with a source-backed v2 tape and explicitly frozen new
+policies. No extra service, database table, dependency or paid access is added.
+Prior v1 algorithms remain available. Byte integrity and declared public clocks
+do not certify historical source coverage; all receipts remain development-only.
+
+| Requirement | Executable acceptance |
+| --- | --- |
+| Share conversion, pending targets, long/short fractional cash-in-lieu | Split and reverse-split goldens in `test_market_portfolio.py` |
+| Entitlement versus cash payment; lender liabilities | Dividend, short-dividend and unpaid-payable-reserve goldens |
+| Explicit cash/zero delisting consideration and permanent retirement | Long and short delisting goldens |
+| Borrow limits, actual recalls and unavailable markets | Availability/recall/held-mark tests; unfinished covers fail |
+| ACT weekend borrow and financed cash balances | Hand-calculated collateral, weekend and cash-interest tests |
+| Bounded fills and price impact without double charging | Opening-event capacity/impact golden |
+| Historical SEC/TAF inputs and separate fee reconciliation | Dated sale-levy golden; no current rate is hardcoded |
+| Insolvency, closing maintenance, causality and determinism | Margin/insolvency cases, causal-prefix and Hypothesis conservation |
+| Genuine computation, CLI, immutable replay and source corruption | `test_market_workflow.py` with real factor evaluation and installed subprocess |
+| Late revisions, ambiguous sources, clocks and protected samples | Capture/terms/action negative cases and inherited v1 guards |
+
+The initial kernel run passed 23 tests. The combined portfolio, factor-worker
+and transform regression passed **120 tests in 326.58 seconds**. After tightening
+source-scope rejection before raw-artifact access and fee-cap cent precision,
+the final market suites passed **46 tests in 107.99 seconds**. Ruff lint/format
+and strict mypy passed (49 research source files). These runs preceded the
+repository-wide naming task; no financial formula changed during that rename.
+The post-rename market suites pass **46 tests in 132.09 seconds**, including the
+installed CLI and complete byte replay. Ruff lint/format and strict mypy pass
+again. Publication and remote acceptance remain pending. Local verification
+runs serially to avoid the prior task's native-IO contention.
+
+Rollback: disable v2 writers or revert the task implementation. Keep input
+captures, output ledgers and receipts; source changes invalidate current replay
+without relabeling immutable historical results. No destructive migration exists.
+
+Remaining after this unit: Phase 7 unit 3 statistics/multiple testing and unit 4
+authorized execution/current reads/exports/admission; Phase 8 independent review.

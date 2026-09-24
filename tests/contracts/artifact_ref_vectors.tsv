@@ -1,0 +1,19 @@
+# name	expected	uri	digest_hex	artifact_id	created_at
+content_addressed	accept	artifact://sha256/@digest	@zero32	@matching	valid
+inline_data_uri	invalid_locator	data:application/octet-stream;base64,AA==	@zero32	@matching	valid
+userinfo	invalid_locator	artifact://user:secret@sha256/@digest	@zero32	@matching	valid
+signed_query	invalid_locator	artifact://sha256/@digest?X-Amz-Signature=secret	@zero32	@matching	valid
+fragment	invalid_locator	artifact://sha256/@digest#bearer-token	@zero32	@matching	valid
+credential_locator	invalid_locator	https://api-key:secret@storage.example/artifact	@zero32	@matching	valid
+object_store_locator	invalid_locator	s3://bucket/sha256/@digest	@zero32	@matching	valid
+short_digest	invalid_digest	artifact://sha256/@digest	@zero31	@matching	valid
+oversized_uri	uri_too_long	@overlong	@zero32	@matching	valid
+locator_digest_mismatch	identity_mismatch	artifact://sha256/@one32	@zero32	@matching	valid
+artifact_id_mismatch	identity_mismatch	artifact://sha256/@digest	@zero32	sha256:1111111111111111111111111111111111111111111111111111111111111111	valid
+uppercase_locator	invalid_locator	artifact://sha256/@upperdigest	@zero32	@matching	valid
+missing_created_at	missing_field	artifact://sha256/@digest	@zero32	@matching	missing
+zero_created_at	accept	artifact://sha256/@digest	@zero32	@matching	zero
+created_at_before_minimum	invalid_timestamp	artifact://sha256/@digest	@zero32	@matching	before_minimum
+created_at_after_maximum	invalid_timestamp	artifact://sha256/@digest	@zero32	@matching	after_maximum
+created_at_negative_nanos	invalid_timestamp	artifact://sha256/@digest	@zero32	@matching	negative_nanos
+created_at_nanos_overflow	invalid_timestamp	artifact://sha256/@digest	@zero32	@matching	nanos_overflow

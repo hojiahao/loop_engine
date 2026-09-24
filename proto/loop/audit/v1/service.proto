@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package loop.audit.v1;
+
+import "loop/v1/audit.proto";
+import "loop/v1/common.proto";
+
+service AuditService {
+  rpc AppendAuditEvent(AppendAuditEventRequest) returns (AppendAuditEventResponse);
+  rpc GetAuditEvent(GetAuditEventRequest) returns (GetAuditEventResponse);
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+}
+
+message AppendAuditEventRequest {
+  loop.v1.CommandContext context = 1;
+  uint64 expected_previous_sequence = 2;
+  loop.v1.Sha256Digest expected_previous_event_sha256 = 3;
+  loop.v1.AuditAction action = 4;
+  loop.v1.AuditTarget target = 5;
+  loop.v1.AuditPayload payload = 6;
+  loop.v1.AuditLedgerId audit_ledger_id = 7;
+}
+
+message AppendAuditEventResponse {
+  loop.v1.AuditEvent event = 1;
+}
+
+message GetAuditEventRequest {
+  loop.v1.AuditEventId audit_event_id = 1;
+}
+
+message GetAuditEventResponse {
+  loop.v1.AuditEvent event = 1;
+}
+
+message ListAuditEventsRequest {
+  loop.v1.AuditTarget target = 1;
+  loop.v1.PageRequest page = 2;
+  loop.v1.AuditLedgerId audit_ledger_id = 3;
+}
+
+message ListAuditEventsResponse {
+  // At most 500 events in ascending sequence order.
+  repeated loop.v1.AuditEvent events = 1;
+  loop.v1.PageInfo page = 2;
+}

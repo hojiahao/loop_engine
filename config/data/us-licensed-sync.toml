@@ -1,0 +1,24 @@
+# One selected security, not a survivorship-complete production universe.
+# Replace the placeholder with the SHA-256 of a private licensed declaration.
+schema = "loop.data-sync-plan/v1"
+start = 2005-01-01
+through = 2026-08-31
+max_requests = 24
+max_source_bytes = 67108864
+max_records = 10000
+timeout_seconds = 180
+
+[[requests]]
+schema = "loop.licensed-fetch/v1"
+provider = "sharadar"
+license_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+key_reference = "LOOP_SHARADAR_API_KEY"
+symbols = ["AAPL"]
+tables = ["SEP", "SF1", "ACTIONS"]
+dimension = "ARQ"
+start = 2005-01-01
+end = 2026-08-31
+
+[requests.budget]
+timeout_seconds = 90
+retries = 1

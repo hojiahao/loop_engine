@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package loop.protocol.v1;
+
+import "loop/v1/common.proto";
+
+// Unary requests and responses are limited to 4 MiB by default. Domain layers
+// impose stricter limits before allocation; numerical payloads remain external
+// immutable artifacts.
+service ProtocolService {
+  rpc GetProtocolInfo(GetProtocolInfoRequest) returns (GetProtocolInfoResponse);
+}
+
+message GetProtocolInfoRequest {}
+
+message GetProtocolInfoResponse {
+  loop.v1.ProtocolInfo protocol = 1;
+}

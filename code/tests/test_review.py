@@ -6,23 +6,27 @@ from engine.review import apply, simplify, MIN_DEPTH
 
 # ---------------- 过滤1:截面折叠(简化)+ 形态统一(2026-08-18)----------------
 
-def test_simplify_nested_cs():
+# Scenario: simplify nested cs.
+def test_simplify_nested():
     t = parse("zscore(zscore(ma(close, 20)))")
     assert simplify(t).to_str() == "zscore(ma(close, 20))"
 
 
-def test_simplify_keeps_hetero_cs_nesting():
+# Scenario: simplify keeps hetero cs nesting.
+def test_simplify_hetero():
     """异型截面互包保留(2026-08-18 修正):zscore(rank_cs(·)) 是生成端可刻意的形态,非冗余。"""
     t = parse("zscore(rank_cs(ma(close, 20)))")
     assert simplify(t).to_str() == "zscore(rank_cs(ma(close, 20)))"
 
 
-def test_simplify_no_change_when_not_nested():
+# Scenario: simplify no change when not nested.
+def test_flat_simplification():
     t = parse("zscore(ma(close, 20))")
     assert simplify(t).to_str() == "zscore(ma(close, 20))"
 
 
-def test_zscore_rank_mix_preserved():
+# Scenario: zscore rank mix preserved.
+def test_zscore_rank():
     """用户 2026-08-18 拍板:zscore(std≈1) 与 rank_cs(std≈0.29,≈3.4x)直接混合【保留】,
     不做形态包装;真正失衡(≥5x)由回测前的分支支配简化处理。"""
     t = parse("add(rank_cs(log_mv), rank_cs(log_amount))")
@@ -40,7 +44,8 @@ def test_reject_shallow():
     assert t2 is not None                                        # depth 2 ✓
 
 
-def test_accept_min_depth():
+# Scenario: accept min depth.
+def test_min_depth():
     # depth 3,同量纲(price−price),通过
     t, reason = apply(parse("zscore(sub(ma(close, 20), ma(close, 10)))"))
     assert t is not None, reason
@@ -48,13 +53,15 @@ def test_accept_min_depth():
 
 # ---------------- 过滤2:同质退化 ----------------
 
-def test_reject_degenerate_subtree():
+# Scenario: reject degenerate subtree.
+def test_degenerate_subtree():
     # depth 3,但子树 sub(ma(close,20), ma(close,20)) 两子相同 → 退化
     t, reason = apply(parse("zscore(sub(ma(close, 20), ma(close, 20)))"))
     assert t is None and "degenerate" in reason
 
 
-def test_mul_same_subtree_rejected():
+# Scenario: mul same subtree rejected.
+def test_mul_subtree():
     # mul(x,x) = x² → 退化(方向单一、始终非负,非合格 alpha),拒
     t, reason = apply(parse("zscore(mul(ma(close, 20), ma(close, 20)))"))
     assert t is None and "degenerate" in reason
@@ -62,20 +69,23 @@ def test_mul_same_subtree_rejected():
 
 # ---------------- 过滤3:跨量纲 ----------------
 
-def test_reject_cross_dimension():
+# Scenario: reject cross dimension.
+def test_cross_dimension():
     t, reason = apply(Node.elem("add", parse("ma(close, 20)"), parse("ma(volume, 20)")))
     # depth 2 → 先被 min_depth 拒;包裹一层截面到 depth 3 测跨量纲
     t2, reason2 = apply(parse("zscore(add(ma(close, 20), ma(volume, 20)))"))
     assert t2 is None and "cross_dimension" in reason2
 
 
-def test_same_dimension_allowed():
+# Scenario: same dimension allowed.
+def test_dimension():
     # overnight 与 intraday 同属 dimless → 可组合
     t, reason = apply(parse("zscore(add(ma(overnight, 20), ma(intraday, 20)))"))
     assert t is not None, reason
 
 
-def test_price_and_mv_rejected():
+# Scenario: price and mv rejected.
+def test_price_mv():
     # close(price) 与 mv(mv) 不同量纲 → 拒
     t, reason = apply(parse("zscore(add(ma(close, 20), ma(mv, 20)))"))
     assert t is None and "cross_dimension" in reason
@@ -83,7 +93,8 @@ def test_price_and_mv_rejected():
 
 # ---------------- 综合 ----------------
 
-def test_returns_simplified_tree():
+# Scenario: returns simplified tree.
+def test_simplified_tree():
     # 输入有冗余外层截面,通过审查后返回折叠后的树
     t, _ = apply(parse("zscore(zscore(sub(ma(close, 20), ma(low, 20))))"))
     assert t is not None
@@ -92,7 +103,8 @@ def test_returns_simplified_tree():
 
 # ---------------- 过滤1b:add/mul 交换结合规范化(2026-08-17)----------------
 
-def test_simplify_flattens_and_orders_add():
+# Scenario: simplify flattens and orders add.
+def test_simplify_flattens():
     """嵌套 add 展平 + 字典序规范:等价排列得到同一写法/同一 hash。"""
     a = simplify(parse("add(rank_cs(log_mv), add(rank_cs(log_amount), zscore(ret)))"))
     b = simplify(parse("add(zscore(ret), add(rank_cs(log_amount), rank_cs(log_mv)))"))
@@ -101,7 +113,8 @@ def test_simplify_flattens_and_orders_add():
     assert a.expr_hash() == b.expr_hash() == c.expr_hash()
 
 
-def test_simplify_orders_binary_commutative_operators():
+# Scenario: simplify orders binary commutative operators.
+def test_simplify_orders():
     """Two-operand add/mul must share identity when operands are swapped."""
     for op in ("add", "mul"):
         a = simplify(parse(f"{op}(rank_cs(log_mv), zscore(ret))"))
@@ -110,7 +123,8 @@ def test_simplify_orders_binary_commutative_operators():
         assert a.expr_hash() == b.expr_hash()
 
 
-def test_simplify_flattens_mul_not_sub():
+# Scenario: simplify flattens mul not sub.
+def test_simplify_mul():
     """mul 同样规范化;sub 不交换不展平(子树保持原样,不做形态包装)。"""
     a = simplify(parse("mul(rank_cs(ret), mul(zscore(ret), rank_cs(log_mv)))"))
     b = simplify(parse("mul(zscore(ret), mul(rank_cs(ret), rank_cs(log_mv)))"))
@@ -119,7 +133,8 @@ def test_simplify_flattens_mul_not_sub():
     assert simplify(s).to_str() == s.to_str()
 
 
-def test_simplify_preserves_values_for_ac_only():
+# Scenario: simplify preserves values for ac only.
+def test_simplify_values():
     """AC 规范化只改写法不改数值(等价排列求值一致,含 rank_cs 子树)。"""
     import numpy as np
     import pandas as pd
@@ -135,29 +150,34 @@ def test_simplify_preserves_values_for_ac_only():
 
 # ---------------- 过滤5:过度平滑/极值嵌套(2026-08-17,研报 §16)----------------
 
-def test_reject_oversmoothed_std_std():
+# Scenario: reject oversmoothed std std.
+def test_nested_smoothing():
     t, reason = apply(parse("std(std(zscore(log_amount), 5), 20)"))
     assert t is None and "oversmoothed" in reason
 
 
-def test_reject_oversmoothed_ma_std():
+# Scenario: reject oversmoothed ma std.
+def test_oversmoothed_ma():
     # 跨算子的平滑嵌套(ma∘std)同样拒:统计量堆叠不分算子名
     t, reason = apply(parse("ma(std(zscore(ret), 10), 40)"))
     assert t is None and "oversmoothed" in reason
 
 
-def test_reject_extreme_nesting():
+# Scenario: reject extreme nesting.
+def test_extreme_nesting():
     # 库内 6 因子的右半树形态:max(min(·,120),5) 极值嵌套 → 拒
     t, reason = apply(parse("zscore(max(min(down_shadow, 120), 5))"))
     assert t is None and "extreme_nesting" in reason
 
 
-def test_reject_extreme_nesting_same_op():
+# Scenario: reject extreme nesting same op.
+def test_extreme_op():
     t, reason = apply(parse("zscore(min(min(down_shadow, 120), 5))"))
     assert t is None and "extreme_nesting" in reason
 
 
-def test_single_smoothing_and_gap_nesting_pass():
+# Scenario: single smoothing and gap nesting pass.
+def test_single_smoothing():
     # 单层平滑 + 中间隔截面算子的嵌套(std(rank_cs(·)) 不是平滑嵌平滑)→ 通过
     t, reason = apply(parse("add(rank_cs(log_mv), std(zscore(log_amount), 20))"))
     assert t is not None, reason
@@ -168,7 +188,8 @@ def test_single_smoothing_and_gap_nesting_pass():
 
 # ---------------- roc 语义闸(2026-08-18 建;2026-08-24 用户放宽「必须包装」)----------------
 
-def test_reject_roc_on_cs():
+# Scenario: reject roc on cs.
+def test_roc_cs():
     """roc 直接作用于截面算子且【裸用】(add/sub 分支、嵌套 std 等)→ 分母不良定义,拒。"""
     t, reason = apply(parse("add(rank_cs(log_mv), roc(rank_cs(log_mv), 60))"))
     assert t is None and "roc_on_cs" in reason
@@ -176,7 +197,8 @@ def test_reject_roc_on_cs():
     assert t2 is None and "roc_on_cs" in reason2
 
 
-def test_wrapped_roc_on_cs_passes():
+# Scenario: wrapped roc on cs passes.
+def test_wrapped_roc():
     """有界包装放行(2026-08-24 用户拍板):rank_cs/zscore(roc(截面,n)) = 排名动量,
     库内 Top2 即此结构(add(max(rank_cs(log_amount),20), rank_cs(roc(rank_cs(log_mv),10))))。"""
     t, reason = apply(parse("zscore(roc(zscore(adj_close), 20))"))
@@ -192,7 +214,8 @@ def test_wrapped_roc_on_cs_passes():
     assert t4 is None and "roc_on_cs" in reason4
 
 
-def test_roc_on_levels_and_delta_on_rank_pass():
+# Scenario: roc on levels and delta on rank pass.
+def test_roc_levels():
     """roc 作用于价格水平(输出 dimless,与同量纲项组合)→ 合法;delta 作用于 rank → 合法。"""
     t, reason = apply(parse("add(roc(ma(close, 5), 10), ret)"))
     assert t is not None, reason
@@ -200,7 +223,8 @@ def test_roc_on_levels_and_delta_on_rank_pass():
     assert t2 is not None, reason2
 
 
-def test_mined_out_cohort_separation():
+# Scenario: mined out cohort separation.
+def test_mined_out():
     """累计退休代际分账(2026-08-27):价量超采插件退休拒;同骨架基本面字段放行;
     混血子树(一新一老)记 fund 新额度——用户:"有一个新的一个老的算新额度"。"""
     from engine import mined_patterns as mplib

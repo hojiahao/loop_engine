@@ -1,0 +1,13 @@
+[package]
+name = "loop-protocol-codegen"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+prost.workspace = true
+prost-types.workspace = true
+tonic-prost-build.workspace = true

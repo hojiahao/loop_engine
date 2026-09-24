@@ -8,7 +8,8 @@ import pytest
 from engine.checkpoint import Checkpoint, CheckpointConflictError
 
 
-def test_save_load_roundtrip(tmp_path):
+# Scenario: save load roundtrip.
+def test_save_load(tmp_path):
     p = tmp_path / "cp.json"
     cp = Checkpoint(p)
     cp.iteration = 42
@@ -29,7 +30,8 @@ def test_save_load_roundtrip(tmp_path):
     assert loaded.fsa_state == cp.fsa_state
 
 
-def test_atomic_no_tmp_leftover(tmp_path):
+# Scenario: atomic no tmp leftover.
+def test_atomic_tmp(tmp_path):
     p = tmp_path / "cp.json"
     cp = Checkpoint(p)
     cp.iteration = 1
@@ -40,14 +42,16 @@ def test_atomic_no_tmp_leftover(tmp_path):
     assert not Path(str(p) + ".tmp").exists()
 
 
-def test_load_missing_returns_empty(tmp_path):
+# Scenario: load missing returns empty.
+def test_load_missing(tmp_path):
     cp = Checkpoint.load(tmp_path / "nope.json")
     assert cp.iteration == 0
     assert cp.tested_hashes == set()
     assert cp.stored_factors == []
 
 
-def test_dedup_via_tested_hashes(tmp_path):
+# Scenario: dedup via tested hashes.
+def test_dedup_via(tmp_path):
     cp = Checkpoint(tmp_path / "cp.json")
     assert not cp.is_tested("h1")
     cp.add_tested("h1")
@@ -56,7 +60,8 @@ def test_dedup_via_tested_hashes(tmp_path):
     assert len(cp.tested_hashes) == 1
 
 
-def test_overwrite_preserves_latest(tmp_path):
+# Scenario: overwrite preserves latest.
+def test_latest(tmp_path):
     p = tmp_path / "cp.json"
     cp = Checkpoint(p)
     cp.iteration = 1
@@ -69,7 +74,8 @@ def test_overwrite_preserves_latest(tmp_path):
     assert "zzz" in loaded.tested_hashes
 
 
-def test_stale_writer_cannot_overwrite_newer_revision(tmp_path):
+# Scenario: stale writer cannot overwrite newer revision.
+def test_stale_writer(tmp_path):
     path = tmp_path / "cp.json"
     initial = Checkpoint(path)
     initial.save()
@@ -83,7 +89,8 @@ def test_stale_writer_cannot_overwrite_newer_revision(tmp_path):
     assert Checkpoint.load(path).iteration == 1
 
 
-def test_process_lock_is_non_reentrant_across_file_handles(tmp_path):
+# Scenario: process lock is non reentrant across file handles.
+def test_process_lock(tmp_path):
     from engine.io_utils import AlreadyRunningError, ProcessLock
 
     first = ProcessLock(tmp_path / "engine.lock")

@@ -1,0 +1,20 @@
+# Replace this invented listing ID with one already allocated under the account.
+# An allocation-filtered empty response cannot prove historical absence.
+schema = "loop.licensed-fetch/v1"
+provider = "databento"
+license_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+key_reference = "LOOP_DATABENTO_API_KEY"
+listing_ids = ["L-999999"]
+datasets = ["security_master", "corporate_actions"]
+allocate_isins = false
+start = 2026-08-01
+end = 2026-08-31
+
+[budget]
+requests = 4
+pages = 1
+records = 10000
+response_bytes = 16777216
+total_bytes = 33554432
+timeout_seconds = 90
+retries = 1

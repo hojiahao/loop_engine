@@ -1,0 +1,55 @@
+[project]
+name = "loop-research"
+version = "0.2.0a1"
+description = "US-equities research worker for Loop Engine"
+authors = [{ name = "hojiahao", email = "hojiahao@outlook.com" }]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "alpaca-py==0.44.0",
+    "databento==0.86.0",
+    "exchange-calendars==4.13.2",
+    "httpx==0.28.1",
+    "loop-engine-protocol==0.2.0a1",
+    "nasdaq-data-link==1.0.4",
+    "numpy>=2.5,<3",
+    "pydantic>=2.11,<3",
+    "psycopg[binary]==3.3.5",
+    "pyarrow==25.0.1",
+]
+
+[tool.uv.sources]
+loop-engine-protocol = { workspace = true }
+
+[project.scripts]
+loop-research = "loop_research.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "hatchling==1.32.0",
+    "hypothesis>=6,<7",
+    "mypy>=1.17",
+    "pytest>=8.4",
+    "ruff>=0.12",
+    "scipy>=1.18,<2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+packages = ["loop_research"]
+mypy_path = "src"

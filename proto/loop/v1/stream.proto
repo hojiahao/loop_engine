@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/common.proto";
+import "loop/v1/model.proto";
+
+message StreamStarted {
+  ModelResolutionId resolution_id = 1;
+}
+
+message TextDelta {
+  string text = 1;
+}
+
+message ReasoningDelta {
+  string text = 1;
+}
+
+message ToolCallDelta {
+  string tool_call_id = 1;
+  string tool_name = 2;
+  bytes arguments_json_fragment = 3;
+}
+
+message ContentDelta {
+  uint32 content_index = 1;
+  oneof delta {
+    TextDelta text = 2;
+    ReasoningDelta reasoning = 3;
+    ToolCallDelta tool_call = 4;
+  }
+}
+
+message UsageUpdate {
+  ModelUsage usage = 1;
+}
+
+message StreamCompleted {
+  ModelResponse response = 1;
+}
+
+// ModelStreamEvent sequences start at one and increase by exactly one for a
+// request. A successful stream has exactly one completed terminal event and no
+// event may follow it. Failure and cancellation terminate the RPC with a non-OK
+// gRPC status and typed ServiceError details, never a successful event variant.
+// Consumers fail closed on gaps, duplicates, multiple completions, or OK EOF
+// without completion. A serialized event is limited to 1 MiB by default.
+message ModelStreamEvent {
+  reserved 8, 9;
+  reserved "cancelled", "failed";
+  RequestId request_id = 1;
+  uint64 sequence = 2;
+  google.protobuf.Timestamp emitted_at = 3;
+  oneof event {
+    StreamStarted started = 4;
+    ContentDelta content_delta = 5;
+    UsageUpdate usage_update = 6;
+    StreamCompleted completed = 7;
+  }
+}
