@@ -11,6 +11,7 @@ import {
 } from "@loop-engine/protocol/provider";
 import { z } from "zod";
 
+import { catalog_options } from "./catalog-types.js";
 import { COMPATIBLE_IDS, compatible_id, compatible_valid } from "./compatible-config.js";
 import { digest_json, hex_digest } from "./identity.js";
 import { VENDOR_IDS, VENDORS, vendor_id, vendor_valid } from "./vendor-registry.js";
@@ -55,7 +56,7 @@ const cloud_schema = z.discriminatedUnion("kind", [
     reasoning_dialect: z.enum(["none", "anthropic"]).default("none"),
   }),
 ]);
-const model_schema = z.strictObject({
+export const model_schema = z.strictObject({
   id: token,
   plugin: z.enum([
     "openai_responses",
@@ -136,6 +137,7 @@ export const deployment_schema = z.strictObject({
   port: z.number().int().min(1024).max(65535),
   tls: z.strictObject({ ca: private_path, certificate: private_path, key: private_path }),
   journal: private_path,
+  catalog: catalog_options.optional(),
   prompts: private_path.optional(),
   schemas: z
     .array(
@@ -231,6 +233,9 @@ export function validate_deployment(value: unknown): Deployment {
   if (
     models.size !== config.models.length ||
     certificates.size !== config.principals.length ||
+    (config.catalog &&
+      new Set(config.catalog.trusted_keys.map((key) => key.id)).size !==
+        config.catalog.trusted_keys.length) ||
     new Set(config.schemas.map((schema) => schema.id)).size !== config.schemas.length ||
     config.models.some(
       (model) =>
@@ -329,6 +334,11 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "compatible-config",
     "compatible-chat",
     "native-compatible",
+    "catalog-types",
+    "catalog-store",
+    "catalog-fetch",
+    "catalog-merge",
+    "model-discovery",
     "json",
     "content",
     "private-state",
@@ -344,7 +354,11 @@ export async function plugin_digest(): Promise<Uint8Array> {
       .update("\0")
       .update(await readFile(new URL(`./${name}.${extension}`, import.meta.url)));
   }
-  for (const path of ["../package.json", "../../../pnpm-lock.yaml"]) {
+  for (const path of [
+    "../package.json",
+    "../../../pnpm-lock.yaml",
+    "../../../catalog/providers.v1.json",
+  ]) {
     hash
       .update(path)
       .update("\0")
@@ -378,7 +392,12 @@ function protocol_family(model: ModelRoute): ModelProtocolFamily {
   }[model.plugin];
 }
 
-export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Uint8Array) {
+export function model_snapshot(
+  config: Deployment,
+  model: ModelRoute,
+  plugin: Uint8Array,
+  catalog_pin?: Uint8Array,
+) {
   const family = protocol_family(model);
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
@@ -401,10 +420,12 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
     thinking_tokens: model.thinking_tokens ?? null,
     profile: "native-content.1",
   });
-  const catalog = digest_json(
-    "loop.provider-catalog/v1",
-    config.models.map(({ secret_env: _secret, ...entry }) => entry),
-  );
+  const catalog =
+    catalog_pin ??
+    digest_json(
+      "loop.provider-catalog/v1",
+      config.models.map(({ secret_env: _secret, ...entry }) => entry),
+    );
   const identity = digest_json("loop.provider-resolution/v1", {
     model: model.id,
     catalog: hex_digest(catalog),

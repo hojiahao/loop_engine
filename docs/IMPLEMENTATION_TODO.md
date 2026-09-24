@@ -600,7 +600,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    `35953153780` passed.
    See ADR 0042 and
    `docs/verification/phase-09-vendor-plugins.md` for evidence and limitations.
-6. Compatible/self-hosted/gateway paths (`in_progress`): OpenAI/Anthropic-compatible endpoints,
+6. Compatible/self-hosted/gateway paths (`complete`): OpenAI/Anthropic-compatible endpoints,
    Ollama, vLLM, SGLang, llama.cpp, LM Studio, NVIDIA NIM, LiteLLM, Portkey and
    OpenRouter. Distinguish gateway identity from the upstream supplier and deny
    unproven capabilities. Administrative endpoint configuration is not model input.
@@ -608,13 +608,21 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    journal. All 172 new local cases pass, including private continuation recovery,
    gateway routing controls, contradictory receipts, cancellation and model
    substitution denial. Complete TypeScript regression passes 594 Provider and
-   119 protocol cases; `just check` and workspace build pass. Task publication
-   and exact-commit CI remain required. See ADR 0043 and
+   119 protocol cases; `just check` and workspace build pass. Chinese task commit
+   `9d197c7` is pushed; all seven jobs in exact-commit CI `35958808670` passed.
+   See ADR 0043 and
    `docs/verification/phase-09-compatible-routes.md`.
-7. Model catalog: merge versioned built-ins, official discovery, verified remote
+7. Model catalog (`in_progress`): merge versioned built-ins, official discovery, verified remote
    catalogs and administrative overrides; atomically reload validated snapshots
    without changing a running model resolution. Track implemented/contract/live
    verification separately from unavailability, deprecation and retirement.
+   Implemented bounded native/list discovery, pinned Ed25519 catalogs, strict
+   precedence, immutable publication and atomic SIGHUP activation with retained
+   model/price pins. Targeted HTTP, TLS/gRPC, 2/4/8-process and compiled CLI
+   workflows pass. Full regression passes 676 Provider cases (82 new) and 119
+   protocol cases; `just check` and workspace build pass. Commit/push and
+   exact-commit CI remain required. See ADR 0044 and
+   `docs/verification/phase-09-model-catalog.md`.
 8. Platform acceptance: verify bounded rate limits/retries and cost accounting,
    actual provider process/data isolation, dependency boundaries and the combined
    protocol matrix. Live smoke tests require credentials and explicit budgets;

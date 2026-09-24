@@ -1,8 +1,9 @@
 # Phase 9 unit 6: Compatible, self-hosted and gateway routes
 
 Status: implementation, 172 local route cases, workspace regression, quality
-gates and build passed on 2026-09-24. Publication and exact-commit CI remain
-required. Phase 9 is not complete; `main` remains unchanged.
+gates and build passed on 2026-09-24. Chinese task commit `9d197c7` is pushed;
+all seven jobs in exact-commit CI `35958808670` passed. Phase 9 is not complete;
+`main` remains unchanged.
 
 ## Requirement, design and tradeoffs
 

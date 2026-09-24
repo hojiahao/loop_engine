@@ -1,8 +1,8 @@
 # ADR 0043: Compatible, self-hosted and gateway routes
 
 Status: implemented; 172 new cases, complete TypeScript regression, `just check`
-and workspace build passed on 2026-09-24. Publication and exact-commit CI remain
-required. Phase 9 delivery unit 6.
+and workspace build passed on 2026-09-24. Chinese task commit `9d197c7` is pushed;
+all seven jobs in exact-commit CI `35958808670` passed. Phase 9 delivery unit 6.
 
 ## Requirement and decision
 

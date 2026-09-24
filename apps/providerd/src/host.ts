@@ -13,10 +13,23 @@ import {
   ModelStreamEventSchema,
   PolicyReferenceSchema,
 } from "@loop-engine/protocol/provider";
+import {
+  catalog_digest,
+  deployment_digest,
+  load_catalog,
+  profile_digest,
+} from "./catalog-store.js";
+import type { CatalogStatus } from "./catalog-types.js";
 import type { CloudIdentity } from "./cloud-auth.js";
 import { azure_plugin, vertex_plugin } from "./cloud-plugins.js";
 import { compatible_id } from "./compatible-config.js";
-import { type Deployment, model_snapshot, type Principal, request_policy } from "./config.js";
+import {
+  type Deployment,
+  type ModelRoute,
+  model_snapshot,
+  type Principal,
+  request_policy,
+} from "./config.js";
 import { ProviderContent } from "./content.js";
 import { ProviderError } from "./errors.js";
 import { digest_json, hex_digest } from "./identity.js";
@@ -43,6 +56,47 @@ const factories = {
   cohere: cohere_plugin,
 };
 
+interface ResolvedRoute {
+  readonly route: ModelRoute;
+  readonly snapshot: ReturnType<typeof model_snapshot>;
+  readonly expires_at?: number;
+}
+
+interface HostRoutes {
+  readonly current: readonly ResolvedRoute[];
+  readonly resolutions: ReadonlyMap<string, ResolvedRoute>;
+  readonly plugins: ReadonlyMap<string, NativePlugin>;
+  readonly statuses: ReadonlyMap<string, CatalogStatus>;
+  readonly generation?: { revision: number; sha256: string };
+}
+
+function route_plugin(
+  model: ModelRoute,
+  secrets: Readonly<Record<string, string | undefined>>,
+  fetcher: typeof fetch,
+  identity: CloudIdentity,
+): NativePlugin | undefined {
+  const secret = model.secret_env ? secrets[model.secret_env] : undefined;
+  const valid = secret !== undefined && /^[\x21-\x7e]{1,4096}$/.test(secret);
+  if (model.plugin === "azure_responses" || model.plugin === "azure_chat") {
+    return valid || (model.cloud?.kind === "azure" && model.cloud.auth === "entra")
+      ? azure_plugin(model, secret, fetcher, identity)
+      : undefined;
+  }
+  if (model.plugin === "vertex_generate") return vertex_plugin(model, fetcher, identity);
+  if (model.plugin === "bedrock_converse") return bedrock_plugin(model, secrets, fetcher);
+  if (compatible_id(model.plugin)) {
+    const reference = model.compatible?.gateway?.upstream_key_env;
+    const upstream = reference ? secrets[reference] : undefined;
+    return (valid || model.compatible?.auth === "none") &&
+      (model.plugin !== "portkey" || (upstream && /^[\x21-\x7e]{1,4096}$/.test(upstream)))
+      ? compatible_plugin(model, secret, secrets, fetcher)
+      : undefined;
+  }
+  if (vendor_id(model.plugin)) return valid ? vendor_plugin(model, secret, fetcher) : undefined;
+  return valid ? factories[model.plugin](secret, fetcher) : undefined;
+}
+
 export function decimal_units(value: string): bigint {
   if (!/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{0,8}[1-9])?$/.test(value))
     throw new ProviderError("invalid_money");
@@ -60,46 +114,113 @@ function validate_id(value: string | undefined): string {
 export class ProviderHost {
   private active = 0;
   private last_time = 0;
-  private readonly plugins = new Map<string, NativePlugin>();
+  private routes: HostRoutes;
   private readonly content: ProviderContent;
-  readonly models;
   readonly policy;
 
   constructor(
     readonly config: Deployment,
-    plugin: Uint8Array,
-    secrets: Readonly<Record<string, string | undefined>>,
-    fetcher: typeof fetch = fetch,
-    identity: CloudIdentity = {},
+    private readonly implementation: Uint8Array,
+    private readonly secrets: Readonly<Record<string, string | undefined>>,
+    private readonly fetcher: typeof fetch = fetch,
+    private readonly identity: CloudIdentity = {},
   ) {
     this.content = new ProviderContent(config);
-    this.models = config.models.map((model) => ({
+    const models = (config.catalog ? [] : config.models).map((model) => ({
       route: model,
-      snapshot: model_snapshot(config, model, plugin),
+      snapshot: model_snapshot(config, model, implementation),
     }));
     this.policy = request_policy(config);
-    for (const model of config.models) {
-      const secret = model.secret_env ? secrets[model.secret_env] : undefined;
-      const valid = secret !== undefined && /^[\x21-\x7e]{1,4096}$/.test(secret);
-      if (model.plugin === "azure_responses" || model.plugin === "azure_chat") {
-        if (valid || (model.cloud?.kind === "azure" && model.cloud.auth === "entra"))
-          this.plugins.set(model.id, azure_plugin(model, secret, fetcher, identity));
-      } else if (model.plugin === "vertex_generate")
-        this.plugins.set(model.id, vertex_plugin(model, fetcher, identity));
-      else if (model.plugin === "bedrock_converse")
-        this.plugins.set(model.id, bedrock_plugin(model, secrets, fetcher));
-      else if (compatible_id(model.plugin)) {
-        const upstream_ref = model.compatible?.gateway?.upstream_key_env;
-        const upstream = upstream_ref ? secrets[upstream_ref] : undefined;
-        if (
-          (valid || model.compatible?.auth === "none") &&
-          (model.plugin !== "portkey" || (upstream && /^[\x21-\x7e]{1,4096}$/.test(upstream)))
-        )
-          this.plugins.set(model.id, compatible_plugin(model, secret, secrets, fetcher));
-      } else if (vendor_id(model.plugin)) {
-        if (valid) this.plugins.set(model.id, vendor_plugin(model, secret, fetcher));
-      } else if (valid) this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
+    const plugins = new Map<string, NativePlugin>();
+    const resolutions = new Map<string, ResolvedRoute>();
+    for (const model of models) {
+      const id = validate_id(model.snapshot.resolutionId?.value);
+      resolutions.set(id, model);
+      const plugin = route_plugin(model.route, secrets, fetcher, identity);
+      if (plugin) plugins.set(id, plugin);
     }
+    this.routes = { current: models, resolutions, plugins, statuses: new Map() };
+  }
+
+  get models() {
+    return this.routes.current;
+  }
+
+  get catalog_status() {
+    return {
+      generation: this.routes.generation,
+      models: this.routes.current.map(({ route }) =>
+        this.routes.statuses.get(`${route.id}\0${route.model}`),
+      ),
+    };
+  }
+
+  /** Build a complete candidate, then swap once. Failure preserves existing calls. */
+  async reload_catalog(): Promise<void> {
+    if (!this.config.catalog) throw new ProviderError("provider_catalog_missing");
+    const records = await load_catalog(this.config);
+    const latest = records.at(-1);
+    const now = Date.now();
+    if (
+      !latest ||
+      now < this.last_time ||
+      Date.parse(latest.resolved_at) > now ||
+      Date.parse(latest.expires_at) <= now ||
+      latest.plugin_sha256 !== hex_digest(this.implementation) ||
+      latest.deployment_sha256 !== deployment_digest(this.config)
+    )
+      throw new ProviderError("provider_catalog_unavailable");
+    const digest = catalog_digest(latest);
+    const active = this.routes.generation;
+    if (
+      active &&
+      (latest.revision < active.revision ||
+        (latest.revision === active.revision && digest !== active.sha256))
+    )
+      throw new ProviderError("provider_catalog_rollback");
+    if (active?.sha256 === digest) return;
+    const resolutions = new Map<string, ResolvedRoute>();
+    const plugins = new Map<string, NativePlugin>();
+    const statuses = new Map<string, CatalogStatus>();
+    const cache = new Map<string, NativePlugin>();
+    let current: ResolvedRoute[] = [];
+    for (const record of records) {
+      if (
+        record.plugin_sha256 !== latest.plugin_sha256 ||
+        record.deployment_sha256 !== latest.deployment_sha256
+      )
+        continue;
+      const config = { ...this.config, models: record.models, resolved_at: record.resolved_at };
+      const pin = Buffer.from(catalog_digest(record), "hex");
+      const entries = record.models.map((route) => ({
+        route,
+        snapshot: model_snapshot(config, route, this.implementation, pin),
+        expires_at: Date.parse(record.expires_at),
+      }));
+      for (const entry of entries) {
+        const id = validate_id(entry.snapshot.resolutionId?.value);
+        resolutions.set(id, entry);
+        const profile = profile_digest(entry.route);
+        const plugin =
+          cache.get(profile) ??
+          route_plugin(entry.route, this.secrets, this.fetcher, this.identity);
+        if (plugin) {
+          cache.set(profile, plugin);
+          plugins.set(id, plugin);
+        }
+      }
+      for (const status of record.statuses)
+        statuses.set(`${status.route_id}\0${status.model}`, status);
+      if (record === latest) current = entries;
+    }
+    this.routes = {
+      current,
+      resolutions,
+      plugins,
+      statuses,
+      generation: { revision: latest.revision, sha256: digest },
+    };
+    this.last_time = now;
   }
 
   async invoke(
@@ -159,9 +280,8 @@ export class ProviderHost {
     ) {
       throw new ProviderError("invalid_request_context");
     }
-    const selected = this.models.find(
-      (model) => model.snapshot.resolutionId?.value === invocation.model?.resolutionId?.value,
-    );
+    const routes = this.routes;
+    const selected = routes.resolutions.get(invocation.model?.resolutionId?.value ?? "");
     if (
       !selected ||
       !invocation.model ||
@@ -176,8 +296,22 @@ export class ProviderHost {
         ErrorCategory.AUTHORIZATION,
       );
     }
-    if (new Date(this.config.resolved_at).getTime() > timestampDate(context.requestedAt).getTime())
+    if (
+      !selected.snapshot.resolvedAt ||
+      timestampDate(selected.snapshot.resolvedAt).getTime() >
+        timestampDate(context.requestedAt).getTime()
+    )
       throw new ProviderError("future_model_resolution");
+    const status = routes.statuses.get(`${selected.route.id}\0${selected.route.model}`);
+    if (
+      (selected.expires_at !== undefined && selected.expires_at <= now) ||
+      (this.config.catalog && (!status || !["active", "deprecated"].includes(status.availability)))
+    )
+      throw new ProviderError(
+        "provider_model_unavailable",
+        Code.Unavailable,
+        ErrorCategory.DEPENDENCY,
+      );
     if (streaming && !selected.route.features.streaming)
       throw new ProviderError(
         "provider_stream_unavailable",
@@ -237,7 +371,7 @@ export class ProviderHost {
         ErrorCategory.BUDGET_EXHAUSTED,
       );
     }
-    const plugin = this.plugins.get(selected.route.id);
+    const plugin = routes.plugins.get(selected.snapshot.resolutionId?.value ?? "");
     if (!plugin)
       throw new ProviderError(
         "provider_credentials_missing",
