@@ -67,7 +67,7 @@ async function main() {
   if (host) {
     await open_journal(host.config.journal);
     const rpc = await create_provider_rpc(host, shutdown.signal);
-    rpc.listen(host.config.port, "127.0.0.1");
+    rpc.listen(host.config.port, host.config.listen_address);
     rpc.on("error", () => {
       process.stderr.write("provider_listener_failed\n");
       shutdown.abort();

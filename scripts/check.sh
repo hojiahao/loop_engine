@@ -9,6 +9,9 @@ for loop_shell_script in scripts/*.sh; do
 done
 
 ./scripts/pnpm.sh exec biome check tests/toolchains tests/runtime
+./scripts/pnpm.sh exec biome check infra/provider-egress.mjs
+node --test --test-isolation=none tests/runtime/provider-boundaries.test.mjs
+node --test --test-isolation=none tests/runtime/provider-egress.test.mjs
 ./scripts/uv.sh run --locked --offline --no-sync python scripts/check-function-names.py --self-test
 ./scripts/uv.sh run --locked --offline --no-sync python scripts/check-function-names.py
 node --test --test-isolation=none tests/toolchains/function-names.test.mjs

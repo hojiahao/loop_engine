@@ -30,3 +30,4 @@ container-gate:
 
 test-isolation:
     node --test --test-isolation=none tests/runtime/isolation.test.mjs
+    node --test --test-isolation=none tests/runtime/provider.test.mjs

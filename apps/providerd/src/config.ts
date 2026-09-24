@@ -135,6 +135,7 @@ export const deployment_schema = z.strictObject({
   schema: z.literal("loop.provider-deployment/v1"),
   resolved_at: z.iso.datetime(),
   port: z.number().int().min(1024).max(65535),
+  listen_address: z.enum(["127.0.0.1", "0.0.0.0"]).default("127.0.0.1"),
   tls: z.strictObject({ ca: private_path, certificate: private_path, key: private_path }),
   journal: private_path,
   catalog: catalog_options.optional(),
@@ -169,6 +170,14 @@ export const deployment_schema = z.strictObject({
     maximum_usd: decimal,
     wall_time_ms: z.number().int().min(100).max(300_000),
     concurrency: z.number().int().min(1).max(16),
+    rate: z
+      .strictObject({
+        window_ms: z.number().int().min(1000).max(3_600_000).default(60_000),
+        requests: z.number().int().min(1).max(10_000).default(120),
+        tokens: z.number().int().min(1).max(100_000_000).default(2_000_000),
+        maximum_usd: decimal.default("20"),
+      })
+      .prefault({}),
   }),
   models: z.array(model_schema).min(1).max(128),
 });
@@ -339,6 +348,8 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "catalog-fetch",
     "catalog-merge",
     "model-discovery",
+    "request-limits",
+    "pricing",
     "json",
     "content",
     "private-state",

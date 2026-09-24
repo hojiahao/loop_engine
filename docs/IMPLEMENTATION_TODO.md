@@ -620,17 +620,28 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    precedence, immutable publication and atomic SIGHUP activation with retained
    model/price pins. Targeted HTTP, TLS/gRPC, 2/4/8-process and compiled CLI
    workflows pass. Full regression passes 676 Provider cases (82 new) and 119
-   protocol cases; `just check` and workspace build pass. Commit/push and
-   exact-commit CI remain required. See ADR 0044 and
+   protocol cases; `just check` and workspace build pass. Commit `f9f05f5` is
+   pushed. CI `35965098459` passed six jobs; the DaoCloud container cancellation
+   test failed; review reproduced a PID readiness race. The platform task fixes it;
+   corrected integrated CI remains required. See ADR 0044 and
    `docs/verification/phase-09-model-catalog.md`.
-8. Platform acceptance: verify bounded rate limits/retries and cost accounting,
+8. Platform acceptance (`in_progress`): verify bounded rate limits/retries and cost accounting,
    actual provider process/data isolation, dependency boundaries and the combined
    protocol matrix. Live smoke tests require credentials and explicit budgets;
    absent credentials remain an honest verification limitation, never a fake pass.
+   Sliding-window request/token/cost admission and integer pricing goldens pass.
+   The real compiled Provider completes an approved HTTPS model call through a
+   restricted egress container while data/root-write/direct-network/DNS probes
+   are denied. Gates are wired into CI. Local acceptance passes 686 Provider and
+   119 protocol cases, six Rust process cases, eight boundary/egress cases,
+   both actual isolation containers, `just check` and TypeScript build. Product
+   README is ready for first-merge review. Publication and exact-commit CI remain
+   required. See ADR 0045 and
+   `docs/verification/phase-09-platform.md`.
 
-- [ ] Implement native OpenAI, Anthropic, Gemini, Bedrock, and Cohere codecs.
-- [ ] Implement cloud deployment adapters and first-class vendor plugins.
-- [ ] Implement compatible, self-hosted, and gateway transports.
+- [x] Implement native OpenAI, Anthropic, Gemini, Bedrock, and Cohere codecs.
+- [x] Implement cloud deployment adapters and first-class vendor plugins.
+- [x] Implement compatible, self-hosted, and gateway transports.
 - [ ] Implement the hot-reload capability catalog and provider contract suite.
 
 ## Phase 10 - Run Harness (`pending`)
@@ -669,5 +680,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
       product README. Document only verified release behavior and runnable
       commands, with explicit credentials, licensing and cost prerequisites.
       This is a release gate, not a claim that the product is already complete.
+      First-merge product documentation is included in Phase 9 platform acceptance;
+      the final release still requires updating it against then-shipped behavior.
 - [ ] Complete branding, operations documentation, SBOM, security scans,
       migration notes, release verification, pull request, and release tag.

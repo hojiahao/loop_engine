@@ -4,8 +4,10 @@ This administrative workflow independently calculates frozen cross-sectional
 statistics with Alphalens Reloaded, compares every field against a reconstructed
 primary result, and publishes immutable differences and receipts. It supports
 synthetic and public-development samples from 2007–2020. Passing this comparison
-does not admit a factor, unlock a holdout, certify licensed data, or complete the
-pending Zipline accounting and authorized reconciliation gates.
+does not admit a factor, unlock a holdout or certify licensed data. Combine it
+with [Zipline accounting](independent-accounting.md) through the
+[authorized reconciliation workflow](authorized-reconciliation.md), which also
+checks registered evidence and the global trial population.
 
 ## Environment
 

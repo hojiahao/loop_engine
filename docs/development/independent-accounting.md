@@ -1,6 +1,6 @@
 # Independent portfolio accounting
 
-The Phase 8 Zipline worker independently calculates both frozen portfolio
+The Zipline worker independently calculates both frozen portfolio
 profiles from raw execution observations. It uses actual Zipline order/position
 accounting, without importing `loop_research` or consuming primary orders as
 execution instructions. [ADR 0034](../adr/0034-independent-accounting-validation.md)
@@ -9,8 +9,9 @@ specifies extension points, limitations, precision and rollback.
 This administrative workflow accepts only synthetic/public development data
 within the existing 2007–2020 search/development ranges. It has no database,
 discovery or holdout capability. A passing report is not a production factor
-admission or proof of licensed survivorship/PIT coverage. Authenticated report
-registration and the shared admission gate remain the next delivery unit.
+admission or proof of licensed survivorship/PIT coverage. Use the
+[authorized reconciliation workflow](authorized-reconciliation.md) for
+authenticated report registration and the shared admission prerequisites.
 
 ## Install and run
 

@@ -22,8 +22,9 @@ their own native continuation formats described below. All system messages
 precede conversational messages; a request ends with a user or tool-result turn.
 Optional capabilities default to **disabled** and must be verified for the exact
 configured model before enabling. A plugin's implementation does not prove that
-every model implements its features. Model discovery and catalog reload remain
-later Phase 9 units; run-wide scheduling/budgets remain Phase 10/11.
+every model implements its features. [Model discovery and catalog reload](model-catalog.md)
+preserve the original resolution of an active invocation; run-wide scheduling
+and durable aggregate budgets remain separate Run Harness/Loop work.
 This is not a completed autonomous research loop.
 
 ## Private deployment
@@ -45,9 +46,9 @@ with mode `0700` under an existing administrative parent. Startup creates only
 the final directory and fsyncs it and its parent before accepting work. Do not
 put the journal in `/tmp`, a research artifact store or
 a shared writable directory; do not mount research/holdout data or give this
-process database credentials. The root filesystem/egress deployment isolation
-acceptance remains Phase 9 unit 8; mTLS and rejected artifact messages alone do
-not establish OS isolation.
+process database credentials. The [isolated runtime](provider-runtime.md)
+provides the tested filesystem and outbound network deployment; mTLS and rejected
+artifact messages alone do not establish OS isolation.
 
 Compute each approved client's certificate fingerprint over DER bytes:
 
@@ -119,7 +120,8 @@ An `InvokeModelRequest` must contain:
   budget and wall-time duration. The gRPC call also requires a timeout no greater
   than the deployment's `wall_time_ms`.
 
-No endpoint URL is accepted in a request or this deployment schema. Native SDK
+No endpoint URL is accepted in a model request. Cloud and compatible deployment
+addresses remain administrator-owned as described in their guides. Native SDK
 endpoints are fixed to the official supplier origins, redirects are refused,
 SDK automatic retries/logging are disabled, and upstream decoded response bytes
 are bounded. OpenAI uses Responses input-token counting for both paths; a Chat

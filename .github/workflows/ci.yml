@@ -82,6 +82,11 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+      - name: Verify isolated Provider and egress
+        run: |
+          node --test --test-isolation=none tests/runtime/provider-boundaries.test.mjs
+          node --test --test-isolation=none tests/runtime/provider-egress.test.mjs
+          node --test --test-isolation=none tests/runtime/provider.test.mjs
 
   python-research:
     name: Python research worker

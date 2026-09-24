@@ -114,6 +114,20 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.venv/bin/python")
     }
 
+    fn process_state(stat: &str) -> Option<&str> {
+        // Linux comm is parenthesized and may contain whitespace or ')'. The
+        // state field follows the final closing parenthesis, not the third word.
+        stat.rsplit_once(") ")?.1.split_whitespace().next()
+    }
+
+    #[test]
+    fn zombie_state_parses() {
+        assert_eq!(process_state("42 (python worker) Z 1 42"), Some("Z"));
+        assert_eq!(process_state("42 (python ) worker) Z 1 42"), Some("Z"));
+        assert_eq!(process_state("42 (python Z worker) S 1 42"), Some("S"));
+        assert_eq!(process_state("cpu 1 2 3"), None);
+    }
+
     #[tokio::test]
     async fn isolated_environment() {
         let directory = tempfile::Builder::new()
@@ -149,19 +163,40 @@ mod tests {
             .tempdir()
             .unwrap();
         let path = directory.path().join("child.pid");
+        // Reproduce the publication gap in Python's write_text: file creation
+        // does not mean the child PID has been written. An empty PID would turn
+        // /proc/{pid}/stat into /proc//stat, which is the host's CPU statistics.
+        std::fs::write(&path, "").unwrap();
         let mut worker = command(&python(), directory.path());
-        worker.args(["-I", "-c", "import pathlib,subprocess,sys,time; p=subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(30)']); pathlib.Path(sys.argv[1]).write_text(str(p.pid)); print('started',flush=True); time.sleep(30)"]).arg(&path);
+        worker
+            .args([
+                "-I",
+                "-c",
+                concat!(
+                    "import pathlib,subprocess,sys,time; ",
+                    "p=subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(30)']); ",
+                    "path=pathlib.Path(sys.argv[1]); ready=path.with_suffix('.ready'); ",
+                    "ready.write_text(str(p.pid)); ready.replace(path); ",
+                    "print('started',flush=True); time.sleep(30)",
+                ),
+            ])
+            .arg(&path);
         let task =
             tokio::spawn(async move { run(&mut worker, b"", Duration::from_secs(10), &[0]).await });
         let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-        while !path.exists() {
+        let pid = loop {
+            let contents = std::fs::read_to_string(&path).unwrap();
+            if !contents.is_empty() {
+                let pid = contents.parse::<u32>().expect("invalid child PID");
+                assert!(pid > 1, "invalid child PID");
+                break pid;
+            }
             assert!(
                 tokio::time::Instant::now() < deadline,
                 "worker did not start"
             );
             tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-        let pid = std::fs::read_to_string(path).unwrap();
+        };
         task.abort();
         assert!(task.await.unwrap_err().is_cancelled());
         loop {
@@ -171,7 +206,7 @@ mod tests {
                 .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound)
                 || stat
                     .as_ref()
-                    .is_ok_and(|stat| stat.split_whitespace().nth(2) == Some("Z"))
+                    .is_ok_and(|stat| process_state(stat) == Some("Z"))
             {
                 break;
             }

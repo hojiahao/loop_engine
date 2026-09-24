@@ -28,5 +28,8 @@ docker compose --project-name "${loop_gate_project}" run --rm development ./scri
 docker compose --project-name "${loop_gate_project}" run --rm development just check
 docker compose --project-name "${loop_gate_project}" run --rm development just test
 docker compose --project-name "${loop_gate_project}" run --rm development just build
+# Exercise the real compiled Provider in sibling containers with a separate
+# read-only release view; never give the development container a Docker socket.
+node --test --test-isolation=none tests/runtime/provider.test.mjs
 docker compose --project-name "${loop_gate_project}" run --rm development just check
 docker compose --project-name "${loop_gate_project}" run --rm development just doctor

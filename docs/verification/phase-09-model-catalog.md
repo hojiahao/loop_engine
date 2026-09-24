@@ -1,7 +1,10 @@
 # Phase 9 unit 7: Model catalog publication and activation
 
 Status: implementation, full TypeScript regression, `just check` and workspace
-build passed on 2026-09-24. Commit, push and exact-commit CI remain required.
+build passed on 2026-09-24. Commit `f9f05f5` is pushed; exact-commit CI
+`35965098459` passed six jobs. The DaoCloud container failed the existing
+`cancelled_descendant_dies` test, whose PID readiness race is addressed by the
+platform acceptance task. Its corrected integrated gate remains required.
 Phase 9 is not yet complete; no `main` merge is claimed.
 
 ## Requirement and design

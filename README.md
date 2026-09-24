@@ -1,49 +1,51 @@
 # Loop Engine
 
-维护者：[hojiahao](https://github.com/hojiahao)
+面向美股横截面因子研究的可审计研究平台。
 
-> 美股 Loop Engineering 重构正在
-> [`refactor/us-equities-loop-runtime`](https://github.com/hojiahao/loop_engine/tree/refactor/us-equities-loop-runtime)
-> 分支按阶段实施。执行状态与强制退出条件见
-> [`docs/IMPLEMENTATION_TODO.md`](docs/IMPLEMENTATION_TODO.md)。当前 `main` 仍是已冻结的
-> A 股 legacy 基线，不代表美股版本已经完成。
+Loop Engine 将行情与基本面数据、因子表达式、组合回测、统计评测、独立复核和模型调用
+连接到可追溯的执行流程。研究结果绑定实际代码、环境、配置和数据快照；基础设施故障、
+数据缺失及证据过期会阻止继续执行，不会被当作有效的因子结论。
 
-Phase 6 的美股因子面板、数值评测和试验接线，以及 Phase 7 主回测器已验收，
-已提供下一交易时点执行、现金/持仓/净值账本和离线重放；第二口径接入公司行动、
-做空借券、融资、成交容量及冲击成本。使用方法见
-[`组合回放说明`](docs/development/portfolio-backtest.md)，验收状态见
-[`Phase 7 验证记录`](docs/verification/phase-07-primary-backtest.md)。新增的冻结统计口径提供
-IC/Rank IC、分组、换手、回撤、暴露、Newey–West，以及完整声明试验批次的 BY-FDR、
-DSR 和 CSCV/PBO，支持实际账本重算与只读验证，见
-[`统计评测说明`](docs/development/portfolio-statistics.md)。当前结果仍限于合成或开发级数据；
-已接入授权组合执行、跨运行试验计数、结果登记及当前读取/审计导出。
-部署和接口见[`授权回测说明`](docs/development/authorized-portfolios.md)。
-全局检验使用保守 BY 上界，不把声明批次的 DSR/PBO 冒充全局结论；统一准入仍等待
-Phase 8 独立复核，当前没有据此放行正式美股因子。
+维护者：[hojiahao](https://github.com/hojiahao) · hojiahao@outlook.com
 
-Phase 8 的 Alphalens 统计复核使用独立锁定的临时进程，支持原始输入导出、逐项差异报告
-和只读重放，见[`独立统计复核说明`](docs/development/independent-statistics.md)。
-Zipline 账本对账已实现独立执行、逐项差异报告和只读重放，正在进行本项验收，见
-[`独立账本复核说明`](docs/development/independent-accounting.md)。授权复核与准入接线
-仍待下一项完成；Phase 5 的付费历史数据覆盖验收继续延期。
+## 能力与适用范围
 
-目标客户端、控制平面和研究服务关系见已通过 Archify showcase 与浏览器检查的
-[`Loop Engine 客户端与运行架构`](docs/diagrams/loop-engine-clients.architecture.html)；
-目标目录所有权和迁移顺序见
-[`ADR 0003`](docs/adr/0003-repository-layout-and-ownership.md)。
-架构图保留早期方案，其 SQLite 标注已由
-[`ADR 0007`](docs/adr/0007-postgresql-primary-store.md) 的 PostgreSQL 决策取代；
-当前实现和验收状态以实施清单及下文为准。
+- **数据与因子**：受限数据获取、不可变 Parquet 快照、PIT 查询、交易日历、规范 AST、
+  因果滚动算子、横截面变换、覆盖率、试验记录和失败记忆。
+- **组合与统计**：下一可交易时点执行、现金/持仓/NAV 账本、公司行动、借券与融资、
+  容量和交易成本；IC、Rank IC、Newey–West、BY-FDR、DSR 与 CSCV/PBO。
+- **独立复核**：Alphalens Reloaded 重算因子统计，Zipline Reloaded 独立回放组合账本，
+  保存逐项差异，并接入授权结果登记与准入前置检查。
+- **模型平台**：原生协议、云部署、厂商插件、自托管与网关；工具消息、结构化输出、
+  流式响应、模型能力目录、调用回执、限流和费用预算。
+- **执行完整性**：PostgreSQL 事务、作业租约、幂等回执、mTLS 身份、权限隔离、
+  不可变审计和有界进程执行。大数据以校验和引用传递，不放入 RPC。
 
-## Phase 1 重构工作区
+当前可用入口是研究 CLI、授权 gRPC 服务和 Provider 服务。完整自动 Agent 循环、
+运行级调度及操作型 React Web/Ratatui TUI 尚未交付；现有客户端骨架不代表完整产品界面。
+本项目不提供实盘下单，也没有可用于收益承诺的正式美股因子结果。
 
-当前分支已经建立 Rust 控制平面、TypeScript Provider/Web 和 Python researchd
-三套工作区骨架。新工作区使用统一门禁，详细版本、容器来源和宿主机要求见
-[`开发环境说明`](docs/development/bootstrap.md)，实际验收证据见
-[`Phase 1 验证记录`](docs/verification/phase-01-reproducible-toolchain.md)。Python
-工具链已按 [`ADR 0005`](docs/adr/0005-python-314-uv-workspace.md) 升级为
-3.14.4、一个根 uv workspace、一个根 `uv.lock` 和一个 `.venv`；修订验收记录见
-[`Python 3.14 workspace 验证`](docs/verification/phase-01-python-314-amendment.md)。
+## 架构与目录
+
+| 组件 | 职责 | 技术 |
+| --- | --- | --- |
+| `crates/loopd` | 作业、权限、事务、研究执行与结果登记 | Rust、Tokio、Axum、SQLx |
+| `apps/providerd` | 模型协议、认证、能力与调用状态 | TypeScript、Node.js |
+| `python/loop_research` | 数据、因子、组合账本和统计 | Python、Polars、Arrow、NumPy、SciPy |
+| `python/alphalens_validation` | 独立因子统计复核 | Alphalens Reloaded |
+| `python/zipline_validation` | 独立事件驱动组合复核 | Zipline Reloaded |
+| `proto`、`packages/protocol-ts`、`python/loop_protocol` | 跨语言协议与契约 | Protobuf/gRPC |
+| `migrations/postgres` | 版本化元数据迁移 | PostgreSQL |
+| `apps/web`、`crates/loop-tui`、`crates/loopctl` | 客户端代码；`loopctl` 当前提供诊断 | React、Ratatui、Clap |
+
+Provider 不读取研究数据库或留出数据；数值研究服务不实现模型厂商路由。
+原始数据、研究视图、Provider 提示材料和受保护样本使用独立权限与存储边界。
+元数据使用 PostgreSQL，数据与结果使用内容寻址的不可变文件。
+
+## 安装与检查
+
+支持的宿主机为 Linux x86-64。准备 Node.js 24.17.0、Corepack、uv 0.11.29、
+curl、tar、xz 和 SHA-256 工具后，在仓库根目录执行：
 
 ```bash
 ./scripts/bootstrap.sh
@@ -53,247 +55,140 @@ just build
 just doctor
 ```
 
-开发容器的基础镜像全部通过 DaoCloud 拉取并固定 OCI 摘要。`just container-gate`
-使用一次性 Compose project 和全新具名卷完成容器门禁，并在退出时清理。宿主机在仓库根使用
-Git 忽略的 `.venv`；容器把独立具名卷挂载到同一 `/workspace/.venv` 路径，避免复用
-宿主解释器。工具缓存和 pnpm content store 使用 runtime 卷，生成的 `node_modules`
-仍位于 bind-mounted 工作区并被 Git 忽略。生产数据、Provider 密钥和 holdout
-capability 均不进入构建上下文。
+Bootstrap 按仓库清单安装 Rust 1.93.1、pnpm 11.25.0 和 just 1.45.0，
+按 lockfile 安装依赖。主 Python 为 3.14.4，使用根 uv workspace 和一个根 `.venv`。
+独立复核使用各自锁定的临时环境；Zipline 因上游兼容性单独使用 Python 3.12.13，
+不改变主研究解释器，也不创建第二个持久项目虚拟环境。
 
-## Phase 2 核心协议（已验收）
+完整集成测试需要 Docker；隔离验收还需要 root 或非交互 `sudo chown` 来准备私有挂载。
+开发容器通过 DaoCloud 拉取固定摘要的镜像：
 
-实现已通过提交 `0615d81` 推送；本地 `just check/test/build/doctor` 全部通过，
-[GitHub Actions](https://github.com/hojiahao/loop_engine/actions/runs/34101687394)
-的 7 个任务全部通过，包括 DaoCloud 干净容器验收。阶段完成不表示已经合并到 `main`，
-也不表示美股引擎已完整可用。阶段状态及证据以
-[`实施清单`](docs/IMPLEMENTATION_TODO.md)和
-[`Phase 2 验证记录`](docs/verification/phase-02-core-contracts.md)为准。
+```bash
+just test-isolation
+just container-gate
+```
 
-当前重构分支已加入共享 `loop.v1` DTO，以及按角色隔离的
-`loop.{protocol,discovery,provider,research,jobs,audit,holdout}.v1` gRPC 服务入口。
-协议规定长耗时的发现、因子评测、回测和对账只通过提交 RPC 返回窄作业句柄，不在请求
-线程内执行。Phase 3 已完成 PostgreSQL 持久化和作业生命周期的阶段验收，见下节；
-角色 RPC 尚未对外开放。
-Discovery、Research 和 Provider 三项 role RPC 的请求/响应消息图均不能到达 holdout
-输入；Discovery 与 Research 还通过独立的 `development_data.proto` 叶子依赖避免加载
-锁定样本窗口和完整数据快照。这只是类型可达性隔离；opaque snapshot ID 的角色必须在
-Phase 4/5 由服务端 registry 与 capability 解析后才能持久化或执行，当前 wire 校验不作
-该项能力声明。RPC 验证或基础设施故障使用
-非 OK gRPC status 和类型化 `ServiceError`，有效因子的确定性拒绝则是独立的
-`FactorRejection` 作业结果，两者不可互换。
+安装前提、镜像与 Rust 下载源、缓存位置及资源要求见
+[开发环境](docs/development/bootstrap.md)。运行数据、私有配置和凭据应与代码分开保存。
 
-Model content 与 stream 在本阶段只定义类型化 wire DTO。完整的内容、JSON 和能力验证
-属于 Phase 9；`ModelResolutionSnapshot` 当前也只校验 wire 形状，必须在 Phase 9 由
-服务端 catalog 重算并验证 capability、catalog、plugin 与 snapshot identity 后才可用于
-enqueue 或 dispatch；通用 `ArtifactRef` 也必须受 prompt-safe schema、独立 namespace
-和 providerd 存储 ACL 限制。序号、请求绑定、唯一完成事件和 OK EOF 等 stream 状态机验证属于
-Phase 10；在这些门禁通过前，协议协商不会广告 `streams.terminal-event.v1`，也不会把
-DTO 定义误报为可执行能力。
+## 数据接入
 
-Phase 2 已建立 Rust、TypeScript 和 Python 共用的规范因子身份。表达式先依据
-固定算子注册表完成类型检查与规范化，再计算 SHA-256；冻结的 `FactorSpec` 进一步绑定
-表达式 ID、算子注册表摘要、固定方向和九项研究 policy。AST 可以表示类型化参数子树，
-但只有严格重解析后根类型为 `series` 的表达式才能进入 FactorSpec 或研究执行。规范详情见
-[`Factor canonicalization v1`](docs/specs/factor-canonicalization-v1.md)。
+| 数据路径 | 用途 | 需要准备 |
+| --- | --- | --- |
+| SEC Company Facts | 申报数据开发验证 | 配置真实联系邮箱，无需 API key |
+| Alpaca | 指定证券与 feed 的行情开发验证 | `LOOP_ALPACA_KEY_ID`、`LOOP_ALPACA_SECRET_KEY` |
+| Nasdaq Data Link / Sharadar | 明确授权表的历史数据获取 | `LOOP_SHARADAR_API_KEY`、订阅与许可配置 |
+| WRDS / CRSP / Compustat | 机构授权的数据获取 | WRDS 身份、数据权限与许可配置 |
 
-协议生成将当前源码描述符写入 `schema.current.binpb`，兼容性检查则针对不可由普通生成
-流程覆盖的 `schema.baseline.binpb`。协议规定作业绑定协议选择、VCS/tree、数据和回测
-provenance，并定义逐个认证人的 holdout 审批记录和单次不可逆 period 状态机；holdout
-批量事务已通过 Phase 3 验收；capability 强制执行属于 Phase 4，尚未实现。审计链使用
-独立规范文档计算 payload/event SHA-256，不对 Protobuf 字节做哈希。相关约束见
-[`协议兼容与安全规范`](docs/specs/protocol-compatibility.md)和
-[`审计事件规范化规范`](docs/specs/audit-event-canonicalization-v1.md)。
+依次按[凭据接入](docs/development/data-credentials.md)、
+[开发数据](docs/development/development-data.md)或
+[授权数据](docs/development/licensed-data.md)准备私有配置与数据目录。
+Key 由环境或 secret manager 注入，不写入配置文件、Git、日志或命令行参数。
 
-Phase 2 验收时，跨语言向量、兼容性、边界和生成确定性测试均已通过；Python 协议测试
-为 236 项，旧系统回归为 216 passed / 1 skipped。这是已封存阶段的历史测试基线。
+研究 CLI 可显示实际支持的命令：
 
-## Phase 3 持久状态（已验收）
+```bash
+./scripts/uv-research.sh run --locked --offline --no-sync loop-research --help
+```
 
-完整批次实现 `e8572cf` 和测试环境修正 `aa3bd2b` 已推送，
-[CI 7 项全部通过](https://github.com/hojiahao/loop_engine/actions/runs/34311911291)，
-包括统一工作区和 DaoCloud 干净容器门禁。本地 `just check/test/build/doctor` 全部通过：
-207 项 Rust 测试、60 项 TypeScript 测试、240 项 Python 协议测试、1 项研究骨架测试和
-216 项旧系统回归通过；旧系统仍有 1 项 skip 和 12 条 NumPy 警告。
-两个标记 ignored 的 Rust 子进程入口由父测试明确调用，不是遗漏并发或强杀场景。
-这是持久状态阶段验收，不代表美股引擎已经能够开展真实因子研究。
+例如，在准备好当前用户所有、权限 `0700` 的绝对路径缓存目录，并核对 SEC 联系信息后：
 
-依据维护者确认的 [`ADR 0007`](docs/adr/0007-postgresql-primary-store.md)，主存储已改为
-PostgreSQL，运行时不再提供 SQLite 后端。`crates/loopd/src/store` 和 `migrations/postgres`
-实现 TLS 连接、迁移校验和、revision CAS、租约、取消、完成和过期恢复。作业变更、幂等回执和
-规范审计事件在同一个数据库事务提交；锁定 ledger 行保证独立进程之间的审计顺序，锁等待和
-语句执行均有超时。该初版刻意串行化同一 ledger 的写事务，不宣称无限水平写扩展能力。
-租约过期不会自动重跑外部操作，恢复结果明确区分基础设施失败与预算耗尽。
+```bash
+./scripts/uv.sh run --package loop-research --locked --offline --no-sync \
+  loop-research data-fetch config/data/sec-development.toml \
+  --store /absolute/private/development-cache
+```
 
-并发验收使用 2、4、8 个独立 OS 进程；故障验收覆盖提交前、提交后以及租约期间强制
-终止。迁移锁等待有超时并支持取消。未执行便被取消或耗尽预算的作业保留 `attempt = 0`，
-三语言共享向量覆盖此语义，并要求协商 `jobs.prelease-terminal.v1`。
+`uv --offline` 仅禁止依赖下载；`data-fetch` 会执行配置中明确要求的数据请求。
+缓存可通过 `data-replay` 离线核验，随后由 `data-snapshot`/`data-sync` 构造数据快照。
+具体参数与血缘要求见[源快照](docs/development/source-snapshots.md)和
+[PIT 数据](docs/development/point-in-time-data.md)。
 
-角色提交模块将 Discovery、Factor Evaluation、Backtest 和 Reconciliation 的窄请求
-转换为内部作业，原子写入作业、回执与审计。作业 ID 和提交时间由服务端在事务内分配；
-重试保留首次接受的 ID、时间和协议快照，不触发重复执行。测试覆盖字段映射、未知引用、
-协议不可用、身份不匹配、事务回滚，以及独立进程竞争与强杀后的重放。
+SEC 与 Alpaca 的开发接入不证明完整历史证券池、退市覆盖或历史 PIT 质量。
+Alpaca 权限按实际 feed 响应记录，不静默替换为其他行情源。当前申报数据的抓取时间
+不能冒充过去已知的发布时间。正式历史研究需要授权数据覆盖和质量验收。
 
-锁定区间注册使用独立的默认拒绝策略；规范区间、不可变回执和区间审计同事务提交。
-重试返回首次注册结果，不能用新的幂等键重置区间。该注册接口不解锁数据，也不签发 capability。
+## 研究与复核工作流
 
-人工审批存储检查点已加入：单条记录绑定独立认证的人类主体、区间、冻结清单、完整评估计划、
-证据和有效期，与审计、幂等回执同事务提交；重试不延长有效期。实现边界见
-[`ADR 0008`](docs/adr/0008-immutable-human-approvals.md)。生产引用解析器仍默认拒绝，
-这不是可使用的留出集解锁入口。
-本地 19 项审批测试、进程竞争和强杀恢复测试已通过；审批检查点 `47e8128` 已推送，
-远程 CI `34209334491` 七项任务全部通过。
-随后加入一次性 grant 的签发、读取、过期和撤销：审批必须匹配同一冻结计划，多个审批人必须
-具有不同认证主体；个人策略可只要求一人确认。区间与授权、审批关联、回执和审计同事务提交，
-到期或撤销后不能再次签发，重试也不会续期。实现边界见
-[`ADR 0009`](docs/adr/0009-single-use-holdout-grants.md)。本地 26 项专项测试以及扩展的
-2/4/8 进程竞争和提交前后强杀测试通过，完整 `just check` 通过；提交 `eb95170` 已推送，
-远程 CI `34303072037` 七项任务全部通过。
-整批回测作业的原子消费已实现，见 [`ADR 0010`](docs/adr/0010-atomic-holdout-batches.md)：
-只从冻结计划生成完整任务批次，授权消费、作业、回执和审计同事务提交；不接受调用者替换
-因子、预算或回测参数。重复请求验证原批次并返回原结果，不会重复建任务。
-20 项批次测试、扩展的强杀恢复及 2/4/8 独立进程测试均已通过。
-生产库已应用迁移 `0001` 至 `0005`；实际 `loopd --check-database` 已核验 TLS、会话约束和
-迁移校验和。库内没有研究任务、锁定区间、授权或回测批次，未解锁真实数据。
+1. 获取并验证源快照，按当时可见信息构造证券池与因子面板。
+2. 规范化表达式并计算 SHA-256；冻结方向、研究参数、数据、成本与执行口径。
+3. 运行组合回放与统计评测，登记全部尝试并保留失败结果。
+4. 导出验证后的原始输入，由 Alphalens 和 Zipline 独立重算。
+5. 对账、登记不可变回执，并在统一准入路径重新检查权限、覆盖、试验历史和证据新鲜度。
 
-数据库框架是 SQLx，HTTP 框架是 Axum。`migrations/postgres/*.sql` 是 SQLx 管理的版本化
-数据库变更，不是另一套数据库实现。已部署迁移不可修改，新增审批表使用新版本 `0003`；
-应用运行账号不执行 DDL。Rust 负责权限和事务，SQL 负责数据库约束，两者共同维护状态完整性。
+实际命令及输入示例分别见：
 
-工程仍遵循 [`ADR 0003`](docs/adr/0003-repository-layout-and-ownership.md) 的目录所有权：
-`crates/` 为 Rust 控制平面和客户端，`apps/` 为 TypeScript Provider 与 React Web，
-`python/` 为 Python 协议与研究，`proto/` 为跨服务协议，`migrations/postgres/` 为数据库迁移。
-目录骨架不等于业务已实现；旧 `code/`、`output/` 等路径按计划保留到 Phase 13 校验归档，
-不能提前删除回归基线。已确认的技术调整为 PostgreSQL 主存储和 Python 3.14.4。
+- [因子求值](docs/development/factor-evaluation.md)、[因果面板](docs/development/causal-factor-panels.md)
+  与[横截面变换](docs/development/cross-sectional-transforms.md)。
+- [组合回测](docs/development/portfolio-backtest.md)、[统计评测](docs/development/portfolio-statistics.md)
+  与[全局试验统计](docs/development/global-statistics.md)。
+- [Alphalens 复核](docs/development/independent-statistics.md)、
+  [Zipline 对账](docs/development/independent-accounting.md)与
+  [授权复核](docs/development/authorized-reconciliation.md)。
 
-生产数据库名为 `loop_engine`，应用账号为 `loop_engine_app`；无登录权限的
-`loop_engine_owner` 持有 schema。运行时读取权限受限的连接文件，强制 `sslmode=require`
-或更强模式，仅核验 schema，不自动执行 DDL。远程开发通过 SSH 隧道访问，不新增公网端口。
-`require` 加密流量但不验证自签名证书身份；具备受信 CA 后应升级为 `verify-full`。
+检查独立环境可直接运行：
+
+```bash
+./scripts/uv-alphalens.sh run --locked --offline loop-alphalens doctor
+./scripts/uv-zipline.sh run --locked --offline loop-zipline doctor
+```
+
+数值一致不等于经济有效或正式准入。全局多重检验不能消除数据污染、幸存者偏差或
+研究者自由度；授权数据、预先登记的经济准入规则和语义复核仍各自构成门槛。
+方向只在 IS 决定，确认集不得用于返工调参；历史留出集不称为前瞻结果。
+代码、数据、环境或试验总体变化会使依赖结果失效，不能继续沿用旧指标。
+
+## 模型 Provider
+
+OpenAI Responses/Chat 和 Anthropic Messages 保留一级原生实现；Google、Cohere、
+Bedrock、Azure 与 Vertex 使用对应协议或部署适配。Mistral、DeepSeek、Qwen、xAI、
+Groq、Together、Fireworks、Cerebras、Perplexity、GLM、Kimi 和 MiniMax 有独立厂商配置。
+兼容层覆盖 OpenAI/Anthropic-compatible、自托管服务和 LiteLLM、Portkey、OpenRouter 网关。
+
+模型是否可用取决于精确模型 ID、协议能力、账号、区域和权限。
+契约测试通过不代表真实账号验证；未支持的能力明确拒绝，网关不冒充底层供应商。
+每次调用固定模型、价格和能力快照；模型目录可以原子更新，已解析调用不会跟随别名漂移。
+
+- [原生协议与 mTLS 配置](docs/development/native-providers.md)
+- [云部署](docs/development/cloud-providers.md)、[厂商插件](docs/development/vendor-providers.md)
+  与[兼容、自托管及网关](docs/development/compatible-providers.md)
+- [模型目录与签名更新](docs/development/model-catalog.md)
+- [隔离容器、出站许可与限流](docs/development/provider-runtime.md)
+
+将示例配置复制到私有目录，填写真实模型、价格、认证身份及密钥引用后，使用
+`node apps/providerd/dist/index.js --describe` 检查模型与策略摘要；
+`PROVIDERD_DEPLOYMENT` 指向该私有配置。API key 本身不会打开调用入口。
+生产隔离部署只挂载编译产物、Provider 私有配置与状态，并通过指定目标的出站网关访问厂商。
+
+调用具有 token、费用、时间及并发限制，不自动重试可能已计费的生成请求。
+滑动窗口限流属于单进程流量控制，不是跨实例或跨重启的总预算账本。
+未由账单证据确认的费用只作为估算或预留，不宣称实际收费。
+
+## 服务运行与运维
+
+按[PostgreSQL 部署](docs/development/postgresql.md)准备数据库、TLS、受限应用账号和
+私有连接文件。迁移由管理员显式执行，普通服务启动不自动执行 DDL：
 
 ```bash
 ./scripts/cargo.sh run -p loopd --locked --offline -- --check-database
-./scripts/cargo.sh run -p loopd --locked --offline -- \
-  --database-url-file var/secrets/loopd-database-url
 ```
 
-连接配置、管理员迁移、权限和本机测试库操作见
-[`PostgreSQL 部署说明`](docs/development/postgresql.md)。`/readyz` 检查存储状态。
-默认准入和变更策略拒绝所有作业；生产 mutating RPC 尚未注册，不能把内部存储接口当作
-已完成的美股研究服务。生产身份认证与 registry 解析仍是后续门禁；holdout grant 签发、过期、
-撤销及整批原子消费已通过存储层验收，worker capability、数据解析和真实执行尚未实现。
-进展及验收边界见 [`Phase 3 验证记录`](docs/verification/phase-03-durable-state.md)。
+授权 worker 与服务部署见[运行时身份和数据权限](docs/development/runtime-authority.md)、
+[授权组合执行](docs/development/authorized-portfolios.md)。健康检查不代表数据订阅、
+模型账号或研究质量已验证。未配置权限与可信引用的操作默认拒绝。
 
-新增 `loopd` 手写代码禁止 `unsafe`，存储公开接口强制文档；Rust 格式和 Clippy、跨语言
-协议测试、旧数值回归仍为强制门禁。项目执行可公开核验的工程规则，不宣称符合任何公司
-未公开的内部规范。持续要求见 [`贡献规则`](AGENTS.md)。
-命名和测试拆分要求见 [`Rust 开发规范`](docs/development/rust-style.md)。
+备份 PostgreSQL、不可变数据与结果、Provider 回执及模型目录历史。
+回退时先停止新作业和写入，再恢复兼容版本；保留审计与模糊调用记录，不删除历史来重新执行。
+不要将数据库、留出数据、宿主目录或 Docker socket 挂入 Provider。
 
-## Phase 4 研究完整性（实施中）
+## 开发与许可
 
-新 Python 研究包已加入缺失样本偏度、因果滚动窗口、NAV 收益率及收益率相关性数值原语，
-语义和集成边界见 [`ADR 0011`](docs/adr/0011-research-numerical-integrity.md)。
-偏度使用实际有效样本数，常数窗口保留缺失状态；收益率相关性不使用 NAV 差分，也不静默截齐
-不同长度的序列。SciPy 1.18.1 和 Hypothesis 6.167.1 用于独立金标与性质验证。
-研究包隔离测试为 46 passed，包含 45 项数值用例和 1 项健康检查；完整 `just check` 通过。
-这只是 Phase 4 的数值部分：权限隔离、指标失效、扰动与失败记忆、统一重准入，以及与因子
-求值和回测器的连接仍未完成。尚未产生真实美股回测结果。
+贡献要求见 [AGENTS.md](AGENTS.md) 和[命名与 Rust 规范](docs/development/rust-style.md)。
+架构决策、实施清单与验收记录保留在 `docs/` 供维护使用，不属于产品操作界面或运行数据。
 
-## 旧研究引擎基线
+旧 `code/`、`output/` 等 A 股资产保留用于历史审计与回归，不能作为美股结果使用。
+23 个旧因子绩效已失效，不继承到美股因子库；私有 AlphaLab 不是新研究服务的必要依赖。
 
-Loop Engine 是一个以表达式树、演化搜索和确定性准入规则为核心的自动化
-量化因子发现研究引擎。当前代码仍是 A 股研究版本：使用 Python 计算价量与
-PIT 基本面因子，通过可插拔 LLM 生成/终审候选，并调用外部 AlphaLab CLI
-完成横截面因子评测。
-
-> 当前状态：代码与 checkpoint 已完成一致性和安全迁移，但 23 个历史入库因子
-> 的指标全部被标记为 `stale`。在使用当前算子实现完成全库重测前，系统会拒绝
-> 新一轮挖掘、指标排名和正式导出。仓库当前不包含可用于性能声明的严格样本外结果。
-
-## 研究边界
-
-| 区间 | 用途 | 自动发现进程权限 |
-|---|---|---|
-| 2015-01-01 至 2017-12-31 | 因子预热 | 只用于因果滚动计算 |
-| 2018-01-01 至 2023-06-30 | IS 研究与准入 | 可见、可选择方向 |
-| 2023-07-01 至 2024-12-31 | 隔离带 | 不评测 |
-| 2025-01-01 至 2025-12-31 | 已污染开发验证 | 仅保留历史审计，不得用于准入或最终结论 |
-
-2025 年曾使用 `direction.mode: auto` / `best_icir` 重新选择方向，并参与过重准入
-决策，因此不是严格 OOS。当前发现进程只加载到 IS 截止日；任何非 IS 评测若仍启用
-自适应方向，`AlphalabEvaluator` 会直接拒绝执行。真正的最终测试集必须在表达式、
-方向、超参数和数据口径冻结后一次性解锁。
-
-## 已修复的关键问题
-
-1. **样本隔离**：移除自动 2025 评测，收紧数据加载、覆盖率检查和导出边界；历史
-   OOS 文件改名为受污染开发验证审计文件。
-2. **代码/指标一致性**：每个因子保存算子与评测器指纹；旧指标默认失效；新增全库
-   原子重测工具，导出默认拒绝 stale 指标。
-3. **规范哈希**：先规范表达式再计算 SHA-1；`add`/`mul` 按交换结合律统一；迁移器
-   补齐 tested/failed 哈希并对入库碰撞 fail closed。
-4. **缺失窗口偏度**：二、三阶矩和无偏修正统一使用窗口实际有效样本数；常数窗口
-   返回 0，观测不足返回 NaN。
-5. **进程安全**：生产入口使用单写者进程锁；状态采用唯一同目录临时文件、`fsync`
-   和原子替换；checkpoint 带 schema/revision 冲突检测。
-6. **扰动与失败记忆**：成功回测会更新窗口-Sharpe 历史，扰动状态可恢复/持久化；
-   过滤器 #11 已接入生产 `failed_hashes`。
-7. **重准入一致性**：重准入重新经过规范化、覆盖率、IS 回测、机器过滤和 fail-closed
-   LLM 终审；`--force` 只能显式豁免 #16，并完整记录 override 审计。
-8. **PnL 相关性**：统一使用 `NAV[t] / NAV[t-1] - 1` 的简单收益率，并对旧 delta-NAV
-   序列执行可审计迁移。
-
-## 运行架构
-
-```text
-候选生成 -> 结构审查/规范化 -> IS 因子求值 -> AlphaLab 评测
-         -> 过滤 #1-#15 -> LLM 终审 #16 -> 入库/替换 -> 原子 checkpoint
-```
-
-- `code/engine/`：表达式、算子、演化、扰动、FSA、状态与持久化。
-- `code/backtest/`：统一评测接口、AlphaLab 适配器和收益率口径。
-- `code/data_layer/`：现有 A 股 OSS/DuckDB 数据加载与 PIT 字段派生。
-- `code/loop_orchestrate.py`：单轮生成、回测、过滤、审计与入库。
-- `code/revalidate_library.py`：使用当前语义重测全库；任一评测失败则不提交状态。
-- `code/migrate_checkpoint_v2.py`：幂等迁移旧哈希、指标 provenance 和收益序列。
-- `output/factors/`：当前可导出结果及明确隔离的历史审计文件。
-
-## Legacy A 股诊断
-
-新重构代码统一使用前述 `just` 门禁。只有在单独诊断冻结的 A 股实现时，才使用
-根目录统一 Python 3.14.4 uv workspace：
-
-```bash
-./scripts/uv.sh sync --all-packages --all-groups --locked
-./scripts/uv.sh run --all-packages --all-groups --locked pytest
-./scripts/uv.sh run --all-packages --all-groups --locked code/lib_status.py
-./scripts/uv.sh run --all-packages --all-groups --locked code/run_round_cli.py --mock --force --checkpoint /tmp/loop_engine_mock.json --n 100
-```
-
-当前测试集收集 217 个测试（本环境 216 通过、1 个真实 Windows AlphaLab fixture
-因外部依赖缺失而跳过）。mock 模式仅验证流水线，不产生投资研究结论。
-
-## Legacy A 股重测与导出
-
-A 股 legacy 真实模式仍需要原项目的私有 AlphaLab CLI、RQData/行情缓存和 OSS 数据权限。
-PyPI 上的同名 `alpha-lab` 包不是该 CLI 的兼容替代品，不能据此伪造重测结果。
-依赖和数据就绪后按以下顺序执行：
-
-```bash
-./scripts/uv.sh run --all-packages --all-groups --locked code/migrate_checkpoint_v2.py
-./scripts/uv.sh run --all-packages --all-groups --locked code/revalidate_library.py --workers 3
-./scripts/uv.sh run --all-packages --all-groups --locked code/lib_status.py
-./scripts/uv.sh run --all-packages --all-groups --locked code/export_factors.py
-```
-
-`--allow-stale-metrics` 只允许诊断性导出，并会在 manifest 标记 `stale`；不得用于
-研究结论。迁移前的清单和 2025 开发验证保存在 `output/factors/legacy_*.csv`。
-
-## 已知限制与下一阶段
-
-- Legacy 的 universe、字段、成本和企业行动口径为 A 股专用，不能直接用作美股研究输入。
-- Legacy JSON checkpoint 保留用于历史诊断；美股工作区已使用 PostgreSQL、不可变数据
-  快照和独立的 holdout 权限边界，实际验收状态见实施清单。
-- 美股因子引擎已验收，组合回测仍在开发；生产数据质量、正式统计、独立复核、完整 Agent
-  运行和操作界面尚未全部完成。第三方许可证及不可变审计历史必须依法保留。
-- 本项目用于研究基础设施，不构成投资建议；任何结果都必须经过独立复核、成本与容量
-  压测以及真正未触碰样本的验证。
+仓库尚未授予 MIT、Apache-2.0 或其他开源许可证；继承代码的授权状态仍需确认。
+第三方软件与数据受各自许可约束，历史作者信息及法定署名予以保留。
+本项目以公开、可测试的工程规则验收，不声称符合任何金融机构未公开的内部标准。

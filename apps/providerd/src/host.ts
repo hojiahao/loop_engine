@@ -42,6 +42,8 @@ import { compatible_plugin } from "./native-compatible.js";
 import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
 import { vendor_plugin } from "./native-vendor.js";
+import { decimal_units, extra_cost, reserve_cost, usage_cost } from "./pricing.js";
+import { RequestLimits } from "./request-limits.js";
 import { StreamEvidence, stream_invalid } from "./stream.js";
 import { vendor_id } from "./vendor-registry.js";
 
@@ -97,12 +99,7 @@ function route_plugin(
   return valid ? factories[model.plugin](secret, fetcher) : undefined;
 }
 
-export function decimal_units(value: string): bigint {
-  if (!/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{0,8}[1-9])?$/.test(value))
-    throw new ProviderError("invalid_money");
-  const [whole = "0", fraction = ""] = value.split(".");
-  return BigInt(whole) * 1_000_000_000n + BigInt(fraction.padEnd(9, "0"));
-}
+export { decimal_units } from "./pricing.js";
 
 function validate_id(value: string | undefined): string {
   if (!value || !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(value))
@@ -116,6 +113,7 @@ export class ProviderHost {
   private last_time = 0;
   private routes: HostRoutes;
   private readonly content: ProviderContent;
+  private readonly limits: RequestLimits;
   readonly policy;
 
   constructor(
@@ -126,6 +124,10 @@ export class ProviderHost {
     private readonly identity: CloudIdentity = {},
   ) {
     this.content = new ProviderContent(config);
+    this.limits = new RequestLimits(
+      config.policy.rate,
+      decimal_units(config.policy.rate.maximum_usd),
+    );
     const models = (config.catalog ? [] : config.models).map((model) => ({
       route: model,
       snapshot: model_snapshot(config, model, implementation),
@@ -336,25 +338,11 @@ export class ProviderHost {
     }
     const wall_time = Number(maximum.seconds) * 1000 + Math.ceil(maximum.nanos / 1_000_000);
     const max_cost = decimal_units(budget.maximumCost.amount.value);
-    const input_price = [
-      selected.route.input_usd,
-      selected.route.cached_usd,
-      selected.route.cache_creation_usd ?? "0",
-    ]
-      .map(decimal_units)
-      .reduce((highest, price) => (price > highest ? price : highest), 0n);
-    const reserved =
-      (budget.maximumInputTokens * input_price +
-        budget.maximumOutputTokens * decimal_units(selected.route.output_usd) +
-        999_999n) /
-        1_000_000n +
-      decimal_units(
-        selected.route.cloud?.kind === "bedrock"
-          ? (selected.route.cloud.guardrail?.maximum_usd ?? "0")
-          : "0",
-      ) +
-      decimal_units(selected.route.vendor?.maximum_extra_usd ?? "0") +
-      decimal_units(selected.route.compatible?.gateway?.maximum_extra_usd ?? "0");
+    const reserved = reserve_cost(
+      selected.route,
+      budget.maximumInputTokens,
+      budget.maximumOutputTokens,
+    );
     if (
       wall_time < 1 ||
       wall_time > this.config.policy.wall_time_ms ||
@@ -416,6 +404,7 @@ export class ProviderHost {
         selected.snapshot,
       );
       combined.throwIfAborted();
+      this.limits.reserve(budget.maximumInputTokens + budget.maximumOutputTokens, reserved);
       const slot = await claim_invocation(this.config.journal, key, {
         schema: "loop.provider-claim/v1",
         actor: principal.actor_id,
@@ -487,7 +476,8 @@ export class ProviderHost {
       if (
         usage.inputTokens > budget.maximumInputTokens ||
         usage.outputTokens > budget.maximumOutputTokens ||
-        usage.inputTokens + usage.outputTokens > BigInt(selected.route.context_tokens)
+        usage.inputTokens + usage.outputTokens > BigInt(selected.route.context_tokens) ||
+        usage_cost(selected.route, usage) + extra_cost(selected.route) > max_cost
       ) {
         throw new ProviderError(
           "provider_usage_exceeded",

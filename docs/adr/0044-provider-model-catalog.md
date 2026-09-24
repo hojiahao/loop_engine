@@ -1,8 +1,10 @@
 # ADR 0044: Versioned model catalogs and atomic activation
 
 Status: implementation, 82 new catalog cases, full TypeScript regression and
-`just check` and workspace build passed. Task publication and exact-commit CI
-remain required. Phase 9 delivery unit 7.
+`just check` and workspace build passed. Commit `f9f05f5` is pushed. Exact-commit
+CI `35965098459` passed six jobs; its DaoCloud container failed the existing
+worker cancellation test. The platform acceptance task addresses that gate;
+this unit's integrated exit remains pending. Phase 9 delivery unit 7.
 The preceding compatible-route task is pushed as `9d197c7`; all seven jobs in
 exact-commit CI `35958808670` passed.
 
