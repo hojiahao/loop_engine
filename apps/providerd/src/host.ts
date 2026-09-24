@@ -26,7 +26,9 @@ import { bedrock_plugin } from "./native-bedrock.js";
 import { cohere_plugin } from "./native-cohere.js";
 import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
+import { vendor_plugin } from "./native-vendor.js";
 import { StreamEvidence, stream_invalid } from "./stream.js";
+import { vendor_id } from "./vendor-registry.js";
 
 const factories = {
   openai_responses: (secret: string, fetcher: typeof fetch) =>
@@ -84,7 +86,9 @@ export class ProviderHost {
         this.plugins.set(model.id, vertex_plugin(model, fetcher, identity));
       else if (model.plugin === "bedrock_converse")
         this.plugins.set(model.id, bedrock_plugin(model, secrets, fetcher));
-      else if (valid) this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
+      else if (vendor_id(model.plugin)) {
+        if (valid) this.plugins.set(model.id, vendor_plugin(model, secret, fetcher));
+      } else if (valid) this.plugins.set(model.id, factories[model.plugin](secret, fetcher));
     }
   }
 
@@ -204,7 +208,8 @@ export class ProviderHost {
         selected.route.cloud?.kind === "bedrock"
           ? (selected.route.cloud.guardrail?.maximum_usd ?? "0")
           : "0",
-      );
+      ) +
+      decimal_units(selected.route.vendor?.maximum_extra_usd ?? "0");
     if (
       wall_time < 1 ||
       wall_time > this.config.policy.wall_time_ms ||

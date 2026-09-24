@@ -1,7 +1,7 @@
 # ADR 0041: Cloud Provider deployments
 
-Status: implemented; local check/test/build passed on 2026-09-23. Task
-publication and exact-commit CI remain required. Phase 9 delivery unit 4.
+Status: accepted; task commit `5594ea8` is pushed and exact-commit CI
+`35842723030` passed all seven jobs. Phase 9 delivery unit 4.
 
 ## Requirement and decision
 

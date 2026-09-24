@@ -575,21 +575,29 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    `d5d49de` is pushed; all seven jobs in exact-commit CI `35830578199` passed.
    See ADR 0040 and
    `docs/verification/phase-09-google-cohere.md`.
-4. Cloud deployments (`in_progress`): implement AWS Bedrock Converse/ConverseStream, Azure
+4. Cloud deployments (`complete`): implement AWS Bedrock Converse/ConverseStream, Azure
    OpenAI and Google Vertex AI authentication, region/deployment/model mapping
    and native parameter translation; verify with signed-request fixtures.
    Four routes share the existing authenticated invocation/journal path. Cloud
    identity, conservative input/Guardrail cost reservations, native rich messages,
    AWS binary framing, signed continuation and cancellation are implemented.
    Local `just check`, 269 Provider tests (82 new cloud cases), 119 TypeScript
-   protocol tests and TypeScript workspace build pass. Publication and
-   exact-commit remote gates remain required; evidence is in ADR 0041 and
+   protocol tests and TypeScript workspace build pass. Chinese task commit
+   `5594ea8` is pushed; all seven jobs in exact-commit CI `35842723030` passed.
+   Evidence is in ADR 0041 and
    `docs/verification/phase-09-cloud-deployments.md`. This unit does not close
    Phase 9, attest cloud entitlement or permit a merge to `main`.
-5. First-class vendor plugins: Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
+5. First-class vendor plugins (`in_progress`): Mistral, DeepSeek, Qwen/DashScope, xAI, Groq,
    Together, Fireworks, Cerebras, Perplexity, GLM/Zhipu, Kimi/Moonshot and MiniMax.
    Share a wire codec only when the official protocol permits it; preserve each
    vendor's authentication, parameters, capabilities, errors and usage.
+   All twelve routes now execute through the authenticated service and existing
+   journal, budget, schema and continuation boundaries. The 153 new local cases
+   pass; the combined run passed 119 protocol and 421/422 Provider cases, with
+   the unchanged CLI startup timeout passing all three isolated retest cases
+   after disk cleanup. `just check` and TypeScript workspace build pass.
+   Task publication and exact-commit CI remain required. See ADR 0042 and
+   `docs/verification/phase-09-vendor-plugins.md` for evidence and limitations.
 6. Compatible/self-hosted/gateway paths: OpenAI/Anthropic-compatible endpoints,
    Ollama, vLLM, SGLang, llama.cpp, LM Studio, NVIDIA NIM, LiteLLM, Portkey and
    OpenRouter. Distinguish gateway identity from the upstream supplier and deny

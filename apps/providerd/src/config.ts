@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 
 import { digest_json, hex_digest } from "./identity.js";
+import { VENDOR_IDS, VENDORS, vendor_id, vendor_valid } from "./vendor-registry.js";
 
 const token = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/);
 const decimal = z.string().regex(/^(?:0|[1-9][0-9]{0,5})(?:\.[0-9]{0,8}[1-9])?$/);
@@ -66,6 +67,7 @@ const model_schema = z.strictObject({
     "azure_chat",
     "vertex_generate",
     "bedrock_converse",
+    ...VENDOR_IDS,
   ]),
   model: token,
   alias: token,
@@ -88,10 +90,21 @@ const model_schema = z.strictObject({
       prompt_caching: z.boolean().default(false),
     })
     .prefault({}),
-  reasoning: z.enum(["off", "low", "medium", "high", "adaptive", "enabled"]).default("off"),
+  reasoning: z.enum(["off", "low", "medium", "high", "max", "adaptive", "enabled"]).default("off"),
   thinking_tokens: z.number().int().min(1024).max(99_999).optional(),
   secret_env: secret_ref.optional(),
   cloud: cloud_schema.optional(),
+  vendor: z
+    .strictObject({
+      region: z.enum(["global", "cn", "us", "jp"]).default("global"),
+      workspace: z
+        .string()
+        .regex(/^[a-z0-9][a-z0-9-]{0,62}$/)
+        .optional(),
+      reasoning_field: z.enum(["reasoning_content", "reasoning"]).optional(),
+      maximum_extra_usd: decimal.optional(),
+    })
+    .optional(),
 });
 
 export const deployment_schema = z.strictObject({
@@ -199,8 +212,10 @@ export function validate_deployment(value: unknown): Deployment {
     config.models.some(
       (model) =>
         !cloud_valid(model) ||
+        !vendor_valid(model) ||
         model.output_tokens > model.context_tokens ||
-        ([
+        (vendor_id(model.plugin) ||
+        [
           "cohere",
           "google_interactions",
           "azure_responses",
@@ -216,16 +231,18 @@ export function validate_deployment(value: unknown): Deployment {
           (model.features.documents || !["off", "enabled"].includes(model.reasoning))) ||
         (model.features.parallel_tools && !model.features.tools) ||
         (model.features.documents && !model.features.vision) ||
-        (["anthropic", "bedrock_converse"].includes(model.plugin) &&
+        (["anthropic", "bedrock_converse", "minimax"].includes(model.plugin) &&
           model.features.prompt_caching &&
           model.cache_creation_usd === undefined) ||
-        (!["anthropic", "bedrock_converse"].includes(model.plugin) &&
+        (!["anthropic", "bedrock_converse", "minimax"].includes(model.plugin) &&
           model.cache_creation_usd !== undefined) ||
         (["openai_chat", "azure_chat"].includes(model.plugin) && model.reasoning !== "off") ||
         (model.plugin === "anthropic" &&
           !["off", "adaptive", "enabled"].includes(model.reasoning)) ||
-        (!["anthropic", "cohere", "bedrock_converse"].includes(model.plugin) &&
-          ["adaptive", "enabled"].includes(model.reasoning)) ||
+        (!vendor_id(model.plugin) &&
+          ((!["anthropic", "cohere", "bedrock_converse"].includes(model.plugin) &&
+            ["adaptive", "enabled"].includes(model.reasoning)) ||
+            model.reasoning === "max")) ||
         (model.reasoning === "enabled" &&
           (model.thinking_tokens === undefined || model.thinking_tokens >= model.output_tokens)) ||
         (model.reasoning !== "enabled" && model.thinking_tokens !== undefined),
@@ -275,6 +292,10 @@ export async function plugin_digest(): Promise<Uint8Array> {
     "bedrock-content",
     "bedrock-stream",
     "bedrock-transport",
+    "vendor-registry",
+    "vendor-chat",
+    "vendor-replies",
+    "native-vendor",
     "json",
     "content",
     "private-state",
@@ -300,18 +321,24 @@ export async function plugin_digest(): Promise<Uint8Array> {
 }
 
 export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Uint8Array) {
-  const family = {
-    openai_responses: ModelProtocolFamily.OPENAI_RESPONSES,
-    openai_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
-    anthropic: ModelProtocolFamily.ANTHROPIC_MESSAGES,
-    google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
-    google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
-    cohere: ModelProtocolFamily.COHERE_V2_CHAT,
-    azure_responses: ModelProtocolFamily.OPENAI_RESPONSES,
-    azure_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
-    vertex_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
-    bedrock_converse: ModelProtocolFamily.AWS_BEDROCK_CONVERSE,
-  }[model.plugin];
+  const family = vendor_id(model.plugin)
+    ? {
+        chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+        responses: ModelProtocolFamily.OPENAI_RESPONSES,
+        messages: ModelProtocolFamily.ANTHROPIC_MESSAGES,
+      }[VENDORS[model.plugin].wire]
+    : {
+        openai_responses: ModelProtocolFamily.OPENAI_RESPONSES,
+        openai_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+        anthropic: ModelProtocolFamily.ANTHROPIC_MESSAGES,
+        google_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+        google_interactions: ModelProtocolFamily.GOOGLE_INTERACTIONS,
+        cohere: ModelProtocolFamily.COHERE_V2_CHAT,
+        azure_responses: ModelProtocolFamily.OPENAI_RESPONSES,
+        azure_chat: ModelProtocolFamily.OPENAI_CHAT_COMPLETIONS,
+        vertex_generate: ModelProtocolFamily.GOOGLE_GENERATE_CONTENT,
+        bedrock_converse: ModelProtocolFamily.AWS_BEDROCK_CONVERSE,
+      }[model.plugin];
   const capabilities = {
     contextWindowTokens: BigInt(model.context_tokens),
     maximumOutputTokens: BigInt(model.output_tokens),
@@ -346,17 +373,19 @@ export function model_snapshot(config: Deployment, model: ModelRoute, plugin: Ui
   const snapshot = create(ModelResolutionSnapshotSchema, {
     resolutionId: { value: `resolution-${hex_digest(identity)}` },
     providerId: {
-      value: model.plugin.startsWith("openai")
-        ? "openai"
-        : model.plugin.startsWith("azure")
-          ? "azure_openai"
-          : model.plugin === "vertex_generate"
-            ? "google_vertex"
-            : model.plugin === "bedrock_converse"
-              ? "aws_bedrock"
-              : model.plugin.startsWith("google")
-                ? "google"
-                : model.plugin,
+      value: vendor_id(model.plugin)
+        ? model.plugin
+        : model.plugin.startsWith("openai")
+          ? "openai"
+          : model.plugin.startsWith("azure")
+            ? "azure_openai"
+            : model.plugin === "vertex_generate"
+              ? "google_vertex"
+              : model.plugin === "bedrock_converse"
+                ? "aws_bedrock"
+                : model.plugin.startsWith("google")
+                  ? "google"
+                  : model.plugin,
     },
     modelId: { value: model.model },
     requestedAlias: model.alias,

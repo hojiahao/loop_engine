@@ -116,6 +116,7 @@ export function anthropic_result(
   reply: Anthropic.Messages.Message,
   input: NativeInput,
   fragments?: ReadonlyMap<number, string>,
+  unsigned_thinking = false,
 ): NativeReply {
   const finish = reply.stop_reason;
   if (
@@ -141,8 +142,8 @@ export function anthropic_result(
     if (
       block.type === "thinking" &&
       typeof block.thinking === "string" &&
-      typeof block.signature === "string" &&
-      block.signature
+      ((typeof block.signature === "string" && block.signature) ||
+        (unsigned_thinking && (block.signature === undefined || block.signature === "")))
     )
       return { kind: "reasoning", text: block.thinking, state: parse_json(JSON.stringify(block)) };
     if (block.type === "redacted_thinking" && typeof block.data === "string" && block.data)

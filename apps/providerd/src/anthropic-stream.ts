@@ -1,16 +1,26 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic_parameters, anthropic_result } from "./anthropic-content.js";
 import { parse_json } from "./json.js";
-import type { NativeEvent, NativeInput } from "./native.js";
+import type { NativeEvent, NativeInput, NativeReply } from "./native.js";
 import { stream_invalid, text_delta, tool_delta } from "./stream.js";
+
+export interface MessageDialect {
+  parameters(input: NativeInput): ReturnType<typeof anthropic_parameters>;
+  reply(
+    value: Anthropic.Messages.Message,
+    input: NativeInput,
+    fragments?: ReadonlyMap<number, string>,
+  ): NativeReply;
+}
 
 export async function* anthropic_stream(
   client: Anthropic,
   input: NativeInput,
   signal: AbortSignal,
+  dialect?: MessageDialect,
 ): AsyncGenerator<NativeEvent> {
   const events = await client.messages.create(
-    { ...anthropic_parameters(input), stream: true },
+    { ...(dialect?.parameters ?? anthropic_parameters)(input), stream: true },
     { signal },
   );
   let message: Anthropic.Messages.Message | undefined;
@@ -66,7 +76,7 @@ export async function* anthropic_stream(
           block.thinking += delta.thinking;
           yield { kind: "delta", delta: text_delta(event.index, delta.thinking, true) };
         } else if (block.type === "thinking" && delta.type === "signature_delta")
-          block.signature += delta.signature;
+          block.signature = (block.signature ?? "") + delta.signature;
         else if (block.type === "tool_use" && delta.type === "input_json_delta") {
           fragments.set(event.index, (fragments.get(event.index) ?? "") + delta.partial_json);
           yield {
@@ -112,7 +122,10 @@ export async function* anthropic_stream(
       } else stream_invalid();
     }
     if (!message || !ended || signal.aborted) stream_invalid();
-    yield { kind: "complete", reply: anthropic_result(message, input, fragments) };
+    yield {
+      kind: "complete",
+      reply: (dialect?.reply ?? anthropic_result)(message, input, fragments),
+    };
   } finally {
     events.controller.abort();
   }

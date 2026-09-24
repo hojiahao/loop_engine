@@ -21,6 +21,29 @@ interface OutputItem {
   parts: Map<number, { index: number; type: string; text: string; closed: boolean }>;
 }
 
+/** A supplier's official Chat dialect normalizes into the shared lifecycle.
+ * The lifecycle still owns ordering, completion, usage and cancellation. */
+export interface ChatDialect {
+  parameters(
+    input: NativeInput,
+    streaming: boolean,
+  ): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
+  chunks(
+    event: OpenAI.Chat.Completions.ChatCompletionChunk,
+  ): readonly OpenAI.Chat.Completions.ChatCompletionChunk[];
+  reply(value: OpenAI.Chat.Completions.ChatCompletion, input: NativeInput): NativeReply;
+}
+
+async function* chat_chunks(
+  source: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  dialect?: ChatDialect,
+) {
+  for await (const value of source) {
+    if (dialect) yield* dialect.chunks(value);
+    else yield value;
+  }
+}
+
 export async function* response_stream(
   client: OpenAI,
   input: NativeInput,
@@ -253,18 +276,21 @@ export async function* chat_stream(
   input: NativeInput,
   signal: AbortSignal,
   deployment?: string,
+  dialect?: ChatDialect,
 ): AsyncGenerator<NativeEvent> {
   const events = await client.chat.completions.create(
     {
-      ...chat_parameters(input),
+      ...(dialect ? dialect.parameters(input, true) : chat_parameters(input)),
       model: deployment ?? input.model.model,
       stream: true,
-      stream_options: { include_usage: true },
+      ...(!dialect ? { stream_options: { include_usage: true } } : {}),
     },
     { signal },
   );
   const calls = new Map<number, { id: string; name: string; arguments: string; index: number }>();
   let text: string | null = null;
+  let reasoning: string | undefined;
+  let reasoning_index: number | undefined;
   let refusal: string | null = null;
   let text_index: number | undefined;
   let next_index = 0;
@@ -273,7 +299,7 @@ export async function* chat_stream(
   let finish: OpenAI.Chat.Completions.ChatCompletion.Choice["finish_reason"] | undefined;
   let usage: OpenAI.CompletionUsage | undefined;
   try {
-    for await (const event of events) {
+    for await (const event of chat_chunks(events, dialect)) {
       if (
         event.model !== input.model.model ||
         !Array.isArray(event.choices) ||
@@ -295,6 +321,15 @@ export async function* chat_stream(
         role = true;
       }
       if (!role || delta.function_call) stream_invalid();
+      const thought = (delta as typeof delta & { reasoning_content?: unknown }).reasoning_content;
+      if (thought !== undefined && thought !== null) {
+        if (!dialect || typeof thought !== "string") stream_invalid();
+        if (thought || (delta as typeof delta & { reasoning_parts?: unknown }).reasoning_parts) {
+          reasoning_index ??= next_index++;
+          reasoning = (reasoning ?? "") + thought;
+          yield { kind: "delta", delta: text_delta(reasoning_index, thought, true) };
+        }
+      }
       if (delta.content !== undefined && delta.content !== null) {
         if (typeof delta.content !== "string") stream_invalid();
         if (delta.content) {
@@ -329,7 +364,7 @@ export async function* chat_stream(
       if (choice.finish_reason) finish = choice.finish_reason;
     }
     if (!finish || !usage || !role || signal.aborted) stream_invalid();
-    const reply = chat_result(
+    const reply = (dialect?.reply ?? chat_result)(
       {
         id,
         model: input.model.model,
@@ -344,6 +379,7 @@ export async function* chat_stream(
               role: "assistant",
               content: text,
               refusal,
+              ...(reasoning !== undefined ? { reasoning_content: reasoning } : {}),
               ...(calls.size
                 ? {
                     tool_calls: [...calls.values()].map((call) => ({
@@ -363,6 +399,7 @@ export async function* chat_stream(
     // Chat supplies separate text/tool fields, not ordered content blocks. Keep
     // the first-fragment order already exposed in this stream's content indices.
     const indices = [
+      ...(reasoning !== undefined ? [reasoning_index] : []),
       ...(text ? [text_index] : []),
       ...(refusal ? [next_index++] : []),
       ...[...calls.values()].map((call) => call.index),

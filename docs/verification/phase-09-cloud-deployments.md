@@ -1,7 +1,8 @@
 # Phase 9 unit 4: Cloud deployments
 
-Status: implemented; local check/test/build passed on 2026-09-23. Task publication
-and exact-commit CI remain required. Phase 9 is not complete; `main` is not merged.
+Status: accepted; local check/test/build passed on 2026-09-23. Task commit
+`5594ea8` is pushed; exact-commit CI `35842723030` passed all seven jobs.
+Phase 9 is not complete; `main` is not merged.
 
 ## Requirement and implementation
 
@@ -94,8 +95,8 @@ protocol tests remain green. This observation is not a performance guarantee.
 
 TypeScript protocol, Provider and Web builds all pass. The Web bootstrap has no
 behavior tests and is not counted as UI acceptance. No Rust or Python behavior
-changed in this unit; their remote workspace/container suites remain required
-for the published commit. The preceding Google/Cohere commit `d5d49de` has all
+changed in this unit; their remote workspace/container suites passed for
+published commit `5594ea8` in run `35842723030`. The preceding Google/Cohere commit `d5d49de` has all
 seven jobs passing in exact-commit CI `35830578199`; that result is not reused as
 CI evidence for this new commit.
 
