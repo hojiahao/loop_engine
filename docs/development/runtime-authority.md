@@ -106,9 +106,11 @@ They receive no parent/source mount, database secret, registry or engine socket.
 
 Only trusted orchestration may set `LOOP_WORKER_VIEW`, after fresh runtime lease
 and capability validation. A supplied path or cached receipt is not permission.
-Automatic scheduling and egress-enabled LLM containers belong to the later
-Harness/Loop Runtime phases; this profile does not implement them. Do not expose
-a generic container launcher to Agent tools. Revocation cannot make already
+The [Provider runtime](provider-runtime.md) supplies a separate compiled LLM
+service with restricted egress and no research mounts. Automatic scheduling
+still belongs to the Run Harness/Loop Runtime; this worker profile does not
+implement it. Do not expose a generic container launcher to Agent tools.
+Revocation cannot make already
 disclosed bytes unknown: stop affected workers and discard private scratch.
 
 Development files are restricted to IS/development sample roles. Protected
@@ -118,7 +120,8 @@ PIT validation, licensed data and real holdout computation remain later gates.
 ## Verification And Rollback
 
 Run `just check`, `just test`, `just build`, `just doctor`, and
-`just test-isolation`. The last command exercises four real containers, known
+`just test-isolation`. The last command exercises the research-role containers
+and the separate Provider, mTLS client and egress fixture, checking known
 protected paths and forbidden writes, then removes its own containers/files.
 The clean-container gate invokes it on the host; test workers never receive the
 Docker socket. The Rust suite covers real TLS, files, PostgreSQL, independent

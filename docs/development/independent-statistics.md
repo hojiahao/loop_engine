@@ -124,8 +124,9 @@ code, not a complete hermetic OS attestation.
 
 The standalone worker has no database identity and does not authenticate the
 origin of a caller-created input manifest. Actual export verification is required;
-Phase 8 unit 3 will bind receipts to registered runtime evidence. A private CAS
-and offline invocation are not by themselves a process sandbox.
+the [authorized reconciliation workflow](authorized-reconciliation.md) binds
+independent receipts to registered runtime evidence. A private CAS and offline
+invocation are not by themselves a process sandbox.
 
 Disable the new administrative commands or revert this task commit to stop new
 writes. Retain evidence, outputs and receipts. No database schema or production

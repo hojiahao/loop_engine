@@ -123,14 +123,21 @@ acquisition at ten seconds. Additional throughput claims require measurements.
 
 ## Current scope
 
-Production migrations 1 through 5 are installed and verified as recorded in
-`docs/verification/phase-03-durable-state.md`. The storage APIs support approvals,
-single-use grants and complete atomic batches, but the schema is infrastructure,
-not a completed research engine. Default policies deny commands, mutating
-transport RPCs remain unavailable, and no holdout has been registered or
-unlocked in production. Transport identity, protected capabilities and reference
-resolution, data adapters, providers and numerical execution retain their later
-gates in `IMPLEMENTATION_TODO.md`.
+The historical [durable-state acceptance record](../verification/phase-03-durable-state.md)
+verified production migrations 1 through 5 and no registered/unlocked production
+holdout at that checkpoint. It is not an inventory of the current production
+schema. Verify the actual deployment before upgrading; later migrations in Git
+are not evidence that a production administrator has applied them.
+
+The software now provides optional authenticated mutating JobService RPCs,
+data/reference authorization, numerical execution and immutable result
+registration. See [runtime authority](runtime-authority.md),
+[authorized portfolios](authorized-portfolios.md) and
+[independent reconciliation](authorized-reconciliation.md). These workflows
+require explicit private deployment policies; missing authority still denies
+commands. Installed schemas alone do not enable autonomous research, validate
+licensed historical data or authorize a holdout unlock. Current implementation
+and remaining release gates are tracked in [the maintenance checklist](../IMPLEMENTATION_TODO.md).
 
 ## Why migrations are SQL files
 

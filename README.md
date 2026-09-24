@@ -45,7 +45,8 @@ Provider 不读取研究数据库或留出数据；数值研究服务不实现�
 ## 安装与检查
 
 支持的宿主机为 Linux x86-64。准备 Node.js 24.17.0、Corepack、uv 0.11.29、
-curl、tar、xz 和 SHA-256 工具后，在仓库根目录执行：
+curl、tar、xz 和 SHA-256 工具。若尚未安装 `just`，请先将 `$HOME/.local/bin`
+加入 `PATH`，以便 Bootstrap 安装并调用它。在仓库根目录执行：
 
 ```bash
 ./scripts/bootstrap.sh
