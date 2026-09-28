@@ -11,6 +11,11 @@ import "loop/v1/stream.proto";
 service ProviderService {
   rpc InvokeModel(InvokeModelRequest) returns (InvokeModelResponse);
   rpc StreamModel(StreamModelRequest) returns (stream StreamModelResponse);
+  // Capability identity: provider.invocation-lookup.v1. Older servers return
+  // UNIMPLEMENTED; this version does not negotiate a feature metadata header.
+  // Read-only recovery for the authenticated actor's own journal; never invokes
+  // a model or claims a key.
+  rpc LookupInvocation(LookupInvocationRequest) returns (LookupInvocationResponse);
 }
 
 message InvokeModelRequest {
@@ -31,4 +36,42 @@ message StreamModelRequest {
 
 message StreamModelResponse {
   loop.v1.ModelStreamEvent event = 1;
+}
+
+// A point-in-time journal observation, not permission to repeat a paid call.
+// Unknown or unspecified values fail closed. Corrupt journal evidence is a
+// non-OK RPC with typed loop.v1.ServiceError details, never a successful state.
+enum InvocationState {
+  INVOCATION_STATE_UNSPECIFIED = 0;
+  // No claim or completed result exists at observation time.
+  INVOCATION_STATE_ABSENT = 1;
+  // A claim exists without a completed result. Outbound execution is uncertain.
+  INVOCATION_STATE_AMBIGUOUS = 2;
+  // An immutable completed result matches the requested invocation identity.
+  INVOCATION_STATE_COMPLETED = 3;
+}
+
+message LookupInvocationRequest {
+  // A fresh lookup command, independently authenticated and time-validated.
+  // Its actor must match the transport principal. It cannot select another
+  // actor's journal, and its request ID differs from original_request_id.
+  loop.v1.CommandContext context = 1;
+  loop.v1.RequestId original_request_id = 2;
+  loop.v1.IdempotencyKey original_idempotency_key = 3;
+  // Exactly 32 bytes. The original InvokeModelRequest's existing
+  // loop.provider-invocation/v1 domain-separated canonical JSON digest.
+  // Streaming uses its equivalent InvokeModelRequest envelope. No original
+  // prompt, model resolution, supplier credential or artifact is accepted.
+  loop.v1.Sha256Digest request_sha256 = 4;
+}
+
+message LookupInvocationResponse {
+  InvocationState state = 1;
+  // Required only for COMPLETED; absent for ABSENT and AMBIGUOUS. Its
+  // request_id equals the requested original_request_id.
+  loop.v1.ModelResponse response = 2;
+  // Present only when a complete claim records a validated USD reservation.
+  // This is the original upper bound, not an invoice or actual charged cost.
+  // ABSENT has no reservation; incomplete ambiguous claims omit this field.
+  loop.v1.Money reserved_cost = 3;
 }

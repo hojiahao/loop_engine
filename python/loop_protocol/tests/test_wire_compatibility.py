@@ -118,6 +118,10 @@ def test_wire_fixture() -> None:
         assert record["lossless_original_byte_forwarding_required"] is False
     for record in manifest["semantic_negative_fixtures"]:
         assert record["wire_sha256"] == _sha256(_fixture(record["path"]))
+    for record in manifest["provider_recovery_fixtures"]:
+        assert record["wire_sha256"] == _sha256(_fixture(record["path"]))
+        assert record["producer_language"] == "python"
+        assert record["capability_identity"] == "provider.invocation-lookup.v1"
     operational = manifest["auxiliary_contracts"][0]
     assert operational["sha256"] == _sha256(
         (FIXTURE_DIRECTORY.parents[3] / operational["path"]).read_bytes()

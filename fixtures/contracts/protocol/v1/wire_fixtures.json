@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:a78d73a479c89457da82d4110dcc51229dfe9eba47d6465c710f77de216b117b"
+    "sha256": "sha256:c2e0910c03f5d48251b1f7e6c8af43e228f2fb054467f36f99e912d838026314"
   },
   "expected_domain_projection": {
     "supported_packages": [
@@ -42,7 +42,7 @@
       ],
       "source": {
         "path": "tests/contracts/protocol/generate_wire_fixtures.py",
-        "sha256": "sha256:de65a99a9e97e4b6301f601cca0c8921664c215411c32bce76cd4f38e6302d92"
+        "sha256": "sha256:642b6755874ed18f61382bb784cefd90e7d2d674823ff177952b628d5d0745ad"
       },
       "path": "protocol_info_v1.binpb",
       "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
@@ -109,6 +109,20 @@
       "path": "tests/contracts/operational_failure.json",
       "sha256": "sha256:3c8000215526d0bce07a6390cabe0fd4d1264478545c53dca6dafe33d6076a84",
       "contract": "loop.rpc-operational-failure/v1"
+    }
+  ],
+  "provider_recovery_fixtures": [
+    {
+      "path": "provider_lookup_v1.binpb",
+      "wire_sha256": "sha256:cc105d0a5b1f89030f700cacf73f62f6b201b3ab6f6bbdf40c8db279199df621",
+      "producer_language": "python",
+      "capability_identity": "provider.invocation-lookup.v1"
+    },
+    {
+      "path": "provider_completed_v1.binpb",
+      "wire_sha256": "sha256:2bb924d9aba0faac1739384a96c7a35234ce51b5817a8ae5a7b12020de073c90",
+      "producer_language": "python",
+      "capability_identity": "provider.invocation-lookup.v1"
     }
   ]
 }

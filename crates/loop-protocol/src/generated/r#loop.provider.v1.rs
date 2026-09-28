@@ -23,6 +23,60 @@ pub struct StreamModelResponse {
     #[prost(message, optional, tag = "1")]
     pub event: ::core::option::Option<super::super::v1::ModelStreamEvent>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LookupInvocationRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub original_request_id: ::core::option::Option<super::super::v1::RequestId>,
+    #[prost(message, optional, tag = "3")]
+    pub original_idempotency_key: ::core::option::Option<
+        super::super::v1::IdempotencyKey,
+    >,
+    #[prost(message, optional, tag = "4")]
+    pub request_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct LookupInvocationResponse {
+    #[prost(enumeration = "InvocationState", tag = "1")]
+    pub state: i32,
+    #[prost(message, optional, tag = "2")]
+    pub response: ::core::option::Option<super::super::v1::ModelResponse>,
+    #[prost(message, optional, tag = "3")]
+    pub reserved_cost: ::core::option::Option<super::super::v1::Money>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum InvocationState {
+    Unspecified = 0,
+    Absent = 1,
+    Ambiguous = 2,
+    Completed = 3,
+}
+impl InvocationState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "INVOCATION_STATE_UNSPECIFIED",
+            Self::Absent => "INVOCATION_STATE_ABSENT",
+            Self::Ambiguous => "INVOCATION_STATE_AMBIGUOUS",
+            Self::Completed => "INVOCATION_STATE_COMPLETED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "INVOCATION_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "INVOCATION_STATE_ABSENT" => Some(Self::Absent),
+            "INVOCATION_STATE_AMBIGUOUS" => Some(Self::Ambiguous),
+            "INVOCATION_STATE_COMPLETED" => Some(Self::Completed),
+            _ => None,
+        }
+    }
+}
 /// Generated client implementations.
 pub mod provider_service_client {
     #![allow(
@@ -166,6 +220,35 @@ pub mod provider_service_client {
                 );
             self.inner.server_streaming(req, path, codec).await
         }
+        pub async fn lookup_invocation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::LookupInvocationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::LookupInvocationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.provider.v1.ProviderService/LookupInvocation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "loop.provider.v1.ProviderService",
+                        "LookupInvocation",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -199,6 +282,13 @@ pub mod provider_service_server {
             request: tonic::Request<super::StreamModelRequest>,
         ) -> std::result::Result<
             tonic::Response<Self::StreamModelStream>,
+            tonic::Status,
+        >;
+        async fn lookup_invocation(
+            &self,
+            request: tonic::Request<super::LookupInvocationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::LookupInvocationResponse>,
             tonic::Status,
         >;
     }
@@ -365,6 +455,52 @@ pub mod provider_service_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.provider.v1.ProviderService/LookupInvocation" => {
+                    #[allow(non_camel_case_types)]
+                    struct LookupInvocationSvc<T: ProviderService>(pub Arc<T>);
+                    impl<
+                        T: ProviderService,
+                    > tonic::server::UnaryService<super::LookupInvocationRequest>
+                    for LookupInvocationSvc<T> {
+                        type Response = super::LookupInvocationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::LookupInvocationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProviderService>::lookup_invocation(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = LookupInvocationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

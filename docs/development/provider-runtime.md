@@ -175,6 +175,11 @@ The internal network intentionally has no direct outside route; relying on
 host port publishing on an internal bridge is not a portable deployment path.
 Health remains local to each container. No application endpoint disables mTLS.
 
+For recovery when the generation catalog is unavailable, use the explicit
+[`--recover-only` workflow](invocation-recovery.md). It opens only existing
+journal storage and rejects new model calls. Stop the normal listener before
+starting a recovery listener on the same port; never erase claims to force retries.
+
 The Provider can resolve Compose peers, but external DNS forwarding is disabled.
 All approved external requests use the separate egress container through Node's
 environment-proxy support. The Provider has only the internal network; egress

@@ -118,11 +118,16 @@ def main() -> None:
                 ".loop.provider.v1.StreamModelRequest",
                 ".loop.provider.v1.StreamModelResponse",
             ),
+            "LookupInvocation": (
+                ".loop.provider.v1.LookupInvocationRequest",
+                ".loop.provider.v1.LookupInvocationResponse",
+            ),
         },
     )
     assert dependency_closure(files, PROVIDER_FILE) == PROVIDER_FILE_ALLOWLIST
     assert_provider_graph(descriptor, provider)
     assert_provider_exports()
+    assert_lookup_surface(provider)
     provider_response = next(
         message for message in provider.message_type if message.name == "InvokeModelResponse"
     )
@@ -232,6 +237,30 @@ def require_file(files: dict[str, FileDescriptorProto], name: str) -> FileDescri
         raise AssertionError(f"missing descriptor file: {name}") from error
 
 
+def assert_lookup_surface(provider: FileDescriptorProto) -> None:
+    messages = {message.name: message for message in provider.message_type}
+    request = messages["LookupInvocationRequest"]
+    assert [(field.name, field.number, field.type_name) for field in request.field] == [
+        ("context", 1, ".loop.v1.CommandContext"),
+        ("original_request_id", 2, ".loop.v1.RequestId"),
+        ("original_idempotency_key", 3, ".loop.v1.IdempotencyKey"),
+        ("request_sha256", 4, ".loop.v1.Sha256Digest"),
+    ]
+    response = messages["LookupInvocationResponse"]
+    assert [(field.name, field.number, field.type_name) for field in response.field] == [
+        ("state", 1, ".loop.provider.v1.InvocationState"),
+        ("response", 2, ".loop.v1.ModelResponse"),
+        ("reserved_cost", 3, ".loop.v1.Money"),
+    ]
+    state = next(enum for enum in provider.enum_type if enum.name == "InvocationState")
+    assert [(value.name, value.number) for value in state.value] == [
+        ("INVOCATION_STATE_UNSPECIFIED", 0),
+        ("INVOCATION_STATE_ABSENT", 1),
+        ("INVOCATION_STATE_AMBIGUOUS", 2),
+        ("INVOCATION_STATE_COMPLETED", 3),
+    ]
+
+
 def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     service = require_file(files, JOB_SERVICE_FILE)
     messages = {message.name: message for message in service.message_type}
@@ -254,9 +283,7 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     artifacts = next(field for field in response.field if field.name == "artifacts")
     assert artifacts.type_name == ".loop.v1.ArtifactRef"
     assert artifacts.label == FieldDescriptorProto.LABEL_REPEATED
-    assert all(
-        field.type != FieldDescriptorProto.TYPE_BYTES for field in response.field
-    )
+    assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in response.field)
     method = next(
         method
         for definition in service.service
@@ -269,21 +296,28 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
 
     evaluate = messages["EvaluateFactorRequest"]
     assert {field.name for field in evaluate.field} == {
-        "context", "job_id", "lease_id", "expected_revision"
+        "context",
+        "job_id",
+        "lease_id",
+        "expected_revision",
     }
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in evaluate.field)
     assert {field.name for field in messages["EvaluateFactorResponse"].field} == {"job"}
 
     reconcile = messages["ExecuteReconciliationRequest"]
     assert {field.name for field in reconcile.field} == {
-        "context", "job_id", "lease_id", "expected_revision"
+        "context",
+        "job_id",
+        "lease_id",
+        "expected_revision",
     }
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in reconcile.field)
     assert {field.name for field in messages["ExecuteReconciliationResponse"].field} == {"job"}
     assert {field.name for field in messages["ReadReconciliationRequest"].field} == {"job_id"}
     response = messages["ReadReconciliationResponse"]
     assert {field.name for field in response.field} == {"job", "report"}
-    assert next(field for field in response.field if field.name == "report").type_name == ".loop.v1.ArtifactRef"
+    report = next(field for field in response.field if field.name == "report")
+    assert report.type_name == ".loop.v1.ArtifactRef"
 
 
 def assert_service(
@@ -318,10 +352,7 @@ def assert_dataset_leaf(files: dict[str, FileDescriptorProto]) -> None:
     assert not leaf.extension
     assert [message.name for message in leaf.message_type] == ["DevelopmentDatasetReference"]
     reference = leaf.message_type[0]
-    assert {
-        field.name: (field.number, field.type_name)
-        for field in reference.field
-    } == {
+    assert {field.name: (field.number, field.type_name) for field in reference.field} == {
         "snapshot_ids": (1, ".loop.v1.SnapshotId"),
         "manifest_sha256": (2, ".loop.v1.Sha256Digest"),
     }
@@ -533,11 +564,15 @@ def assert_research_exports() -> None:
         assert forbidden_export not in typescript_source
 
     generated_typescript = (
-        repository / "packages/protocol-ts/src/generated/loop/research/v1/service_pb.ts"
-    ).read_text(encoding="utf-8").lower()
+        (repository / "packages/protocol-ts/src/generated/loop/research/v1/service_pb.ts")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     generated_python = (
-        repository / "python/loop_protocol/src/loop/research/v1/service_pb2.py"
-    ).read_text(encoding="utf-8").lower()
+        (repository / "python/loop_protocol/src/loop/research/v1/service_pb2.py")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     for forbidden_dependency in (
         'from "../../v1/backtest_pb.js"',
         'from "../../v1/data_pb.js"',

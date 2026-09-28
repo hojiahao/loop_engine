@@ -43,7 +43,7 @@ Service packages are separate authorization and dependency surfaces:
 | --- | --- | --- | --- |
 | `loop.protocol.v1` | `ProtocolService` | `loopd` | read build capabilities before mutable or paid work |
 | `loop.discovery.v1` | `DiscoveryService` | `loopd` | submit bounded discovery against development dataset references only |
-| `loop.provider.v1` | `ProviderService` | `providerd` | invoke or stream a resolved model; no research or holdout imports |
+| `loop.provider.v1` | `ProviderService` | `providerd` | invoke/stream a resolved model or inspect the caller's invocation journal; no research or holdout imports |
 | `loop.research.v1` | `ResearchService` | `loopd` | enqueue development work for `researchd` workers |
 | `loop.jobs.v1` | `JobService` | `loopd` | inspect, lease, heartbeat, complete, or cancel durable jobs |
 | `loop.audit.v1` | `AuditService` | `loopd` | append through compare-and-swap and read an immutable audit ledger |
@@ -321,6 +321,44 @@ Run state records the negotiated protocol, feature set, and generated-contract
 build identity. A resumed run uses compatible semantics or fails closed; it
 does not silently upgrade mid-run.
 
+### Provider invocation recovery
+
+`LookupInvocation` is an additive read-only method with capability identity
+`provider.invocation-lookup.v1`; it does not change `InvokeModel` or
+`StreamModel` semantics. In this delivery, availability of the RPC is the
+compatibility gate. An older server without the method returns `UNIMPLEMENTED`;
+a client must stop recovery rather than treating that failure as evidence of an
+absent invocation or falling back to paid generation. The Provider does not yet
+negotiate this identity through metadata, and `--describe` reports model/policy
+pins rather than a Provider RPC feature inventory. Durable Rust-side capability
+selection and resume checks belong to the subsequent Harness integration unit.
+
+The lookup carries a fresh authenticated `CommandContext`, the original request
+ID and idempotency key, and the original 32-byte request digest. The digest uses
+the existing `loop.provider-invocation/v1` canonical JSON profile, including the
+original command context. A streaming request uses the equivalent
+`InvokeModelRequest` envelope, as its existing journal claim does. This is a
+Provider journal identity, not a canonical research identity. No original
+prompt, model/catalog reference or supplier credential is needed to inspect
+the journal. Transport identity selects the actor namespace; caller metadata
+cannot select another actor or broaden authorization.
+
+| Method | Capability identity | Successful response semantics |
+| --- | --- | --- |
+| `LookupInvocation` | `provider.invocation-lookup.v1` | `ABSENT`, `AMBIGUOUS` or `COMPLETED` for the authenticated actor and exact original identity |
+
+`ABSENT` is a point-in-time observation of no journal evidence, not a guarantee
+that a concurrent writer will never claim the key. `AMBIGUOUS` records an
+existing claim without a completed result and never permits automatic paid
+retry. `COMPLETED` includes the original immutable model response. A result is
+present only for `COMPLETED`, and its request ID must match the original ID.
+An existing complete claim may provide its validated USD reservation; that
+upper bound is not a supplier invoice or actual charged amount. Incomplete
+ambiguous claims lack a recorded reservation. Corruption, identity conflicts and
+unavailable storage remain typed non-OK RPC failures. Unknown enum values and
+`UNSPECIFIED` must not be accepted as an outcome. Lookup performs no supplier
+call, model re-resolution, artifact access, new claim or journal mutation.
+
 ### Pinned protocol and research provenance
 
 Every `JobSpecification` stores one `ProtocolSelectionSnapshot`, not merely a
@@ -584,11 +622,11 @@ the baseline guard. The full Phase 2 host, clean-container, and remote CI gates
 passed for pushed implementation `0615d81`; see
 `docs/verification/phase-02-core-contracts.md` for the acceptance evidence.
 
-Because this is the first accepted seed baseline, not a released-client migration,
-`schema.baseline.binpb` currently equals `schema.current.binpb`. The resulting
-Buf check proves deterministic self-compatibility and establishes a guard for
-future evolution; it does not demonstrate migration from a previously released
-wire contract.
+At seed creation, `schema.baseline.binpb` equaled `schema.current.binpb` and
+established the initial compatibility guard, rather than demonstrating migration
+from a released client. Subsequent additive changes update only the current
+descriptor. Buf checks the evolved schema against that immutable seed; generated
+binding freshness and cross-language fixtures are separate required checks.
 
 ### Contract test matrix and later integration gates
 

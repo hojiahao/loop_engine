@@ -8,11 +8,13 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 
 ## Delivery order
 
-The owner's 2026-09-22 instruction is to finish every Phase 9 delivery unit
-before the first merge to `main`. Continue task-sized Chinese commits and pushes
-on `refactor/us-equities-loop-runtime`; do not merge an intermediate Provider
-checkpoint. After Phase 9 acceptance, prepare the product-oriented README and
-reviewed pull request before merging. The README describes usable capabilities,
+The owner's instruction to finish Phase 9 before the first merge was fulfilled
+on 2026-09-28. All seven jobs passed in branch CI `35978805422` and PR CI
+`35979594702`; PR #1 merged as `d671cffd2d8aa348569fd4e03205ddd0b1de6422`.
+The product-oriented README was included before merging. Continue task-sized
+Chinese commits and pushes on `feature/run-harness`, created from that main
+commit; preserve the original refactor branch and published history.
+The README describes usable capabilities,
 installation, configuration and workflows; phase progress and acceptance history
 stay in the repository's maintenance documentation. Do not include that history
 in product screens or production runtime images. Development/test containers may
@@ -536,7 +538,7 @@ together; finish one before starting the next):
    passes all seven jobs; see
    `docs/verification/phase-08-statistical-binding.md`.
 
-## Phase 9 - Provider platform (`in_progress`)
+## Phase 9 - Provider platform (`complete`)
 
 Delivery units (each includes an executable workflow, negative-path contract
 tests, usage/recovery documentation, a Chinese commit, push and remote gates):
@@ -612,7 +614,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    `9d197c7` is pushed; all seven jobs in exact-commit CI `35958808670` passed.
    See ADR 0043 and
    `docs/verification/phase-09-compatible-routes.md`.
-7. Model catalog (`in_progress`): merge versioned built-ins, official discovery, verified remote
+7. Model catalog (`complete`): merge versioned built-ins, official discovery, verified remote
    catalogs and administrative overrides; atomically reload validated snapshots
    without changing a running model resolution. Track implemented/contract/live
    verification separately from unavailability, deprecation and retirement.
@@ -623,9 +625,10 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    protocol cases; `just check` and workspace build pass. Commit `f9f05f5` is
    pushed. CI `35965098459` passed six jobs; the DaoCloud container cancellation
    test failed; review reproduced a PID readiness race. The platform task fixes it;
-   corrected integrated CI remains required. See ADR 0044 and
+   corrected integrated CI `35978805422` and PR CI `35979594702` each passed
+   all seven jobs. See ADR 0044 and
    `docs/verification/phase-09-model-catalog.md`.
-8. Platform acceptance (`in_progress`): verify bounded rate limits/retries and cost accounting,
+8. Platform acceptance (`complete`): verify bounded rate limits/retries and cost accounting,
    actual provider process/data isolation, dependency boundaries and the combined
    protocol matrix. Live smoke tests require credentials and explicit budgets;
    absent credentials remain an honest verification limitation, never a fake pass.
@@ -635,16 +638,59 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    are denied. Gates are wired into CI. Local acceptance passes 686 Provider and
    119 protocol cases, six Rust process cases, eight boundary/egress cases,
    both actual isolation containers, `just check` and TypeScript build. Product
-   README is ready for first-merge review. Publication and exact-commit CI remain
-   required. See ADR 0045 and
+   README was productized before merging. Task commit `de4f1b1` and documentation
+   follow-up `5bea7f7` are pushed. Branch CI `35978805422` and PR CI `35979594702`
+   both passed all seven jobs; PR #1 merged to main as `d671cffd2d8aa348569fd4e03205ddd0b1de6422`.
+   See ADR 0045 and
    `docs/verification/phase-09-platform.md`.
 
 - [x] Implement native OpenAI, Anthropic, Gemini, Bedrock, and Cohere codecs.
 - [x] Implement cloud deployment adapters and first-class vendor plugins.
 - [x] Implement compatible, self-hosted, and gateway transports.
-- [ ] Implement the hot-reload capability catalog and provider contract suite.
+- [x] Implement the hot-reload capability catalog and provider contract suite.
 
-## Phase 10 - Run Harness (`pending`)
+## Phase 10 - Run Harness (`in_progress`)
+
+Delivery units (complete implementation, negative-path tests, documentation,
+Chinese task commit and push before starting the next unit):
+
+1. Invocation recovery (`in_progress`): authenticated read-only Provider RPC
+   retrieves immutable invocation evidence after restart or expiry of the original
+   command. Bind actor, original key/request ID and exact command digest. Never
+   claim a key, use a model credential or resend a paid request. Distinguish absent,
+   ambiguous, completed, conflicting and corrupt evidence. Acceptance: real
+   mTLS/gRPC recovery without the old route/secret, no extra supplier calls,
+   bounded cancellation, isolation and cross-language compatibility. See ADR 0046.
+   Implemented the RPC and installed `--recover-only` process mode, which denies
+   new generation and never creates missing journal storage. Targeted transport,
+   CLI, filesystem-race and cancellation gates pass; full `just check` passes.
+   Final serial regression passes 753 Provider and 122 protocol cases; workspace
+   TypeScript build and actual-container invocation/recovery isolation pass.
+   Delivery is on `feature/run-harness`; exact-commit remote CI remains required.
+   See `docs/verification/phase-10-invocation-recovery.md`.
+2. Durable model step (`pending`): execute one authorized, frozen discovery plan
+   through Rust orchestration. Persist request identity and step/token/USD
+   reservations before dispatch; bind model, prompt, schema, data and principal.
+   Fence writes by lease/revision, resolve recovery through unit 1 and return a
+   validated canonical AST candidate without admitting it. Acceptance: actual
+   PostgreSQL/Provider workflow, 2/4/8 process contention, budget ceilings and
+   kill/restart before dispatch and before/after result commit; no duplicate spend.
+3. Controlled tools and context (`pending`): bounded typed conversation and
+   registered tool execution through existing research authorization. Persist
+   call/result identity and reject unknown tools, holdout access, oversized
+   context and conflicting replay. Acceptance: actual multi-turn tool workflow,
+   denied capabilities and deterministic resume from persisted evidence.
+4. Run lifecycle (`pending`): pause/cancel/resume, absolute deadlines and explicit
+   retry policy across model/tool steps. Infrastructure failures remain distinct
+   from rejected factors; ambiguous paid calls retain reservations. Acceptance:
+   process interruption and clock regression at each transition, stale-worker
+   denial, no automatic paid resend, bounded termination and redacted failures.
+5. Operational acceptance (`pending`): expose usable CLI commands and typed
+   status/events for the preceding workflows; document setup, recovery and
+   rollback. Acceptance: installed CLI starts/observes/cancels/resumes a synthetic
+   discovery run through authenticated services with audit evidence, plus full
+   quality gates and remote CI. This does not implement the autonomous outer Loop
+   or waive licensed-data/independent-research admission gates.
 
 - [ ] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.

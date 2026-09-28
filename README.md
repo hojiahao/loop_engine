@@ -155,6 +155,7 @@ Groq、Together、Fireworks、Cerebras、Perplexity、GLM、Kimi 和 MiniMax 有
   与[兼容、自托管及网关](docs/development/compatible-providers.md)
 - [模型目录与签名更新](docs/development/model-catalog.md)
 - [隔离容器、出站许可与限流](docs/development/provider-runtime.md)
+- [超时与重启后的模型调用回执查询](docs/development/invocation-recovery.md)
 
 将示例配置复制到私有目录，填写真实模型、价格、认证身份及密钥引用后，使用
 `node apps/providerd/dist/index.js --describe` 检查模型与策略摘要；

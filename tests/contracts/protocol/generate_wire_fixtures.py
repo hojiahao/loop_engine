@@ -10,8 +10,10 @@ import platform
 from pathlib import Path
 
 from google import protobuf
+from google.protobuf.timestamp_pb2 import Timestamp
 
-from loop.v1 import common_pb2, job_pb2
+from loop.provider.v1 import service_pb2 as provider_pb2
+from loop.v1 import common_pb2, job_pb2, model_pb2
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_DIRECTORY = REPOSITORY_ROOT / "fixtures" / "contracts" / "protocol" / "v1"
@@ -23,6 +25,8 @@ UNKNOWN_FIELD_FIXTURE = "protocol_info_v1_unknown_field.binpb"
 UNKNOWN_ENUM_FIXTURE = "job_specification_v1_unknown_enum.binpb"
 UNKNOWN_ONEOF_FIXTURE = "job_specification_v1_unknown_oneof.binpb"
 OPERATIONAL_FAILURE_FIXTURE = "operational_failure.json"
+LOOKUP_REQUEST_FIXTURE = "provider_lookup_v1.binpb"
+LOOKUP_RESPONSE_FIXTURE = "provider_completed_v1.binpb"
 MANIFEST = "wire_fixtures.json"
 EXPECTED_PYTHON_VERSION = (REPOSITORY_ROOT / ".python-version").read_text(encoding="ascii").strip()
 EXPECTED_PROTOBUF_VERSION = "7.36.1"
@@ -139,12 +143,50 @@ def _operational_failure() -> bytes:
     return (json.dumps(document, indent=2, ensure_ascii=True) + "\n").encode("ascii")
 
 
+def _lookup_fixtures() -> dict[str, bytes]:
+    request = provider_pb2.LookupInvocationRequest(
+        context=common_pb2.CommandContext(
+            request_id=common_pb2.RequestId(value="lookup.1"),
+            correlation_id=common_pb2.CorrelationId(value="correlation.1"),
+            causation_id=common_pb2.CausationId(value="invoke.1"),
+            idempotency_key=common_pb2.IdempotencyKey(value="lookup-key.1"),
+            actor=common_pb2.Actor(
+                actor_id=common_pb2.ActorId(value="actor.1"),
+                kind=common_pb2.ACTOR_KIND_SERVICE,
+                authenticated_subject="subject.1",
+            ),
+            requested_at=Timestamp(seconds=1_800_000_000),
+        ),
+        original_request_id=common_pb2.RequestId(value="invoke.1"),
+        original_idempotency_key=common_pb2.IdempotencyKey(value="invoke-key.1"),
+        request_sha256=common_pb2.Sha256Digest(value=bytes(range(32))),
+    )
+    response = provider_pb2.LookupInvocationResponse(
+        state=provider_pb2.INVOCATION_STATE_COMPLETED,
+        response=model_pb2.ModelResponse(
+            request_id=common_pb2.RequestId(value="invoke.1"),
+            resolution_id=common_pb2.ModelResolutionId(value="resolution.1"),
+            content=[model_pb2.ContentBlock(text=model_pb2.TextContent(text="fixture result"))],
+            finish_reason=model_pb2.MODEL_FINISH_REASON_STOP,
+            usage=model_pb2.ModelUsage(input_tokens=11, output_tokens=3),
+        ),
+        reserved_cost=common_pb2.Money(
+            amount=common_pb2.ExactDecimal(value="0.125"), currency_code="USD"
+        ),
+    )
+    return {
+        LOOKUP_REQUEST_FIXTURE: request.SerializeToString(deterministic=True),
+        LOOKUP_RESPONSE_FIXTURE: response.SerializeToString(deterministic=True),
+    }
+
+
 def _manifest(
     protocol_fixtures: dict[str, bytes],
     unknown_wire: bytes,
     unknown_enum_wire: bytes,
     unknown_oneof_wire: bytes,
     operational_failure: bytes,
+    lookup_fixtures: dict[str, bytes],
 ) -> bytes:
     document = {
         "fixture_schema": "loop.contract-fixture-manifest/v2",
@@ -220,6 +262,15 @@ def _manifest(
                 "contract": "loop.rpc-operational-failure/v1",
             }
         ],
+        "provider_recovery_fixtures": [
+            {
+                "path": name,
+                "wire_sha256": _sha256(content),
+                "producer_language": "python",
+                "capability_identity": "provider.invocation-lookup.v1",
+            }
+            for name, content in lookup_fixtures.items()
+        ],
     }
     return (json.dumps(document, indent=2, ensure_ascii=True) + "\n").encode("ascii")
 
@@ -252,8 +303,10 @@ def _expected_files(output_directory: Path) -> dict[str, bytes]:
         deterministic=True
     ) + _length_delimited_field(FUTURE_JOB_INPUT_FIELD_NUMBER, b"")
     operational_failure = _operational_failure()
+    lookup_fixtures = _lookup_fixtures()
     expected = {
         **protocol_fixtures,
+        **lookup_fixtures,
         UNKNOWN_FIELD_FIXTURE: unknown_wire,
         UNKNOWN_ENUM_FIXTURE: unknown_enum_wire,
         UNKNOWN_ONEOF_FIXTURE: unknown_oneof_wire,
@@ -265,6 +318,7 @@ def _expected_files(output_directory: Path) -> dict[str, bytes]:
         unknown_enum_wire,
         unknown_oneof_wire,
         operational_failure,
+        lookup_fixtures,
     )
     return expected
 

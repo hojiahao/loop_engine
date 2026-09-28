@@ -12,10 +12,19 @@ import { create_provider_rpc } from "./rpc.js";
 import { create_provider_server } from "./server.js";
 
 async function main() {
+  const arguments_ = process.argv.slice(2);
+  const mode = arguments_[0];
+  if (
+    arguments_.length > 1 ||
+    (mode !== undefined && !["--catalog-refresh", "--describe", "--recover-only"].includes(mode))
+  )
+    throw new Error("invalid_provider_arguments");
+  const recovery_only = mode === "--recover-only";
   const config_path = process.env.PROVIDERD_DEPLOYMENT;
   const config = config_path ? await load_deployment(config_path) : undefined;
   const implementation = config ? await plugin_digest() : undefined;
-  if (process.argv[2] === "--catalog-refresh" && process.argv.length === 3) {
+  if (recovery_only && !config) throw new Error("provider_deployment_required");
+  if (mode === "--catalog-refresh") {
     if (!config?.catalog || !implementation) throw new Error("provider_catalog_missing");
     await open_journal(config.catalog.directory);
     const history = await load_catalog(config);
@@ -38,9 +47,18 @@ async function main() {
     return;
   }
   const host =
-    config && implementation ? new ProviderHost(config, implementation, process.env) : undefined;
-  if (host?.config.catalog) await host.reload_catalog();
-  if (process.argv[2] === "--describe") {
+    config && implementation
+      ? new ProviderHost(
+          config,
+          implementation,
+          recovery_only ? {} : process.env,
+          fetch,
+          {},
+          recovery_only,
+        )
+      : undefined;
+  if (host?.config.catalog && !recovery_only) await host.reload_catalog();
+  if (mode === "--describe") {
     if (!host) throw new Error("provider_deployment_required");
     process.stdout.write(
       `${JSON.stringify(
@@ -59,13 +77,13 @@ async function main() {
     );
     return;
   }
-  if (process.argv.length > 2) throw new Error("invalid_provider_arguments");
   const raw_port = process.env.PROVIDERD_PORT ?? "8090";
   const port = Number(raw_port);
   if (!/^[1-9][0-9]{0,4}$/.test(raw_port) || port > 65_535) throw new Error("invalid_health_port");
   const shutdown = new AbortController();
   if (host) {
-    await open_journal(host.config.journal);
+    // Recovery cannot manufacture an empty journal after storage loss.
+    await open_journal(host.config.journal, !recovery_only);
     const rpc = await create_provider_rpc(host, shutdown.signal);
     rpc.listen(host.config.port, host.config.listen_address);
     rpc.on("error", () => {
@@ -78,7 +96,7 @@ async function main() {
   const health = create_provider_server();
   health.listen(port, "127.0.0.1", () => {
     process.stdout.write(
-      `${JSON.stringify({ component: "providerd", event: "listening", port, model_rpc_configured: Boolean(host) })}\n`,
+      `${JSON.stringify({ component: "providerd", event: "listening", port, model_rpc_configured: Boolean(host), recovery_only })}\n`,
     );
   });
   health.on("error", () => {
@@ -89,7 +107,7 @@ async function main() {
   shutdown.signal.addEventListener("abort", () => health.close(), { once: true });
   process.once("SIGTERM", () => shutdown.abort());
   process.once("SIGINT", () => shutdown.abort());
-  if (host?.config.catalog) {
+  if (host?.config.catalog && !recovery_only) {
     let reloading = false;
     process.on("SIGHUP", () => {
       if (reloading || shutdown.signal.aborted) return;

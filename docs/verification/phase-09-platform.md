@@ -2,8 +2,11 @@
 
 Status: implementation, complete TypeScript regression, targeted Rust process
 tests, `just check`, workspace TypeScript build and combined actual-container
-isolation gates passed on 2026-09-24. Commit, push and exact-commit CI remain
-required. Phase 9 remains in progress until those gates succeed.
+isolation gates passed on 2026-09-24. Task commit `de4f1b1` and documentation
+follow-up `5bea7f7` are pushed. Branch CI `35978805422` and PR CI `35979594702`
+each passed all seven jobs, including the corrected DaoCloud gate. PR #1 merged
+to main as `d671cffd2d8aa348569fd4e03205ddd0b1de6422` on 2026-09-28.
+Phase 9 is complete; live supplier/account verification remains credential-gated.
 
 ## Requirement, scope and evidence
 
@@ -50,7 +53,8 @@ after the parenthesized command name, which may itself contain spaces or `)`.
 All six targeted real-process Rust cases pass. Production SIGKILL behavior and
 the five-second assertion deadline are unchanged. A direct attempt to run the
 host binary in the older container runtime failed at the glibc loader; it is
-not counted as container evidence. The corrected clean build must pass CI.
+not counted as container evidence. The corrected clean build subsequently
+passed in both CI runs recorded above.
 
 The initial host-port fixture failed because Docker's internal network exposed
 no published host port despite the requested binding. The service was healthy

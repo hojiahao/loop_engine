@@ -29,3 +29,12 @@ The fixture advertises only features backed by executable Phase 2 validators.
 Model and stream messages are wire-shape definitions at this phase, so
 `streams.terminal-event.v1` remains absent until the Phase 9 content validator
 and Phase 10 consumer state machine pass their cross-language contract gates.
+
+The `provider_lookup_v1.binpb` and `provider_completed_v1.binpb` fixtures are
+produced by the pinned Python generator and consumed by Rust, TypeScript and
+Python. They preserve the separate lookup/original request identities, exact
+request digest and USD reservation while leaving actual charged cost absent.
+The recovery capability identity is `provider.invocation-lookup.v1`; these wire
+fixtures do not advertise it in older generic `ProtocolInfo` fixtures. Current
+clients detect missing RPC support through `UNIMPLEMENTED`, not a negotiated
+metadata feature flag, and must never fall back to paid generation.
