@@ -1,0 +1,29 @@
+{
+  "schema": "loop.panel-build-request/v2",
+  "capture": {
+    "sha256": "sha256:97d7285c2895063910ea31ad57284ba466515d476b01564b33f53900af9fe43f",
+    "byte_size": 22033
+  },
+  "source_snapshot": null,
+  "securities": [
+    "US.001",
+    "US.002",
+    "US.003",
+    "US.004",
+    "US.005",
+    "US.006",
+    "US.007",
+    "US.008"
+  ],
+  "fields": [
+    "market.close"
+  ],
+  "warmup_start": "2010-01-02",
+  "sample_start": "2010-01-02",
+  "sample_end": "2010-01-06",
+  "close_delay_ms": 300000,
+  "transform": {
+    "sha256": "sha256:a4d0e762fe2fc4726b6ec2003382694d9d19ea0f4542b1fe61a69a6a8644fdc3",
+    "byte_size": 725
+  }
+}

@@ -1,0 +1,21 @@
+# Copy to private runtime configuration. Replace this digest with SHA-256 of
+# the actual owner-only license declaration; this example grants no rights.
+schema = "loop.licensed-fetch/v1"
+provider = "sharadar"
+license_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+key_reference = "LOOP_SHARADAR_API_KEY"
+symbols = ["AAPL", "MSFT"]
+tables = ["SEP", "SF1", "TICKERS", "ACTIONS"]
+dimension = "ARQ"
+start = 2026-08-01
+end = 2026-08-31
+
+[budget]
+requests = 24
+pages = 8
+records = 10000
+response_bytes = 16777216
+total_bytes = 67108864
+timeout_seconds = 90
+retries = 1
+interval_seconds = 0.5

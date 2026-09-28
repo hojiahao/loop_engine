@@ -1,0 +1,21 @@
+# Explicit public SEC selection; this is not a complete historical US universe.
+schema = "loop.data-sync-plan/v1"
+start = 2005-01-01
+through = 2026-08-31
+max_requests = 24
+max_source_bytes = 67108864
+max_records = 10000
+timeout_seconds = 180
+
+[[requests]]
+schema = "loop.development-fetch/v1"
+provider = "sec"
+cik = "0000320193"
+concepts = ["us-gaap:Assets", "us-gaap:Revenues"]
+contact_email = "hojiahao@outlook.com"
+start = 2005-01-01
+end = 2026-08-31
+
+[requests.budget]
+timeout_seconds = 90
+retries = 1

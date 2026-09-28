@@ -8,21 +8,24 @@ from engine.perturb import Perturber
 
 # ---------------- 梯度方向 ----------------
 
-def test_gradient_positive_when_sharpe_rises_with_n():
+# Scenario: gradient positive when sharpe rises with n.
+def test_gradient_positive():
     p = Perturber(bandwidth=100)  # 大带宽≈均匀加权,聚焦斜率符号
     for n, s in [(10, 1.0), (20, 2.0), (30, 3.0)]:
         p.observe("ma|close", n, s)
     assert p.gradient("ma|close", 20) > 0
 
 
-def test_gradient_negative_when_sharpe_falls_with_n():
+# Scenario: gradient negative when sharpe falls with n.
+def test_gradient_negative():
     p = Perturber(bandwidth=100)
     for n, s in [(10, 3.0), (20, 2.0), (30, 1.0)]:
         p.observe("ma|close", n, s)
     assert p.gradient("ma|close", 20) < 0
 
 
-def test_gradient_zero_when_insufficient_history():
+# Scenario: gradient zero when insufficient history.
+def test_gradient_zero():
     p = Perturber()
     p.observe("ma|close", 20, 1.0)  # 仅 1 点
     assert p.gradient("ma|close", 20) == 0.0
@@ -30,14 +33,16 @@ def test_gradient_zero_when_insufficient_history():
 
 # ---------------- 冷启动不动 ----------------
 
-def test_propose_cold_start_noop():
+# Scenario: propose cold start noop.
+def test_propose_cold():
     p = Perturber()
     assert p.propose("ma|close", 20, 3, 250) == 20  # 无历史→原值
 
 
 # ---------------- 提议方向 ----------------
 
-def test_propose_moves_in_gradient_direction():
+# Scenario: propose moves in gradient direction.
+def test_propose_moves():
     p = Perturber(bandwidth=100, lr=50.0)  # 大 lr 放大步长便于观察方向
     for n, s in [(10, 1.0), (20, 2.0), (30, 3.0)]:
         p.observe("ma|close", n, s)
@@ -49,7 +54,8 @@ def test_propose_moves_in_gradient_direction():
     assert p2.propose("ma|close", 20, 3, 250) < 20  # 负梯度→减小窗口
 
 
-def test_propose_clipped_to_range():
+# Scenario: propose clipped to range.
+def test_propose_clipped():
     p = Perturber(bandwidth=100, lr=1e6)
     for n, s in [(10, 1.0), (20, 2.0), (30, 3.0)]:
         p.observe("ma|close", n, s)
@@ -58,7 +64,8 @@ def test_propose_clipped_to_range():
 
 # ---------------- 动量平滑 ----------------
 
-def test_momentum_smooths_sign_flip():
+# Scenario: momentum smooths sign flip.
+def test_momentum_smooths():
     p = Perturber()
     for _ in range(10):
         p.update_gradient("k", 1.0)      # 稳定正梯度 → m≈1
@@ -70,7 +77,8 @@ def test_momentum_smooths_sign_flip():
 
 # ---------------- 自适应步长(Adam) ----------------
 
-def test_higher_variance_smaller_step():
+# Scenario: higher variance smaller step.
+def test_higher_variance():
     # 两键动量 m 相同(≈2),但梯度波动不同 → v 不同 → 步长不同
     pA = Perturber()
     for _ in range(20):

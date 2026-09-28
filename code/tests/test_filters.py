@@ -27,7 +27,8 @@ def test_pass_all():
     assert r.passed, r.reasons
 
 
-def test_fail_ic_gate():
+# Scenario: fail ic gate.
+def test_ic_gate():
     r = apply_filters(good_metrics(ic_mean=0.02))
     assert not r.passed and any("|IC|" in x for x in r.reasons)
 
@@ -37,14 +38,16 @@ def test_fail_icir():
     assert not r.passed and any("ICIR" in x for x in r.reasons)
 
 
-def test_fail_year_negative():
+# Scenario: fail year negative.
+def test_year_negative():
     m = good_metrics()
     m.annual_ls_return[2020] = -0.1
     r = apply_filters(m)
     assert not r.passed and any("多空≤0的年份" in x for x in r.reasons)
 
 
-def test_fail_year_missing():
+# Scenario: fail year missing.
+def test_year_missing():
     m = good_metrics()
     del m.annual_ls_return[2023]      # IS 口径:2018-2023 每年都要有
     r = apply_filters(m)
@@ -61,7 +64,8 @@ def test_fail_calmar():
     assert not r.passed and any("Calmar" in x for x in r.reasons)
 
 
-def test_fail_long_excess():
+# Scenario: fail long excess.
+def test_long_excess():
     r = apply_filters(good_metrics(long_excess_annual=-0.05))   # 多头超额为负
     assert not r.passed and any("多头超额年化" in x for x in r.reasons)
 
@@ -87,7 +91,8 @@ def test_fail_corr():
     assert not r.passed and any("IC相关性" in x for x in r.reasons)
 
 
-def test_corr_below_threshold_ok():
+# Scenario: corr below threshold ok.
+def test_corr_below():
     rng = np.random.default_rng(1)
     other = rng.normal(0, 0.08, size=1942).tolist()  # 几乎不相关
     old = {"hash": "o2", "ic_series": other, "metrics": {}}
@@ -95,7 +100,8 @@ def test_corr_below_threshold_ok():
     assert r.passed, r.reasons
 
 
-def test_corr_replace_when_better():
+# Scenario: corr replace when better.
+def test_corr_better():
     m = good_metrics()  # ic_mean=0.06, icir=0.8, monotonicity=0.95, long_excess=0.1
     old = {"hash": "old", "ic_series": m.ic_series,
            "metrics": {"ic_mean": 0.04, "icir": 0.5, "monotonicity": 0.90, "long_excess_annual": 0.03}}
@@ -103,7 +109,8 @@ def test_corr_replace_when_better():
     assert r.passed and r.replace_hashes == ["old"]     # 高相关但更优 → 替换信号
 
 
-def test_corr_reject_when_worse():
+# Scenario: corr reject when worse.
+def test_corr_worse():
     m = good_metrics()
     old = {"hash": "old", "ic_series": m.ic_series,
            "metrics": {"ic_mean": 0.08, "icir": 1.0, "monotonicity": 0.98, "long_excess_annual": 0.15}}
@@ -124,12 +131,14 @@ def test_fail_fsa():
     assert not r.passed and any("10." in x for x in r.reasons)
 
 
-def test_fail_mode_lib():
+# Scenario: fail mode lib.
+def test_mode_lib():
     r = apply_filters(good_metrics(), failed_hashes={"abc"}, expr_hash="abc")
     assert not r.passed and any("失败模式库" in x for x in r.reasons)
 
 
-def test_fail_family_subtree_cap():
+# Scenario: fail family subtree cap.
+def test_family_subtree():
     # 右半树骨架 zscore(max(min(FLD,N),N)) 已在 2 个库存因子,且库存质量更高 → 第 3 个拒
     from engine.expression import parse
     strong = {"ic_mean": 0.08, "icir": 1.0, "monotonicity": 1.0, "long_excess_annual": 0.15}
@@ -143,7 +152,8 @@ def test_fail_family_subtree_cap():
     assert not r.replace_hashes       # 质量未全面更优 → 不替换
 
 
-def test_family_replace_when_better():
+# Scenario: family replace when better.
+def test_family_better():
     # 同构家族超限但候选质量全面更优(×1.05)→ 保优淘劣:替换该族全部旧因子入库
     from engine.expression import parse
     weak = {"ic_mean": 0.04, "icir": 0.5, "monotonicity": 0.9, "long_excess_annual": 0.03}
@@ -157,7 +167,8 @@ def test_family_replace_when_better():
     assert r.replace_hashes == ["a", "b"]   # 替换信号:两个旧因子都让位
 
 
-def test_family_below_cap_ok():
+# Scenario: family below cap ok.
+def test_family_below():
     # 同构子树只在 1 个库存因子出现(< 上限 2)→ 放行
     from engine.expression import parse
     stored = [{"expr": "add(ma(log_mv, 20), zscore(max(min(up_shadow, 120), 5)))"}]
@@ -166,7 +177,8 @@ def test_family_below_cap_ok():
     assert r.passed, r.reasons
 
 
-def test_family_generic_small_subtrees_ignored():
+# Scenario: family generic small subtrees ignored.
+def test_family_generic():
     # 3 节点通用件(如 std(zscore(FLD),N))不参与家族计数 → 多个库存含它也不拒
     from engine.expression import parse
     stored = [

@@ -1,0 +1,40 @@
+[workspace]
+members = [
+    "crates/loop-core",
+    "crates/loop-protocol",
+    "crates/loopd",
+    "crates/loopctl",
+    "crates/loop-tui",
+    "tools/loop-protocol-codegen",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0-alpha.1"
+edition = "2024"
+authors = ["hojiahao <hojiahao@outlook.com>"]
+repository = "https://github.com/hojiahao/loop_engine"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1.0.99"
+axum = "0.8.4"
+clap = { version = "4.5.47", features = ["derive", "env"] }
+chrono = { version = "0.4.43", default-features = false, features = ["std"] }
+prost = "0.14.4"
+prost-types = "0.14.4"
+ratatui = "0.29.0"
+rustix = { version = "=1.1.4", features = ["fs", "process"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+sha2 = "0.10.9"
+sqlx = { version = "=0.8.6", default-features = false, features = ["runtime-tokio", "postgres", "tls-rustls-ring", "migrate", "macros"] }
+thiserror = "2.0.16"
+tokio = { version = "1.47.1", features = ["macros", "net", "rt-multi-thread", "signal", "time"] }
+tonic = { version = "0.14.6", features = ["transport"] }
+tonic-prost = "0.14.6"
+tonic-prost-build = "0.14.6"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt", "json"] }
+url = "2.5.8"
+uuid = { version = "1.18.1", features = ["v4"] }

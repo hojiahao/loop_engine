@@ -1,0 +1,91 @@
+{
+  "schema": "loop.pit-input/v1",
+  "quality": "synthetic",
+  "captured_at": "2026-09-13T00:00:00Z",
+  "securities": [
+    {
+      "security_id": "synthetic:old-a", "issuer_id": "synthetic:issuer-old",
+      "ticker": "DEMO", "venue": "XNYS", "kind": "common_stock", "listed": true,
+      "effective_at": "2010-01-04T14:30:00Z", "known_at": "2010-01-04T14:30:00Z",
+      "ingested_at": "2026-09-01T00:00:00Z", "effective_until": null,
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "security-history", "revision": "v1",
+        "record_id": "old-listing", "availability": "synthetic",
+        "raw_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "security_id": "synthetic:old-a", "issuer_id": "synthetic:issuer-old",
+      "ticker": "DEMO", "venue": "XNYS", "kind": "common_stock", "listed": false,
+      "effective_at": "2018-01-02T00:00:00Z", "known_at": "2017-12-29T22:00:00Z",
+      "ingested_at": "2026-09-01T00:00:00Z", "effective_until": null,
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "security-history", "revision": "v1",
+        "record_id": "old-delisting", "availability": "synthetic",
+        "raw_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "security_id": "synthetic:new-a", "issuer_id": "synthetic:issuer-new",
+      "ticker": "DEMO", "venue": "XNYS", "kind": "common_stock", "listed": true,
+      "effective_at": "2019-01-02T14:30:00Z", "known_at": "2018-12-31T22:00:00Z",
+      "ingested_at": "2026-09-01T00:00:00Z", "effective_until": null,
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "security-history", "revision": "v1",
+        "record_id": "new-listing", "availability": "synthetic",
+        "raw_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    },
+    {
+      "security_id": "synthetic:new-b", "issuer_id": "synthetic:issuer-new",
+      "ticker": "DEMO.B", "venue": "XNYS", "kind": "common_stock", "listed": true,
+      "effective_at": "2019-01-02T14:30:00Z", "known_at": "2018-12-31T22:00:00Z",
+      "ingested_at": "2026-09-01T00:00:00Z", "effective_until": null,
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "security-history", "revision": "v1",
+        "record_id": "second-share-class", "availability": "synthetic",
+        "raw_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ],
+  "bars": [
+    {
+      "security_id": "synthetic:new-a", "session": "2020-01-02",
+      "interval_start": "2020-01-02T14:30:00Z", "effective_at": "2020-01-02T21:00:00Z",
+      "known_at": "2020-01-02T21:05:00Z", "ingested_at": "2026-09-01T00:00:00Z",
+      "currency": "USD", "price_basis": "raw",
+      "open": "10.10", "high": "11.20", "low": "9.90", "close": "11.00", "volume": 12345,
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "raw-bars", "revision": "v1",
+        "record_id": "bar-2020-01-02", "availability": "synthetic",
+        "raw_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    }
+  ],
+  "fundamentals": [
+    {
+      "issuer_id": "synthetic:issuer-new", "concept": "us-gaap:Revenues", "unit": "USD",
+      "period_start": "2019-01-01", "period_end": "2019-12-31",
+      "effective_at": "2019-12-31T23:59:59Z", "known_at": "2020-02-03T22:00:00Z",
+      "ingested_at": "2026-09-01T00:00:00Z", "filing_id": "synthetic:original",
+      "value": "9007199254740993.01",
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "filing-facts", "revision": "v1",
+        "record_id": "original-revenue", "availability": "synthetic",
+        "raw_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    {
+      "issuer_id": "synthetic:issuer-new", "concept": "us-gaap:Revenues", "unit": "USD",
+      "period_start": "2019-01-01", "period_end": "2019-12-31",
+      "effective_at": "2019-12-31T23:59:59Z", "known_at": "2020-05-04T22:00:00Z",
+      "ingested_at": "2026-09-02T00:00:00Z", "filing_id": "synthetic:restatement",
+      "value": "9007199254740994.02",
+      "source": {
+        "source": "loop-engine-fixture", "dataset": "filing-facts", "revision": "v2",
+        "record_id": "restated-revenue", "availability": "synthetic",
+        "raw_sha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      }
+    }
+  ]
+}

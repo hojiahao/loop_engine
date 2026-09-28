@@ -1,0 +1,17 @@
+# One CRSP CIZ partition. IDs identify securities, not ticker strings.
+schema = "loop.licensed-fetch/v1"
+provider = "wrds"
+license_sha256 = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+username_reference = "LOOP_WRDS_USERNAME"
+password_reference = "LOOP_WRDS_PASSWORD"
+profile = "crsp_ciz_daily_v1"
+identifiers = ["14593", "10107"]
+start = 2026-08-01
+end = 2026-08-31
+
+[budget]
+requests = 1
+pages = 1
+records = 10000
+timeout_seconds = 90
+retries = 0

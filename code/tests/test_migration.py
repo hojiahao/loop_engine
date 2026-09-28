@@ -9,7 +9,8 @@ from engine.expression import parse
 from migrate_checkpoint_v2 import MigrationError, migrate_checkpoint
 
 
-def test_migration_rehashes_relabels_and_converts_without_rewriting_ledger(tmp_path):
+# Scenario: migration rehashes relabels and converts without rewriting ledger.
+def test_migration_rehashes(tmp_path):
     raw_expr = "zscore(add(rank_cs(amplitude), add(rank_cs(overnight), rank_cs(ret))))"
     raw_hash = parse(raw_expr).expr_hash()
     canonical = review.simplify(parse(raw_expr))
@@ -44,7 +45,8 @@ def test_migration_rehashes_relabels_and_converts_without_rewriting_ledger(tmp_p
     assert stats["rehash_stored"] == 1
 
 
-def test_migration_fails_closed_on_stored_canonical_collision(tmp_path):
+# Scenario: migration fails closed on stored canonical collision.
+def test_migration_closed(tmp_path):
     first = "zscore(add(add(rank_cs(ret), rank_cs(overnight)), rank_cs(amplitude)))"
     second = "zscore(add(rank_cs(amplitude), add(rank_cs(overnight), rank_cs(ret))))"
     cp = Checkpoint(tmp_path / "cp.json")
@@ -56,7 +58,8 @@ def test_migration_fails_closed_on_stored_canonical_collision(tmp_path):
         migrate_checkpoint(cp)
 
 
-def test_migration_is_semantically_idempotent(tmp_path):
+# Scenario: migration is semantically idempotent.
+def test_migration_semantically(tmp_path):
     expr = "zscore(add(rank_cs(amplitude), rank_cs(ret)))"
     cp = Checkpoint(tmp_path / "cp.json")
     cp.stored_factors = [{

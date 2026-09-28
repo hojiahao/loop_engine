@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package loop.holdout.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+import "loop/v1/holdout.proto";
+
+// HoldoutService is deployed behind a separate capability interceptor and is
+// absent from discovery and provider client allowlists.
+service HoldoutService {
+  rpc RecordHoldoutApproval(RecordHoldoutApprovalRequest) returns (RecordHoldoutApprovalResponse);
+  rpc RequestHoldoutGrant(RequestHoldoutGrantRequest) returns (RequestHoldoutGrantResponse);
+  rpc ConsumeGrantAndEnqueueBacktest(ConsumeGrantAndEnqueueBacktestRequest) returns (ConsumeGrantAndEnqueueBacktestResponse);
+  rpc GetHoldoutPeriod(GetHoldoutPeriodRequest) returns (GetHoldoutPeriodResponse);
+  rpc GetHoldoutApprovalRecord(GetHoldoutApprovalRecordRequest) returns (GetHoldoutApprovalRecordResponse);
+  rpc GetHoldoutGrant(GetHoldoutGrantRequest) returns (GetHoldoutGrantResponse);
+}
+
+// One call records one approval for the authenticated human principal. The
+// server derives approved_by from transport authentication; context.actor is
+// descriptive and must match. The record is persisted before its ID is usable.
+message RecordHoldoutApprovalRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.HoldoutPeriodId holdout_period_id = 2;
+  loop.v1.Sha256Digest freeze_manifest_sha256 = 3;
+  string reason = 4;
+  // At most 64 immutable evidence artifacts.
+  repeated loop.v1.ArtifactRef evidence = 5;
+  loop.v1.Sha256Digest canonical_period_sha256 = 6;
+  loop.v1.HoldoutEvaluationPlanId holdout_evaluation_plan_id = 7;
+  loop.v1.Sha256Digest evaluation_plan_sha256 = 8;
+  uint32 evaluation_plan_entry_count = 9;
+}
+
+message RecordHoldoutApprovalResponse {
+  loop.v1.HoldoutApprovalRecord approval_record = 1;
+}
+
+// If the persisted period is SEALED at expected_period_revision, the server
+// inserts the first and only grant and transitions the period to GRANT_ISSUED
+// in one transaction. Either both changes commit or neither does. Once a grant
+// was issued, a different idempotency key can never issue another one. The
+// server resolves the canonical plan embedded by the freeze manifest and
+// requires every approval, period, freeze, and plan identity/digest/count to
+// match before mutating either aggregate.
+message RequestHoldoutGrantRequest {
+  reserved 2, 5;
+  reserved "approval_policy", "period";
+  loop.v1.CommandContext context = 1;
+  loop.v1.FreezeManifestReference freeze_manifest = 3;
+  // At most eight sorted, unique IDs. The server resolves and verifies every
+  // persisted record; callers cannot inline or override approval actors.
+  repeated loop.v1.HoldoutApprovalRecordId approval_record_ids = 4;
+  loop.v1.HoldoutPeriodId holdout_period_id = 6;
+  uint64 expected_period_revision = 7;
+  loop.v1.Sha256Digest canonical_period_sha256 = 8;
+}
+
+message RequestHoldoutGrantResponse {
+  loop.v1.HoldoutGrantRecord grant = 1;
+  // Updated in the same transaction as grant insertion. An idempotent retry
+  // returns this same record even though the original expected revision is old.
+  loop.v1.HoldoutPeriodRecord period_record = 2;
+}
+
+// The caller cannot provide a FactorSpec, BacktestSpec, budget, or plan. The
+// server validates the protected transport capability and revisions, resolves
+// and verifies the plan bound by the grant, consumes the grant, creates one
+// durable batch, and inserts every plan-derived HoldoutBacktestJobInput in one
+// transaction. Either all changes commit or none do. An idempotent retry
+// returns the same batch and never creates another execution.
+message ConsumeGrantAndEnqueueBacktestRequest {
+  reserved 4, 5;
+  reserved "frozen_backtest_spec", "budget";
+  loop.v1.CommandContext context = 1;
+  loop.v1.HoldoutGrantReference grant_reference = 2;
+  uint64 expected_grant_revision = 3;
+  uint64 expected_period_revision = 6;
+}
+
+// JobBatchHandle is a narrow projection; full plan-derived specifications stay
+// in loopd's durable job store. job_ids are ordered by one-based plan entry
+// index, contain exactly job_count values, and are limited to 4,096 entries.
+message JobBatchHandle {
+  loop.v1.JobBatchId job_batch_id = 1;
+  loop.v1.HoldoutGrantId holdout_grant_id = 2;
+  loop.v1.HoldoutEvaluationPlanId holdout_evaluation_plan_id = 3;
+  loop.v1.Sha256Digest evaluation_plan_sha256 = 4;
+  uint32 evaluation_plan_entry_count = 5;
+  uint32 job_count = 6;
+  repeated loop.v1.JobId job_ids = 7;
+  uint64 revision = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message ConsumeGrantAndEnqueueBacktestResponse {
+  loop.v1.HoldoutGrantReference consumed_grant = 1;
+  JobBatchHandle job_batch = 2;
+  // Updated to CONSUMED in the same transaction as grant consumption and job
+  // batch insertion. The issued grant ID remains permanently attached to the
+  // period.
+  loop.v1.HoldoutPeriodRecord period_record = 3;
+}
+
+message GetHoldoutPeriodRequest {
+  loop.v1.HoldoutPeriodId holdout_period_id = 1;
+  loop.v1.Sha256Digest canonical_period_sha256 = 2;
+}
+
+message GetHoldoutPeriodResponse {
+  loop.v1.HoldoutPeriodRecord period_record = 1;
+}
+
+message GetHoldoutApprovalRecordRequest {
+  loop.v1.HoldoutApprovalRecordId holdout_approval_record_id = 1;
+}
+
+message GetHoldoutApprovalRecordResponse {
+  loop.v1.HoldoutApprovalRecord approval_record = 1;
+}
+
+message GetHoldoutGrantRequest {
+  loop.v1.HoldoutGrantId holdout_grant_id = 1;
+}
+
+message GetHoldoutGrantResponse {
+  loop.v1.HoldoutGrantRecord grant = 1;
+}

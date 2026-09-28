@@ -1,0 +1,121 @@
+name: loop-engine-provider
+
+x-runtime: &runtime
+  image: m.daocloud.io/docker.io/library/node:24.17.0-bookworm-slim@sha256:862263c612aa437e3037674b85419622a9d93bff80aa1eee5398dfe686375532
+  user: "65532:65532"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 64
+  mem_limit: 512m
+  cpus: 1
+  tmpfs: ["/tmp:size=16m,mode=1777,noexec,nosuid,nodev"]
+  init: true
+
+services:
+  provider:
+    <<: *runtime
+    working_dir: /opt/loop-engine/apps/providerd
+    entrypoint: ["node", "--use-env-proxy", "dist/index.js"]
+    env_file:
+      - path: "${LOOP_PROVIDER_ENV:?private provider credential environment required}"
+        format: raw
+    environment:
+      NODE_ENV: production
+      PROVIDERD_DEPLOYMENT: /run/provider/deployment.json
+      PROVIDERD_PORT: "8090"
+      HTTPS_PROXY: http://egress:8080
+      HTTP_PROXY: http://egress:8080
+      NO_PROXY: ""
+    networks: [provider]
+    expose: ["8091"]
+    dns: ["127.0.0.1"]
+    dns_opt: ["timeout:1", "attempts:1"]
+    volumes:
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE:?compiled provider release required}/apps/providerd/dist"
+        target: /opt/loop-engine/apps/providerd/dist
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/apps/providerd/package.json"
+        target: /opt/loop-engine/apps/providerd/package.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/apps/providerd/node_modules"
+        target: /opt/loop-engine/apps/providerd/node_modules
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/node_modules"
+        target: /opt/loop-engine/node_modules
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/packages/protocol-ts/dist"
+        target: /opt/loop-engine/packages/protocol-ts/dist
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/packages/protocol-ts/package.json"
+        target: /opt/loop-engine/packages/protocol-ts/package.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/packages/protocol-ts/node_modules"
+        target: /opt/loop-engine/packages/protocol-ts/node_modules
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/pnpm-lock.yaml"
+        target: /opt/loop-engine/pnpm-lock.yaml
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/catalog"
+        target: /opt/loop-engine/catalog
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_CONFIG:?private provider-only configuration required}"
+        target: /run/provider
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_STATE:?private provider-only state required}"
+        target: /var/lib/provider
+        bind: {create_host_path: false}
+    depends_on:
+      egress: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+  egress:
+    <<: *runtime
+    mem_limit: 128m
+    pids_limit: 32
+    entrypoint: ["node", "/opt/provider-egress.mjs", "/run/egress/policy.json"]
+    networks: [provider, outbound]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - type: bind
+        source: "${LOOP_PROVIDER_RELEASE}/infra/provider-egress.mjs"
+        target: /opt/provider-egress.mjs
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: "${LOOP_PROVIDER_EGRESS:?private egress policy required}"
+        target: /run/egress/policy.json
+        read_only: true
+        bind: {create_host_path: false}
+
+networks:
+  provider: {internal: true}
+  outbound: {}

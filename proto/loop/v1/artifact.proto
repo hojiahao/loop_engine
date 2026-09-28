@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/common.proto";
+
+// ArtifactSchemaReference identifies the logical schema used to decode an
+// immutable artifact. schema_sha256 covers the canonical schema document.
+message ArtifactSchemaReference {
+  string name = 1;
+  uint32 version = 2;
+  Sha256Digest schema_sha256 = 3;
+}
+
+// ArtifactRef is the only representation of large data allowed across RPCs.
+// uri MUST be a non-secret locator: credentials, bearer tokens, signed query
+// parameters, user-info, and secret fragments are forbidden. Access is granted
+// independently by the receiving service. sha256 covers the exact artifact
+// bytes. uri is limited to 2,048 bytes. row_count is present only when the
+// schema defines an exact tabular count.
+message ArtifactRef {
+  ArtifactId artifact_id = 1;
+  string uri = 2;
+  Sha256Digest sha256 = 3;
+  ArtifactSchemaReference schema = 4;
+  string media_type = 5;
+  uint64 byte_size = 6;
+  optional uint64 row_count = 7;
+  google.protobuf.Timestamp created_at = 8;
+  // manifest_sha256 identifies the immutable partition manifest when this
+  // artifact is one member of a partitioned dataset.
+  Sha256Digest manifest_sha256 = 9;
+}

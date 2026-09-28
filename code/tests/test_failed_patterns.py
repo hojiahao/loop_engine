@@ -16,7 +16,8 @@ def _setup(tmp_path):
     return _restore
 
 
-def test_pure_occupied_rejection_counts_occupied_not_fails(tmp_path):
+# Scenario: pure occupied rejection counts occupied not fails.
+def test_pure_occupied(tmp_path):
     """纯 #9/#15 拒(占位灭)→ occupied,不算死证据,不判死。"""
     _r = _setup(tmp_path)
     try:
@@ -31,7 +32,8 @@ def test_pure_occupied_rejection_counts_occupied_not_fails(tmp_path):
         _r()
 
 
-def test_intrinsic_rejections_make_skeleton_dead(tmp_path):
+# Scenario: intrinsic rejections make skeleton dead.
+def test_intrinsic_rejections(tmp_path):
     """内因拒(规则 1/13 等)→ fails;≥10 且 0 成功 → 判死并注入 prompt。"""
     _r = _setup(tmp_path)
     try:
@@ -48,7 +50,8 @@ def test_intrinsic_rejections_make_skeleton_dead(tmp_path):
         _r()
 
 
-def test_mixed_reasons_count_as_intrinsic(tmp_path):
+# Scenario: mixed reasons count as intrinsic.
+def test_mixed_reasons(tmp_path):
     """#9 与内因规则并存 → 内因灭(其余规则独立足以拒),#9 不进 top_rules。"""
     _r = _setup(tmp_path)
     try:
@@ -61,7 +64,8 @@ def test_mixed_reasons_count_as_intrinsic(tmp_path):
         _r()
 
 
-def test_review_and_backtest_error_are_intrinsic(tmp_path):
+# Scenario: review and backtest error are intrinsic.
+def test_review_backtest(tmp_path):
     """review 结构拒 / 回测异常 → 直接死证据。"""
     _r = _setup(tmp_path)
     try:
@@ -76,7 +80,8 @@ def test_review_and_backtest_error_are_intrinsic(tmp_path):
         _r()
 
 
-def test_stored_history_prevents_dead(tmp_path):
+# Scenario: stored history prevents dead.
+def test_stored_history(tmp_path):
     """同骨架曾有成功 → 不判死(被替换出库也不扣减)。"""
     _r = _setup(tmp_path)
     try:
@@ -89,7 +94,8 @@ def test_stored_history_prevents_dead(tmp_path):
         _r()
 
 
-def test_save_atomic_and_reloadable(tmp_path):
+# Scenario: save atomic and reloadable.
+def test_save_atomic(tmp_path):
     """轮末落盘(原子写)后重载,数据完整、updated_iter 正确。"""
     _r = _setup(tmp_path)
     try:
@@ -105,7 +111,8 @@ def test_save_atomic_and_reloadable(tmp_path):
         _r()
 
 
-def test_generation_prompt_injects_dead_and_not_occupied(tmp_path):
+# Scenario: generation prompt injects dead and not occupied.
+def test_generation_prompt(tmp_path):
     """生成 prompt:死骨架注入;纯占位骨架绝不注入(保优淘劣挑战者路径)。"""
     _r = _setup(tmp_path)
     try:

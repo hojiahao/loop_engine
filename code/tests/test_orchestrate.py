@@ -55,7 +55,8 @@ class ScriptedEvolver:
         self._delegate.observe(node, sharpe)
 
 
-def test_run_round_mock_restores(tmp_path):
+# Scenario: run round mock restores.
+def test_round_mock(tmp_path):
     panels = _synth_panels()
     cp = Checkpoint(tmp_path / "cp.json")
     ev = Evolver(FIELDS, rng=np.random.default_rng(1))
@@ -69,7 +70,8 @@ def test_run_round_mock_restores(tmp_path):
     assert len(cp2.stored_factors) == stats.n_pass_filters
 
 
-def test_coverage_reason_detects_collapse():
+# Scenario: coverage reason detects collapse.
+def test_coverage_reason():
     """覆盖率防线:单月塌陷 < 本地中位×0.6 → 报原因;正常面板 → None。"""
     from loop_orchestrate import _coverage_reason
     idx = pd.date_range("2018-01-01", periods=900, freq="B")
@@ -82,7 +84,8 @@ def test_coverage_reason_detects_collapse():
     assert r is not None and r.startswith("ValueError") and "2019-05" in r
 
 
-def test_coverage_ignores_warmup_months():
+# Scenario: coverage ignores warmup months.
+def test_coverage_warmup():
     """warmup 期(回测窗口前的滚动窗预热,天然 0% 覆盖)不得触发塌陷——
     全库体检曾暴露此误杀,会导致所有候选被拒。"""
     from loop_orchestrate import _coverage_reason
@@ -93,7 +96,8 @@ def test_coverage_ignores_warmup_months():
     assert _coverage_reason(df) is None                          # 不得误报
 
 
-def test_coverage_ignores_data_after_is_end():
+# Scenario: coverage ignores data after is end.
+def test_coverage_data():
     """A development-period coverage collapse must not influence IS admission."""
     from loop_orchestrate import _coverage_reason
     idx = pd.date_range("2021-01-01", "2025-12-31", freq="B")
@@ -103,7 +107,8 @@ def test_coverage_ignores_data_after_is_end():
     assert _coverage_reason(df) is None
 
 
-def test_simplify_or_combine():
+# Scenario: simplify or combine.
+def test_simplify_combine():
     """分支支配简化(用户 2026-08-18):std 比 ≥3x 取支配支;平衡则合成面板(等价于 evaluate)。"""
     from engine.expression import parse
     from loop_orchestrate import _simplify_or_combine
@@ -118,7 +123,8 @@ def test_simplify_or_combine():
     assert n3 is node and np.allclose(panel3.values, small.values * 2, equal_nan=True)
 
 
-def test_build_field_panels():
+# Scenario: build field panels.
+def test_build_field():
     df = pd.DataFrame({
         "order_book_id": ["A", "A", "B", "B"],
         "date": pd.to_datetime(["2018-01-02", "2018-01-03"] * 2),
@@ -129,7 +135,8 @@ def test_build_field_panels():
     assert list(panels["ret"].columns) == ["A", "B"]
 
 
-def test_llm_final_veto_blocks_store(tmp_path):
+# Scenario: llm final veto blocks store.
+def test_llm_final(tmp_path):
     """LLM 终审(2026-08-17 接线):全过滤通过后终审拒 → 不入库;终审放行 → 正常入库。"""
     from llm.provider import MockProvider
     panels = _synth_panels()
@@ -151,7 +158,8 @@ def test_llm_final_veto_blocks_store(tmp_path):
     assert s2.n_pass_filters > 0 and len(cp2.stored_factors) == s2.n_pass_filters
 
 
-def test_store_accumulates_and_fsa_persists(tmp_path):
+# Scenario: store accumulates and fsa persists.
+def test_store_accumulates(tmp_path):
     panels = _synth_panels()
     cp = Checkpoint(tmp_path / "cp.json")
     fsa = FSA()
@@ -194,7 +202,8 @@ class _ScriptedEvolver:
         return [self.alive]
 
 
-def test_dead_skeleton_resampled(tmp_path):
+# Scenario: dead skeleton resampled.
+def test_dead_skeleton(tmp_path):
     """全灭骨架候选被丢弃补采;占位骨架(纯#9拒)不被重采样(挑战者路径)。"""
     from engine.expression import parse
     from engine import failed_patterns as fplib
@@ -225,7 +234,8 @@ def test_dead_skeleton_resampled(tmp_path):
     assert stats2.n_resampled == 0 and ev2.calls == 1
 
 
-def test_store_persists_ls_ret(tmp_path):
+# Scenario: store persists ls ret.
+def test_store_persists(tmp_path):
     """入库持久化 ls_ret(多空日收益,PnL 口径相关观察,2026-08-24)。"""
     panels = _synth_panels()
     cp = Checkpoint(tmp_path / "cp.json")
@@ -239,7 +249,8 @@ def test_store_persists_ls_ret(tmp_path):
     assert stored_with_ret[0]["ls_ret_kind"] == "simple_return"
 
 
-def test_normalization_rehashes_and_deduplicates_before_backtest(tmp_path):
+# Scenario: normalization rehashes and deduplicates before backtest.
+def test_normalization_rehashes(tmp_path):
     from engine import review
     from engine.expression import parse
 
@@ -258,7 +269,8 @@ def test_normalization_rehashes_and_deduplicates_before_backtest(tmp_path):
     assert all(f["hash"] == parse(f["expr"]).expr_hash() for f in cp.stored_factors)
 
 
-def test_binary_commutative_forms_deduplicate_before_backtest(tmp_path):
+# Scenario: binary commutative forms deduplicate before backtest.
+def test_binary_commutative(tmp_path):
     from engine.expression import parse
 
     first = parse("zscore(add(ma(ret, 20), rank_ts(overnight, 40)))")
@@ -272,7 +284,8 @@ def test_binary_commutative_forms_deduplicate_before_backtest(tmp_path):
     assert stats.n_tested == 1
 
 
-def test_failed_hash_filter_is_wired_in_production_path(tmp_path):
+# Scenario: failed hash filter is wired in production path.
+def test_hash_filter(tmp_path):
     from engine import review
     from engine.expression import parse
 
@@ -289,7 +302,8 @@ def test_failed_hash_filter_is_wired_in_production_path(tmp_path):
     assert any("11.命中失败模式库" in reason for reason in reasons)
 
 
-def test_successful_backtests_persist_perturber_observations(tmp_path):
+# Scenario: successful backtests persist perturber observations.
+def test_successful_backtests(tmp_path):
     from engine.expression import parse
 
     node = parse("zscore(add(ma(ret, 20), ma(overnight, 40)))")
@@ -303,7 +317,8 @@ def test_successful_backtests_persist_perturber_observations(tmp_path):
     assert loaded.perturb_state["history"]
 
 
-def test_gen_src_pass_review_counts(tmp_path):
+# Scenario: gen src pass review counts.
+def test_gen_src(tmp_path):
     """按生成源的过审查计数(2026-08-24 用户:健侧 LLM 生成质量)。"""
     panels = _synth_panels()
     cp = Checkpoint(tmp_path / "cp.json")
@@ -315,7 +330,8 @@ def test_gen_src_pass_review_counts(tmp_path):
     assert sum(stats.gen_src_pass_review.values()) == stats.n_pass_review
 
 
-def test_coverage_gate_low_baseline_skipped():
+# Scenario: coverage gate low baseline skipped.
+def test_coverage_gate():
     """覆盖率闸低本底跳过(2026-08-27):本地中位 <30% 的月份不判塌陷——
     2018 年财报表覆盖仅 14%,月间正常波动即 8%<8.4% 误伤。"""
     from loop_orchestrate import _coverage_reason

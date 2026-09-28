@@ -1,0 +1,463 @@
+{
+  "schema": "loop.exposure-input/v1",
+  "quality": "synthetic",
+  "captured_at": "2026-09-15T00:00:00Z",
+  "records": [
+    {
+      "security_id": "US.001",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.001:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.002",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.002:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.003",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.003:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.004",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.004:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.005",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.005:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.006",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.006:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.007",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.007:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.008",
+      "session": "2010-01-04",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-04T21:00:00Z",
+      "known_at": "2010-01-04T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.008:2010-01-04:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.001",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.001:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.002",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.002:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.003",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.003:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.004",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.004:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.005",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.005:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.006",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.006:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.007",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.007:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.008",
+      "session": "2010-01-05",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-05T21:00:00Z",
+      "known_at": "2010-01-05T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.008:2010-01-05:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.001",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.001:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.002",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.002:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.003",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.003:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.004",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "A",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.004:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.005",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "-1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.005:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.006",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "-1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.006:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.007",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "0.36787944117144233",
+      "beta": "1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.007:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    },
+    {
+      "security_id": "US.008",
+      "session": "2010-01-06",
+      "currency": "USD",
+      "industry": "B",
+      "market_cap": "2.718281828459045",
+      "beta": "1",
+      "effective_at": "2010-01-06T21:00:00Z",
+      "known_at": "2010-01-06T21:03:00Z",
+      "ingested_at": "2026-09-15T00:00:00Z",
+      "source": {
+        "source": "loop.synthetic",
+        "dataset": "factor-risk",
+        "revision": "1",
+        "record_id": "US.008:2010-01-06:risk",
+        "raw_sha256": "sha256:1abd5c8e9a0b78015ffbdfd12245fce584898b06738c477cdab5f706e39f4aa4",
+        "availability": "synthetic"
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "schema": "loop.provider-profiles/v1",
+  "revision": 1,
+  "issued_at": "2026-09-24T00:00:00Z",
+  "profile": "native-content.1",
+  "groups": [
+    {
+      "plugins": ["openai_responses", "openai_chat", "anthropic"],
+      "contract": "test/rich.test.ts"
+    },
+    {
+      "plugins": ["google_generate", "google_interactions", "cohere"],
+      "contract": "test/additional.test.ts"
+    },
+    {
+      "plugins": ["azure_responses", "azure_chat", "vertex_generate", "bedrock_converse"],
+      "contract": "test/cloud.test.ts"
+    },
+    {
+      "plugins": [
+        "mistral",
+        "deepseek",
+        "qwen",
+        "xai",
+        "groq",
+        "together",
+        "fireworks",
+        "cerebras",
+        "perplexity",
+        "glm",
+        "kimi",
+        "minimax"
+      ],
+      "contract": "test/vendor.test.ts"
+    },
+    {
+      "plugins": [
+        "openai_compatible",
+        "anthropic_compatible",
+        "ollama",
+        "vllm",
+        "sglang",
+        "llamacpp",
+        "lmstudio",
+        "nim",
+        "litellm",
+        "portkey",
+        "openrouter"
+      ],
+      "contract": "test/compatible.test.ts"
+    }
+  ]
+}

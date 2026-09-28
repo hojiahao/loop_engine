@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "google/protobuf/timestamp.proto";
+import "loop/v1/artifact.proto";
+import "loop/v1/common.proto";
+import "loop/v1/factor.proto";
+import "loop/v1/research_common.proto";
+
+// Internal installed-worker input, materialized by the authenticated runtime.
+// It carries only immutable references and bounded metadata, not panel bytes,
+// paths, credentials, a holdout capability or caller-supplied executable code.
+message FactorEvaluationWork {
+  JobId job_id = 1;
+  LeaseId lease_id = 2;
+  FactorSpec factor = 3;
+  ArtifactRef panel_manifest = 4;
+  CivilDate sample_start = 5;
+  CivilDate sample_end = 6;
+  ResearchProvenanceFingerprint provenance = 7;
+  Sha256Digest deterministic_seed = 8;
+}
+
+// Raw factor output and exact coverage, not portfolio performance or admission.
+// Outputs are released only after current authority, lease and file checks.
+message FactorEvaluationResult {
+  JobId job_id = 1;
+  LeaseId lease_id = 2;
+  FactorSpecId factor_spec_id = 3;
+  FactorExpressionId expression_id = 4;
+  ResearchProvenanceFingerprint provenance = 5;
+  Sha256Digest deterministic_seed = 6;
+  ArtifactRef values = 7;
+  uint64 eligible_observations = 8;
+  uint64 valid_observations = 9;
+  uint64 work_units = 10;
+  CivilDate sample_start = 11;
+  CivilDate sample_end = 12;
+  google.protobuf.Timestamp completed_at = 13;
+  ArtifactRef manifest = 14;
+}

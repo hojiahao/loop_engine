@@ -9,7 +9,8 @@ def _factor(expr, ic, ret):
     return {"expr": expr, "ic_series": ic, "ls_ret": ret}
 
 
-def test_dual_gauge_gray_and_violation():
+# Scenario: dual gauge gray and violation.
+def test_dual_gauge():
     rng = np.random.default_rng(0)
     n = 300
     base_ret = rng.normal(0, 0.01, n)
@@ -36,6 +37,7 @@ def test_dual_gauge_gray_and_violation():
     assert "≥0.7 共 0 对" in ic_line, ic_line
 
 
-def test_missing_series_graceful():
+# Scenario: missing series graceful.
+def test_missing_series():
     lines = corr_report_lines([{"expr": "onlyIc", "ic_series": [0.1] * 30}])
     assert any("样本不足" in l for l in lines)   # PnL 口径无 ls_ret → 提示而非崩

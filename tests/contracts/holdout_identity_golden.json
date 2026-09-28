@@ -1,0 +1,50 @@
+{
+  "trusted_plan_schema_sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "trusted_backtest_schema_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "backtest_artifacts": [
+    {
+      "sha256": "sha256:5f5244fe3b758dcca43a45651bcc014e283c0564fcd06fdf287499234e37f4b1",
+      "content": "{\"schema\":\"loop.backtest-spec/v1\",\"fixture\":\"one\"}"
+    },
+    {
+      "sha256": "sha256:cbf437a835016da681374bd9d55bd24cd4d928db459cd235aa098eb4ac06a6a2",
+      "content": "{\"schema\":\"loop.backtest-spec/v1\",\"fixture\":\"two\"}"
+    },
+    {
+      "sha256": "sha256:259c0169213cc89df14025aaea8910eb1ff9e24584ae9b483f30e2ddd637afd9",
+      "content": "{\"schema\":\"loop.backtest-spec/v1\",\"fixture\":\"three\"}"
+    }
+  ],
+  "periods": [
+    {
+      "name": "first_locked_confirmation",
+      "canonical_json": "{\"schema\":\"loop.holdout-period/v1\",\"sample\":{\"role\":\"first_locked_confirmation\",\"start_inclusive\":\"2021-01-01\",\"end_inclusive\":\"2024-12-31\"},\"snapshot_ids\":[\"sha256:0101010101010101010101010101010101010101010101010101010101010101\",\"sha256:0202020202020202020202020202020202020202020202020202020202020202\"],\"snapshot_manifest_sha256\":\"sha256:1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "canonical_sha256": "sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188",
+      "holdout_period_id": "sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188"
+    },
+    {
+      "name": "second_locked_historical_holdout",
+      "canonical_json": "{\"schema\":\"loop.holdout-period/v1\",\"sample\":{\"role\":\"second_locked_historical_holdout\",\"start_inclusive\":\"2025-01-01\",\"end_inclusive\":\"2026-08-31\"},\"snapshot_ids\":[\"sha256:0303030303030303030303030303030303030303030303030303030303030303\"],\"snapshot_manifest_sha256\":\"sha256:1212121212121212121212121212121212121212121212121212121212121212\"}",
+      "canonical_sha256": "sha256:3f71c50e35102b22abfb76b86271cba63deb6dfb06499be83acfc703db38e798",
+      "holdout_period_id": "sha256:3f71c50e35102b22abfb76b86271cba63deb6dfb06499be83acfc703db38e798"
+    }
+  ],
+  "plans": [
+    {
+      "name": "first_locked_multi_entry",
+      "period": "first_locked_confirmation",
+      "canonical_json": "{\"schema\":\"loop.holdout-evaluation-plan/v1\",\"holdout_period_id\":\"sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188\",\"canonical_period_sha256\":\"sha256:99728375849b8e92e1b87b15fa41c9b5391640f3f7fa86e9bf1671030fd50188\",\"entries\":[{\"entry_index\":\"1\",\"factor_spec_id\":\"sha256:3131313131313131313131313131313131313131313131313131313131313131\",\"backtest_spec_artifact\":{\"artifact_id\":\"sha256:5f5244fe3b758dcca43a45651bcc014e283c0564fcd06fdf287499234e37f4b1\",\"uri\":\"artifact://sha256/5f5244fe3b758dcca43a45651bcc014e283c0564fcd06fdf287499234e37f4b1\",\"sha256\":\"sha256:5f5244fe3b758dcca43a45651bcc014e283c0564fcd06fdf287499234e37f4b1\",\"schema_name\":\"loop.backtest_spec\",\"schema_version\":\"1\",\"schema_sha256\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"media_type\":\"application/json\",\"byte_size\":\"50\"},\"job_budget\":{\"maximum_steps\":\"40\",\"maximum_input_tokens\":\"100000\",\"maximum_output_tokens\":\"20000\",\"maximum_cost\":{\"amount\":\"12.5\",\"currency_code\":\"USD\"},\"maximum_wall_time_ns\":\"3600000000000\"}},{\"entry_index\":\"2\",\"factor_spec_id\":\"sha256:3232323232323232323232323232323232323232323232323232323232323232\",\"backtest_spec_artifact\":{\"artifact_id\":\"sha256:cbf437a835016da681374bd9d55bd24cd4d928db459cd235aa098eb4ac06a6a2\",\"uri\":\"artifact://sha256/cbf437a835016da681374bd9d55bd24cd4d928db459cd235aa098eb4ac06a6a2\",\"sha256\":\"sha256:cbf437a835016da681374bd9d55bd24cd4d928db459cd235aa098eb4ac06a6a2\",\"schema_name\":\"loop.backtest_spec\",\"schema_version\":\"1\",\"schema_sha256\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"media_type\":\"application/json\",\"byte_size\":\"50\"},\"job_budget\":{\"maximum_steps\":\"50\",\"maximum_input_tokens\":\"200000\",\"maximum_output_tokens\":\"30000\",\"maximum_cost\":{\"amount\":\"0\",\"currency_code\":\"USD\"},\"maximum_wall_time_ns\":\"7200000000000\"}}]}",
+      "plan_sha256": "sha256:f4149b50b964070930bc670a382978b295dbb9d43aee056f5dad306a1cd6b6a8",
+      "holdout_evaluation_plan_id": "sha256:4ce31ac829c8cbfa2b1c179c6611a4787c06f05f972e50e83991ac0b59504b68",
+      "entry_count": 2
+    },
+    {
+      "name": "second_locked_boundary_values",
+      "period": "second_locked_historical_holdout",
+      "canonical_json": "{\"schema\":\"loop.holdout-evaluation-plan/v1\",\"holdout_period_id\":\"sha256:3f71c50e35102b22abfb76b86271cba63deb6dfb06499be83acfc703db38e798\",\"canonical_period_sha256\":\"sha256:3f71c50e35102b22abfb76b86271cba63deb6dfb06499be83acfc703db38e798\",\"entries\":[{\"entry_index\":\"1\",\"factor_spec_id\":\"sha256:3333333333333333333333333333333333333333333333333333333333333333\",\"backtest_spec_artifact\":{\"artifact_id\":\"sha256:259c0169213cc89df14025aaea8910eb1ff9e24584ae9b483f30e2ddd637afd9\",\"uri\":\"artifact://sha256/259c0169213cc89df14025aaea8910eb1ff9e24584ae9b483f30e2ddd637afd9\",\"sha256\":\"sha256:259c0169213cc89df14025aaea8910eb1ff9e24584ae9b483f30e2ddd637afd9\",\"schema_name\":\"loop.backtest_spec\",\"schema_version\":\"1\",\"schema_sha256\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"media_type\":\"application/json\",\"byte_size\":\"52\"},\"job_budget\":{\"maximum_steps\":\"1\",\"maximum_input_tokens\":\"0\",\"maximum_output_tokens\":\"0\",\"maximum_cost\":{\"amount\":\"1000000\",\"currency_code\":\"USD\"},\"maximum_wall_time_ns\":\"1\"}}]}",
+      "plan_sha256": "sha256:268ca82920b40c56dab0886bb06dbbaa75e9878d0fd3a7f59dbb60d9640a63f9",
+      "holdout_evaluation_plan_id": "sha256:70b32595165730bbbbb60d4fade30254f77a4e855229938ca2e3187067900a80",
+      "entry_count": 1
+    }
+  ]
+}

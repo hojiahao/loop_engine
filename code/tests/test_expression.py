@@ -27,19 +27,22 @@ def test_parse_leaf():
     assert n.is_leaf() and n.field == "close"
 
 
-def test_parse_ts_window_and_child():
+# Scenario: parse ts window and child.
+def test_parse_ts():
     n = parse("ma(close, 20)")
     assert n.op == "ma" and n.window == 20
     assert n.children[0].is_leaf() and n.children[0].field == "close"
 
 
-def test_parse_elem_two_children():
+# Scenario: parse elem two children.
+def test_parse_elem():
     n = parse("sub(high, low)")
     assert n.op == "sub" and len(n.children) == 2
     assert n.children[0].field == "high" and n.children[1].field == "low"
 
 
-def test_parse_unknown_op_raises():
+# Scenario: parse unknown op raises.
+def test_parse_unknown():
     with pytest.raises(ValueError):
         parse("foobar(close)")
 
@@ -64,13 +67,15 @@ def test_validate_ok():
     parse("zscore(div(ma(close,20), std(sub(high,low),10)))").validate()
 
 
-def test_validate_window_out_of_range():
+# Scenario: validate window out of range.
+def test_window_out():
     n = Node.ts("ma", Node.leaf("close"), 2)  # ma 最小 3
     with pytest.raises(ValueError):
         n.validate()
 
 
-def test_validate_wrong_arity():
+# Scenario: validate wrong arity.
+def test_wrong_arity():
     n = Node(op="add", children=[Node.leaf("close")])  # elem 缺第二个子节点
     with pytest.raises(ValueError):
         n.validate()
@@ -91,21 +96,24 @@ def test_evaluate_elem():
     np.testing.assert_allclose(r["A"].values, [1.5, 2, 2, 2])
 
 
-def test_evaluate_ts_then_cs():
+# Scenario: evaluate ts then cs.
+def test_evaluate_ts():
     r = evaluate(parse("zscore(ma(close, 2))"), _panels())
     # ma(close,2) 第 1 行起有值;zscore 后逐行均值≈0、std≈1
     valid = r.dropna()
     np.testing.assert_allclose(valid.mean(axis=1).values, [0, 0, 0], atol=1e-12)
 
 
-def test_evaluate_missing_field():
+# Scenario: evaluate missing field.
+def test_evaluate_missing():
     with pytest.raises(KeyError):
         evaluate(parse("ma(unknown_xyz, 5)"), _panels())
 
 
 # ---------------- 随机生成 ----------------
 
-def test_random_tree_valid_and_bounded():
+# Scenario: random tree valid and bounded.
+def test_random_valid():
     rng = np.random.default_rng(42)
     fields = ["close", "high", "low", "volume", "overnight"]
     for _ in range(200):
@@ -115,14 +123,16 @@ def test_random_tree_valid_and_bounded():
         assert t.fields().issubset(set(fields))  # 仅用给定字段
 
 
-def test_random_tree_reproducible():
+# Scenario: random tree reproducible.
+def test_random_reproducible():
     fields = ["close", "volume"]
     t1 = random_tree(fields, rng=np.random.default_rng(7))
     t2 = random_tree(fields, rng=np.random.default_rng(7))
     assert t1.to_str() == t2.to_str()
 
 
-def test_random_tree_not_all_leaf():
+# Scenario: random tree not all leaf.
+def test_random_tree():
     # 多数应至少有 1 层算子(_depth<1 强制算子)
     rng = np.random.default_rng(0)
     fields = ["close", "high"]
@@ -130,7 +140,8 @@ def test_random_tree_not_all_leaf():
     assert max(depths) >= 1
 
 
-def test_random_tree_windows_on_grid():
+# Scenario: random tree windows on grid.
+def test_random_windows():
     # 窗口只在 WINDOW_SET 规整值上(用户要求:不用 3/34/63 这种任意整数)
     from engine.config import WINDOW_SET
     rng = np.random.default_rng(42)
@@ -144,7 +155,8 @@ def test_random_tree_windows_on_grid():
 
 # ---------------- 哈希 ----------------
 
-def test_expr_hash_stable_and_distinct():
+# Scenario: expr hash stable and distinct.
+def test_expr_hash():
     a = parse("ma(close, 20)")
     assert expr_hash(a) == expr_hash(parse("ma(close, 20)"))
     assert expr_hash(a) != expr_hash(parse("ma(close, 21)"))

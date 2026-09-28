@@ -1,0 +1,27 @@
+{
+  "name": "@loop-engine/web",
+  "version": "0.2.0-alpha.1",
+  "private": true,
+  "description": "Operational web client for Loop Engine",
+  "author": "hojiahao <hojiahao@outlook.com>",
+  "repository": "https://github.com/hojiahao/loop_engine",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build",
+    "dev": "vite",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.102.8",
+    "@tanstack/react-router": "1.170.32",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "vite": "8.2.2"
+  }
+}

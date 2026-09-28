@@ -28,14 +28,16 @@ def _all_valid(trees, fields):
 
 # ---------------- 保结构 ----------------
 
-def test_generate_cold_start_valid():
+# Scenario: generate cold start valid.
+def test_cold_valid():
     e = _new(1)
     trees = e.generate([], 200)
     assert len(trees) == 200
     _all_valid(trees, FIELDS)
 
 
-def test_generate_with_parents_valid():
+# Scenario: generate with parents valid.
+def test_parents_valid():
     e = _new(2)
     trees = e.generate(PARENTS, 300)
     _all_valid(trees, FIELDS)
@@ -50,7 +52,8 @@ def test_mutate_valid():
         assert t.fields().issubset(set(FIELDS))
 
 
-def test_crossover_bounded_depth():
+# Scenario: crossover bounded depth.
+def test_crossover_bounded():
     e = _new(4)
     for _ in range(300):
         t = e.crossover(PARENTS[0], PARENTS[1])
@@ -58,7 +61,8 @@ def test_crossover_bounded_depth():
         assert t.depth() <= MAX_DEPTH
 
 
-def test_perturb_preserves_structure():
+# Scenario: perturb preserves structure.
+def test_structure():
     e = _new(5)
     for parent in PARENTS:
         t = e.perturb_op(parent)
@@ -68,7 +72,8 @@ def test_perturb_preserves_structure():
         assert t.to_str().split("(")[0] == parent.to_str().split("(")[0]
 
 
-def test_perturb_cold_leaves_windows_unchanged():
+# Scenario: perturb cold leaves windows unchanged.
+def test_cold_windows():
     """冷启动 perturber 无历史 → propose 返回原值,窗口不变。"""
     e = _new(6, perturber=Perturber())
     parent = parse("ma(ma(close, 20), 5)")
@@ -78,7 +83,8 @@ def test_perturb_cold_leaves_windows_unchanged():
 
 # ---------------- 预算分布 ----------------
 
-def test_pick_op_distribution():
+# Scenario: pick op distribution.
+def test_pick_op():
     e = _new(7)
     counts = {"mutate": 0, "crossover": 0, "perturb": 0, "random": 0, "llm": 0}
     for _ in range(5000):
@@ -87,28 +93,32 @@ def test_pick_op_distribution():
         assert abs(counts[op] / 5000 - budget) < 0.03, f"{op}: {counts[op]/5000:.3f} vs {budget}"
 
 
-def test_config_budget_must_sum_to_one():
+# Scenario: config budget must sum to one.
+def test_config_budget():
     with pytest.raises(ValueError):
         EvolveConfig(mutate=0.5, crossover=0.5, perturb=0.1, random=0.1, llm=0.1)
 
 
 # ---------------- 冷启动 / LLM stub ----------------
 
-def test_cold_start_no_crash_and_diverse():
+# Scenario: cold start no crash and diverse.
+def test_cold_crash():
     e = _new(8)
     trees = e.generate([], 50)
     strs = {t.to_str() for t in trees}
     assert len(strs) > 1  # 随机生成有多样性
 
 
-def test_llm_stub_without_provider():
+# Scenario: llm stub without provider.
+def test_llm_stub():
     e = _new(9, llm=None)
     t = e.llm_op()
     t.validate()
     assert t.fields().issubset(set(FIELDS))
 
 
-def test_generate_meta_aligned_with_output():
+# Scenario: generate meta aligned with output.
+def test_meta_aligned():
     """last_gen_meta 与输出候选严格对齐(含跳过的非法候选与补足段),供族归属使用。"""
     e = _new(11)
     out = e.generate(PARENTS, 40)
@@ -121,7 +131,8 @@ def test_generate_meta_aligned_with_output():
             assert m.get("parent") in {p.expr_hash() for p in PARENTS}
 
 
-def test_family_inheritance_registration():
+# Scenario: family inheritance registration.
+def test_family_inheritance():
     """编排层的族继承:父本有 family → 演化子代可登记同族(拒因回流前提)。"""
     from llm import mechanisms as M
     parent_hash = PARENTS[0].expr_hash()
@@ -133,7 +144,8 @@ def test_family_inheritance_registration():
     assert inherited > 0
 
 
-def test_llm_provider_hook_called():
+# Scenario: llm provider hook called.
+def test_llm_provider():
     """传 provider 时,llm_op 走 provider。"""
     called = {"n": 0}
 
@@ -147,16 +159,17 @@ def test_llm_provider_hook_called():
     assert t.to_str() == "zscore(ma(close, 10))"
 
 
-def test_generate_skips_over_depth_and_tops_up():
+# Scenario: generate skips over depth and tops up.
+def test_skips_over():
     """LLM 偶发产出 depth>4 → 跳过,不崩,random_tree 补足 n 个合法。"""
     from engine.evolve import EvolveConfig
-    from llm.mechanisms import make_evolve_llm_hook
+    from llm.mechanisms import make_evolve_hook
     from llm.provider import MockProvider
     deep = "ma(ma(ma(ma(ma(close, 5), 5), 5), 5), 5)"  # depth 5(5 层 ma 嵌套)
     assert parse(deep).depth() == 5
     cfg = EvolveConfig(mutate=0, crossover=0, perturb=0, random=0, llm=1.0)  # 全走 LLM
     e = Evolver(FIELDS, config=cfg, rng=np.random.default_rng(1),
-                llm_provider=make_evolve_llm_hook(MockProvider(response=deep)))
+                llm_provider=make_evolve_hook(MockProvider(response=deep)))
     trees = e.generate(PARENTS, 5)
     assert len(trees) == 5                       # 仍产出 5 个
     for t in trees:

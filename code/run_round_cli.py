@@ -28,7 +28,7 @@ from engine.config import COMPUTE_START_YEAR, IS_END
 from engine.fsa import FSA
 from engine.io_utils import AlreadyRunningError, ProcessLock, atomic_output_path, atomic_write_text
 from engine.perturb import Perturber
-from llm.mechanisms import make_evolve_llm_hook
+from llm.mechanisms import make_evolve_hook
 from llm.settings import generation_provider, review_provider
 from loop_orchestrate import build_field_panels, restore_fsa, run_round
 from paths import CACHE_DIR, OUTPUT_DIR, PROJECT_ROOT
@@ -154,7 +154,7 @@ def _run(args) -> None:
         gen_provider = generation_provider()
         rev_provider = review_provider()
         evolver = Evolver(FIELDS, config=cfg, perturber=perturber, rng=np.random.default_rng(),
-                          llm_provider=make_evolve_llm_hook(gen_provider))  # GLM 生成(机制引导)
+                          llm_provider=make_evolve_hook(gen_provider))  # GLM 生成(机制引导)
 
     fsa = restore_fsa(cp) if cp.fsa_state else FSA()
     stats = run_round(checkpoint=cp, evolver=evolver, evaluator=evaluator,

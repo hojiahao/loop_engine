@@ -1,0 +1,1 @@
+{"schema":"loop.synthetic-ohlcv/v1","description":"Invented Phase 6 acceptance data; no market observations.","securities":["US.001","US.002"],"sessions":["2010-01-04","2010-01-05","2010-01-06"],"close":[8,10,12],"volume":100}

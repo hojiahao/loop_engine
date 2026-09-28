@@ -1,0 +1,29 @@
+{
+  "schema": "loop.panel-transform-request/v1",
+  "preprocess": {
+    "schema": "loop.research-policy/v1",
+    "policy_id": "policy.preprocess",
+    "revision": "1",
+    "settings": {
+      "algorithm": "cross-section.1",
+      "minimum_observations": "4",
+      "standardize": "none",
+      "winsor_tail_bps": "0"
+    }
+  },
+  "neutralization": {
+    "schema": "loop.research-policy/v1",
+    "policy_id": "policy.neutralization",
+    "revision": "1",
+    "settings": {
+      "algorithm": "ols.1",
+      "beta": "true",
+      "industry": "true",
+      "log_size": "true"
+    }
+  },
+  "exposure_capture": {
+    "sha256": "sha256:ac17165c1dbabca36d3fe8843543a667cf9c896f2dbc9e754ba0da57ef75ef36",
+    "byte_size": 14971
+  }
+}

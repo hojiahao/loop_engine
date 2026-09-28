@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package loop.provider.v1;
+
+import "loop/v1/common.proto";
+import "loop/v1/model.proto";
+import "loop/v1/stream.proto";
+
+// ProviderService has no research-state or holdout imports. Provider plugins
+// translate this typed model contract into native wire protocols.
+service ProviderService {
+  rpc InvokeModel(InvokeModelRequest) returns (InvokeModelResponse);
+  rpc StreamModel(StreamModelRequest) returns (stream StreamModelResponse);
+}
+
+message InvokeModelRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.ModelInvocation invocation = 2;
+}
+
+message InvokeModelResponse {
+  // All provider, validation, authorization, timeout, and cancellation errors
+  // use a non-OK gRPC status with typed loop.v1.ServiceError details.
+  loop.v1.ModelResponse response = 1;
+}
+
+message StreamModelRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.ModelInvocation invocation = 2;
+}
+
+message StreamModelResponse {
+  loop.v1.ModelStreamEvent event = 1;
+}

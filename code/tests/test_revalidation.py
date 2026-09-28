@@ -52,7 +52,8 @@ def _checkpoint(tmp_path):
     return cp
 
 
-def test_revalidation_replaces_metrics_and_rebuilds_state_atomically(tmp_path):
+# Scenario: revalidation replaces metrics and rebuilds state atomically.
+def test_revalidation_metrics(tmp_path):
     cp = _checkpoint(tmp_path)
     report = revalidate_library(
         checkpoint=cp, evaluator=PassingEvaluator(), field_panels=_panels(), workers=1
@@ -68,7 +69,8 @@ def test_revalidation_replaces_metrics_and_rebuilds_state_atomically(tmp_path):
     assert cp.perturb_state["history"]
 
 
-def test_revalidation_failure_does_not_mutate_checkpoint(tmp_path):
+# Scenario: revalidation failure does not mutate checkpoint.
+def test_revalidation_failure(tmp_path):
     cp = _checkpoint(tmp_path)
     before = copy.deepcopy(cp.stored_factors)
     with pytest.raises(RevalidationError, match="failed evaluation"):

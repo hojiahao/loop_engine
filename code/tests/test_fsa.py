@@ -13,7 +13,8 @@ def test_skeleton_basic():
     assert skeleton(parse("zscore(close)")) == "zscore(FLD)"
 
 
-def test_skeleton_ignores_field_and_window():
+# Scenario: skeleton ignores field and window.
+def test_skeleton_field():
     # 不同字段/窗口、同结构 → 同骨架
     a = skeleton(parse("div(ma(close, 20), ma(close, 10))"))
     b = skeleton(parse("div(ma(volume, 118), ma(amount, 66))"))
@@ -23,7 +24,8 @@ def test_skeleton_ignores_field_and_window():
 
 # ---------------- 冻结 ----------------
 
-def test_freeze_when_dominant():
+# Scenario: freeze when dominant.
+def test_freeze_dominant():
     fsa = FSA()
     a = "div(ma(FLD, N), ma(FLD, N))"   # 占多数
     for _ in range(3):
@@ -36,7 +38,8 @@ def test_freeze_when_dominant():
     assert not ok and "frozen" in reason
 
 
-def test_no_freeze_when_rare():
+# Scenario: no freeze when rare.
+def test_freeze_rare():
     fsa = FSA()
     # 多样化库,每个骨架只 1 次 → 不冻结
     for sk in ["a(FLD)", "b(FLD)", "c(FLD)", "d(FLD)", "e(FLD)", "f(FLD)"]:
@@ -48,7 +51,8 @@ def test_no_freeze_when_rare():
 
 # ---------------- 参数变体上限 ----------------
 
-def test_param_variant_cap():
+# Scenario: param variant cap.
+def test_param_variant():
     fsa = FSA()
     a = parse("ma(close, 5)")           # 骨架 ma(FLD, N)
     skel_a = "ma(FLD, N)"
@@ -63,7 +67,8 @@ def test_param_variant_cap():
     assert not ok and "param_variant_cap" in reason
 
 
-def test_allows_within_cap():
+# Scenario: allows within cap.
+def test_within_cap():
     fsa = FSA()
     fsa.observe("ma(FLD, N)")
     fsa.observe("ma(FLD, N)")

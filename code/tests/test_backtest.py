@@ -14,7 +14,8 @@ REAL_OUT = r"C:\Users\Administrator\Desktop\因子检测操作步骤\output_fact
 
 @pytest.mark.skipif(not pd.io.common.os.path.exists(REAL_OUT),
                     reason="无真实 alphalab 产出目录,跳过")
-def test_parse_dir_real_output():
+# Scenario: parse dir real output.
+def test_parse_dir():
     m = AlphalabEvaluator.parse_dir(REAL_OUT, horizon=5, name="gru_factor_ir")
     # IC 类(overview_ic h5)
     assert m.ic_mean == pytest.approx(0.08146613, rel=1e-4)
@@ -46,7 +47,8 @@ def test_parse_dir_real_output():
 
 # ---------------- Mock ----------------
 
-def test_mock_evaluator_populates_all():
+# Scenario: mock evaluator populates all.
+def test_mock_evaluator():
     panel = pd.DataFrame({"A": [1.0, 2, 3], "B": [4.0, 5, 6]},
                          index=pd.date_range("2018-01-02", periods=3))
     m = MockEvaluator(seed=0).evaluate(panel, name="t")
@@ -58,7 +60,8 @@ def test_mock_evaluator_populates_all():
     assert "IC=" in m.summary()
 
 
-def test_evaluate_expr_sets_expr():
+# Scenario: evaluate expr sets expr.
+def test_evaluate_expr():
     from engine.expression import parse
     fields = {"close": pd.DataFrame({"A": [1.0, 2, 3, 4]}, index=pd.date_range("2018-01-02", periods=4))}
     node = parse("zscore(ma(close, 2))")
@@ -68,7 +71,8 @@ def test_evaluate_expr_sets_expr():
 
 # ---------------- write_panel 格式 ----------------
 
-def test_write_panel_format(tmp_path):
+# Scenario: write panel format.
+def test_panel_format(tmp_path):
     ev = AlphalabEvaluator(alphalab_dir=tmp_path, in_root=tmp_path / "in", out_root=tmp_path / "out")
     panel = pd.DataFrame(
         {"000001.XSHE": [0.1, 0.2, 0.3], "600519.XSHG": [0.5, 0.4, 0.3]},
@@ -83,7 +87,8 @@ def test_write_panel_format(tmp_path):
     assert df.index.name == "date"
 
 
-def test_holdout_rejects_adaptive_direction(tmp_path):
+# Scenario: holdout rejects adaptive direction.
+def test_holdout_adaptive(tmp_path):
     config = tmp_path / "adaptive.yaml"
     config.write_text(
         "sample:\n  start: 2018-01-01\n  end: 2025-12-31\n"
@@ -98,7 +103,8 @@ def test_holdout_rejects_adaptive_direction(tmp_path):
         evaluator._config_for_window()
 
 
-def test_holdout_direction_validation_is_structural(tmp_path, monkeypatch):
+# Scenario: holdout direction validation is structural.
+def test_holdout_direction(tmp_path, monkeypatch):
     import backtest.alphalab_adapter as adapter
 
     monkeypatch.setattr(adapter, "CACHE_DIR", tmp_path / "cache")
@@ -121,7 +127,8 @@ def test_holdout_direction_validation_is_structural(tmp_path, monkeypatch):
     assert loaded["direction"] == {"mode": "fixed", "value": -1}
 
 
-def test_derived_config_cache_key_includes_source_digest(tmp_path, monkeypatch):
+# Scenario: derived config cache key includes source digest.
+def test_derived_config(tmp_path, monkeypatch):
     import backtest.alphalab_adapter as adapter
 
     monkeypatch.setattr(adapter, "CACHE_DIR", tmp_path / "cache")

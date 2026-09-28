@@ -1,0 +1,47 @@
+name: loop-engine
+
+services:
+  development:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        RUST_DIST_MIRROR: "${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
+    command: ["sleep", "infinity"]
+    init: true
+    user: "${LOOP_ENGINE_UID:-1000}:${LOOP_ENGINE_GID:-1000}"
+    environment:
+      LOOP_ENGINE_RUNTIME_ROOT: /var/lib/loop-engine-dev
+      LOOP_ENGINE_RUST_DIST_MIRROR: "${LOOP_ENGINE_RUST_DIST_MIRROR:-sjtug}"
+      COREPACK_HOME: /usr/local/share/corepack
+      LOOP_TEST_POSTGRES_URL: postgresql://loop_engine_test:loop_engine_test_only@postgres:5432/loop_engine_test?sslmode=require
+    volumes:
+      - .:/workspace
+      - development-python:/workspace/.venv
+      - development-runtime:/var/lib/loop-engine-dev
+    working_dir: /workspace
+    tmpfs:
+      - /workspace/var:mode=1777
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    build:
+      context: .
+      dockerfile: infra/containers/postgres-test.Dockerfile
+    environment:
+      POSTGRES_DB: loop_engine_test
+      POSTGRES_USER: loop_engine_test
+      POSTGRES_PASSWORD: loop_engine_test_only
+    tmpfs:
+      - /var/lib/postgresql/data:size=1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loop_engine_test -d loop_engine_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    mem_limit: 1280m
+
+volumes:
+  development-python:
+  development-runtime:

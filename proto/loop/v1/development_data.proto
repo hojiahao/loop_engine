@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package loop.v1;
+
+import "loop/v1/common.proto";
+
+// DevelopmentDatasetReference is the only dataset input accepted by discovery
+// and development research RPCs. The wire validator checks only the reference
+// shape. Before persistence or execution, loopd must resolve these opaque IDs
+// through its server-owned snapshot registry and prove that every snapshot is
+// warmup, in-sample, or development-validation data; missing resolution fails
+// closed. Keeping this reference in a dependency-leaf file prevents those role
+// bindings from importing SampleRole, SampleWindow, DataSnapshot, or
+// artifact-bearing data-plane contracts, but does not itself prove data role.
+message DevelopmentDatasetReference {
+  // At most 128 snapshot IDs, sorted and unique.
+  repeated SnapshotId snapshot_ids = 1;
+  Sha256Digest manifest_sha256 = 2;
+}

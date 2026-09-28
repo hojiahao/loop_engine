@@ -1,0 +1,75 @@
+{
+  "schema": "loop.provider-deployment/v1",
+  "resolved_at": "2026-09-22T00:00:00Z",
+  "port": 8091,
+  "tls": {
+    "ca": "/private/loop-provider/ca.pem",
+    "certificate": "/private/loop-provider/server.pem",
+    "key": "/private/loop-provider/server.key"
+  },
+  "journal": "/private/loop-provider/invocations",
+  "schemas": [],
+  "principals": [
+    {
+      "certificate_sha256": "REPLACE_WITH_CLIENT_CERTIFICATE_DER_SHA256",
+      "actor_id": "loopd",
+      "actor_kind": "service",
+      "model_ids": ["maker", "checker"]
+    }
+  ],
+  "policy": {
+    "id": "native-conversation",
+    "revision": "1",
+    "input_tokens": 8192,
+    "output_tokens": 1024,
+    "maximum_usd": "1",
+    "wall_time_ms": 60000,
+    "concurrency": 2
+  },
+  "models": [
+    {
+      "id": "maker",
+      "plugin": "openai_responses",
+      "model": "REPLACE_WITH_EXACT_OPENAI_MODEL_ID",
+      "alias": "research-maker",
+      "context_tokens": 16384,
+      "output_tokens": 1024,
+      "input_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "output_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "cached_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "features": {
+        "streaming": false,
+        "tools": false,
+        "parallel_tools": false,
+        "structured_output": false,
+        "vision": false,
+        "documents": false,
+        "prompt_caching": false
+      },
+      "reasoning": "off",
+      "secret_env": "LOOP_LLM_OPENAI_API_KEY"
+    },
+    {
+      "id": "checker",
+      "plugin": "anthropic",
+      "model": "REPLACE_WITH_EXACT_ANTHROPIC_MODEL_ID",
+      "alias": "research-checker",
+      "context_tokens": 16384,
+      "output_tokens": 1024,
+      "input_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "output_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "cached_usd": "REPLACE_WITH_VERIFIED_USD_PER_MILLION",
+      "features": {
+        "streaming": false,
+        "tools": false,
+        "parallel_tools": false,
+        "structured_output": false,
+        "vision": false,
+        "documents": false,
+        "prompt_caching": false
+      },
+      "reasoning": "off",
+      "secret_env": "LOOP_LLM_ANTHROPIC_API_KEY"
+    }
+  ]
+}
