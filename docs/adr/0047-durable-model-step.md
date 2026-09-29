@@ -1,7 +1,8 @@
 # ADR 0047: One durable, authorized discovery model step
 
-Status: accepted and implemented; Phase 10 unit 2, local acceptance passed.
-Publication and exact-commit remote CI remain delivery gates.
+Status: accepted and implemented; Phase 10 unit 2 complete. Local acceptance
+passed; commit `a97e801` is pushed and exact-commit CI `36527876755` passed all
+seven jobs.
 
 ## Problem
 

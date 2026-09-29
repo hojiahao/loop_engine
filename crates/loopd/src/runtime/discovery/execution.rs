@@ -34,17 +34,19 @@ impl DiscoveryExecutor {
             .as_ref()
             .ok_or(StoreError::Corrupt("discovery job ID"))?
             .value;
-        let prior = store.model_step(actor, job_id).await?;
-        let mut step = if let Some(step) = prior {
+        let history = store.model_history(actor, job_id).await?;
+        check_history(plan, &history)?;
+        let mut step = if let Some(step) = history.last() {
             if step.job.revision != expected_revision {
                 return Err(StoreError::RevisionConflict);
             }
-            check_request(plan, &step)?;
-            if step.state == ModelStepState::Completed {
-                return self.view(&step.job, Some(&step));
+            if step.state == ModelStepState::Completed
+                && step.job.state != v1::JobState::Running as i32
+            {
+                return self.view(&step.job, &history);
             }
             // A second RPC cannot borrow another in-flight handler's lease.
-            let mut takeover = command(authority, actor, &step.job)?;
+            let mut takeover = command(authority, actor, &step.job, step.ordinal)?;
             takeover.lease_id = None;
             store
                 .takeover_model(
@@ -57,105 +59,175 @@ impl DiscoveryExecutor {
                 )
                 .await?
         } else {
-            let mut invocation = plan.invocation.clone();
-            let context = context(authority, actor, job_id)?;
-            invocation.request_id = context.request_id.clone();
-            let request = InvokeModelRequest {
-                context: Some(context),
-                invocation: Some(invocation),
-            };
+            let invocation = plan
+                .tool_invocation
+                .as_ref()
+                .unwrap_or(&plan.invocation)
+                .clone();
+            let request = request(authority, actor, job_id, invocation)?;
             store
-                .reserve_model(actor, command(authority, actor, &job)?, request)
+                .reserve_model(actor, command(authority, actor, &job, 0)?, request)
                 .await?
         };
-        plan.check()?;
-        evidence.check(specification)?;
-        let send = if step.state == ModelStepState::Reserved {
-            let dispatch = store
-                .dispatch_model(actor, command(authority, actor, &step.job)?)
-                .await?;
-            step = dispatch.step;
-            dispatch.send
-        } else {
-            false
-        };
-        let timeout = remaining(authority, &step, send)?;
-        let result = if send {
-            self.provider
-                .invoke(step.request.clone(), timeout)
-                .await
-                .map(Some)
-        } else {
-            self.provider
-                .lookup(&step, context(authority, actor, job_id)?, timeout)
-                .await
-        };
-        let response = match result {
-            Ok(Some(response)) => response,
-            Ok(None) => {
-                if step.state == ModelStepState::Dispatched {
+        // The immutable plan permits at most two model turns, never an unbounded
+        // caller-driven conversation. A committed tool result is reused verbatim.
+        loop {
+            plan.check()?;
+            evidence.check(specification)?;
+            if step.state == ModelStepState::Completed {
+                if plan.tool_invocation.is_none() || step.ordinal != 0 {
+                    return Err(StoreError::Corrupt("unexpected intermediate completion"));
+                }
+                if step.tool_result.is_none() {
+                    let call = model_codec::response_call(
+                        &step.request,
+                        step.response
+                            .as_ref()
+                            .ok_or(StoreError::Corrupt("tool response"))?,
+                    )?;
+                    let result = tokio::time::timeout(
+                        Duration::from_millis(lease_millis(authority, &step)?.min(30_000) as u64),
+                        super::tools::describe(
+                            &self.data,
+                            &plan.data,
+                            specification,
+                            &plan.registry,
+                            &call,
+                        ),
+                    )
+                    .await
+                    .map_err(|_| StoreError::Unavailable("research tool deadline"))??;
                     step = store
-                        .uncertain_model(actor, command(authority, actor, &step.job)?)
+                        .record_tool(actor, command(authority, actor, &step.job, 0)?, result)
                         .await?;
                 }
-                return self.view(&step.job, Some(&step));
+                let invocation = continuation(plan, &step)?;
+                let request = request(authority, actor, job_id, invocation)?;
+                step = store
+                    .reserve_model(actor, command(authority, actor, &step.job, 1)?, request)
+                    .await?;
             }
-            Err(error) => {
-                if step.state == ModelStepState::Dispatched {
-                    // If fencing/clock checks fail the durable DISPATCHED row is
-                    // already sufficient uncertainty evidence. Never resend.
-                    let _ = store
-                        .uncertain_model(actor, command(authority, actor, &step.job)?)
-                        .await;
+            let send = if step.state == ModelStepState::Reserved {
+                let dispatch = store
+                    .dispatch_model(actor, command(authority, actor, &step.job, step.ordinal)?)
+                    .await?;
+                step = dispatch.step;
+                dispatch.send
+            } else {
+                false
+            };
+            let timeout = remaining(authority, &step, send)?;
+            let result = if send {
+                self.provider
+                    .invoke(step.request.clone(), timeout)
+                    .await
+                    .map(Some)
+            } else {
+                self.provider
+                    .lookup(&step, context(authority, actor, job_id)?, timeout)
+                    .await
+            };
+            let response = match result {
+                Ok(Some(response)) => response,
+                Ok(None) => {
+                    if step.state == ModelStepState::Dispatched {
+                        store
+                            .uncertain_model(
+                                actor,
+                                command(authority, actor, &step.job, step.ordinal)?,
+                            )
+                            .await?;
+                    }
+                    return self.inspect(store, actor, job_id).await;
                 }
-                return Err(error);
+                Err(error) => {
+                    if step.state == ModelStepState::Dispatched {
+                        // Durable dispatch evidence already prevents a resend if
+                        // a lease or clock failure blocks this uncertainty append.
+                        let _ = store
+                            .uncertain_model(
+                                actor,
+                                command(authority, actor, &step.job, step.ordinal)?,
+                            )
+                            .await;
+                    }
+                    return Err(error);
+                }
+            };
+            plan.check()?;
+            evidence.check(specification)?;
+            let intermediate = plan.tool_invocation.is_some() && step.ordinal == 0;
+            if intermediate && model_codec::response_call(&step.request, &response).is_ok() {
+                step = store
+                    .finish_call(
+                        actor,
+                        command(authority, actor, &step.job, step.ordinal)?,
+                        response,
+                    )
+                    .await?;
+                continue;
             }
-        };
-        plan.check()?;
-        evidence.check(specification)?;
-        let now = timestamp(authority.now()?);
-        let outcome = match model_codec::response_ast(&step.request, &response, &plan.registry) {
-            Ok(_) => v1::job_outcome::Outcome::Success(v1::JobSuccess { outputs: vec![] }),
-            Err(_) => v1::job_outcome::Outcome::InfrastructureFailure(v1::InfrastructureFailure {
-                error: Some(v1::ServiceError {
-                    category: v1::ErrorCategory::Dependency as i32,
-                    code: "model_candidate_invalid".into(),
-                    message: "Provider output violates the frozen AST contract".into(),
-                    retryable: false,
-                    details: vec![],
-                }),
-                attempt: step.job.attempt,
-                failed_at: Some(now),
-            }),
-        };
-        step = store
-            .finish_model(
-                actor,
-                command(authority, actor, &step.job)?,
-                response,
-                v1::JobOutcome {
-                    outcome: Some(outcome),
-                },
-            )
-            .await?;
-        self.view(&step.job, Some(&step))
+            let outcome = if !intermediate
+                && model_codec::response_ast(&step.request, &response, &plan.registry).is_ok()
+            {
+                v1::job_outcome::Outcome::Success(v1::JobSuccess { outputs: vec![] })
+            } else {
+                v1::job_outcome::Outcome::InfrastructureFailure(v1::InfrastructureFailure {
+                    error: Some(v1::ServiceError {
+                        category: v1::ErrorCategory::Dependency as i32,
+                        code: "model_candidate_invalid".into(),
+                        message: "Provider output violates the frozen conversation contract".into(),
+                        retryable: false,
+                        details: vec![],
+                    }),
+                    attempt: step.job.attempt,
+                    failed_at: Some(timestamp(authority.now()?)),
+                })
+            };
+            store
+                .finish_model(
+                    actor,
+                    command(authority, actor, &step.job, step.ordinal)?,
+                    response,
+                    v1::JobOutcome {
+                        outcome: Some(outcome),
+                    },
+                )
+                .await?;
+            return self.inspect(store, actor, job_id).await;
+        }
+    }
+
+    async fn inspect(
+        &self,
+        store: &PgJobStore,
+        actor: &v1::Actor,
+        id: &str,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        let history = store.model_history(actor, id).await?;
+        let job = &history
+            .last()
+            .ok_or(StoreError::Corrupt("missing model history"))?
+            .job;
+        self.view(job, &history)
     }
 
     pub(crate) fn view(
         &self,
         job: &v1::JobRecord,
-        step: Option<&ModelStep>,
+        history: &[ModelStep],
     ) -> StoreResult<wire::DiscoveryStepView> {
         let specification = job
             .specification
             .as_ref()
             .ok_or(StoreError::Corrupt("discovery specification"))?;
         let plan = self.plan(specification)?;
-        if let Some(step) = step {
-            if step.job != *job {
-                return Err(StoreError::Corrupt("model view revision"));
-            }
-            check_request(plan, step)?;
+        check_history(plan, history)?;
+        let step = history.last();
+        if let Some(step) = step
+            && step.job != *job
+        {
+            return Err(StoreError::Corrupt("model view revision"));
         }
         let candidate = if let Some(step) = step.filter(|step| {
             step.state == ModelStepState::Completed && job.state == v1::JobState::Succeeded as i32
@@ -182,6 +254,20 @@ impl DiscoveryExecutor {
             Some(ModelStepState::Ambiguous) => wire::DiscoveryStepState::Ambiguous,
             Some(ModelStepState::Completed) => wire::DiscoveryStepState::Completed,
         };
+        let mut input = 0_u64;
+        let mut output = 0_u64;
+        let mut cost = 0_u64;
+        for step in history {
+            input = input
+                .checked_add(step.reserved_input)
+                .ok_or(StoreError::Corrupt("input reservation sum"))?;
+            output = output
+                .checked_add(step.reserved_output)
+                .ok_or(StoreError::Corrupt("output reservation sum"))?;
+            cost = cost
+                .checked_add(step.reserved_nano_usd)
+                .ok_or(StoreError::Corrupt("cost reservation sum"))?;
+        }
         Ok(wire::DiscoveryStepView {
             job: Some(wire::DiscoveryJobHandle {
                 job_id: specification.job_id.clone(),
@@ -192,30 +278,91 @@ impl DiscoveryExecutor {
             }),
             state: state as i32,
             candidate,
-            reserved_cost: step.map(|step| v1::Money {
+            reserved_cost: step.map(|_| v1::Money {
                 currency_code: "USD".into(),
-                amount: Some(v1::ExactDecimal {
-                    value: usd(step.reserved_nano_usd),
-                }),
+                amount: Some(v1::ExactDecimal { value: usd(cost) }),
             }),
-            reserved_input_tokens: step.map_or(0, |step| step.reserved_input),
-            reserved_output_tokens: step.map_or(0, |step| step.reserved_output),
+            reserved_input_tokens: input,
+            reserved_output_tokens: output,
         })
     }
 }
 
-fn check_request(plan: &super::plan::FrozenPlan, step: &ModelStep) -> StoreResult<()> {
-    let invocation = step
-        .request
-        .invocation
-        .as_ref()
-        .ok_or(StoreError::Corrupt("model invocation"))?;
-    let mut expected = plan.invocation.clone();
-    expected.request_id = invocation.request_id.clone();
-    if invocation != &expected {
-        return Err(StoreError::Corrupt("frozen invocation changed"));
+fn check_history(plan: &super::plan::FrozenPlan, history: &[ModelStep]) -> StoreResult<()> {
+    if history.len() > if plan.tool_invocation.is_some() { 2 } else { 1 } {
+        return Err(StoreError::Corrupt("model history bounds"));
+    }
+    for (index, step) in history.iter().enumerate() {
+        if step.ordinal as usize != index {
+            return Err(StoreError::Corrupt("model history order"));
+        }
+        let invocation = step
+            .request
+            .invocation
+            .as_ref()
+            .ok_or(StoreError::Corrupt("model invocation"))?;
+        let mut expected = if index == 0 {
+            plan.tool_invocation
+                .as_ref()
+                .unwrap_or(&plan.invocation)
+                .clone()
+        } else {
+            continuation(plan, &history[0])?
+        };
+        expected.request_id = invocation.request_id.clone();
+        if invocation != &expected {
+            return Err(StoreError::Corrupt("frozen invocation changed"));
+        }
     }
     Ok(())
+}
+
+fn continuation(
+    plan: &super::plan::FrozenPlan,
+    step: &ModelStep,
+) -> StoreResult<v1::ModelInvocation> {
+    let response = step
+        .response
+        .as_ref()
+        .ok_or(StoreError::Corrupt("missing tool response"))?;
+    let call = model_codec::response_call(&step.request, response)?;
+    let result = step
+        .tool_result
+        .as_ref()
+        .ok_or(StoreError::Corrupt("missing tool result"))?;
+    super::tools::validate_result(result)?;
+    if step.ordinal != 0 || result.tool_call_id != call.tool_call_id {
+        return Err(StoreError::Corrupt("conversation tool binding"));
+    }
+    let mut invocation = plan.invocation.clone();
+    invocation.messages.extend([
+        v1::ModelMessage {
+            role: v1::ModelRole::Assistant as i32,
+            content: response.content.clone(),
+        },
+        v1::ModelMessage {
+            role: v1::ModelRole::Tool as i32,
+            content: vec![v1::ContentBlock {
+                content: Some(v1::content_block::Content::ToolResult(result.clone())),
+            }],
+        },
+    ]);
+    model_codec::validate_context(&invocation.messages)?;
+    Ok(invocation)
+}
+
+fn request(
+    authority: &RuntimeAuthority,
+    actor: &v1::Actor,
+    job: &str,
+    mut invocation: v1::ModelInvocation,
+) -> StoreResult<InvokeModelRequest> {
+    let context = context(authority, actor, job)?;
+    invocation.request_id = context.request_id.clone();
+    Ok(InvokeModelRequest {
+        context: Some(context),
+        invocation: Some(invocation),
+    })
 }
 
 pub(super) fn context(
@@ -244,6 +391,7 @@ fn command(
     authority: &RuntimeAuthority,
     actor: &v1::Actor,
     job: &v1::JobRecord,
+    ordinal: u32,
 ) -> StoreResult<ModelStepCommand> {
     let id = job
         .specification
@@ -251,6 +399,7 @@ fn command(
         .and_then(|spec| spec.job_id.as_ref())
         .ok_or(StoreError::Corrupt("model job ID"))?;
     Ok(ModelStepCommand {
+        ordinal,
         context: Some(context(authority, actor, &id.value)?),
         job_id: Some(id.clone()),
         lease_id: job
@@ -261,7 +410,7 @@ fn command(
     })
 }
 
-fn remaining(authority: &RuntimeAuthority, step: &ModelStep, send: bool) -> StoreResult<Duration> {
+fn lease_millis(authority: &RuntimeAuthority, step: &ModelStep) -> StoreResult<i64> {
     let expires = step
         .job
         .active_lease
@@ -273,10 +422,18 @@ fn remaining(authority: &RuntimeAuthority, step: &ModelStep, send: bool) -> Stor
         .checked_mul(1000)
         .and_then(|value| value.checked_add(i64::from(expires.nanos) / 1_000_000))
         .ok_or(StoreError::Corrupt("model lease time"))?;
-    let millis = expiry - authority.now()? - 1_000;
+    let millis = expiry
+        .checked_sub(authority.now()?)
+        .and_then(|value| value.checked_sub(1_000))
+        .ok_or(StoreError::Corrupt("model lease time"))?;
     if millis <= 0 {
         return Err(StoreError::LeaseFenced);
     }
+    Ok(millis)
+}
+
+fn remaining(authority: &RuntimeAuthority, step: &ModelStep, send: bool) -> StoreResult<Duration> {
+    let millis = lease_millis(authority, step)?;
     let invocation_limit = model_duration(
         step.request
             .invocation
@@ -338,6 +495,8 @@ mod tests {
 
     fn step(wall_seconds: i64, lease_millis: i64) -> ModelStep {
         ModelStep {
+            ordinal: 0,
+            tool_result: None,
             job: v1::JobRecord {
                 active_lease: Some(v1::JobLease {
                     expires_at: Some(timestamp(NOW + lease_millis)),

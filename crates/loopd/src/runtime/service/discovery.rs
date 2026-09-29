@@ -120,15 +120,15 @@ impl DiscoveryService for RuntimeService {
             .as_ref()
             .ok_or_else(|| status(StoreError::Invalid("discovery job ID")))?
             .value;
-        let step = self
+        let history = self
             .store
-            .model_step(&principal.actor, id)
+            .model_history(&principal.actor, id)
             .await
             .map_err(status)?;
         // The second store read is the authoritative same-transaction projection;
         // a concurrent completion must not combine an old job with a newer step.
-        let current = step.as_ref().map_or(&job, |step| &step.job);
-        let view = executor.view(current, step.as_ref()).map_err(status)?;
+        let current = history.last().map_or(&job, |step| &step.job);
+        let view = executor.view(current, &history).map_err(status)?;
         Ok(Response::new(wire::GetDiscoveryResponse {
             step: Some(view),
         }))

@@ -3,7 +3,7 @@
 mod fixture;
 use crate::test_support::tls;
 
-use loop_protocol::wire::{discovery::v1 as wire, provider::v1 as provider};
+use loop_protocol::wire::{discovery::v1 as wire, provider::v1 as provider, v1};
 use prost::Message;
 use std::sync::atomic::Ordering;
 
@@ -264,6 +264,7 @@ async fn reserve(case: &Case, job: &wire::DiscoveryJobHandle) -> crate::store::M
         .reserve_model(
             &case.actor(),
             ModelStepCommand {
+                ordinal: 0,
                 context: Some(case.context()),
                 job_id: job.job_id.clone(),
                 lease_id: None,
@@ -282,6 +283,7 @@ async fn dispatch(case: &Case, job: &wire::DiscoveryJobHandle) -> crate::store::
         .dispatch_model(
             &case.actor(),
             ModelStepCommand {
+                ordinal: 0,
                 context: Some(case.context()),
                 job_id: job.job_id.clone(),
                 lease_id: reserved.job.active_lease.as_ref().unwrap().lease_id.clone(),
@@ -352,5 +354,292 @@ async fn receipt_recovery() {
         persisted.request.encode_to_vec(),
         dispatched.request.encode_to_vec()
     );
+    case.close().await;
+}
+
+#[tokio::test]
+async fn controlled_roundtrip() {
+    let mut case = Case::controlled().await;
+    let job = case.start().await;
+    let result = case.execute(&job).await.unwrap();
+    assert_eq!(
+        result.job.as_ref().unwrap().status,
+        wire::DiscoveryJobStatus::Succeeded as i32
+    );
+    assert!(result.candidate.is_some());
+    assert_eq!(result.reserved_input_tokens, 8192);
+    assert_eq!(result.reserved_output_tokens, 256);
+    assert_eq!(
+        result
+            .reserved_cost
+            .as_ref()
+            .unwrap()
+            .amount
+            .as_ref()
+            .unwrap()
+            .value,
+        "2"
+    );
+    assert_eq!(case.calls(), 2);
+    let history = case
+        .store
+        .model_history(&case.actor(), &job.job_id.as_ref().unwrap().value)
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].ordinal, 0);
+    assert_eq!(history[1].ordinal, 1);
+    let messages = &history[1].request.invocation.as_ref().unwrap().messages;
+    assert_eq!(messages.len(), 3);
+    assert_eq!(
+        messages[1].content,
+        history[0].response.as_ref().unwrap().content
+    );
+    assert_eq!(
+        messages[2].content[0].content,
+        Some(v1::content_block::Content::ToolResult(
+            history[0].tool_result.clone().unwrap()
+        ))
+    );
+    let bodies = case.supplier_bodies();
+    assert_eq!(bodies.len(), 2);
+    assert_eq!(bodies[0]["tool_choice"], "required");
+    assert_eq!(bodies[1]["tool_choice"], "none");
+    let description: serde_json::Value =
+        serde_json::from_str(bodies[1]["messages"][2]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(description["snapshot_ids"][0], "snapshot.discovery");
+    assert_eq!(description["sample"]["role"], "in_sample");
+    assert_eq!(
+        description["artifacts"][0]["schema"]["name"],
+        "loop.synthetic_prices"
+    );
+    case.restart().await;
+    assert_eq!(case.read(result.job.as_ref().unwrap()).await, result);
+    assert_eq!(
+        case.execute(result.job.as_ref().unwrap()).await.unwrap(),
+        result
+    );
+    assert_eq!(case.calls(), 2);
+    case.close().await;
+}
+
+#[tokio::test]
+async fn unknown_tool() {
+    let mut case = Case::controlled().await;
+    case.invalid_tool("unknown");
+    denied_tool(&case).await;
+    case.close().await;
+}
+
+#[tokio::test]
+async fn extra_arguments() {
+    let mut case = Case::controlled().await;
+    case.invalid_tool("arguments");
+    denied_tool(&case).await;
+    case.close().await;
+}
+
+async fn denied_tool(case: &Case) {
+    let job = case.start().await;
+    if let Ok(result) = case.execute(&job).await {
+        assert!(result.candidate.is_none());
+        assert_ne!(
+            result.job.as_ref().unwrap().status,
+            wire::DiscoveryJobStatus::Succeeded as i32
+        );
+    }
+    assert_eq!(case.calls(), 1);
+    let history = case
+        .store
+        .model_history(&case.actor(), &job.job_id.unwrap().value)
+        .await
+        .unwrap();
+    assert_eq!(history.len(), 1);
+    assert!(history[0].tool_result.is_none());
+}
+
+#[tokio::test]
+async fn protected_tool() {
+    let mut case = Case::controlled_protected().await;
+    let job = case.start().await;
+    assert_eq!(
+        case.execute(&job).await.unwrap_err().code(),
+        tonic::Code::PermissionDenied
+    );
+    assert_eq!(case.calls(), 0);
+    assert!(
+        case.store
+            .model_history(&case.actor(), &job.job_id.unwrap().value)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    case.close().await;
+}
+
+#[tokio::test]
+async fn corrupt_tool_data() {
+    let mut case = Case::controlled().await;
+    let job = case.start().await;
+    case.corrupt_data();
+    assert!(case.execute(&job).await.is_err());
+    assert_eq!(case.calls(), 0);
+    assert!(
+        case.store
+            .model_history(&case.actor(), &job.job_id.unwrap().value)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    case.close().await;
+}
+
+fn step_command(case: &Case, step: &crate::store::ModelStep) -> ModelStepCommand {
+    ModelStepCommand {
+        ordinal: step.ordinal,
+        context: Some(case.context()),
+        job_id: step.job.specification.as_ref().unwrap().job_id.clone(),
+        lease_id: step.job.active_lease.as_ref().unwrap().lease_id.clone(),
+        expected_revision: step.job.revision,
+    }
+}
+
+async fn invoke(case: &Case, step: &crate::store::ModelStep) -> v1::ModelResponse {
+    let mut request = tonic::Request::new(step.request.clone());
+    request.set_timeout(std::time::Duration::from_secs(5));
+    case.provider()
+        .await
+        .invoke_model(request)
+        .await
+        .unwrap()
+        .into_inner()
+        .response
+        .unwrap()
+}
+
+async fn complete_call(case: &Case, job: &wire::DiscoveryJobHandle) -> crate::store::ModelStep {
+    let step = dispatch(case, job).await;
+    let response = invoke(case, &step).await;
+    case.store
+        .finish_call(&case.actor(), step_command(case, &step), response)
+        .await
+        .unwrap()
+}
+
+async fn commit_tool(case: &Case, step: &crate::store::ModelStep) -> crate::store::ModelStep {
+    let result = case.tool_result(step).await;
+    case.store
+        .record_tool(&case.actor(), step_command(case, step), result)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn tool_reply_recovery() {
+    let mut case = Case::controlled().await;
+    let job = case.start().await;
+    let completed = complete_call(&case, &job).await;
+    assert!(completed.tool_result.is_none());
+    case.resume_provider().await;
+    case.clock.0.store(36_000, Ordering::SeqCst);
+    case.restart().await;
+    let current = case.read(&job).await;
+    let result = case.execute(current.job.as_ref().unwrap()).await.unwrap();
+    assert!(result.candidate.is_some());
+    assert_eq!(case.calls(), 2);
+    let history = case
+        .store
+        .model_history(&case.actor(), &job.job_id.unwrap().value)
+        .await
+        .unwrap();
+    assert_eq!(history[0].request, completed.request);
+    assert_eq!(history[0].response, completed.response);
+    assert!(history[0].tool_result.is_some());
+    case.close().await;
+}
+
+#[tokio::test]
+async fn tool_commit_recovery() {
+    let mut case = Case::controlled().await;
+    let job = case.start().await;
+    let completed = complete_call(&case, &job).await;
+    let committed = commit_tool(&case, &completed).await;
+    case.resume_provider().await;
+    case.clock.0.store(36_000, Ordering::SeqCst);
+    case.restart().await;
+    let current = case.read(&job).await;
+    let result = case.execute(current.job.as_ref().unwrap()).await.unwrap();
+    assert!(result.candidate.is_some());
+    assert_eq!(case.calls(), 2);
+    let history = case
+        .store
+        .model_history(&case.actor(), &job.job_id.unwrap().value)
+        .await
+        .unwrap();
+    assert_eq!(history[0].tool_result, committed.tool_result);
+    assert_eq!(history[0].request, committed.request);
+    case.close().await;
+}
+
+#[tokio::test]
+async fn final_receipt_recovery() {
+    let mut case = Case::controlled().await;
+    let job = case.start().await;
+    let completed = complete_call(&case, &job).await;
+    let committed = commit_tool(&case, &completed).await;
+    let mut invocation = case.final_invocation();
+    let context = case.context();
+    invocation.request_id = context.request_id.clone();
+    invocation.messages.extend([
+        v1::ModelMessage {
+            role: v1::ModelRole::Assistant as i32,
+            content: committed.response.as_ref().unwrap().content.clone(),
+        },
+        v1::ModelMessage {
+            role: v1::ModelRole::Tool as i32,
+            content: vec![v1::ContentBlock {
+                content: Some(v1::content_block::Content::ToolResult(
+                    committed.tool_result.clone().unwrap(),
+                )),
+            }],
+        },
+    ]);
+    let mut command = step_command(&case, &committed);
+    command.ordinal = 1;
+    let reserved = case
+        .store
+        .reserve_model(
+            &case.actor(),
+            command,
+            provider::InvokeModelRequest {
+                context: Some(context),
+                invocation: Some(invocation),
+            },
+        )
+        .await
+        .unwrap();
+    let dispatched = case
+        .store
+        .dispatch_model(&case.actor(), step_command(&case, &reserved))
+        .await
+        .unwrap();
+    assert!(dispatched.send);
+    let response = invoke(&case, &dispatched.step).await;
+    assert_eq!(case.calls(), 2);
+    // The final Provider receipt exists; its Rust result transaction never ran.
+    case.restart_provider().await;
+    case.clock.0.store(11_000, Ordering::SeqCst);
+    case.restart().await;
+    let current = case.read(&job).await;
+    let result = case.execute(current.job.as_ref().unwrap()).await.unwrap();
+    assert!(result.candidate.is_some());
+    assert_eq!(case.calls(), 2);
+    let history = case
+        .store
+        .model_history(&case.actor(), &job.job_id.unwrap().value)
+        .await
+        .unwrap();
+    assert_eq!(history[1].response, Some(response));
+    assert_eq!(history[1].request, dispatched.step.request);
     case.close().await;
 }

@@ -4,6 +4,7 @@ mod execution;
 mod plan;
 #[cfg(test)]
 mod tests;
+mod tools;
 mod transport;
 
 use std::path::{Path, PathBuf};

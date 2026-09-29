@@ -418,6 +418,8 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.model.uncertain"
                 | "loop.model.finish"
                 | "loop.model.takeover"
+                | "loop.model.call"
+                | "loop.tool.record"
         ),
         Role::Provider => false,
     }

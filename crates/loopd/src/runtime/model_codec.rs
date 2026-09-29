@@ -13,6 +13,9 @@ use crate::store::{StoreError, StoreResult};
 const REQUEST_DOMAIN: &[u8] = b"loop.provider-invocation/v1\0";
 const MAX_DOCUMENT: usize = 262_144;
 
+mod tools;
+pub(crate) use tools::{describe_tool, response_call, validate_context, validate_tools};
+
 /// The sole structured-output schema admitted by a discovery plan.
 ///
 /// An object envelope avoids protocol-specific top-level union restrictions.
@@ -74,6 +77,12 @@ pub(crate) fn validate_template(invocation: &wire::ModelInvocation) -> StoreResu
         return Err(invalid());
     }
     for message in &invocation.messages {
+        if !matches!(
+            wire::ModelRole::try_from(message.role),
+            Ok(wire::ModelRole::System | wire::ModelRole::User)
+        ) {
+            return Err(invalid());
+        }
         message_json(message)?;
     }
     model_json(required(&invocation.model)?)?;
@@ -83,8 +92,8 @@ pub(crate) fn validate_template(invocation: &wire::ModelInvocation) -> StoreResu
 
 /// Hash the exact Provider journal projection, not protobuf wire bytes.
 ///
-/// Only the first Harness profile (system/user text, strict structured output,
-/// no tools) is accepted. Unknown enums and unsupported content fail closed.
+/// Accepts the frozen text/AST profile or the fixed research-description
+/// conversation. Unknown enums and unsupported content fail closed.
 /// This checks representation; deployment authorization remains with the caller.
 pub(crate) fn request_digest(request: &InvokeModelRequest) -> StoreResult<[u8; 32]> {
     let value = request_json(request)?;
@@ -101,16 +110,28 @@ pub(crate) fn request_digest(request: &InvokeModelRequest) -> StoreResult<[u8; 3
 fn request_json(request: &InvokeModelRequest) -> StoreResult<Value> {
     let context = required(&request.context)?;
     let invocation = required(&request.invocation)?;
-    if !invocation.tools.is_empty() || invocation.tool_choice.is_some() {
-        return Err(invalid());
-    }
     let model = required(&invocation.model)?;
-    let structured = required(&invocation.structured_output)?;
-    if structured.strict != Some(true)
-        || invocation.messages.is_empty()
-        || invocation.messages.len() > 512
-    {
-        return Err(invalid());
+    if invocation.tools.is_empty() && invocation.tool_choice.is_none() {
+        // Preserve the journal representation of older schema registrations;
+        // final AST acceptance still requires the installed AST schema.
+        if required(&invocation.structured_output)?.strict != Some(true)
+            || invocation.messages.is_empty()
+            || invocation.messages.len() > 512
+            || invocation.messages.iter().any(|message| {
+                !matches!(
+                    wire::ModelRole::try_from(message.role),
+                    Ok(wire::ModelRole::System | wire::ModelRole::User)
+                )
+            })
+        {
+            return Err(invalid());
+        }
+    } else {
+        let final_turn = invocation.structured_output.is_some();
+        validate_tools(invocation, final_turn)?;
+        if final_turn && !tools::has_history(&invocation.messages) {
+            return Err(invalid());
+        }
     }
     let mut command = Map::new();
     id_field(
@@ -168,15 +189,37 @@ fn request_json(request: &InvokeModelRequest) -> StoreResult<Value> {
         .map(message_json)
         .collect::<StoreResult<Vec<_>>>()?;
     body.insert("messages".into(), messages.into());
-    let mut output = Map::new();
-    text_field(&mut output, "name", &structured.name);
-    text_field(&mut output, "description", &structured.description);
-    output.insert("strict".into(), true.into());
-    output.insert(
-        "jsonSchema".into(),
-        schema_json(required(&structured.json_schema)?),
-    );
-    body.insert("structuredOutput".into(), output.into());
+    if let Some(structured) = &invocation.structured_output {
+        let mut output = Map::new();
+        text_field(&mut output, "name", &structured.name);
+        text_field(&mut output, "description", &structured.description);
+        output.insert("strict".into(), true.into());
+        output.insert(
+            "jsonSchema".into(),
+            schema_json(required(&structured.json_schema)?),
+        );
+        body.insert("structuredOutput".into(), output.into());
+    }
+    if !invocation.tools.is_empty() {
+        body.insert(
+            "tools".into(),
+            invocation
+                .tools
+                .iter()
+                .map(tools::tool_json)
+                .collect::<StoreResult<Vec<_>>>()?
+                .into(),
+        );
+    }
+    if let Some(choice) = &invocation.tool_choice {
+        let mode = wire::ToolChoiceMode::try_from(choice.mode).map_err(|_| invalid())?;
+        let mut fields = Map::new();
+        if choice.mode != 0 {
+            fields.insert("mode".into(), mode.as_str_name().into());
+        }
+        text_field(&mut fields, "namedTool", &choice.named_tool);
+        body.insert("toolChoice".into(), fields.into());
+    }
     body.insert("budget".into(), budget_json(required(&invocation.budget)?)?);
     if let Some(policy) = &invocation.request_policy {
         let mut value = Map::new();
@@ -298,8 +341,13 @@ fn model_json(model: &wire::ModelResolutionSnapshot) -> StoreResult<Value> {
 
 fn message_json(message: &wire::ModelMessage) -> StoreResult<Value> {
     let role = wire::ModelRole::try_from(message.role).map_err(|_| invalid())?;
-    if !matches!(role, wire::ModelRole::System | wire::ModelRole::User)
-        || message.content.is_empty()
+    if !matches!(
+        role,
+        wire::ModelRole::System
+            | wire::ModelRole::User
+            | wire::ModelRole::Assistant
+            | wire::ModelRole::Tool
+    ) || message.content.is_empty()
         || message.content.len() > 256
     {
         return Err(invalid());
@@ -307,13 +355,22 @@ fn message_json(message: &wire::ModelMessage) -> StoreResult<Value> {
     let blocks = message
         .content
         .iter()
-        .map(|block| {
-            let Some(wire::content_block::Content::Text(text)) = &block.content else {
-                return Err(invalid());
-            };
-            let mut fields = Map::new();
-            text_field(&mut fields, "text", &text.text);
-            Ok(json!({"text": fields}))
+        .map(|block| match (&block.content, role) {
+            (
+                Some(wire::content_block::Content::Text(text)),
+                wire::ModelRole::System | wire::ModelRole::User,
+            ) => {
+                let mut fields = Map::new();
+                text_field(&mut fields, "text", &text.text);
+                Ok(json!({"text": fields}))
+            }
+            (Some(wire::content_block::Content::ToolCall(call)), wire::ModelRole::Assistant) => {
+                tools::call_json(call).map(|value| json!({"toolCall":value}))
+            }
+            (Some(wire::content_block::Content::ToolResult(result)), wire::ModelRole::Tool) => {
+                tools::result_json(result).map(|value| json!({"toolResult":value}))
+            }
+            _ => Err(invalid()),
         })
         .collect::<StoreResult<Vec<_>>>()?;
     Ok(json!({"role": role.as_str_name(), "content": blocks}))
@@ -437,28 +494,8 @@ pub(crate) fn response_ast(
     response: &wire::ModelResponse,
     registry: &domain::OperatorPolicyRegistry,
 ) -> StoreResult<wire::CanonicalFactorAst> {
-    request_digest(request)?;
+    response_valid(request, response, wire::ModelFinishReason::Stop)?;
     let invocation = required(&request.invocation)?;
-    let model = required(&invocation.model)?;
-    let budget = required(&invocation.budget)?;
-    let usage = required(&response.usage)?;
-    if response.request_id != invocation.request_id
-        || response.request_id.is_none()
-        || response.resolution_id != model.resolution_id
-        || response.resolution_id.is_none()
-        || response.finish_reason != wire::ModelFinishReason::Stop as i32
-        || response.content.len() != 1
-        || usage.input_tokens > budget.maximum_input_tokens
-        || usage.output_tokens > budget.maximum_output_tokens
-        || usage
-            .cached_input_tokens
-            .checked_add(usage.cache_creation_input_tokens)
-            .is_none_or(|value| value > usage.input_tokens)
-        || usage.reasoning_tokens > usage.output_tokens
-        || usage.charged_cost.is_some()
-    {
-        return Err(invalid());
-    }
     let Some(wire::content_block::Content::StructuredOutput(output)) = &response.content[0].content
     else {
         return Err(invalid());
@@ -514,6 +551,36 @@ pub(crate) fn response_ast(
         canonicalization_profile: "loop.factor-ast/v1".into(),
         canonical_json,
     })
+}
+
+fn response_valid(
+    request: &InvokeModelRequest,
+    response: &wire::ModelResponse,
+    finish: wire::ModelFinishReason,
+) -> StoreResult<()> {
+    request_digest(request)?;
+    let invocation = required(&request.invocation)?;
+    let model = required(&invocation.model)?;
+    let budget = required(&invocation.budget)?;
+    let usage = required(&response.usage)?;
+    if response.request_id != invocation.request_id
+        || response.request_id.is_none()
+        || response.resolution_id != model.resolution_id
+        || response.resolution_id.is_none()
+        || response.finish_reason != finish as i32
+        || response.content.len() != 1
+        || usage.input_tokens > budget.maximum_input_tokens
+        || usage.output_tokens > budget.maximum_output_tokens
+        || usage
+            .cached_input_tokens
+            .checked_add(usage.cache_creation_input_tokens)
+            .is_none_or(|value| value > usage.input_tokens)
+        || usage.reasoning_tokens > usage.output_tokens
+        || usage.charged_cost.is_some()
+    {
+        return Err(invalid());
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]

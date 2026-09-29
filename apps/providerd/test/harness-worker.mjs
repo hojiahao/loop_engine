@@ -17,19 +17,47 @@ import { create_provider_rpc } from "../dist/rpc.js";
 
 const root = process.argv[2];
 const recovery = process.argv[3] === "recover";
+const resume = process.argv[3] === "resume";
 if (!root?.startsWith("/")) throw new Error("fixture_root_required");
-let calls = 0;
+const saved =
+  recovery || resume ? JSON.parse(await readFile(join(root, "provider.json"), "utf8")) : undefined;
+let calls = JSON.parse(await readFile(join(root, "supplier-calls.json"), "utf8").catch(() => "0"));
+const bodies = JSON.parse(
+  await readFile(join(root, "supplier-bodies.json"), "utf8").catch(() => "[]"),
+);
 const supplier = createServer(async (request, response) => {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   const body = JSON.parse(Buffer.concat(chunks).toString());
   if (request.url !== "/v1/chat/completions") throw new Error("fixture_route_denied");
   calls++;
+  bodies.push(body);
   await writeFile(join(root, "supplier-calls.json"), JSON.stringify(calls), { mode: 0o600 });
+  await writeFile(join(root, "supplier-bodies.json"), JSON.stringify(bodies), { mode: 0o600 });
   response.writeHead(200, { "content-type": "application/json" });
   const field = await readFile(join(root, "invalid-ast"))
     .then(() => "market.unknown")
     .catch(() => "market.close");
+  const result = body.messages.find((message) => message.role === "tool");
+  const first = body.tools?.length > 0 && !result;
+  const invalid = await readFile(join(root, "invalid-tool"), "utf8").catch(() => "");
+  if (result) {
+    const description = JSON.parse(result.content);
+    const assistant = body.messages.find((message) => message.role === "assistant");
+    if (
+      body.tool_choice !== "none" ||
+      result.tool_call_id !== "call_describe" ||
+      assistant?.tool_calls?.[0]?.id !== result.tool_call_id ||
+      description.schema !== "loop.research-description/v1" ||
+      description.sample.role !== "in_sample" ||
+      description.snapshot_ids[0] !== "snapshot.discovery" ||
+      !description.fields.some((field) => field.name === "market.close") ||
+      "uri" in description ||
+      "path" in description
+    ) {
+      throw new Error("fixture_tool_context_invalid");
+    }
+  }
   response.end(
     JSON.stringify({
       id: "synthetic-discovery",
@@ -39,23 +67,48 @@ const supplier = createServer(async (request, response) => {
       choices: [
         {
           index: 0,
-          finish_reason: "stop",
-          message: {
-            role: "assistant",
-            content: JSON.stringify({ ast: { node: "field", field } }),
-          },
+          finish_reason: first ? "tool_calls" : "stop",
+          message: first
+            ? {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "call_describe",
+                    type: "function",
+                    function: {
+                      name: invalid === "unknown" ? "unregistered_tool" : "research_describe",
+                      arguments:
+                        invalid === "arguments" ? JSON.stringify({ path: "/tmp/private" }) : "{}",
+                    },
+                  },
+                ],
+              }
+            : {
+                role: "assistant",
+                content: JSON.stringify({ ast: { node: "field", field } }),
+              },
         },
       ],
       usage: { prompt_tokens: 12, completion_tokens: 18, total_tokens: 30 },
     }),
   );
 });
-supplier.listen(0, "127.0.0.1");
+supplier.listen(
+  resume ? Number(new URL(saved.models[0].compatible.base_url).port) : 0,
+  "127.0.0.1",
+);
 await once(supplier, "listening");
 const schema = JSON.parse(await readFile(join(root, "schema-reference.json"), "utf8"));
 const certificate = new X509Certificate(await readFile(join(root, "tls/client.pem")));
-const configuration = recovery
-  ? JSON.parse(await readFile(join(root, "provider.json"), "utf8"))
+const tool_schemas = await Promise.all(
+  ["tool-input", "tool-result"].map(async (name) => ({
+    ...JSON.parse(await readFile(join(root, `${name}-reference.json`), "utf8")),
+    path: join(root, `${name}.json`),
+  })),
+);
+const configuration = saved
+  ? saved
   : {
       schema: "loop.provider-deployment/v1",
       resolved_at: new Date().toISOString(),
@@ -66,7 +119,7 @@ const configuration = recovery
         key: join(root, "tls/server.key"),
       },
       journal: join(root, "journal"),
-      schemas: [{ ...schema, path: join(root, "ast-schema.json") }],
+      schemas: [{ ...schema, path: join(root, "ast-schema.json") }, ...tool_schemas],
       principals: [
         {
           certificate_sha256: createHash("sha256").update(certificate.raw).digest("hex"),
@@ -96,11 +149,14 @@ const configuration = recovery
           input_usd: "1",
           output_usd: "2",
           cached_usd: "0.1",
-          features: { structured_output: true },
+          features: { structured_output: true, tools: true },
           compatible: {
             base_url: `http://127.0.0.1:${supplier.address().port}/v1`,
             wire: "chat",
             auth: "none",
+            // This synthetic endpoint exercises the strict tool contract. The
+            // compatible adapter otherwise defaults to denying strict tools.
+            strict_tools: true,
           },
         },
       ],
@@ -110,9 +166,9 @@ const host = new ProviderHost(config, await plugin_digest(), {}, fetch, {}, reco
 await open_journal(config.journal, !recovery);
 const shutdown = new AbortController();
 const rpc = await create_provider_rpc(host, shutdown.signal);
-rpc.listen(recovery ? config.port : 0, "127.0.0.1");
+rpc.listen(saved ? config.port : 0, "127.0.0.1");
 await once(rpc, "listening");
-if (!recovery) {
+if (!saved) {
   config.port = rpc.address().port;
   await writeFile(join(root, "provider.json"), JSON.stringify(config), { mode: 0o600 });
 }

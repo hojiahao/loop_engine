@@ -13,6 +13,7 @@ struct Fixture {
     document: Value,
     input: DiscoveryJobInput,
     invocation: wire::ModelInvocation,
+    tool_invocation: Option<wire::ModelInvocation>,
     protocol: wire::ProtocolSelectionSnapshot,
 }
 
@@ -106,6 +107,7 @@ impl Fixture {
             document,
             input,
             invocation,
+            tool_invocation: None,
             protocol,
         }
     }
@@ -114,6 +116,10 @@ impl Fixture {
         self.document["input"] = json!(put(self.directory.path(), &self.input.encode_to_vec()));
         self.document["invocation"] =
             json!(put(self.directory.path(), &self.invocation.encode_to_vec()));
+        if let Some(invocation) = &self.tool_invocation {
+            self.document["tool_invocation"] =
+                json!(put(self.directory.path(), &invocation.encode_to_vec()));
+        }
         self.document["protocol"] =
             json!(put(self.directory.path(), &self.protocol.encode_to_vec()));
         put(
@@ -126,6 +132,153 @@ impl Fixture {
         let reference = self.reference();
         FrozenPlan::load(self.directory.path(), &reference)
     }
+
+    fn controlled() -> Self {
+        let mut fixture = Self::new();
+        fixture.document["schema"] = "loop.discovery-plan/v2".into();
+        let model = fixture.input.maker_model.as_mut().unwrap();
+        model.capabilities.as_mut().unwrap().supports_tools = true;
+        fixture.invocation.model = Some(model.clone());
+        fixture.invocation.tools = vec![model_codec::describe_tool().unwrap()];
+        fixture.invocation.tool_choice = Some(wire::ToolChoice {
+            mode: wire::ToolChoiceMode::None as i32,
+            named_tool: String::new(),
+        });
+        let money = |amount: &str| wire::Money {
+            currency_code: "USD".into(),
+            amount: Some(wire::ExactDecimal {
+                value: amount.into(),
+            }),
+        };
+        fixture.invocation.budget.as_mut().unwrap().maximum_cost = Some(money("1"));
+        let budget = fixture.input.budget.as_mut().unwrap();
+        budget.maximum_steps = 3;
+        budget.maximum_input_tokens *= 2;
+        budget.maximum_output_tokens *= 2;
+        budget.maximum_cost = Some(money("2"));
+        let mut first = fixture.invocation.clone();
+        first.structured_output = None;
+        first.tool_choice.as_mut().unwrap().mode = wire::ToolChoiceMode::Required as i32;
+        fixture.tool_invocation = Some(first);
+        fixture
+            .protocol
+            .enabled_features
+            .push("discovery.tool-context.v1".into());
+        fixture.protocol.enabled_features.sort();
+        fixture.protocol.selection_sha256 = Some(wire::Sha256Digest {
+            value: protocol_selection_sha256(&fixture.protocol)
+                .unwrap()
+                .to_vec(),
+        });
+        fixture
+    }
+}
+
+#[test]
+fn controlled_plan() {
+    let plan = Fixture::controlled().load().unwrap();
+    assert!(plan.tool_invocation.is_some());
+    assert_eq!(plan.input.budget.unwrap().maximum_steps, 3);
+}
+
+#[test]
+fn template_messages() {
+    let mut fixture = Fixture::controlled();
+    fixture.tool_invocation.as_mut().unwrap().messages[0].content = vec![];
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn history_capacity() {
+    let mut fixture = Fixture::controlled();
+    let message = fixture.invocation.messages[0].clone();
+    fixture.invocation.messages = vec![message; 31];
+    fixture.tool_invocation.as_mut().unwrap().messages = fixture.invocation.messages.clone();
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn history_bytes() {
+    let mut fixture = Fixture::controlled();
+    let Some(wire::content_block::Content::Text(text)) =
+        &mut fixture.invocation.messages[0].content[0].content
+    else {
+        panic!("text fixture")
+    };
+    text.text = "x".repeat(112_641);
+    fixture.tool_invocation.as_mut().unwrap().messages = fixture.invocation.messages.clone();
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn cumulative_input() {
+    let mut fixture = Fixture::controlled();
+    fixture.input.budget.as_mut().unwrap().maximum_input_tokens -= 1;
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn cumulative_output() {
+    let mut fixture = Fixture::controlled();
+    fixture.input.budget.as_mut().unwrap().maximum_output_tokens -= 1;
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn cumulative_cost() {
+    let mut fixture = Fixture::controlled();
+    fixture
+        .input
+        .budget
+        .as_mut()
+        .unwrap()
+        .maximum_cost
+        .as_mut()
+        .unwrap()
+        .amount
+        .as_mut()
+        .unwrap()
+        .value = "1.9".into();
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn cumulative_wall() {
+    let mut fixture = Fixture::controlled();
+    fixture
+        .input
+        .budget
+        .as_mut()
+        .unwrap()
+        .maximum_wall_time
+        .as_mut()
+        .unwrap()
+        .seconds = 90;
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn tools_capability() {
+    let mut fixture = Fixture::controlled();
+    fixture
+        .input
+        .maker_model
+        .as_mut()
+        .unwrap()
+        .capabilities
+        .as_mut()
+        .unwrap()
+        .supports_tools = false;
+    fixture.invocation.model = fixture.input.maker_model.clone();
+    fixture.tool_invocation.as_mut().unwrap().model = fixture.input.maker_model.clone();
+    assert!(fixture.load().is_err());
+}
+
+#[test]
+fn legacy_tools() {
+    let mut fixture = Fixture::controlled();
+    fixture.document["schema"] = "loop.discovery-plan/v1".into();
+    assert!(fixture.load().is_err());
 }
 
 fn put(root: &Path, bytes: &[u8]) -> ObjectRef {

@@ -53,14 +53,22 @@ pub(super) struct Case {
 
 impl Case {
     pub(super) async fn open() -> Self {
-        Self::open_for(false).await
+        Self::open_for(false, false).await
     }
 
     pub(super) async fn protected() -> Self {
-        Self::open_for(true).await
+        Self::open_for(true, false).await
     }
 
-    async fn open_for(protected: bool) -> Self {
+    pub(super) async fn controlled() -> Self {
+        Self::open_for(false, true).await
+    }
+
+    pub(super) async fn controlled_protected() -> Self {
+        Self::open_for(true, true).await
+    }
+
+    async fn open_for(protected: bool, controlled: bool) -> Self {
         let directory = tempfile::Builder::new()
             .prefix("loop-discovery-e2e-")
             .tempdir()
@@ -85,7 +93,27 @@ impl Case {
             }))
             .unwrap(),
         );
-        let (child, ready) = worker(directory.path(), false).await;
+        for (name, schema) in [
+            (
+                "tool-input",
+                model_codec::describe_tool().unwrap().input_schema.unwrap(),
+            ),
+            ("tool-result", super::super::tools::result_schema().unwrap()),
+        ] {
+            private_file(
+                &directory.path().join(format!("{name}.json")),
+                &schema.canonical_json,
+            );
+            private_file(
+                &directory.path().join(format!("{name}-reference.json")),
+                &serde_json::to_vec(
+                    &json!({"id":schema.schema_id,"version":schema.schema_version,
+                    "sha256":format!("{:x}", Sha256::digest(&schema.canonical_json))}),
+                )
+                .unwrap(),
+            );
+        }
+        let (child, ready) = worker(directory.path(), "normal").await;
         let port = ready["port"].as_u64().unwrap() as u16;
         let model = v1::ModelResolutionSnapshot::decode(
             STANDARD
@@ -120,10 +148,17 @@ impl Case {
             maker_model: Some(model.clone()),
             checker_model: Some(model.clone()),
             budget: Some(wire::DiscoveryJobBudget {
-                maximum_steps: 1,
-                maximum_input_tokens: 4096,
-                maximum_output_tokens: 128,
-                maximum_cost: Some(cost.clone()),
+                maximum_steps: if controlled { 3 } else { 1 },
+                maximum_input_tokens: if controlled { 8192 } else { 4096 },
+                maximum_output_tokens: if controlled { 256 } else { 128 },
+                maximum_cost: Some(if controlled {
+                    v1::Money {
+                        currency_code: "USD".into(),
+                        amount: Some(v1::ExactDecimal { value: "2".into() }),
+                    }
+                } else {
+                    cost.clone()
+                }),
                 maximum_wall_time: Some(prost_types::Duration {
                     seconds: 120,
                     nanos: 0,
@@ -131,7 +166,7 @@ impl Case {
             }),
             maximum_candidates: 1,
         };
-        let invocation = v1::ModelInvocation {
+        let mut invocation = v1::ModelInvocation {
             model: Some(model), request_policy: Some(policy),
             messages: vec![v1::ModelMessage { role: v1::ModelRole::User as i32,
                 content: vec![v1::ContentBlock { content: Some(v1::content_block::Content::Text(v1::TextContent {
@@ -143,6 +178,17 @@ impl Case {
                 maximum_cost: Some(cost), maximum_wall_time: Some(prost_types::Duration { seconds: 5, nanos: 0 }) }),
             ..Default::default()
         };
+        let tool_invocation = controlled.then(|| {
+            invocation.tools = vec![model_codec::describe_tool().unwrap()];
+            invocation.tool_choice = Some(v1::ToolChoice {
+                mode: v1::ToolChoiceMode::None as i32,
+                named_tool: String::new(),
+            });
+            let mut first = invocation.clone();
+            first.structured_output = None;
+            first.tool_choice.as_mut().unwrap().mode = v1::ToolChoiceMode::Required as i32;
+            first
+        });
         let plans = directory.path().join("plans");
         let mut protocol = test_support::command(1)
             .specification
@@ -160,6 +206,12 @@ impl Case {
         ]
         .map(str::to_owned)
         .to_vec();
+        if controlled {
+            protocol
+                .enabled_features
+                .push("discovery.tool-context.v1".into());
+            protocol.enabled_features.sort();
+        }
         protocol.schema_descriptor_sha256 = Some(v1::Sha256Digest {
             value: Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).to_vec(),
         });
@@ -168,13 +220,18 @@ impl Case {
                 .unwrap()
                 .to_vec(),
         });
-        let plan = put(&plans, &serde_json::to_vec(&json!({
-            "schema":"loop.discovery-plan/v1", "id":"discovery.synthetic", "revision":"1",
+        let mut document = json!({
+            "schema":if controlled { "loop.discovery-plan/v2" } else { "loop.discovery-plan/v1" }, "id":"discovery.synthetic", "revision":"1",
             "actor_id":"agent.discovery", "run_id":"run.discovery", "provider_sha256":connector.sha256,
             "input":put(&plans, &input.encode_to_vec()), "invocation":put(&plans, &invocation.encode_to_vec()),
             "protocol":put(&plans, &protocol.encode_to_vec()), "data":data,
             "registry":put(&plans, &loop_core::factor::us_equities::registry().unwrap().canonical_bytes()),
-        })).unwrap());
+        });
+        if let Some(first) = &tool_invocation {
+            document["tool_invocation"] =
+                serde_json::to_value(put(&plans, &first.encode_to_vec())).unwrap();
+        }
+        let plan = put(&plans, &serde_json::to_vec(&document).unwrap());
         let frozen = FrozenPlan::load(&plans, &plan).unwrap();
         let clock = Arc::new(OffsetClock(AtomicI64::new(0)));
         let (store, address, task, authority, executor) =
@@ -186,7 +243,7 @@ impl Case {
             port,
             plan,
             input: frozen.input,
-            invocation: frozen.invocation,
+            invocation: frozen.tool_invocation.unwrap_or(frozen.invocation),
             store,
             clock,
             authority,
@@ -209,6 +266,39 @@ impl Case {
     }
     pub(super) fn invalid_ast(&self) {
         private_file(&self.directory.path().join("invalid-ast"), b"1");
+    }
+    pub(super) fn invalid_tool(&self, mode: &str) {
+        private_file(&self.directory.path().join("invalid-tool"), mode.as_bytes());
+    }
+    pub(super) fn supplier_bodies(&self) -> Vec<Value> {
+        serde_json::from_slice(
+            &fs::read(self.directory.path().join("supplier-bodies.json")).unwrap(),
+        )
+        .unwrap()
+    }
+    pub(super) async fn tool_result(
+        &self,
+        step: &crate::store::ModelStep,
+    ) -> v1::ToolResultContent {
+        let plan = FrozenPlan::load(&self.directory.path().join("plans"), &self.plan).unwrap();
+        let source =
+            crate::manifests::LocalArtifacts::open(&self.directory.path().join("data")).unwrap();
+        let call =
+            model_codec::response_call(&step.request, step.response.as_ref().unwrap()).unwrap();
+        super::super::tools::describe(
+            &source,
+            &plan.data,
+            step.job.specification.as_ref().unwrap(),
+            &plan.registry,
+            &call,
+        )
+        .await
+        .unwrap()
+    }
+    pub(super) fn final_invocation(&self) -> v1::ModelInvocation {
+        FrozenPlan::load(&self.directory.path().join("plans"), &self.plan)
+            .unwrap()
+            .invocation
     }
     pub(super) async fn verify_deployment(&self, job: &wire::DiscoveryJobHandle) {
         let root = self.directory.path();
@@ -355,7 +445,13 @@ impl Case {
     pub(super) async fn restart_provider(&mut self) {
         self.child.kill().await.unwrap();
         self.child.wait().await.unwrap();
-        let (child, _) = worker(self.directory.path(), true).await;
+        let (child, _) = worker(self.directory.path(), "recover").await;
+        self.child = child;
+    }
+    pub(super) async fn resume_provider(&mut self) {
+        self.child.kill().await.unwrap();
+        self.child.wait().await.unwrap();
+        let (child, _) = worker(self.directory.path(), "resume").await;
         self.child = child;
     }
     pub(super) async fn close(&mut self) {
@@ -495,20 +591,18 @@ async fn channel(tls: &tls::Credentials, port: u16, identity: &str) -> Channel {
         .unwrap()
 }
 
-async fn worker(root: &Path, recovery: bool) -> (tokio::process::Child, Value) {
+async fn worker(root: &Path, mode: &str) -> (tokio::process::Child, Value) {
     let script = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../apps/providerd/test/harness-worker.mjs");
     let mut command = tokio::process::Command::new("node");
     command
         .arg(script)
         .arg(root)
+        .arg(mode)
         .kill_on_drop(true)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
-    if recovery {
-        command.arg("recover");
-    }
     let mut child = command
         .spawn()
         .expect("build the Provider and install Node 24 before Rust integration tests");

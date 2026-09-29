@@ -20,10 +20,18 @@ async fn wait_file(path: &Path) {
 
 async fn execute(store: &PgJobStore, mode: &str, command: ModelStepCommand) -> StoreResult<bool> {
     match mode {
-        "reserve" => store
-            .reserve_model(&fixture::actor(), command, invocation())
-            .await
-            .map(|_| true),
+        "reserve" => {
+            let request = if command.ordinal == 0 {
+                invocation()
+            } else {
+                let history = store.model_history(&fixture::actor(), "job.1").await?;
+                next_request(&history[0])
+            };
+            store
+                .reserve_model(&fixture::actor(), command, request)
+                .await
+                .map(|_| true)
+        }
         "dispatch" => store
             .dispatch_model(&fixture::actor(), command)
             .await
@@ -35,7 +43,173 @@ async fn execute(store: &PgJobStore, mode: &str, command: ModelStepCommand) -> S
                 .await
                 .map(|_| true)
         }
+        "call" => {
+            let step = store.model_step(&fixture::actor(), "job.1").await?.unwrap();
+            store
+                .finish_call(&fixture::actor(), command, call_response(&step))
+                .await
+                .map(|_| true)
+        }
+        "record" => store
+            .record_tool(&fixture::actor(), command, tool_result())
+            .await
+            .map(|_| true),
         _ => panic!("test mode"),
+    }
+}
+
+#[tokio::test]
+async fn concurrent_context() {
+    for mode in ["reserve", "dispatch", "record"] {
+        for count in [2, 4, 8] {
+            let (directory, store, _) = tool_setup().await;
+            let step = if mode == "record" {
+                tool_called(&store).await
+            } else {
+                tool_ready(&store).await
+            };
+            let step = if mode == "dispatch" {
+                store
+                    .reserve_model(
+                        &fixture::actor(),
+                        next_command(&step.job, "reserve.second"),
+                        next_request(&step),
+                    )
+                    .await
+                    .unwrap()
+            } else {
+                step
+            };
+            let cmd = if mode == "record" {
+                command(&step.job, "context.concurrent")
+            } else {
+                next_command(&step.job, "context.concurrent")
+            };
+            std::fs::write(directory.path().join("command"), cmd.encode_to_vec()).unwrap();
+            let mut workers: Vec<_> = (0..count)
+                .map(|index| spawn(directory.path(), index, mode, None))
+                .collect();
+            for index in 0..count {
+                wait_file(&directory.path().join(format!("ready.{index}"))).await;
+            }
+            std::fs::write(directory.path().join("start"), b"start").unwrap();
+            for worker in &mut workers {
+                join(worker).await;
+            }
+            if mode == "dispatch" {
+                let sends = (0..count)
+                    .filter(|index| {
+                        std::fs::read(directory.path().join(format!("result.{index}"))).unwrap()
+                            == b"send"
+                    })
+                    .count();
+                assert_eq!(sends, 1);
+            }
+            let history = store
+                .model_history(&fixture::actor(), "job.1")
+                .await
+                .unwrap();
+            assert_eq!(history.len(), if mode == "record" { 1 } else { 2 });
+            assert!(history[0].tool_result.is_some());
+            assert_eq!(history.last().unwrap().job.revision, step.job.revision + 1);
+            let events = store.audit_events(0, 100).await.unwrap();
+            assert_eq!(events.len(), step.job.revision as usize + 1);
+            loop_core::audit::verify_audit_chain(&events).unwrap();
+            store.close().await;
+        }
+    }
+}
+
+#[tokio::test]
+async fn context_crashes() {
+    for mode in ["call", "record", "reserve", "dispatch", "finish"] {
+        for point in ["before", "after"] {
+            let (directory, store, clock) = tool_setup().await;
+            let step = if mode == "call" {
+                let job = store.get("job.1").await.unwrap().unwrap();
+                let step = store
+                    .reserve_model(&fixture::actor(), command(&job, "reserve"), tool_request())
+                    .await
+                    .unwrap();
+                store
+                    .dispatch_model(&fixture::actor(), command(&step.job, "dispatch"))
+                    .await
+                    .unwrap()
+                    .step
+            } else if mode == "record" {
+                tool_called(&store).await
+            } else {
+                tool_ready(&store).await
+            };
+            let step = if matches!(mode, "dispatch" | "finish") {
+                store
+                    .reserve_model(
+                        &fixture::actor(),
+                        next_command(&step.job, "reserve.second"),
+                        next_request(&step),
+                    )
+                    .await
+                    .unwrap()
+            } else {
+                step
+            };
+            let step = if mode == "finish" {
+                store
+                    .dispatch_model(
+                        &fixture::actor(),
+                        next_command(&step.job, "dispatch.second"),
+                    )
+                    .await
+                    .unwrap()
+                    .step
+            } else {
+                step
+            };
+            let cmd = if matches!(mode, "call" | "record") {
+                command(&step.job, &format!("{mode}.context"))
+            } else {
+                next_command(&step.job, &format!("{mode}.context"))
+            };
+            std::fs::write(directory.path().join("command"), cmd.encode_to_vec()).unwrap();
+            std::fs::write(directory.path().join("start"), b"start").unwrap();
+            let mut worker = spawn(
+                directory.path(),
+                0,
+                mode,
+                Some(&format!("model_{mode}_{point}")),
+            );
+            wait_file(&directory.path().join("fault")).await;
+            worker.0.kill().unwrap();
+            worker.0.wait().unwrap();
+            store.close().await;
+            let reopened = PgJobStore::open(options(&directory.path().join("state"), clock))
+                .await
+                .unwrap();
+            let observed = reopened.get("job.1").await.unwrap().unwrap();
+            assert_eq!(
+                observed.revision,
+                step.job.revision + u64::from(point == "after")
+            );
+            let sends = execute(&reopened, mode, cmd).await.unwrap();
+            if mode == "dispatch" {
+                assert_eq!(sends, point == "before");
+            }
+            let history = reopened
+                .model_history(&fixture::actor(), "job.1")
+                .await
+                .unwrap();
+            let current = history.last().unwrap();
+            assert_eq!(current.job.revision, step.job.revision + 1);
+            assert_eq!(history[0].ordinal, 0);
+            if !matches!(mode, "call" | "record") {
+                assert_eq!(history.len(), 2);
+                assert!(history[0].tool_result.is_some());
+            }
+            let events = reopened.audit_events(0, 100).await.unwrap();
+            assert_eq!(events.len(), current.job.revision as usize);
+            loop_core::audit::verify_audit_chain(&events).unwrap();
+            reopened.close().await;
+        }
     }
 }
 

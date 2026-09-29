@@ -1,8 +1,8 @@
 # Phase 10 unit 2: Durable discovery model execution
 
-Status: implementation and local acceptance passed; publication and exact-commit
-remote CI remain delivery gates. No paid supplier or production database is used
-by this acceptance.
+Status: complete. Implementation and local acceptance passed; commit `a97e801`
+is pushed and exact-commit CI `36527876755` passed all seven jobs. No paid supplier
+or production database is used by this acceptance.
 
 ## Requirement and design
 
@@ -74,9 +74,10 @@ not recur when compilation and service tests ran serially.
 
 Additional contract checks passed: 12 Python discovery/wire cases, 10 TypeScript
 discovery/wire cases and the Provider request-digest golden. `just check` also
-regenerated and compared the committed cross-language artifacts. Full-workspace
-tests and the clean DaoCloud container are mandatory remote CI gates; this local
-targeted run is not a claim that the remote jobs have already passed.
+regenerated and compared the committed cross-language artifacts. On 2026-09-29,
+exact-commit [CI 36527876755](https://github.com/hojiahao/loop_engine/actions/runs/36527876755)
+passed all seven jobs, including the full Rust workspace, unified workspace gates
+and clean DaoCloud development container.
 
 ## Reproduction
 

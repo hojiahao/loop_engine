@@ -65,7 +65,7 @@ class DiscoveryServiceServicer:
         raise NotImplementedError('Method not implemented!')
 
     def ExecuteDiscovery(self, request, context):
-        """Executes or reconciles the one model step authorized by the server-owned
+        """Executes or reconciles the bounded steps authorized by the server-owned
         frozen plan. Callers cannot replace its model, prompt, schema, or budget.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

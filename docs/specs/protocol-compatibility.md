@@ -297,6 +297,16 @@ to the raw prompt/response. Their additive capability identity is
 negotiation is implemented. UNIMPLEMENTED never permits fallback to an
 unregistered invocation or generic job mutation.
 
+The additive `discovery.tool-context.v1` runtime profile supports two frozen
+model turns with one registered read-only research-description tool between them.
+No new caller tool arguments or conversation upload enter Discovery RPCs. The
+step state is the latest model call's state; an intermediate COMPLETED call can
+belong to a RUNNING job. Only terminal success can expose a candidate. Reservation
+fields are cumulative over every model call in the job, including ambiguous
+calls. Existing one-call plans therefore retain identical numerical semantics.
+Model/tool history remains private immutable evidence; role reachability and
+the holdout boundary are unchanged.
+
 `EnqueueFactorEvaluation`, `EnqueueBacktest`, and
 `EnqueueReconciliation` return a `ResearchJobHandle` with the same narrow
 projection. Their role-owned inputs contain only narrow development-reference

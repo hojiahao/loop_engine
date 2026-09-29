@@ -11,7 +11,7 @@ use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use crate::manifests::ObjectRef;
-use crate::runtime::{deployment::read_file, model_codec::validate_template};
+use crate::runtime::{deployment::read_file, model_codec};
 use crate::store::{StoreError, StoreResult, model_duration, model_money, validate_id};
 
 const MAX_OBJECT: u64 = 1_048_576;
@@ -34,12 +34,14 @@ struct PlanDocument {
     provider_sha256: String,
     input: ObjectRef,
     invocation: ObjectRef,
+    #[serde(default)]
+    tool_invocation: Option<ObjectRef>,
     registry: ObjectRef,
     data: ObjectRef,
     protocol: ObjectRef,
 }
 
-/// An administrator-pinned, single-step plan; not caller-supplied authority.
+/// An administrator-pinned, bounded discovery plan; not caller-supplied authority.
 /// Content is rechecked before each use and never repaired or overwritten.
 pub(super) struct FrozenPlan {
     pub(super) actor_id: String,
@@ -47,6 +49,7 @@ pub(super) struct FrozenPlan {
     pub(super) provider_sha256: String,
     pub(super) input: DiscoveryJobInput,
     pub(super) invocation: wire::ModelInvocation,
+    pub(super) tool_invocation: Option<wire::ModelInvocation>,
     pub(super) registry: Arc<OperatorPolicyRegistry>,
     pub(super) data: ObjectRef,
     pub(super) protocol: wire::ProtocolSelectionSnapshot,
@@ -63,7 +66,10 @@ impl FrozenPlan {
         let bytes = load_object(root, reference, &mut files)?;
         let document: PlanDocument = serde_json::from_slice(&bytes)
             .map_err(|_| StoreError::Invalid("discovery plan JSON"))?;
-        if document.schema != "loop.discovery-plan/v1" {
+        let controlled = document.schema == "loop.discovery-plan/v2";
+        if (!controlled && document.schema != "loop.discovery-plan/v1")
+            || controlled != document.tool_invocation.is_some()
+        {
             return Err(StoreError::Invalid("discovery plan version"));
         }
         validate_id(&document.actor_id)?;
@@ -77,6 +83,11 @@ impl FrozenPlan {
         let mut input: DiscoveryJobInput = decode_object(root, &document.input, &mut files)?;
         let invocation: wire::ModelInvocation =
             decode_object(root, &document.invocation, &mut files)?;
+        let tool_invocation: Option<wire::ModelInvocation> = document
+            .tool_invocation
+            .as_ref()
+            .map(|reference| decode_object(root, reference, &mut files))
+            .transpose()?;
         let protocol: wire::ProtocolSelectionSnapshot =
             decode_object(root, &document.protocol, &mut files)?;
         let registry_bytes = load_object(root, &document.registry, &mut files)?;
@@ -99,9 +110,32 @@ impl FrozenPlan {
         };
         input.research_policy = Some(policy);
         validate_policy(&invocation)?;
-        validate_protocol(&protocol)?;
-        validate_template(&invocation)?;
-        validate_budgets(&input, &invocation)?;
+        validate_protocol(&protocol, controlled)?;
+        if let Some(first) = &tool_invocation {
+            validate_policy(first)?;
+            model_codec::validate_tools(first, false)?;
+            model_codec::validate_tools(&invocation, true)?;
+            // Leave room for the two mandatory history messages and the bounded
+            // 16 KiB tool document plus its typed envelope/call identity.
+            if first.messages.len() > 30
+                || first
+                    .messages
+                    .iter()
+                    .map(Message::encoded_len)
+                    .sum::<usize>()
+                    > 112_640
+                || first.request_id.is_some()
+                || invocation.request_id.is_some()
+                || first.model != invocation.model
+                || first.request_policy != invocation.request_policy
+                || first.messages != invocation.messages
+            {
+                return Err(StoreError::Invalid("discovery conversation templates"));
+            }
+        } else {
+            model_codec::validate_template(&invocation)?;
+        }
+        validate_budgets(&input, &invocation, tool_invocation.as_ref())?;
         if input
             .dataset
             .as_ref()
@@ -116,6 +150,7 @@ impl FrozenPlan {
             provider_sha256: document.provider_sha256,
             input,
             invocation,
+            tool_invocation,
             registry,
             data: document.data,
             protocol,
@@ -254,6 +289,7 @@ fn validate_policy(invocation: &wire::ModelInvocation) -> StoreResult<()> {
 fn validate_budgets(
     input: &DiscoveryJobInput,
     invocation: &wire::ModelInvocation,
+    first: Option<&wire::ModelInvocation>,
 ) -> StoreResult<()> {
     let job = input
         .budget
@@ -276,7 +312,7 @@ fn validate_budgets(
         .as_ref()
         .map(|duration| (duration.seconds, duration.nanos));
     if input.maximum_candidates != 1
-        || job.maximum_steps != 1
+        || job.maximum_steps != if first.is_some() { 3 } else { 1 }
         || invocation.model != input.maker_model
         || step.maximum_input_tokens == 0
         || step.maximum_output_tokens == 0
@@ -296,16 +332,58 @@ fn validate_budgets(
     {
         return Err(StoreError::Invalid("discovery frozen budget or model"));
     }
+    if let Some(first) = first {
+        let first_budget = first
+            .budget
+            .as_ref()
+            .ok_or(StoreError::Invalid("discovery tool budget"))?;
+        let first_cost = model_money(first_budget.maximum_cost.as_ref())?;
+        let first_wall = model_duration(first_budget.maximum_wall_time.as_ref())?;
+        if first_budget.maximum_input_tokens == 0
+            || first_budget.maximum_output_tokens == 0
+            || first_cost == 0
+            || first_budget
+                .maximum_input_tokens
+                .checked_add(step.maximum_input_tokens)
+                .is_none_or(|total| total > job.maximum_input_tokens)
+            || first_budget
+                .maximum_output_tokens
+                .checked_add(step.maximum_output_tokens)
+                .is_none_or(|total| total > job.maximum_output_tokens)
+            || first_cost
+                .checked_add(step_cost)
+                .is_none_or(|total| total > job_cost)
+            || first_wall
+                .checked_add(step_wall)
+                .and_then(|wall| wall.checked_add(35_000))
+                .is_none_or(|wall| wall >= job_wall)
+            || input
+                .maker_model
+                .as_ref()
+                .and_then(|model| model.capabilities.as_ref())
+                .is_none_or(|capabilities| !capabilities.supports_tools)
+        {
+            return Err(StoreError::Invalid("discovery cumulative budget"));
+        }
+    }
     Ok(())
 }
 
-fn validate_protocol(protocol: &wire::ProtocolSelectionSnapshot) -> StoreResult<()> {
+fn validate_protocol(
+    protocol: &wire::ProtocolSelectionSnapshot,
+    controlled: bool,
+) -> StoreResult<()> {
+    let mut features = FEATURES.to_vec();
+    if controlled {
+        features.push("discovery.tool-context.v1");
+        features.sort_unstable();
+    }
     if protocol.selected_package != "loop.v1"
         || protocol
             .enabled_features
             .iter()
             .map(String::as_str)
-            .ne(FEATURES)
+            .ne(features)
         || protocol
             .schema_descriptor_sha256
             .as_ref()

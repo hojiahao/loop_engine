@@ -670,7 +670,7 @@ Chinese task commit and push before starting the next unit):
    `36390979127` passes all seven jobs, including Rust, unified workspace and
    the clean DaoCloud container.
    See `docs/verification/phase-10-invocation-recovery.md`.
-2. Durable model step (`in_progress`; ADR 0047): execute one authorized, frozen discovery plan
+2. Durable model step (`complete`; ADR 0047): execute one authorized, frozen discovery plan
    through Rust orchestration. Persist request identity and step/token/USD
    reservations before dispatch; bind model, prompt, schema, data and principal.
    Fence writes by lease/revision, resolve recovery through unit 1 and return a
@@ -679,16 +679,26 @@ Chinese task commit and push before starting the next unit):
    kill/restart before dispatch and before/after result commit; no duplicate spend.
    Implementation and local acceptance pass: 72 Rust cases, including 12 actual
    Discovery/Provider workflows and independent-process contention/crash cuts;
-   full `just check` and cross-language digest/wire checks pass. Publication and
-   exact-commit remote CI remain the final delivery gates. The reservation scope
+   full `just check` and cross-language digest/wire checks pass. Commit `a97e801`
+   is pushed; exact-commit CI `36527876755` passed all seven jobs. The reservation scope
    is one job/one candidate; account-wide quotas, tools and lifecycle controls
    are not inferred. See `docs/verification/phase-10-durable-model-step.md` and
    `docs/development/durable-model-step.md`.
-3. Controlled tools and context (`pending`): bounded typed conversation and
+3. Controlled tools and context (`in_progress`; ADR 0048): bounded typed conversation and
    registered tool execution through existing research authorization. Persist
    call/result identity and reject unknown tools, holdout access, oversized
    context and conflicting replay. Acceptance: actual multi-turn tool workflow,
    denied capabilities and deterministic resume from persisted evidence.
+   Initial v2 profile: two model turns around one verified, read-only
+   `research_describe` tool; preserve v1 plans, immutable ordinal evidence and
+   cumulative per-job reservations. No numerical execution or admission is
+   inferred from the descriptive tool result.
+   Local acceptance passes 132 Rust cases (one additional ignored child-process
+   entry point), including 20 actual Discovery/Provider workflows and independent
+   2/4/8-writer/crash tests; five Provider digest/schema cases and full `just check`
+   pass. Exact-commit remote CI remains the closing gate. See
+   `docs/verification/phase-10-controlled-context.md` and
+   `docs/development/controlled-context.md`.
 4. Run lifecycle (`pending`): pause/cancel/resume, absolute deadlines and explicit
    retry policy across model/tool steps. Infrastructure failures remain distinct
    from rejected factors; ambiguous paid calls retain reservations. Acceptance:

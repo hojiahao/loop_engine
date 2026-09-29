@@ -222,7 +222,10 @@ export const DiscoveryCandidateSchema: GenMessage<DiscoveryCandidate> = /*@__PUR
 /**
  * DiscoveryStepView omits model prompts/results, leases, generic job inputs,
  * holdout authority, and raw datasets. A candidate is present only for a
- * COMPLETED step. Reservations are conservative ceilings, not supplier bills;
+ * successful terminal job. State describes the latest model step; COMPLETED
+ * with a RUNNING job can await a tool or the next frozen model turn.
+ * Reservations sum all model steps in this job, including ambiguous calls.
+ * They are conservative ceilings, not supplier bills;
  * AMBIGUOUS does not release them or authorize another paid invocation.
  *
  * @generated from message loop.discovery.v1.DiscoveryStepView
@@ -463,7 +466,7 @@ export const DiscoveryService: GenService<{
     output: typeof StartDiscoveryResponseSchema;
   },
   /**
-   * Executes or reconciles the one model step authorized by the server-owned
+   * Executes or reconciles the bounded steps authorized by the server-owned
    * frozen plan. Callers cannot replace its model, prompt, schema, or budget.
    *
    * @generated from rpc loop.discovery.v1.DiscoveryService.ExecuteDiscovery

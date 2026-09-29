@@ -5,6 +5,9 @@ persists its conservative token/USD reservation before dispatch, and returns a
 validated canonical AST candidate. It does not evaluate or admit a factor, run
 the checker model, execute tools, or implement the autonomous outer Loop.
 Use development data only; protected-data authority is never granted here.
+This guide describes `loop.discovery-plan/v1`. See
+[controlled research context](controlled-context.md) for the separately pinned
+two-call profile and its read-only tool.
 
 ## Deployment prerequisites
 

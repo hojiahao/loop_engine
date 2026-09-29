@@ -30,7 +30,10 @@ pub(super) async fn begin<'a>(
         .ok_or(StoreError::Invalid("model job ID"))?
         .value;
     super::super::validate_id(job_id)?;
-    if command.expected_revision == 0 || command.expected_revision >= i64::MAX as u64 {
+    if command.expected_revision == 0
+        || command.expected_revision >= i64::MAX as u64
+        || command.ordinal > 1
+    {
         return Err(StoreError::Invalid("model expected revision"));
     }
     let mut transaction = store.pool.begin().await?;
@@ -130,7 +133,7 @@ pub(super) fn lease(job: &mut JobRecord, actor: &Actor, now: i64, expiry: i64) -
 }
 
 pub(super) async fn writer(transaction: &mut Transaction<'_, Postgres>) -> StoreResult<()> {
-    sqlx::query("SELECT set_config('loop.model_step_writer', 'v1', true)")
+    sqlx::query("SELECT set_config('loop.model_step_writer', 'v2', true)")
         .execute(&mut **transaction)
         .await?;
     Ok(())
@@ -245,10 +248,10 @@ pub(super) async fn insert(
         .idempotency_key
         .as_ref()
         .ok_or(StoreError::Invalid("model key"))?;
-    let result = sqlx::query("INSERT INTO model_steps (job_id,actor_id,request_id,idempotency_key,invocation_sha256,request_blob,request_sha256,reserved_input,reserved_output,reserved_nano_usd,state,created_revision,updated_revision,created_at_ms,updated_at_ms) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'reserved',$11,$11,$12,$12) ON CONFLICT DO NOTHING")
+    let result = sqlx::query("INSERT INTO model_steps (job_id,actor_id,request_id,idempotency_key,invocation_sha256,request_blob,request_sha256,reserved_input,reserved_output,reserved_nano_usd,state,created_revision,updated_revision,created_at_ms,updated_at_ms,ordinal) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'reserved',$11,$11,$12,$12,$13) ON CONFLICT DO NOTHING")
         .bind(identity(job)?).bind(&actor.value).bind(&request_id.value).bind(&key.value)
         .bind(digest.as_slice()).bind(blob).bind(Sha256::digest(blob).as_slice())
-        .bind(*input as i64).bind(*output as i64).bind(*cost as i64).bind(job.revision as i64).bind(now)
+        .bind(*input as i64).bind(*output as i64).bind(*cost as i64).bind(job.revision as i64).bind(now).bind(step.ordinal as i32)
         .execute(&mut **transaction).await?;
     if result.rows_affected() != 1 {
         return Err(StoreError::IdempotencyConflict);
@@ -259,9 +262,11 @@ pub(super) async fn insert(
 pub(super) async fn load(
     transaction: &mut Transaction<'_, Postgres>,
     job: &JobRecord,
+    ordinal: u32,
 ) -> StoreResult<Option<ModelStep>> {
-    let row = sqlx::query("SELECT * FROM model_steps WHERE job_id=$1")
+    let row = sqlx::query("SELECT * FROM model_steps WHERE job_id=$1 AND ordinal=$2")
         .bind(identity(job)?)
+        .bind(ordinal as i32)
         .fetch_optional(&mut **transaction)
         .await?;
     let Some(row) = row else {
@@ -281,7 +286,7 @@ pub(super) async fn load(
         .actor
         .as_ref()
         .ok_or(StoreError::Corrupt("model actor"))?;
-    let (input, output, cost, _) = validation::invocation(job, actor, &request)
+    let (input, output, cost, _) = validation::invocation(job, actor, &request, ordinal)
         .map_err(|_| StoreError::Corrupt("model frozen budget"))?;
     let state = ModelStepState::parse(&row.try_get::<String, _>("state")?)?;
     let created: i64 = row.try_get("created_revision")?;
@@ -322,7 +327,7 @@ pub(super) async fn load(
         || (state == ModelStepState::Completed
             && !matches!(
                 JobState::try_from(job.state),
-                Ok(JobState::Succeeded | JobState::InfrastructureFailed)
+                Ok(JobState::Succeeded | JobState::InfrastructureFailed | JobState::Running)
             ))
         || (state != ModelStepState::Completed && job.state != JobState::Running as i32)
     {
@@ -338,7 +343,8 @@ pub(super) async fn load(
     } else {
         None
     };
-    let step = ModelStep {
+    let mut step = ModelStep {
+        ordinal,
         job: job.clone(),
         request,
         request_sha256: digest,
@@ -347,20 +353,139 @@ pub(super) async fn load(
         reserved_input: input,
         reserved_output: output,
         reserved_nano_usd: cost,
+        tool_result: None,
     };
     if let Some(response) = &step.response {
         validation::response(&step, response)
             .map_err(|_| StoreError::Corrupt("model response binding"))?;
+        if job.state == JobState::Running as i32 {
+            validation::call(&step, response)
+                .map_err(|_| StoreError::Corrupt("intermediate model response"))?;
+        }
     }
+    step.tool_result = load_tool(transaction, &step).await?;
     Ok(Some(step))
+}
+
+pub(super) async fn history(
+    transaction: &mut Transaction<'_, Postgres>,
+    job: &JobRecord,
+) -> StoreResult<Vec<ModelStep>> {
+    let rows =
+        sqlx::query("SELECT ordinal FROM model_steps WHERE job_id=$1 ORDER BY ordinal LIMIT 3")
+            .bind(identity(job)?)
+            .fetch_all(&mut **transaction)
+            .await?;
+    if rows.len() > 2 {
+        return Err(StoreError::Corrupt("model history bounds"));
+    }
+    let mut history = Vec::new();
+    for (index, row) in rows.iter().enumerate() {
+        let ordinal: i32 = row.try_get("ordinal")?;
+        if ordinal != index as i32 {
+            return Err(StoreError::Corrupt("model history sequence"));
+        }
+        history.push(
+            load(transaction, job, ordinal as u32)
+                .await?
+                .ok_or(StoreError::Corrupt("model history missing"))?,
+        );
+    }
+    if history.len() == 2 {
+        validation::continuation(&history[0], &history[1].request)
+            .map_err(|_| StoreError::Corrupt("model history context"))?;
+    }
+    if job.state == JobState::Succeeded as i32
+        && history.last().is_none_or(|step| {
+            step.request
+                .invocation
+                .as_ref()
+                .is_none_or(|invocation| invocation.structured_output.is_none())
+        })
+    {
+        return Err(StoreError::Corrupt("model terminal history"));
+    }
+    validation::totals(job, &history).map_err(|_| StoreError::Corrupt("model history budget"))?;
+    Ok(history)
+}
+
+pub(super) async fn current(
+    transaction: &mut Transaction<'_, Postgres>,
+    job: &JobRecord,
+    ordinal: u32,
+) -> StoreResult<ModelStep> {
+    let step = history(transaction, job)
+        .await?
+        .pop()
+        .ok_or(StoreError::NotFound)?;
+    if step.ordinal != ordinal {
+        return Err(StoreError::Invalid("model current ordinal"));
+    }
+    Ok(step)
+}
+
+async fn load_tool(
+    transaction: &mut Transaction<'_, Postgres>,
+    step: &ModelStep,
+) -> StoreResult<Option<loop_protocol::wire::v1::ToolResultContent>> {
+    let row = sqlx::query("SELECT tool_results.*,model_steps.updated_revision AS step_revision,model_steps.updated_at_ms AS step_time FROM tool_results JOIN model_steps USING(job_id,ordinal) WHERE job_id=$1 AND ordinal=$2")
+        .bind(identity(&step.job)?).bind(step.ordinal as i32)
+        .fetch_optional(&mut **transaction).await?;
+    let Some(row) = row else {
+        return Ok(None);
+    };
+    let result = loop_protocol::wire::v1::ToolResultContent::decode(
+        postgres::verified_blob(&row, "result_blob", "result_sha256")?.as_slice(),
+    )
+    .map_err(|_| StoreError::Corrupt("tool result bytes"))?;
+    let revision: i64 = row.try_get("created_revision")?;
+    let created: i64 = row.try_get("created_at_ms")?;
+    if row.try_get::<String, _>("tool_call_id")? != result.tool_call_id
+        || revision <= row.try_get::<i64, _>("step_revision")?
+        || revision as u64 > step.job.revision
+        || created < row.try_get::<i64, _>("step_time")?
+        || created
+            > postgres::timestamp_millis(
+                step.job
+                    .updated_at
+                    .as_ref()
+                    .ok_or(StoreError::Corrupt("tool updated time"))?,
+                false,
+            )?
+        || step.state != super::ModelStepState::Completed
+    {
+        return Err(StoreError::Corrupt("tool result projection"));
+    }
+    validation::tool(step, &result).map_err(|_| StoreError::Corrupt("tool result binding"))?;
+    Ok(Some(result))
+}
+
+pub(super) async fn insert_tool(
+    transaction: &mut Transaction<'_, Postgres>,
+    step: &ModelStep,
+    result: &loop_protocol::wire::v1::ToolResultContent,
+    now: i64,
+) -> StoreResult<()> {
+    let bytes = postgres::encode_message(result)?;
+    let inserted = sqlx::query("INSERT INTO tool_results (job_id,ordinal,tool_call_id,result_blob,result_sha256,created_revision,created_at_ms) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT DO NOTHING")
+        .bind(identity(&step.job)?).bind(step.ordinal as i32).bind(&result.tool_call_id)
+        .bind(&bytes).bind(Sha256::digest(&bytes).as_slice())
+        .bind(step.job.revision as i64).bind(now).execute(&mut **transaction).await?;
+    if inserted.rows_affected() != 1 {
+        return Err(StoreError::IdempotencyConflict);
+    }
+    Ok(())
 }
 
 pub(super) async fn finish_read(
     mut transaction: Transaction<'_, Postgres>,
     job: JobRecord,
+    ordinal: u32,
 ) -> StoreResult<ModelStep> {
-    let step = load(&mut transaction, &job)
+    let step = history(&mut transaction, &job)
         .await?
+        .into_iter()
+        .find(|step| step.ordinal == ordinal)
         .ok_or(StoreError::Corrupt("model receipt without step"))?;
     transaction.commit().await?;
     Ok(step)
@@ -372,11 +497,12 @@ pub(super) async fn transition(
     state: &str,
     response: Option<&ModelResponse>,
     now: i64,
+    ordinal: u32,
 ) -> StoreResult<()> {
     let bytes = response.map(postgres::encode_message).transpose()?;
     let checksum = bytes.as_ref().map(|bytes| Sha256::digest(bytes).to_vec());
-    let result = sqlx::query("UPDATE model_steps SET state=$1,updated_revision=$2,updated_at_ms=$3,response_blob=$4,response_sha256=$5 WHERE job_id=$6")
-        .bind(state).bind(job.revision as i64).bind(now).bind(bytes).bind(checksum).bind(identity(job)?)
+    let result = sqlx::query("UPDATE model_steps SET state=$1,updated_revision=$2,updated_at_ms=$3,response_blob=$4,response_sha256=$5 WHERE job_id=$6 AND ordinal=$7")
+        .bind(state).bind(job.revision as i64).bind(now).bind(bytes).bind(checksum).bind(identity(job)?).bind(ordinal as i32)
         .execute(&mut **transaction).await?;
     if result.rows_affected() != 1 {
         return Err(StoreError::Corrupt("model step disappeared"));
@@ -441,6 +567,9 @@ pub(super) async fn commit(
         return Err(StoreError::Unavailable("model command deadline"));
     }
     if matches!(operation, "loop.model.reserve" | "loop.model.takeover") {
+        if operation == "loop.model.reserve" && command.ordinal == 1 {
+            fence(&original, actor, command, last)?;
+        }
         let lease = job
             .active_lease
             .as_ref()
@@ -449,6 +578,14 @@ pub(super) async fn commit(
         super::super::live_lease(&job, actor, &lease.value, last)?;
     } else {
         fence(&original, actor, command, last)?;
+        if operation == "loop.model.call" {
+            let lease = job
+                .active_lease
+                .as_ref()
+                .and_then(|lease| lease.lease_id.as_ref())
+                .ok_or(StoreError::LeaseFenced)?;
+            super::super::live_lease(&job, actor, &lease.value, last)?;
+        }
     }
     store
         .admission

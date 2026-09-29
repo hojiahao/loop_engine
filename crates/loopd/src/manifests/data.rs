@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use loop_protocol::wire::v1::{ArtifactRef, JobSpecification, SampleRole, job_specification};
 use prost::Message;
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 use super::files::VerifiedFile;
@@ -18,6 +19,7 @@ pub(crate) struct DataEvidence {
     pub(crate) manifest: ObjectRef,
     artifacts: Vec<(ArtifactRef, Arc<VerifiedFile>)>,
     files: Vec<Arc<VerifiedFile>>,
+    description: Value,
 }
 
 impl DataEvidence {
@@ -36,6 +38,17 @@ impl DataEvidence {
             .iter()
             .map(|(artifact, _)| artifact.clone())
             .collect()
+    }
+
+    /// Return an allowlisted description of the verified development evidence.
+    /// The job checksum and file versions are rechecked on consumption. Neither
+    /// source URIs nor supplier metadata become model-visible context.
+    pub(crate) fn description(&self, job: &JobSpecification) -> StoreResult<Value> {
+        if !matches!(job.input, Some(job_specification::Input::Discovery(_))) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        self.check(job)?;
+        Ok(self.description.clone())
     }
 
     pub(crate) async fn copy_to(&self, directory: &Path) -> StoreResult<()> {
@@ -177,6 +190,21 @@ pub(crate) async fn resolve(
         manifest: reference.clone(),
         artifacts,
         files: materializer.files,
+        description: json!({
+            "dataset_id": reference.sha256,
+            "snapshot_ids": data.snapshots.iter().map(|snapshot| &snapshot.snapshot_id).collect::<Vec<_>>(),
+            "sample": data.sample,
+            "artifacts": data.snapshots.iter().flat_map(|snapshot| snapshot.artifacts.iter().map(move |artifact| json!({
+                "snapshot_id": snapshot.snapshot_id,
+                "schema": {
+                    "name": artifact.schema.name,
+                    "version": artifact.schema.version,
+                    "sha256": artifact.schema.document.sha256,
+                },
+                "media_type": artifact.media_type,
+                "byte_size": artifact.object.byte_size,
+            }))).collect::<Vec<_>>(),
+        }),
     };
     evidence.check(job)?;
     Ok(evidence)

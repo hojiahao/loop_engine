@@ -1,4 +1,4 @@
-//! Durable single-step model execution. No database transaction spans network I/O.
+//! Durable bounded model execution. No database transaction spans network I/O.
 
 mod validation;
 pub(crate) use validation::{duration as model_duration, money as model_money};
@@ -8,6 +8,7 @@ mod tests;
 
 use super::{PgJobStore, StoreError, StoreResult};
 use loop_protocol::wire::provider::v1::InvokeModelRequest;
+use loop_protocol::wire::v1::ToolResultContent;
 use loop_protocol::wire::v1::{Actor, CommandContext, JobId, JobRecord, LeaseId, ModelResponse};
 use loop_protocol::wire::v1::{JobOutcome, JobState, job_outcome};
 use prost::Message;
@@ -28,6 +29,9 @@ pub struct ModelStepCommand {
     /// Compare-and-swap job revision observed by this command.
     #[prost(uint64, tag = "4")]
     pub expected_revision: u64,
+    /// Immutable model-call ordinal. Zero preserves existing single-step receipts.
+    #[prost(uint32, tag = "5")]
+    pub ordinal: u32,
 }
 
 /// Persistent dispatch evidence. Only a newly committed `Dispatched` transition
@@ -40,13 +44,16 @@ pub enum ModelStepState {
     Dispatched,
     /// The outcome is uncertain; the complete reservation remains held.
     Ambiguous,
-    /// An immutable Provider response and terminal job outcome were committed.
+    /// An immutable Provider response was committed. An intermediate tool call
+    /// keeps the job running until its result and final model response complete.
     Completed,
 }
 
 /// Verified model-step evidence and the current associated job revision.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelStep {
+    /// Immutable ordinal within the closed one-call or two-call job profile.
+    pub ordinal: u32,
     /// Current job, which may be newer than the original step receipt.
     pub job: JobRecord,
     /// Original immutable Provider request. Timestamps and keys never change.
@@ -63,6 +70,8 @@ pub struct ModelStep {
     pub reserved_output: u64,
     /// Conservative USD ceiling in billionths; not an invoice or actual charge.
     pub reserved_nano_usd: u64,
+    /// Verified immutable result of the sole registered intermediate tool.
+    pub tool_result: Option<ToolResultContent>,
 }
 
 /// Result of a dispatch CAS. A replay is deliberately incapable of redispatch.
@@ -89,6 +98,8 @@ struct ReceiptRequest {
     outcome: Option<loop_protocol::wire::v1::JobOutcome>,
     #[prost(message, optional, tag = "6")]
     duration: Option<prost_types::Duration>,
+    #[prost(message, optional, tag = "7")]
+    tool_result: Option<ToolResultContent>,
 }
 
 impl ModelStepState {
@@ -126,18 +137,34 @@ impl PgJobStore {
         let (mut transaction, now, mut job) =
             storage::begin(self, actor, &command, operation).await?;
         if storage::replay(&mut transaction, &receipt, operation, &job).await? {
-            return storage::finish_read(transaction, job).await;
+            return storage::finish_read(transaction, job, command.ordinal).await;
         }
         storage::revision(&job, &command)?;
-        if job.state != JobState::Queued as i32 || command.lease_id.is_some() {
-            return Err(StoreError::InvalidTransition);
+        let mut history = storage::history(&mut transaction, &job).await?;
+        if command.ordinal == 0 {
+            if job.state != JobState::Queued as i32
+                || command.lease_id.is_some()
+                || !history.is_empty()
+            {
+                return Err(StoreError::InvalidTransition);
+            }
+        } else {
+            storage::fence(&job, actor, &command, now)?;
+            if job.state != JobState::Running as i32
+                || history.len() != 1
+                || history[0].state != ModelStepState::Completed
+            {
+                return Err(StoreError::InvalidTransition);
+            }
+            validation::continuation(&history[0], &request)?;
         }
         self.admission.validate_submission(
             job.specification
                 .as_ref()
                 .ok_or(StoreError::Corrupt("model specification"))?,
         )?;
-        let (input, output, cost, wall) = validation::invocation(&job, actor, &request)?;
+        let (input, output, cost, wall) =
+            validation::invocation(&job, actor, &request, command.ordinal)?;
         let requested = super::postgres::timestamp_millis(
             request
                 .context
@@ -165,6 +192,7 @@ impl PgJobStore {
         }
         storage::writer(&mut transaction).await?;
         let step = ModelStep {
+            ordinal: command.ordinal,
             job: job.clone(),
             request,
             request_sha256: digest,
@@ -173,7 +201,10 @@ impl PgJobStore {
             reserved_input: input,
             reserved_output: output,
             reserved_nano_usd: cost,
+            tool_result: None,
         };
+        history.push(step.clone());
+        validation::totals(&job, &history)?;
         storage::insert(&mut transaction, &step, &blob, now).await?;
         storage::commit(
             self,
@@ -208,15 +239,13 @@ impl PgJobStore {
             storage::begin(self, actor, &command, operation).await?;
         if storage::replay(&mut transaction, &receipt, operation, &job).await? {
             return Ok(ModelDispatch {
-                step: storage::finish_read(transaction, job).await?,
+                step: storage::finish_read(transaction, job, command.ordinal).await?,
                 send: false,
             });
         }
         storage::revision(&job, &command)?;
         storage::fence(&job, actor, &command, now)?;
-        let mut step = storage::load(&mut transaction, &job)
-            .await?
-            .ok_or(StoreError::NotFound)?;
+        let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
         if step.state != ModelStepState::Reserved {
             transaction.commit().await?;
             return Ok(ModelDispatch { step, send: false });
@@ -241,7 +270,15 @@ impl PgJobStore {
         let original = job.clone();
         storage::advance(&mut job, now)?;
         storage::writer(&mut transaction).await?;
-        storage::transition(&mut transaction, &job, "dispatched", None, now).await?;
+        storage::transition(
+            &mut transaction,
+            &job,
+            "dispatched",
+            None,
+            now,
+            command.ordinal,
+        )
+        .await?;
         storage::commit(
             self,
             transaction,
@@ -276,20 +313,26 @@ impl PgJobStore {
         let (mut transaction, now, mut job) =
             storage::begin(self, actor, &command, operation).await?;
         if storage::replay(&mut transaction, &receipt, operation, &job).await? {
-            return storage::finish_read(transaction, job).await;
+            return storage::finish_read(transaction, job, command.ordinal).await;
         }
         storage::revision(&job, &command)?;
         storage::fence(&job, actor, &command, now)?;
-        let mut step = storage::load(&mut transaction, &job)
-            .await?
-            .ok_or(StoreError::NotFound)?;
+        let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
         if step.state != ModelStepState::Dispatched {
             return Err(StoreError::InvalidTransition);
         }
         let original = job.clone();
         storage::advance(&mut job, now)?;
         storage::writer(&mut transaction).await?;
-        storage::transition(&mut transaction, &job, "ambiguous", None, now).await?;
+        storage::transition(
+            &mut transaction,
+            &job,
+            "ambiguous",
+            None,
+            now,
+            command.ordinal,
+        )
+        .await?;
         storage::commit(
             self,
             transaction,
@@ -318,23 +361,48 @@ impl PgJobStore {
         response: ModelResponse,
         outcome: JobOutcome,
     ) -> StoreResult<ModelStep> {
-        let operation = "loop.model.finish";
+        self.finish_step(actor, command, response, Some(outcome))
+            .await
+    }
+
+    /// Commit the sole registered intermediate tool call without terminating the
+    /// job or releasing its lease. Replays preserve the original response; a
+    /// changed call, stale lease, or missing authority fails transactionally.
+    pub(crate) async fn finish_call(
+        &self,
+        actor: &Actor,
+        command: ModelStepCommand,
+        response: ModelResponse,
+    ) -> StoreResult<ModelStep> {
+        self.finish_step(actor, command, response, None).await
+    }
+
+    async fn finish_step(
+        &self,
+        actor: &Actor,
+        command: ModelStepCommand,
+        response: ModelResponse,
+        outcome: Option<JobOutcome>,
+    ) -> StoreResult<ModelStep> {
+        let operation = if outcome.is_some() {
+            "loop.model.finish"
+        } else {
+            "loop.model.call"
+        };
         let receipt = ReceiptRequest {
             command: Some(command.clone()),
             response: Some(response.clone()),
-            outcome: Some(outcome.clone()),
+            outcome: outcome.clone(),
             ..Default::default()
         };
         let (mut transaction, now, mut job) =
             storage::begin(self, actor, &command, operation).await?;
         if storage::replay(&mut transaction, &receipt, operation, &job).await? {
-            return storage::finish_read(transaction, job).await;
+            return storage::finish_read(transaction, job, command.ordinal).await;
         }
         storage::revision(&job, &command)?;
         storage::fence(&job, actor, &command, now)?;
-        let mut step = storage::load(&mut transaction, &job)
-            .await?
-            .ok_or(StoreError::NotFound)?;
+        let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
         if !matches!(
             step.state,
             ModelStepState::Dispatched | ModelStepState::Ambiguous
@@ -343,18 +411,46 @@ impl PgJobStore {
         }
         validation::response(&step, &response)?;
         let original = job.clone();
-        job.state = match &outcome.outcome {
-            Some(job_outcome::Outcome::Success(_)) => JobState::Succeeded as i32,
-            Some(job_outcome::Outcome::InfrastructureFailure(_)) => {
-                JobState::InfrastructureFailed as i32
+        if let Some(outcome) = outcome {
+            if matches!(outcome.outcome, Some(job_outcome::Outcome::Success(_)))
+                && step
+                    .request
+                    .invocation
+                    .as_ref()
+                    .is_some_and(|input| input.structured_output.is_none())
+            {
+                return Err(StoreError::Invalid("intermediate model success"));
             }
-            _ => return Err(StoreError::Invalid("model completion outcome")),
-        };
-        job.outcome = Some(outcome);
-        job.active_lease = None;
+            job.state = match &outcome.outcome {
+                Some(job_outcome::Outcome::Success(_)) => JobState::Succeeded as i32,
+                Some(job_outcome::Outcome::InfrastructureFailure(_)) => {
+                    JobState::InfrastructureFailed as i32
+                }
+                _ => return Err(StoreError::Invalid("model completion outcome")),
+            };
+            job.outcome = Some(outcome);
+            job.active_lease = None;
+        } else {
+            validation::call(&step, &response)?;
+            // The registered read-only tool has a 30-second ceiling, followed by
+            // bounded result registration. This never extends the job deadline.
+            let expiry = now
+                .checked_add(35_000)
+                .ok_or(StoreError::Invalid("tool lease expiry"))?
+                .min(storage::deadline(&job)?);
+            storage::lease(&mut job, actor, now, expiry)?;
+        }
         storage::advance(&mut job, now)?;
         storage::writer(&mut transaction).await?;
-        storage::transition(&mut transaction, &job, "completed", Some(&response), now).await?;
+        storage::transition(
+            &mut transaction,
+            &job,
+            "completed",
+            Some(&response),
+            now,
+            command.ordinal,
+        )
+        .await?;
         storage::commit(
             self,
             transaction,
@@ -374,13 +470,83 @@ impl PgJobStore {
         Ok(step)
     }
 
+    /// Append the exact result of the committed registered tool call. The caller
+    /// has already checked the actual research source and result schema. Storage
+    /// binds the call identity, document checksums and current lease, and appends
+    /// the immutable result with its command receipt and audit in one transaction.
+    /// A duplicate identical result is observational; conflicting replay fails.
+    pub(crate) async fn record_tool(
+        &self,
+        actor: &Actor,
+        command: ModelStepCommand,
+        result: ToolResultContent,
+    ) -> StoreResult<ModelStep> {
+        let operation = "loop.tool.record";
+        let receipt = ReceiptRequest {
+            command: Some(command.clone()),
+            tool_result: Some(result.clone()),
+            ..Default::default()
+        };
+        let (mut transaction, now, mut job) =
+            storage::begin(self, actor, &command, operation).await?;
+        if storage::replay(&mut transaction, &receipt, operation, &job).await? {
+            return storage::finish_read(transaction, job, command.ordinal).await;
+        }
+        storage::revision(&job, &command)?;
+        storage::fence(&job, actor, &command, now)?;
+        let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
+        if step.state != ModelStepState::Completed || job.state != JobState::Running as i32 {
+            return Err(StoreError::InvalidTransition);
+        }
+        validation::tool(&step, &result)?;
+        if let Some(prior) = &step.tool_result {
+            if prior != &result {
+                return Err(StoreError::IdempotencyConflict);
+            }
+            transaction.commit().await?;
+            return Ok(step);
+        }
+        let original = job.clone();
+        storage::advance(&mut job, now)?;
+        storage::writer(&mut transaction).await?;
+        step.job = job.clone();
+        storage::insert_tool(&mut transaction, &step, &result, now).await?;
+        storage::commit(
+            self,
+            transaction,
+            actor,
+            storage::Mutation {
+                request: receipt,
+                operation,
+                original,
+                job,
+                now,
+            },
+        )
+        .await?;
+        step.tool_result = Some(result);
+        Ok(step)
+    }
+
     /// Read authenticated verified historical evidence, including terminal or
     /// expired jobs. Reading grants no dispatch permission and performs no repair.
+    #[cfg(test)]
     pub(crate) async fn model_step(
         &self,
         actor: &Actor,
         job_id: &str,
     ) -> StoreResult<Option<ModelStep>> {
+        Ok(self.model_history(actor, job_id).await?.pop())
+    }
+
+    /// Read the entire bounded call history in ordinal order under one consistent
+    /// observation. Every request, response, tool result and cumulative budget is
+    /// verified; a missing or corrupt earlier turn denies the whole read.
+    pub(crate) async fn model_history(
+        &self,
+        actor: &Actor,
+        job_id: &str,
+    ) -> StoreResult<Vec<ModelStep>> {
         super::validate_id(job_id)?;
         let mut transaction = self.pool.begin().await?;
         // Keep the job and step projections in one serialized observation.
@@ -393,9 +559,9 @@ impl PgJobStore {
         let job = super::postgres::record_from_row(&row)?;
         self.admission
             .authorize_job_command("loop.model.read", actor, &job)?;
-        let step = storage::load(&mut transaction, &job).await?;
+        let history = storage::history(&mut transaction, &job).await?;
         transaction.commit().await?;
-        Ok(step)
+        Ok(history)
     }
 
     /// Take over an expired tracked lease before the absolute deadline. It never
@@ -417,12 +583,10 @@ impl PgJobStore {
         let (mut transaction, now, mut job) =
             storage::begin(self, actor, &command, operation).await?;
         if storage::replay(&mut transaction, &receipt, operation, &job).await? {
-            return storage::finish_read(transaction, job).await;
+            return storage::finish_read(transaction, job, command.ordinal).await;
         }
         storage::revision(&job, &command)?;
-        let mut step = storage::load(&mut transaction, &job)
-            .await?
-            .ok_or(StoreError::NotFound)?;
+        let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
         let old = job.active_lease.as_ref().ok_or(StoreError::LeaseFenced)?;
         let expiry = super::postgres::timestamp_millis(
             old.expires_at.as_ref().ok_or(StoreError::LeaseFenced)?,
@@ -432,7 +596,7 @@ impl PgJobStore {
             || old.owner.as_ref() != Some(actor)
             || now < expiry
             || now >= storage::deadline(&job)?
-            || step.state == ModelStepState::Completed
+            || job.state != JobState::Running as i32
         {
             return Err(StoreError::LeaseFenced);
         }
