@@ -98,7 +98,15 @@ lock, recreates this dedicated service before testing, and removes it on exit,
 including test failure. This prevents repeated suites accumulating schemas.
 The full suite retains its independent schemas until teardown; its Phase 4
 process/crash matrix exceeds the former 512 MiB capacity even on a fresh service.
-All managed gates print `df -k` usage before disposal, including on test failure,
+The disposable server sets `max_wal_size=128MB`, `min_wal_size=32MB` and
+`wal_compression=pglz`. PostgreSQL's default 1 GB WAL target leaves no space for
+the database itself within this 1 GiB volume. WAL targets are soft limits, so
+full-suite measurements must still leave headroom. Compression adds CPU work;
+`fsync`, `full_page_writes`, synchronous commit and the default checkpoint
+schedule retain their normal behavior. These are test-fixture settings only.
+See the [PostgreSQL 17 WAL documentation](https://www.postgresql.org/docs/17/runtime-config-wal.html).
+
+All managed gates print `df -k` and data/WAL directory usage before disposal, including on test failure,
 so the bounded per-run storage budget can be measured rather than inferred from
 the host disk. Targeted runs can inspect it with
 `bash scripts/postgres-test.sh usage`. No production resource limit is changed.

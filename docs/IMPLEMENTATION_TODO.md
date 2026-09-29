@@ -696,7 +696,9 @@ Chinese task commit and push before starting the next unit):
    Local acceptance passes 132 Rust cases (one additional ignored child-process
    entry point), including 20 actual Discovery/Provider workflows and independent
    2/4/8-writer/crash tests; five Provider digest/schema cases and full `just check`
-   pass. Exact-commit remote CI remains the closing gate. See
+   pass. Commit `b33f0f5` is pushed. CI `36549762127` passed four jobs but exhausted
+   the 1 GiB PostgreSQL fixture in Rust/workspace/container tests; correcting its
+   WAL footprint and rerunning the full suite remain the closing gate. See
    `docs/verification/phase-10-controlled-context.md` and
    `docs/development/controlled-context.md`.
 4. Run lifecycle (`pending`): pause/cancel/resume, absolute deadlines and explicit

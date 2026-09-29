@@ -1,8 +1,10 @@
 # Phase 10 unit 3: Controlled tools and persistent context
 
-Status: implementation, targeted acceptance and full local quality gates pass;
-exact-commit publication CI remains required. The preceding unit's CI passed all seven
-jobs. No synthetic fixture establishes live supplier verification.
+Status: implementation, targeted acceptance and full local quality gates pass.
+Publication CI `36549762127` exposed exhausted disposable PostgreSQL storage;
+the capacity correction and full-suite rerun remain the closing gate. The
+preceding unit's CI passed all seven jobs. No synthetic fixture establishes live
+supplier verification.
 
 ## Requirement and design
 
@@ -51,6 +53,36 @@ Observed local evidence:
 No paid model, production database, licensed market-data download or real
 holdout unlock is part of these synthetic acceptance cases. Disposable
 PostgreSQL data and the temporary test runner were removed after the suite.
+
+## Full-suite storage correction
+
+Commit `b33f0f5` passed the four Python/TypeScript CI jobs. Rust, unified workspace
+and clean-container jobs reached PostgreSQL errors `53100` (no space left), then
+`57P03` during recovery. Their 1 GiB tmpfs volumes measured 1,037,844 KiB,
+1,042,204 KiB and 1,048,576 KiB used respectively. This is an infrastructure
+failure; the local targeted suite was insufficient evidence for full-suite
+capacity. Rust formatting and Clippy had passed in those jobs.
+
+The test-only entry point now requests 128 MB maximum/32 MB minimum WAL targets
+and `pglz` full-page compression. The volume and memory ceilings remain fixed;
+durability settings and test deadlines are not weakened. Existing schema history
+must remain available to reopen/crash tests until fixture teardown. Managed gates
+now report data and WAL usage separately. The real rebuilt fixture starts
+successfully and reports the intended 128/32 MB targets with `pglz`, `fsync=on`,
+`full_page_writes=on`, `synchronous_commit=on`, `wal_level=replica` and the
+unchanged 300-second/0.9 checkpoint settings. Shell syntax, function-name checks
+and whitespace checks pass. Startup configuration verification is not a
+full-suite capacity measurement; the new exact-commit CI remains required.
+An additional real PostgreSQL pressure probe created and retained 500 independent
+schemas, applying all twelve current migrations in separate transactions. It
+completed without storage failure: `pg_database_size` reported 518,092,467 bytes
+and WAL files 134,217,728 bytes. WAL stayed at 128 MiB from schema 140 through 500,
+with no manual checkpoint or intervening schema deletion. This verifies migration
+pressure, not the complete behavioral suite or production capacity. The probe
+and disposable database are removed afterwards.
+Rollback restores the test
+settings and recreates only the disposable service; production configuration,
+research records and migrations are unaffected.
 
 ## Reproduction
 
