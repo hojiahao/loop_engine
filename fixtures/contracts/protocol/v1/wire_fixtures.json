@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:c2e0910c03f5d48251b1f7e6c8af43e228f2fb054467f36f99e912d838026314"
+    "sha256": "sha256:2c60bd743b8f4db09fdb19200ef8307d49adc3b27adf28bff681845898bd3e1c"
   },
   "expected_domain_projection": {
     "supported_packages": [
@@ -42,7 +42,7 @@
       ],
       "source": {
         "path": "tests/contracts/protocol/generate_wire_fixtures.py",
-        "sha256": "sha256:642b6755874ed18f61382bb784cefd90e7d2d674823ff177952b628d5d0745ad"
+        "sha256": "sha256:f2a021e5c4f824ad839502e05287a1dd1e0e4fdfad92e2a154922cf50d31d8e5"
       },
       "path": "protocol_info_v1.binpb",
       "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
@@ -123,6 +123,20 @@
       "wire_sha256": "sha256:2bb924d9aba0faac1739384a96c7a35234ce51b5817a8ae5a7b12020de073c90",
       "producer_language": "python",
       "capability_identity": "provider.invocation-lookup.v1"
+    }
+  ],
+  "discovery_step_fixtures": [
+    {
+      "path": "discovery_execute_v1.binpb",
+      "wire_sha256": "sha256:fc02263bb3c13d481d1a09946c12566d561f3edd7aad36fd24ac50eb536c7834",
+      "producer_language": "python",
+      "capability_identity": "discovery.model-step.v1"
+    },
+    {
+      "path": "discovery_completed_v1.binpb",
+      "wire_sha256": "sha256:065f87329c90851d69f47aec5669fa664e9adef353331b639c9604488b7870c3",
+      "producer_language": "python",
+      "capability_identity": "discovery.model-step.v1"
     }
   ]
 }

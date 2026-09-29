@@ -41,6 +41,16 @@ class DiscoveryServiceStub:
                 request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryRequest.SerializeToString,
                 response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryResponse.FromString,
                 _registered_method=True)
+        self.ExecuteDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/ExecuteDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryResponse.FromString,
+                _registered_method=True)
+        self.GetDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/GetDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
+                _registered_method=True)
 
 
 class DiscoveryServiceServicer:
@@ -54,6 +64,21 @@ class DiscoveryServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExecuteDiscovery(self, request, context):
+        """Executes or reconciles the one model step authorized by the server-owned
+        frozen plan. Callers cannot replace its model, prompt, schema, or budget.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetDiscovery(self, request, context):
+        """Reads a narrow projection without invoking a model or acquiring a lease.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DiscoveryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -61,6 +86,16 @@ def add_DiscoveryServiceServicer_to_server(servicer, server):
                     servicer.StartDiscovery,
                     request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryRequest.FromString,
                     response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryResponse.SerializeToString,
+            ),
+            'ExecuteDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExecuteDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryResponse.SerializeToString,
+            ),
+            'GetDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -92,6 +127,60 @@ class DiscoveryService:
             '/loop.discovery.v1.DiscoveryService/StartDiscovery',
             loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryRequest.SerializeToString,
             loop_dot_discovery_dot_v1_dot_service__pb2.StartDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExecuteDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/ExecuteDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.ExecuteDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/GetDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
             options,
             channel_credentials,
             insecure,

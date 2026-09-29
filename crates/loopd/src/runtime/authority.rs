@@ -93,6 +93,7 @@ pub struct RuntimeAuthority {
     jobs: BTreeMap<String, [u8; 32]>,
     clock: Arc<dyn Clock>,
     last_observed: Mutex<i64>,
+    discovery: Option<Arc<super::DiscoveryExecutor>>,
 }
 
 /// Proof constructed only after tonic exposes a verified TLS peer certificate.
@@ -162,7 +163,22 @@ impl RuntimeAuthority {
             jobs: pinned,
             clock,
             last_observed: Mutex::new(0),
+            discovery: None,
         })
+    }
+
+    /// Attach frozen Discovery authority without widening generic job access.
+    /// Every plan must resolve to the exact configured Discovery actor and run.
+    /// Installation is startup-only; replacing it requires a process restart.
+    pub fn with_discovery(mut self, executor: Arc<super::DiscoveryExecutor>) -> StoreResult<Self> {
+        for (actor, run) in executor.identities() {
+            let identity = self.identity(actor)?;
+            if identity.role != Role::Discovery || !identity.run_ids.iter().any(|id| id == run) {
+                return Err(StoreError::AdmissionDenied);
+            }
+        }
+        self.discovery = Some(executor);
+        Ok(self)
     }
 
     pub(super) fn now(&self) -> StoreResult<i64> {
@@ -231,7 +247,11 @@ impl RuntimeAuthority {
         operation: &str,
     ) -> StoreResult<()> {
         let identity = self.identity(&principal.actor)?;
-        if !self.jobs.contains_key(job_id)
+        id(job_id)?;
+        let discovered = identity.role == Role::Discovery
+            && self.discovery.is_some()
+            && role_operation(identity.role, operation);
+        if (!self.jobs.contains_key(job_id) && !discovered)
             || identity.run_ids.is_empty()
             || !role_operation(identity.role, operation)
         {
@@ -253,6 +273,20 @@ impl RuntimeAuthority {
 
 impl AdmissionPolicy for RuntimeAuthority {
     fn validate_submission(&self, job: &JobSpecification) -> StoreResult<()> {
+        if matches!(job.input, Some(job_specification::Input::Discovery(_)))
+            && let Some(discovery) = &self.discovery
+        {
+            let actor = job
+                .submitted_by
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            let identity = self.identity(actor)?;
+            let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
+            if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+                return Err(StoreError::AdmissionDenied);
+            }
+            return discovery.authorize(job);
+        }
         let job_id = job.job_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
         let expected = self
             .jobs
@@ -324,7 +358,12 @@ impl AdmissionPolicy for RuntimeAuthority {
                 Role::Research => development,
                 Role::HoldoutWorker => protected,
                 Role::Scheduler => true,
-                Role::Discovery | Role::Provider => false,
+                Role::Discovery => {
+                    matches!(job.input, Some(job_specification::Input::Discovery(_)))
+                        && job.submitted_by.as_ref() == Some(actor)
+                        && self.discovery.is_some()
+                }
+                Role::Provider => false,
             };
         if !allowed || !identity.run_ids.contains(&run.value) {
             return Err(StoreError::AdmissionDenied);
@@ -370,7 +409,17 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.jobs.artifacts"
         ),
         Role::Scheduler => operation == "loop.jobs.recover",
-        Role::Discovery | Role::Provider => false,
+        Role::Discovery => matches!(
+            operation,
+            "loop.discovery.start"
+                | "loop.model.read"
+                | "loop.model.reserve"
+                | "loop.model.dispatch"
+                | "loop.model.uncertain"
+                | "loop.model.finish"
+                | "loop.model.takeover"
+        ),
+        Role::Provider => false,
     }
 }
 

@@ -2,6 +2,7 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod discovery;
 mod reconciliation;
 mod statistics;
 
@@ -42,6 +43,7 @@ pub struct RuntimeService {
     portfolio: Option<Arc<PortfolioExecutor>>,
     reconciler: Option<Arc<ReconciliationExecutor>>,
     statistician: Option<Arc<StatisticsExecutor>>,
+    discoverer: Option<Arc<super::DiscoveryExecutor>>,
 }
 
 impl RuntimeService {
@@ -62,6 +64,7 @@ impl RuntimeService {
             portfolio: None,
             reconciler: None,
             statistician: None,
+            discoverer: None,
         }
     }
 
@@ -91,6 +94,13 @@ impl RuntimeService {
     /// deployment attachment execution and current reads remain default-deny.
     pub fn with_statistician(mut self, executor: Arc<StatisticsExecutor>) -> Self {
         self.statistician = Some(executor);
+        self
+    }
+
+    /// Attach the same frozen Discovery executor used by runtime authority.
+    /// Without it all Discovery RPCs deny, including historical projections.
+    pub fn with_discoverer(mut self, executor: Arc<super::DiscoveryExecutor>) -> Self {
+        self.discoverer = Some(executor);
         self
     }
 
@@ -148,9 +158,14 @@ pub async fn serve(
         .max_connection_age(Duration::from_secs(900))
         .max_connection_age_grace(Duration::from_secs(30))
         .add_service(
-            JobServiceServer::new(service)
+            JobServiceServer::new(service.clone())
                 .max_decoding_message_size(4 * 1024 * 1024)
                 .max_encoding_message_size(4 * 1024 * 1024),
+        )
+        .add_service(
+            loop_protocol::wire::discovery::v1::discovery_service_server::DiscoveryServiceServer::new(service)
+                .max_decoding_message_size(1_048_576)
+                .max_encoding_message_size(1_048_576),
         )
         .serve_with_incoming_shutdown(TcpListenerStream::new(listener), shutdown)
         .await

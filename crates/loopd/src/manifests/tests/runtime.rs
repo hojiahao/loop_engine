@@ -2,7 +2,7 @@ mod deployment;
 mod evaluation;
 mod holdout;
 mod process;
-mod tls;
+use crate::test_support::tls;
 
 use std::os::unix::fs::PermissionsExt;
 use std::sync::{

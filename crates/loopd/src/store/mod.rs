@@ -13,7 +13,11 @@ mod grant;
 mod holdout;
 mod library;
 mod lifecycle;
+mod model_step;
 pub(crate) use lifecycle::validate_context as validate_runtime_context;
+pub(crate) use model_step::{
+    ModelStep, ModelStepCommand, ModelStepState, model_duration, model_money,
+};
 mod perturbation;
 mod portfolio;
 mod postgres;

@@ -52,6 +52,56 @@ pub struct StartDiscoveryResponse {
     #[prost(message, optional, tag = "1")]
     pub job: ::core::option::Option<DiscoveryJobHandle>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DiscoveryCandidate {
+    #[prost(message, optional, tag = "1")]
+    pub expression_id: ::core::option::Option<super::super::v1::FactorExpressionId>,
+    #[prost(string, tag = "2")]
+    pub canonicalization_profile: ::prost::alloc::string::String,
+    #[prost(bytes = "vec", tag = "3")]
+    pub canonical_json: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DiscoveryStepView {
+    #[prost(message, optional, tag = "1")]
+    pub job: ::core::option::Option<DiscoveryJobHandle>,
+    #[prost(enumeration = "DiscoveryStepState", tag = "2")]
+    pub state: i32,
+    #[prost(message, optional, tag = "3")]
+    pub candidate: ::core::option::Option<DiscoveryCandidate>,
+    #[prost(message, optional, tag = "4")]
+    pub reserved_cost: ::core::option::Option<super::super::v1::Money>,
+    #[prost(uint64, tag = "5")]
+    pub reserved_input_tokens: u64,
+    #[prost(uint64, tag = "6")]
+    pub reserved_output_tokens: u64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExecuteDiscoveryRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(uint64, tag = "3")]
+    pub expected_revision: u64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ExecuteDiscoveryResponse {
+    #[prost(message, optional, tag = "1")]
+    pub step: ::core::option::Option<DiscoveryStepView>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetDiscoveryRequest {
+    #[prost(message, optional, tag = "1")]
+    pub context: ::core::option::Option<super::super::v1::CommandContext>,
+    #[prost(message, optional, tag = "2")]
+    pub job_id: ::core::option::Option<super::super::v1::JobId>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetDiscoveryResponse {
+    #[prost(message, optional, tag = "1")]
+    pub step: ::core::option::Option<DiscoveryStepView>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum DiscoveryJobStatus {
@@ -97,6 +147,41 @@ impl DiscoveryJobStatus {
             }
             "DISCOVERY_JOB_STATUS_CANCELLED" => Some(Self::Cancelled),
             "DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED" => Some(Self::BudgetExhausted),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DiscoveryStepState {
+    Unspecified = 0,
+    Reserved = 1,
+    Dispatched = 2,
+    Completed = 3,
+    Ambiguous = 4,
+}
+impl DiscoveryStepState {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "DISCOVERY_STEP_STATE_UNSPECIFIED",
+            Self::Reserved => "DISCOVERY_STEP_STATE_RESERVED",
+            Self::Dispatched => "DISCOVERY_STEP_STATE_DISPATCHED",
+            Self::Completed => "DISCOVERY_STEP_STATE_COMPLETED",
+            Self::Ambiguous => "DISCOVERY_STEP_STATE_AMBIGUOUS",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "DISCOVERY_STEP_STATE_UNSPECIFIED" => Some(Self::Unspecified),
+            "DISCOVERY_STEP_STATE_RESERVED" => Some(Self::Reserved),
+            "DISCOVERY_STEP_STATE_DISPATCHED" => Some(Self::Dispatched),
+            "DISCOVERY_STEP_STATE_COMPLETED" => Some(Self::Completed),
+            "DISCOVERY_STEP_STATE_AMBIGUOUS" => Some(Self::Ambiguous),
             _ => None,
         }
     }
@@ -221,6 +306,61 @@ pub mod discovery_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn execute_discovery(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExecuteDiscoveryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteDiscoveryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.discovery.v1.DiscoveryService/ExecuteDiscovery",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "loop.discovery.v1.DiscoveryService",
+                        "ExecuteDiscovery",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_discovery(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetDiscoveryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetDiscoveryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/loop.discovery.v1.DiscoveryService/GetDiscovery",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("loop.discovery.v1.DiscoveryService", "GetDiscovery"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -241,6 +381,20 @@ pub mod discovery_service_server {
             request: tonic::Request<super::StartDiscoveryRequest>,
         ) -> std::result::Result<
             tonic::Response<super::StartDiscoveryResponse>,
+            tonic::Status,
+        >;
+        async fn execute_discovery(
+            &self,
+            request: tonic::Request<super::ExecuteDiscoveryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExecuteDiscoveryResponse>,
+            tonic::Status,
+        >;
+        async fn get_discovery(
+            &self,
+            request: tonic::Request<super::GetDiscoveryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetDiscoveryResponse>,
             tonic::Status,
         >;
     }
@@ -351,6 +505,98 @@ pub mod discovery_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = StartDiscoverySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.discovery.v1.DiscoveryService/ExecuteDiscovery" => {
+                    #[allow(non_camel_case_types)]
+                    struct ExecuteDiscoverySvc<T: DiscoveryService>(pub Arc<T>);
+                    impl<
+                        T: DiscoveryService,
+                    > tonic::server::UnaryService<super::ExecuteDiscoveryRequest>
+                    for ExecuteDiscoverySvc<T> {
+                        type Response = super::ExecuteDiscoveryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ExecuteDiscoveryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DiscoveryService>::execute_discovery(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ExecuteDiscoverySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/loop.discovery.v1.DiscoveryService/GetDiscovery" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetDiscoverySvc<T: DiscoveryService>(pub Arc<T>);
+                    impl<
+                        T: DiscoveryService,
+                    > tonic::server::UnaryService<super::GetDiscoveryRequest>
+                    for GetDiscoverySvc<T> {
+                        type Response = super::GetDiscoveryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetDiscoveryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DiscoveryService>::get_discovery(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetDiscoverySvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

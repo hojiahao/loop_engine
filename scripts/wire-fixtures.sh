@@ -38,6 +38,8 @@ loop_fixture_names=(
   protocol_info_v1_unknown_field.binpb
   provider_lookup_v1.binpb
   provider_completed_v1.binpb
+  discovery_execute_v1.binpb
+  discovery_completed_v1.binpb
   wire_fixtures.json
 )
 

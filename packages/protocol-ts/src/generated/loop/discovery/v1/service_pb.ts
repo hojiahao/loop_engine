@@ -6,7 +6,7 @@ import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobu
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { CommandContext, JobId, Money, PolicyReference } from "../../v1/common_pb.js";
+import type { CommandContext, FactorExpressionId, JobId, Money, PolicyReference } from "../../v1/common_pb.js";
 import { file_loop_v1_common } from "../../v1/common_pb.js";
 import type { DevelopmentDatasetReference } from "../../v1/development_data_pb.js";
 import { file_loop_v1_development_data } from "../../v1/development_data_pb.js";
@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/discovery/v1/service.proto.
  */
 export const file_loop_discovery_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlKusCChJEaXNjb3ZlcnlKb2JTdGF0dXMSJAogRElTQ09WRVJZX0pPQl9TVEFUVVNfVU5TUEVDSUZJRUQQABIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19RVUVVRUQQARIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19MRUFTRUQQAhIgChxESVNDT1ZFUllfSk9CX1NUQVRVU19SVU5OSU5HEAMSIgoeRElTQ09WRVJZX0pPQl9TVEFUVVNfU1VDQ0VFREVEEAQSKAokRElTQ09WRVJZX0pPQl9TVEFUVVNfRkFDVE9SX1JFSkVDVEVEEAUSLgoqRElTQ09WRVJZX0pPQl9TVEFUVVNfSU5GUkFTVFJVQ1RVUkVfRkFJTEVEEAYSIgoeRElTQ09WRVJZX0pPQl9TVEFUVVNfQ0FOQ0VMTEVEEAcSKQolRElTQ09WRVJZX0pPQl9TVEFUVVNfQlVER0VUX0VYSEFVU1RFRBAIMnkKEERpc2NvdmVyeVNlcnZpY2USZQoOU3RhcnREaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
+  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIoIBChJEaXNjb3ZlcnlDYW5kaWRhdGUSMgoNZXhwcmVzc2lvbl9pZBgBIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEiAKGGNhbm9uaWNhbGl6YXRpb25fcHJvZmlsZRgCIAEoCRIWCg5jYW5vbmljYWxfanNvbhgDIAEoDCKdAgoRRGlzY292ZXJ5U3RlcFZpZXcSMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEjQKBXN0YXRlGAIgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFN0YXRlEjgKCWNhbmRpZGF0ZRgDIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUNhbmRpZGF0ZRIlCg1yZXNlcnZlZF9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYBSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgGIAEoBCJ+ChdFeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk4KGEV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRIyCgRzdGVwGAEgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFZpZXciXwoTR2V0RGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkIkoKFEdldERpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyrrAgoSRGlzY292ZXJ5Sm9iU3RhdHVzEiQKIERJU0NPVkVSWV9KT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfUVVFVUVEEAESHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfTEVBU0VEEAISIAocRElTQ09WRVJZX0pPQl9TVEFUVVNfUlVOTklORxADEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX1NVQ0NFRURFRBAEEigKJERJU0NPVkVSWV9KT0JfU1RBVFVTX0ZBQ1RPUl9SRUpFQ1RFRBAFEi4KKkRJU0NPVkVSWV9KT0JfU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAGEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX0NBTkNFTExFRBAHEikKJURJU0NPVkVSWV9KT0JfU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQCCrKAQoSRGlzY292ZXJ5U3RlcFN0YXRlEiQKIERJU0NPVkVSWV9TVEVQX1NUQVRFX1VOU1BFQ0lGSUVEEAASIQodRElTQ09WRVJZX1NURVBfU1RBVEVfUkVTRVJWRUQQARIjCh9ESVNDT1ZFUllfU1RFUF9TVEFURV9ESVNQQVRDSEVEEAISIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQ09NUExFVEVEEAMSIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQU1CSUdVT1VTEAQyxwIKEERpc2NvdmVyeVNlcnZpY2USZQoOU3RhcnREaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlc3BvbnNlEmsKEEV4ZWN1dGVEaXNjb3ZlcnkSKi5sb29wLmRpc2NvdmVyeS52MS5FeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBorLmxvb3AuZGlzY292ZXJ5LnYxLkV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRJfCgxHZXREaXNjb3ZlcnkSJi5sb29wLmRpc2NvdmVyeS52MS5HZXREaXNjb3ZlcnlSZXF1ZXN0GicubG9vcC5kaXNjb3ZlcnkudjEuR2V0RGlzY292ZXJ5UmVzcG9uc2ViBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
 
 /**
  * DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
@@ -189,6 +189,167 @@ export const StartDiscoveryResponseSchema: GenMessage<StartDiscoveryResponse> = 
   messageDesc(file_loop_discovery_v1_service, 4);
 
 /**
+ * DiscoveryCandidate is a validated canonical AST, never source code, a dataset,
+ * or a frozen/admitted factor. canonical_json is bounded to 256 KiB, 4,096 nodes,
+ * and depth 64; expression_id must match its versioned canonical identity.
+ *
+ * @generated from message loop.discovery.v1.DiscoveryCandidate
+ */
+export type DiscoveryCandidate = Message<"loop.discovery.v1.DiscoveryCandidate"> & {
+  /**
+   * @generated from field: loop.v1.FactorExpressionId expression_id = 1;
+   */
+  expressionId?: FactorExpressionId | undefined;
+
+  /**
+   * @generated from field: string canonicalization_profile = 2;
+   */
+  canonicalizationProfile: string;
+
+  /**
+   * @generated from field: bytes canonical_json = 3;
+   */
+  canonicalJson: Uint8Array;
+};
+
+/**
+ * Describes the message loop.discovery.v1.DiscoveryCandidate.
+ * Use `create(DiscoveryCandidateSchema)` to create a new message.
+ */
+export const DiscoveryCandidateSchema: GenMessage<DiscoveryCandidate> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 5);
+
+/**
+ * DiscoveryStepView omits model prompts/results, leases, generic job inputs,
+ * holdout authority, and raw datasets. A candidate is present only for a
+ * COMPLETED step. Reservations are conservative ceilings, not supplier bills;
+ * AMBIGUOUS does not release them or authorize another paid invocation.
+ *
+ * @generated from message loop.discovery.v1.DiscoveryStepView
+ */
+export type DiscoveryStepView = Message<"loop.discovery.v1.DiscoveryStepView"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryJobHandle job = 1;
+   */
+  job?: DiscoveryJobHandle | undefined;
+
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryStepState state = 2;
+   */
+  state: DiscoveryStepState;
+
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryCandidate candidate = 3;
+   */
+  candidate?: DiscoveryCandidate | undefined;
+
+  /**
+   * @generated from field: loop.v1.Money reserved_cost = 4;
+   */
+  reservedCost?: Money | undefined;
+
+  /**
+   * @generated from field: uint64 reserved_input_tokens = 5;
+   */
+  reservedInputTokens: bigint;
+
+  /**
+   * @generated from field: uint64 reserved_output_tokens = 6;
+   */
+  reservedOutputTokens: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.DiscoveryStepView.
+ * Use `create(DiscoveryStepViewSchema)` to create a new message.
+ */
+export const DiscoveryStepViewSchema: GenMessage<DiscoveryStepView> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 6);
+
+/**
+ * @generated from message loop.discovery.v1.ExecuteDiscoveryRequest
+ */
+export type ExecuteDiscoveryRequest = Message<"loop.discovery.v1.ExecuteDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ExecuteDiscoveryRequest.
+ * Use `create(ExecuteDiscoveryRequestSchema)` to create a new message.
+ */
+export const ExecuteDiscoveryRequestSchema: GenMessage<ExecuteDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 7);
+
+/**
+ * @generated from message loop.discovery.v1.ExecuteDiscoveryResponse
+ */
+export type ExecuteDiscoveryResponse = Message<"loop.discovery.v1.ExecuteDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryStepView step = 1;
+   */
+  step?: DiscoveryStepView | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ExecuteDiscoveryResponse.
+ * Use `create(ExecuteDiscoveryResponseSchema)` to create a new message.
+ */
+export const ExecuteDiscoveryResponseSchema: GenMessage<ExecuteDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 8);
+
+/**
+ * @generated from message loop.discovery.v1.GetDiscoveryRequest
+ */
+export type GetDiscoveryRequest = Message<"loop.discovery.v1.GetDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.GetDiscoveryRequest.
+ * Use `create(GetDiscoveryRequestSchema)` to create a new message.
+ */
+export const GetDiscoveryRequestSchema: GenMessage<GetDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 9);
+
+/**
+ * @generated from message loop.discovery.v1.GetDiscoveryResponse
+ */
+export type GetDiscoveryResponse = Message<"loop.discovery.v1.GetDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryStepView step = 1;
+   */
+  step?: DiscoveryStepView | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.GetDiscoveryResponse.
+ * Use `create(GetDiscoveryResponseSchema)` to create a new message.
+ */
+export const GetDiscoveryResponseSchema: GenMessage<GetDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 10);
+
+/**
  * DiscoveryJobStatus is a non-sensitive projection of durable orchestration
  * state. It cannot carry a job specification, input, lease, or outcome body.
  *
@@ -248,6 +409,45 @@ export const DiscoveryJobStatusSchema: GenEnum<DiscoveryJobStatus> = /*@__PURE__
   enumDesc(file_loop_discovery_v1_service, 0);
 
 /**
+ * DiscoveryStepState describes durable dispatch evidence, not factor admission.
+ * UNSPECIFIED is allowed only when the queued job has no reserved model step.
+ *
+ * @generated from enum loop.discovery.v1.DiscoveryStepState
+ */
+export enum DiscoveryStepState {
+  /**
+   * @generated from enum value: DISCOVERY_STEP_STATE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: DISCOVERY_STEP_STATE_RESERVED = 1;
+   */
+  RESERVED = 1,
+
+  /**
+   * @generated from enum value: DISCOVERY_STEP_STATE_DISPATCHED = 2;
+   */
+  DISPATCHED = 2,
+
+  /**
+   * @generated from enum value: DISCOVERY_STEP_STATE_COMPLETED = 3;
+   */
+  COMPLETED = 3,
+
+  /**
+   * @generated from enum value: DISCOVERY_STEP_STATE_AMBIGUOUS = 4;
+   */
+  AMBIGUOUS = 4,
+}
+
+/**
+ * Describes the enum loop.discovery.v1.DiscoveryStepState.
+ */
+export const DiscoveryStepStateSchema: GenEnum<DiscoveryStepState> = /*@__PURE__*/
+  enumDesc(file_loop_discovery_v1_service, 1);
+
+/**
  * DiscoveryService has no holdout method, grant, period, approval, or protected
  * dataset input. Its runtime principal is never issued a holdout capability.
  *
@@ -261,6 +461,27 @@ export const DiscoveryService: GenService<{
     methodKind: "unary";
     input: typeof StartDiscoveryRequestSchema;
     output: typeof StartDiscoveryResponseSchema;
+  },
+  /**
+   * Executes or reconciles the one model step authorized by the server-owned
+   * frozen plan. Callers cannot replace its model, prompt, schema, or budget.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.ExecuteDiscovery
+   */
+  executeDiscovery: {
+    methodKind: "unary";
+    input: typeof ExecuteDiscoveryRequestSchema;
+    output: typeof ExecuteDiscoveryResponseSchema;
+  },
+  /**
+   * Reads a narrow projection without invoking a model or acquiring a lease.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.GetDiscovery
+   */
+  getDiscovery: {
+    methodKind: "unary";
+    input: typeof GetDiscoveryRequestSchema;
+    output: typeof GetDiscoveryResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_discovery_v1_service, 0);

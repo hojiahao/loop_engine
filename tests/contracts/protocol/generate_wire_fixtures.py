@@ -12,6 +12,7 @@ from pathlib import Path
 from google import protobuf
 from google.protobuf.timestamp_pb2 import Timestamp
 
+from loop.discovery.v1 import service_pb2 as discovery_pb2
 from loop.provider.v1 import service_pb2 as provider_pb2
 from loop.v1 import common_pb2, job_pb2, model_pb2
 
@@ -27,6 +28,8 @@ UNKNOWN_ONEOF_FIXTURE = "job_specification_v1_unknown_oneof.binpb"
 OPERATIONAL_FAILURE_FIXTURE = "operational_failure.json"
 LOOKUP_REQUEST_FIXTURE = "provider_lookup_v1.binpb"
 LOOKUP_RESPONSE_FIXTURE = "provider_completed_v1.binpb"
+DISCOVERY_REQUEST_FIXTURE = "discovery_execute_v1.binpb"
+DISCOVERY_RESPONSE_FIXTURE = "discovery_completed_v1.binpb"
 MANIFEST = "wire_fixtures.json"
 EXPECTED_PYTHON_VERSION = (REPOSITORY_ROOT / ".python-version").read_text(encoding="ascii").strip()
 EXPECTED_PROTOBUF_VERSION = "7.36.1"
@@ -180,6 +183,52 @@ def _lookup_fixtures() -> dict[str, bytes]:
     }
 
 
+def _discovery_fixtures() -> dict[str, bytes]:
+    canonical = b'{"node":"field","field":"market.close"}'
+    request = discovery_pb2.ExecuteDiscoveryRequest(
+        context=common_pb2.CommandContext(
+            request_id=common_pb2.RequestId(value="execute.1"),
+            correlation_id=common_pb2.CorrelationId(value="correlation.1"),
+            idempotency_key=common_pb2.IdempotencyKey(value="execute-key.1"),
+            actor=common_pb2.Actor(
+                actor_id=common_pb2.ActorId(value="researcher.1"),
+                kind=common_pb2.ACTOR_KIND_HUMAN,
+            ),
+            requested_at=Timestamp(seconds=1_788_192_000),
+        ),
+        job_id=common_pb2.JobId(value="discovery.1"),
+        expected_revision=3,
+    )
+    response = discovery_pb2.ExecuteDiscoveryResponse(
+        step=discovery_pb2.DiscoveryStepView(
+            job=discovery_pb2.DiscoveryJobHandle(
+                job_id=common_pb2.JobId(value="discovery.1"),
+                status=discovery_pb2.DISCOVERY_JOB_STATUS_SUCCEEDED,
+                revision=5,
+                submitted_at=Timestamp(seconds=1_788_192_000),
+                updated_at=Timestamp(seconds=1_788_192_010),
+            ),
+            state=discovery_pb2.DISCOVERY_STEP_STATE_COMPLETED,
+            candidate=discovery_pb2.DiscoveryCandidate(
+                expression_id=common_pb2.FactorExpressionId(
+                    value=_sha256(b"loop.factor-ast/v1\0" + canonical)
+                ),
+                canonicalization_profile="loop.factor-ast/v1",
+                canonical_json=canonical,
+            ),
+            reserved_cost=common_pb2.Money(
+                amount=common_pb2.ExactDecimal(value="0.125"), currency_code="USD"
+            ),
+            reserved_input_tokens=4096,
+            reserved_output_tokens=1024,
+        )
+    )
+    return {
+        DISCOVERY_REQUEST_FIXTURE: request.SerializeToString(deterministic=True),
+        DISCOVERY_RESPONSE_FIXTURE: response.SerializeToString(deterministic=True),
+    }
+
+
 def _manifest(
     protocol_fixtures: dict[str, bytes],
     unknown_wire: bytes,
@@ -187,6 +236,7 @@ def _manifest(
     unknown_oneof_wire: bytes,
     operational_failure: bytes,
     lookup_fixtures: dict[str, bytes],
+    discovery_fixtures: dict[str, bytes],
 ) -> bytes:
     document = {
         "fixture_schema": "loop.contract-fixture-manifest/v2",
@@ -271,6 +321,15 @@ def _manifest(
             }
             for name, content in lookup_fixtures.items()
         ],
+        "discovery_step_fixtures": [
+            {
+                "path": name,
+                "wire_sha256": _sha256(content),
+                "producer_language": "python",
+                "capability_identity": "discovery.model-step.v1",
+            }
+            for name, content in discovery_fixtures.items()
+        ],
     }
     return (json.dumps(document, indent=2, ensure_ascii=True) + "\n").encode("ascii")
 
@@ -304,9 +363,11 @@ def _expected_files(output_directory: Path) -> dict[str, bytes]:
     ) + _length_delimited_field(FUTURE_JOB_INPUT_FIELD_NUMBER, b"")
     operational_failure = _operational_failure()
     lookup_fixtures = _lookup_fixtures()
+    discovery_fixtures = _discovery_fixtures()
     expected = {
         **protocol_fixtures,
         **lookup_fixtures,
+        **discovery_fixtures,
         UNKNOWN_FIELD_FIXTURE: unknown_wire,
         UNKNOWN_ENUM_FIXTURE: unknown_enum_wire,
         UNKNOWN_ONEOF_FIXTURE: unknown_oneof_wire,
@@ -319,6 +380,7 @@ def _expected_files(output_directory: Path) -> dict[str, bytes]:
         unknown_oneof_wire,
         operational_failure,
         lookup_fixtures,
+        discovery_fixtures,
     )
     return expected
 

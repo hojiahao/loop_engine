@@ -24,6 +24,8 @@ fi
 # Process tests control writer concurrency; unrelated cases must not compete
 # with a real worker's bounded file-verification budget on small hosts.
 export RUST_TEST_THREADS="${RUST_TEST_THREADS:-1}"
+# Harness acceptance invokes the compiled TypeScript Provider over actual mTLS.
+./scripts/pnpm.sh --filter @loop-engine/providerd build
 ./scripts/cargo.sh test --locked --offline --workspace --all-features
 ./scripts/pnpm.sh test
 ./scripts/uv.sh sync --all-packages --all-groups --locked --offline

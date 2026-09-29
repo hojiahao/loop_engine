@@ -8,11 +8,12 @@ publish.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+base64 = "0.22.1"
 axum.workspace = true
 clap.workspace = true
 chrono.workspace = true
 loop-core = { path = "../loop-core" }
-loop-protocol = { path = "../loop-protocol", features = ["jobs-service", "holdout-service", "discovery-service", "research-service"] }
+loop-protocol = { path = "../loop-protocol", features = ["jobs-service", "holdout-service", "discovery-service", "research-service", "provider-service"] }
 prost.workspace = true
 prost-types.workspace = true
 rustix.workspace = true

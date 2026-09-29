@@ -39,6 +39,8 @@ struct Configuration {
     reconciliation: Option<ReconciliationConfig>,
     #[serde(default)]
     statistics: Option<StatisticsConfig>,
+    #[serde(default)]
+    discovery: Option<super::DiscoveryConfig>,
 }
 
 #[derive(Deserialize)]
@@ -74,6 +76,8 @@ pub struct RuntimeDeployment {
     pub reconciliation: Option<Arc<ReconciliationExecutor>>,
     /// Optional complete-registry statistical reporter; absent means disabled.
     pub statistics: Option<Arc<StatisticsExecutor>>,
+    /// Optional frozen one-step model executor; absent keeps Discovery disabled.
+    pub discovery: Option<Arc<super::DiscoveryExecutor>>,
     tls: ServerTlsConfig,
 }
 
@@ -93,11 +97,48 @@ impl RuntimeDeployment {
         let certificate = read_file(&config.server_certificate_file, false, 131_072)?;
         let key = read_file(&config.server_key_file, true, 131_072)?;
         let ca = read_file(&config.client_ca_file, false, 131_072)?;
-        let authority = Arc::new(RuntimeAuthority::new(
-            config.identities,
-            config.jobs,
-            Arc::new(SystemClock),
-        )?);
+        let discovery = config
+            .discovery
+            .map(|discovery| {
+                let mut namespaces = vec![
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ];
+                if let Some(evaluation) = &config.evaluation {
+                    namespaces.push(&evaluation.output_store);
+                }
+                if let Some(portfolio) = &config.portfolio {
+                    namespaces.push(&portfolio.output_store);
+                }
+                if let Some(statistics) = &config.statistics {
+                    namespaces.push(&statistics.output_store);
+                }
+                if let Some(reconciliation) = &config.reconciliation {
+                    namespaces.extend([
+                        &reconciliation.output_store,
+                        &reconciliation.cache,
+                        &reconciliation.alphalens_project,
+                        &reconciliation.zipline_project,
+                    ]);
+                }
+                if namespaces
+                    .iter()
+                    .any(|path| super::reconciliation::overlaps(path, &discovery.plan_store))
+                {
+                    return Err(StoreError::Invalid(
+                        "discovery plan overlaps research storage",
+                    ));
+                }
+                super::DiscoveryExecutor::open(discovery, &config.development_store).map(Arc::new)
+            })
+            .transpose()?;
+        let mut authority =
+            RuntimeAuthority::new(config.identities, config.jobs, Arc::new(SystemClock))?;
+        if let Some(discovery) = &discovery {
+            authority = authority.with_discovery(discovery.clone())?;
+        }
+        let authority = Arc::new(authority);
         let artifacts = Arc::new(ArtifactBroker::open(
             &config.development_store,
             &config.protected_store,
@@ -241,6 +282,7 @@ impl RuntimeDeployment {
             portfolio,
             reconciliation,
             statistics,
+            discovery,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),
@@ -254,7 +296,7 @@ impl RuntimeDeployment {
     }
 }
 
-fn read_file(path: &Path, private: bool, maximum: u64) -> StoreResult<Vec<u8>> {
+pub(super) fn read_file(path: &Path, private: bool, maximum: u64) -> StoreResult<Vec<u8>> {
     if !path.is_absolute() || std::fs::canonicalize(path).ok().as_deref() != Some(path) {
         return Err(StoreError::Invalid("runtime configuration path"));
     }

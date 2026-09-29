@@ -7,15 +7,15 @@ use tonic::transport::{
     Certificate, Channel, ClientTlsConfig, Endpoint, Identity, ServerTlsConfig,
 };
 
-pub(super) struct Credentials {
+pub(crate) struct Credentials {
     root: PathBuf,
 }
 
 impl Credentials {
-    pub(super) fn path(&self, name: &str) -> PathBuf {
+    pub(crate) fn path(&self, name: &str) -> PathBuf {
         self.root.join(name)
     }
-    pub(super) fn new(parent: &Path) -> Self {
+    pub(crate) fn new(parent: &Path) -> Self {
         let root = parent.join("tls");
         std::fs::create_dir(&root).unwrap();
         openssl(
@@ -102,10 +102,10 @@ impl Credentials {
     fn read(&self, name: &str) -> Vec<u8> {
         std::fs::read(self.root.join(name)).unwrap()
     }
-    pub(super) fn client_digest(&self) -> String {
+    pub(crate) fn client_digest(&self) -> String {
         format!("sha256:{:x}", Sha256::digest(self.read("client.der")))
     }
-    pub(super) fn server(&self) -> ServerTlsConfig {
+    pub(crate) fn server(&self) -> ServerTlsConfig {
         ServerTlsConfig::new()
             .identity(Identity::from_pem(
                 self.read("server.pem"),
@@ -113,7 +113,7 @@ impl Credentials {
             ))
             .client_ca_root(Certificate::from_pem(self.read("ca.pem")))
     }
-    pub(super) async fn client(
+    pub(crate) async fn client(
         &self,
         address: std::net::SocketAddr,
         authenticated: bool,
@@ -122,7 +122,7 @@ impl Credentials {
             .await
     }
 
-    pub(super) async fn named_client(
+    pub(crate) async fn named_client(
         &self,
         address: std::net::SocketAddr,
         identity: Option<&str>,
@@ -131,7 +131,7 @@ impl Credentials {
             .await
     }
 
-    pub(super) async fn timed_client(
+    pub(crate) async fn timed_client(
         &self,
         address: std::net::SocketAddr,
         identity: Option<&str>,

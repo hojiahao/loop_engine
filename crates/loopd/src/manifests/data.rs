@@ -70,6 +70,7 @@ pub(crate) async fn resolve(
     let expected = match (&job.input, protected) {
         (Some(job_specification::Input::Backtest(input)), false) => input.dataset.as_ref(),
         (Some(job_specification::Input::FactorEvaluation(input)), false) => input.dataset.as_ref(),
+        (Some(job_specification::Input::Discovery(input)), false) => input.dataset.as_ref(),
         (Some(job_specification::Input::HoldoutBacktest(input)), true) => {
             model::schema(&data.schema, "loop.protected-dataset/v1")?;
             if !matches!(data.quality, model::Quality::Synthetic) {

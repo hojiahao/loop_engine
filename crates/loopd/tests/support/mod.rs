@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+pub(crate) mod tls;
+
 pub mod approval;
 pub mod backtest;
 pub mod batch;

@@ -12,6 +12,11 @@ import "loop/v1/model.proto";
 // dataset input. Its runtime principal is never issued a holdout capability.
 service DiscoveryService {
   rpc StartDiscovery(StartDiscoveryRequest) returns (StartDiscoveryResponse);
+  // Executes or reconciles the one model step authorized by the server-owned
+  // frozen plan. Callers cannot replace its model, prompt, schema, or budget.
+  rpc ExecuteDiscovery(ExecuteDiscoveryRequest) returns (ExecuteDiscoveryResponse);
+  // Reads a narrow projection without invoking a model or acquiring a lease.
+  rpc GetDiscovery(GetDiscoveryRequest) returns (GetDiscoveryResponse);
 }
 
 // DiscoveryJobStatus is a non-sensitive projection of durable orchestration
@@ -70,4 +75,55 @@ message DiscoveryJobHandle {
 
 message StartDiscoveryResponse {
   DiscoveryJobHandle job = 1;
+}
+
+// DiscoveryStepState describes durable dispatch evidence, not factor admission.
+// UNSPECIFIED is allowed only when the queued job has no reserved model step.
+enum DiscoveryStepState {
+  DISCOVERY_STEP_STATE_UNSPECIFIED = 0;
+  DISCOVERY_STEP_STATE_RESERVED = 1;
+  DISCOVERY_STEP_STATE_DISPATCHED = 2;
+  DISCOVERY_STEP_STATE_COMPLETED = 3;
+  DISCOVERY_STEP_STATE_AMBIGUOUS = 4;
+}
+
+// DiscoveryCandidate is a validated canonical AST, never source code, a dataset,
+// or a frozen/admitted factor. canonical_json is bounded to 256 KiB, 4,096 nodes,
+// and depth 64; expression_id must match its versioned canonical identity.
+message DiscoveryCandidate {
+  loop.v1.FactorExpressionId expression_id = 1;
+  string canonicalization_profile = 2;
+  bytes canonical_json = 3;
+}
+
+// DiscoveryStepView omits model prompts/results, leases, generic job inputs,
+// holdout authority, and raw datasets. A candidate is present only for a
+// COMPLETED step. Reservations are conservative ceilings, not supplier bills;
+// AMBIGUOUS does not release them or authorize another paid invocation.
+message DiscoveryStepView {
+  DiscoveryJobHandle job = 1;
+  DiscoveryStepState state = 2;
+  DiscoveryCandidate candidate = 3;
+  loop.v1.Money reserved_cost = 4;
+  uint64 reserved_input_tokens = 5;
+  uint64 reserved_output_tokens = 6;
+}
+
+message ExecuteDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ExecuteDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message GetDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+}
+
+message GetDiscoveryResponse {
+  DiscoveryStepView step = 1;
 }

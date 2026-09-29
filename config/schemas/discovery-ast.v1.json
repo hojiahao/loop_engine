@@ -1,0 +1,111 @@
+{
+  "type": "object",
+  "properties": {
+    "ast": {
+      "$ref": "#/$defs/node"
+    }
+  },
+  "required": ["ast"],
+  "additionalProperties": false,
+  "$defs": {
+    "node": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "field"
+            },
+            "field": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": ["node", "field"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "decimal"
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": ["node", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "boolean"
+            },
+            "value": {
+              "type": "boolean"
+            }
+          },
+          "required": ["node", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "enum"
+            },
+            "enum_type": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": ["node", "enum_type", "value"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "node": {
+              "type": "string",
+              "const": "call"
+            },
+            "operator": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "operator_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "arguments": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "$ref": "#/$defs/node"
+              }
+            }
+          },
+          "required": ["node", "operator", "operator_version", "arguments"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

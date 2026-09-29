@@ -24,6 +24,14 @@ class DiscoveryJobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED: _ClassVar[DiscoveryJobStatus]
     DISCOVERY_JOB_STATUS_CANCELLED: _ClassVar[DiscoveryJobStatus]
     DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED: _ClassVar[DiscoveryJobStatus]
+
+class DiscoveryStepState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DISCOVERY_STEP_STATE_UNSPECIFIED: _ClassVar[DiscoveryStepState]
+    DISCOVERY_STEP_STATE_RESERVED: _ClassVar[DiscoveryStepState]
+    DISCOVERY_STEP_STATE_DISPATCHED: _ClassVar[DiscoveryStepState]
+    DISCOVERY_STEP_STATE_COMPLETED: _ClassVar[DiscoveryStepState]
+    DISCOVERY_STEP_STATE_AMBIGUOUS: _ClassVar[DiscoveryStepState]
 DISCOVERY_JOB_STATUS_UNSPECIFIED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_QUEUED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_LEASED: DiscoveryJobStatus
@@ -33,6 +41,11 @@ DISCOVERY_JOB_STATUS_FACTOR_REJECTED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_CANCELLED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED: DiscoveryJobStatus
+DISCOVERY_STEP_STATE_UNSPECIFIED: DiscoveryStepState
+DISCOVERY_STEP_STATE_RESERVED: DiscoveryStepState
+DISCOVERY_STEP_STATE_DISPATCHED: DiscoveryStepState
+DISCOVERY_STEP_STATE_COMPLETED: DiscoveryStepState
+DISCOVERY_STEP_STATE_AMBIGUOUS: DiscoveryStepState
 
 class DiscoveryJobBudget(_message.Message):
     __slots__ = ("maximum_steps", "maximum_input_tokens", "maximum_output_tokens", "maximum_cost", "maximum_wall_time")
@@ -91,3 +104,59 @@ class StartDiscoveryResponse(_message.Message):
     JOB_FIELD_NUMBER: _ClassVar[int]
     job: DiscoveryJobHandle
     def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ...) -> None: ...
+
+class DiscoveryCandidate(_message.Message):
+    __slots__ = ("expression_id", "canonicalization_profile", "canonical_json")
+    EXPRESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    CANONICALIZATION_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    CANONICAL_JSON_FIELD_NUMBER: _ClassVar[int]
+    expression_id: _common_pb2.FactorExpressionId
+    canonicalization_profile: str
+    canonical_json: bytes
+    def __init__(self, expression_id: _Optional[_Union[_common_pb2.FactorExpressionId, _Mapping]] = ..., canonicalization_profile: _Optional[str] = ..., canonical_json: _Optional[bytes] = ...) -> None: ...
+
+class DiscoveryStepView(_message.Message):
+    __slots__ = ("job", "state", "candidate", "reserved_cost", "reserved_input_tokens", "reserved_output_tokens")
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    CANDIDATE_FIELD_NUMBER: _ClassVar[int]
+    RESERVED_COST_FIELD_NUMBER: _ClassVar[int]
+    RESERVED_INPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    RESERVED_OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    job: DiscoveryJobHandle
+    state: DiscoveryStepState
+    candidate: DiscoveryCandidate
+    reserved_cost: _common_pb2.Money
+    reserved_input_tokens: int
+    reserved_output_tokens: int
+    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ..., state: _Optional[_Union[DiscoveryStepState, str]] = ..., candidate: _Optional[_Union[DiscoveryCandidate, _Mapping]] = ..., reserved_cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., reserved_input_tokens: _Optional[int] = ..., reserved_output_tokens: _Optional[int] = ...) -> None: ...
+
+class ExecuteDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class ExecuteDiscoveryResponse(_message.Message):
+    __slots__ = ("step",)
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    step: DiscoveryStepView
+    def __init__(self, step: _Optional[_Union[DiscoveryStepView, _Mapping]] = ...) -> None: ...
+
+class GetDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ...) -> None: ...
+
+class GetDiscoveryResponse(_message.Message):
+    __slots__ = ("step",)
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    step: DiscoveryStepView
+    def __init__(self, step: _Optional[_Union[DiscoveryStepView, _Mapping]] = ...) -> None: ...

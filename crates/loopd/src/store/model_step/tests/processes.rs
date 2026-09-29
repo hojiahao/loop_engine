@@ -1,0 +1,201 @@
+use super::*;
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+
+struct Worker(Child);
+impl Drop for Worker {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+async fn wait_file(path: &Path) {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !path.exists() {
+        assert!(Instant::now() < deadline, "model worker barrier timed out");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+async fn execute(store: &PgJobStore, mode: &str, command: ModelStepCommand) -> StoreResult<bool> {
+    match mode {
+        "reserve" => store
+            .reserve_model(&fixture::actor(), command, invocation())
+            .await
+            .map(|_| true),
+        "dispatch" => store
+            .dispatch_model(&fixture::actor(), command)
+            .await
+            .map(|result| result.send),
+        "finish" => {
+            let step = store.model_step(&fixture::actor(), "job.1").await?.unwrap();
+            store
+                .finish_model(&fixture::actor(), command, response(&step), outcome())
+                .await
+                .map(|_| true)
+        }
+        _ => panic!("test mode"),
+    }
+}
+
+#[test]
+#[ignore = "called only by independent OS-process tests"]
+fn process_worker() {
+    let root = std::path::PathBuf::from(std::env::var_os("LOOP_MODEL_TEST_ROOT").unwrap());
+    let index = std::env::var("LOOP_MODEL_TEST_INDEX").unwrap();
+    let mode = std::env::var("LOOP_MODEL_TEST_MODE").unwrap();
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            let store = PgJobStore::open(options(
+                &root.join("state"),
+                Arc::new(fixture::FixtureClock(AtomicI64::new(fixture::NOW))),
+            ))
+            .await
+            .unwrap();
+            let command =
+                ModelStepCommand::decode(std::fs::read(root.join("command")).unwrap().as_slice())
+                    .unwrap();
+            std::fs::write(root.join(format!("ready.{index}")), b"ready").unwrap();
+            wait_file(&root.join("start")).await;
+            let result = execute(&store, &mode, command).await.unwrap();
+            std::fs::write(
+                root.join(format!("result.{index}")),
+                if result {
+                    b"send".as_slice()
+                } else {
+                    b"lookup".as_slice()
+                },
+            )
+            .unwrap();
+            store.close().await;
+        });
+}
+
+fn spawn(root: &Path, index: usize, mode: &str, fault: Option<&str>) -> Worker {
+    let mut command = Command::new(std::env::current_exe().unwrap());
+    command
+        .args([
+            "--exact",
+            "store::model_step::tests::processes::process_worker",
+            "--ignored",
+            "--nocapture",
+        ])
+        .env("LOOP_MODEL_TEST_ROOT", root)
+        .env("LOOP_MODEL_TEST_INDEX", index.to_string())
+        .env("LOOP_MODEL_TEST_MODE", mode)
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit());
+    if let Some(fault) = fault {
+        command
+            .env("LOOP_TEST_FAULT_POINT", fault)
+            .env("LOOP_TEST_FAULT_READY", root.join("fault"));
+    }
+    Worker(command.spawn().unwrap())
+}
+
+async fn join(worker: &mut Worker) {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(status) = worker.0.try_wait().unwrap() {
+            assert!(status.success());
+            break;
+        }
+        assert!(Instant::now() < deadline, "model worker failed to exit");
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test]
+async fn concurrent_dispatch() {
+    for count in [2, 4, 8] {
+        let (directory, store, _) = setup().await;
+        let step = reserve(&store).await;
+        let cmd = command(&step.job, "dispatch.concurrent");
+        std::fs::write(directory.path().join("command"), cmd.encode_to_vec()).unwrap();
+        let mut workers: Vec<_> = (0..count)
+            .map(|index| spawn(directory.path(), index, "dispatch", None))
+            .collect();
+        for index in 0..count {
+            wait_file(&directory.path().join(format!("ready.{index}"))).await;
+        }
+        std::fs::write(directory.path().join("start"), b"start").unwrap();
+        for worker in &mut workers {
+            join(worker).await;
+        }
+        let sends = (0..count)
+            .filter(|index| {
+                std::fs::read(directory.path().join(format!("result.{index}"))).unwrap() == b"send"
+            })
+            .count();
+        assert_eq!(sends, 1);
+        let events = store.audit_events(0, 100).await.unwrap();
+        assert_eq!(events.len(), 3);
+        loop_core::audit::verify_audit_chain(&events).unwrap();
+        assert_eq!(
+            store
+                .model_step(&fixture::actor(), "job.1")
+                .await
+                .unwrap()
+                .unwrap()
+                .state,
+            ModelStepState::Dispatched
+        );
+        store.close().await;
+    }
+}
+
+#[tokio::test]
+async fn crash_boundaries() {
+    for mode in ["reserve", "dispatch", "finish"] {
+        for point in ["before", "after"] {
+            let (directory, store, clock) = setup().await;
+            let mut job = store.get("job.1").await.unwrap().unwrap();
+            if mode != "reserve" {
+                job = reserve(&store).await.job;
+            }
+            if mode == "finish" {
+                job = store
+                    .dispatch_model(&fixture::actor(), command(&job, "dispatch"))
+                    .await
+                    .unwrap()
+                    .step
+                    .job;
+            }
+            let cmd = command(&job, &format!("{mode}.crash"));
+            std::fs::write(directory.path().join("command"), cmd.encode_to_vec()).unwrap();
+            std::fs::write(directory.path().join("start"), b"start").unwrap();
+            let mut worker = spawn(
+                directory.path(),
+                0,
+                mode,
+                Some(&format!("model_{mode}_{point}")),
+            );
+            wait_file(&directory.path().join("fault")).await;
+            worker.0.kill().unwrap();
+            worker.0.wait().unwrap();
+            store.close().await;
+            let reopened = PgJobStore::open(options(&directory.path().join("state"), clock))
+                .await
+                .unwrap();
+            let observed = reopened.get("job.1").await.unwrap().unwrap();
+            assert_eq!(
+                observed.revision,
+                job.revision + u64::from(point == "after")
+            );
+            let result = execute(&reopened, mode, cmd).await.unwrap();
+            if mode == "dispatch" {
+                assert_eq!(result, point == "before");
+            }
+            let completed = reopened.get("job.1").await.unwrap().unwrap();
+            assert_eq!(completed.revision, job.revision + 1);
+            let events = reopened.audit_events(0, 100).await.unwrap();
+            assert_eq!(events.len(), completed.revision as usize);
+            loop_core::audit::verify_audit_chain(&events).unwrap();
+            reopened.close().await;
+        }
+    }
+}

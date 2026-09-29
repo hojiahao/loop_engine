@@ -1,8 +1,9 @@
 # Phase 10 unit 1: Authenticated invocation recovery
 
 Status: implementation, complete local regression, quality/build and actual
-container gates passed on 2026-09-28. Delivery is on `feature/run-harness`;
-exact-commit remote CI is required before closing this unit.
+container gates passed on 2026-09-28. Commit `ac2d730` is pushed on
+`feature/run-harness`; exact-commit CI `36390979127` passes all seven jobs,
+including Rust, unified workspace and the clean DaoCloud container. Unit complete.
 
 ## Requirement and delivered behavior
 

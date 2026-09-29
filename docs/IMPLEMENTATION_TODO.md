@@ -654,7 +654,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
 Delivery units (complete implementation, negative-path tests, documentation,
 Chinese task commit and push before starting the next unit):
 
-1. Invocation recovery (`in_progress`): authenticated read-only Provider RPC
+1. Invocation recovery (`complete`): authenticated read-only Provider RPC
    retrieves immutable invocation evidence after restart or expiry of the original
    command. Bind actor, original key/request ID and exact command digest. Never
    claim a key, use a model credential or resend a paid request. Distinguish absent,
@@ -666,15 +666,24 @@ Chinese task commit and push before starting the next unit):
    CLI, filesystem-race and cancellation gates pass; full `just check` passes.
    Final serial regression passes 753 Provider and 122 protocol cases; workspace
    TypeScript build and actual-container invocation/recovery isolation pass.
-   Delivery is on `feature/run-harness`; exact-commit remote CI remains required.
+   Commit `ac2d730` is pushed on `feature/run-harness`; exact-commit CI
+   `36390979127` passes all seven jobs, including Rust, unified workspace and
+   the clean DaoCloud container.
    See `docs/verification/phase-10-invocation-recovery.md`.
-2. Durable model step (`pending`): execute one authorized, frozen discovery plan
+2. Durable model step (`in_progress`; ADR 0047): execute one authorized, frozen discovery plan
    through Rust orchestration. Persist request identity and step/token/USD
    reservations before dispatch; bind model, prompt, schema, data and principal.
    Fence writes by lease/revision, resolve recovery through unit 1 and return a
    validated canonical AST candidate without admitting it. Acceptance: actual
    PostgreSQL/Provider workflow, 2/4/8 process contention, budget ceilings and
    kill/restart before dispatch and before/after result commit; no duplicate spend.
+   Implementation and local acceptance pass: 72 Rust cases, including 12 actual
+   Discovery/Provider workflows and independent-process contention/crash cuts;
+   full `just check` and cross-language digest/wire checks pass. Publication and
+   exact-commit remote CI remain the final delivery gates. The reservation scope
+   is one job/one candidate; account-wide quotas, tools and lifecycle controls
+   are not inferred. See `docs/verification/phase-10-durable-model-step.md` and
+   `docs/development/durable-model-step.md`.
 3. Controlled tools and context (`pending`): bounded typed conversation and
    registered tool execution through existing research authorization. Persist
    call/result identity and reject unknown tools, holdout access, oversized

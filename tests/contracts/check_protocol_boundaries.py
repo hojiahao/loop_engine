@@ -151,7 +151,15 @@ def main() -> None:
             "StartDiscovery": (
                 ".loop.discovery.v1.StartDiscoveryRequest",
                 ".loop.discovery.v1.StartDiscoveryResponse",
-            )
+            ),
+            "ExecuteDiscovery": (
+                ".loop.discovery.v1.ExecuteDiscoveryRequest",
+                ".loop.discovery.v1.ExecuteDiscoveryResponse",
+            ),
+            "GetDiscovery": (
+                ".loop.discovery.v1.GetDiscoveryRequest",
+                ".loop.discovery.v1.GetDiscoveryResponse",
+            ),
         },
     )
     assert dependency_closure(files, DISCOVERY_FILE) == DISCOVERY_FILE_ALLOWLIST
@@ -394,6 +402,9 @@ def assert_discovery_graph(
     assert ".loop.discovery.v1.DiscoveryJobInput" in visited
     assert ".loop.discovery.v1.DiscoveryJobBudget" in visited
     assert ".loop.discovery.v1.DiscoveryJobHandle" in visited
+    assert ".loop.discovery.v1.DiscoveryStepView" in visited
+    assert ".loop.discovery.v1.DiscoveryCandidate" in visited
+    assert ".loop.v1.FactorExpressionId" in visited
     assert ".loop.v1.JobId" in visited
     assert ".loop.v1.JobRecord" not in visited
     assert ".loop.v1.JobSpecification" not in visited

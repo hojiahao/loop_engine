@@ -42,7 +42,7 @@ Service packages are separate authorization and dependency surfaces:
 | Package | Service | Runtime owner | Permitted role |
 | --- | --- | --- | --- |
 | `loop.protocol.v1` | `ProtocolService` | `loopd` | read build capabilities before mutable or paid work |
-| `loop.discovery.v1` | `DiscoveryService` | `loopd` | submit bounded discovery against development dataset references only |
+| `loop.discovery.v1` | `DiscoveryService` | `loopd` | submit, execute and inspect bounded discovery against development dataset references only |
 | `loop.provider.v1` | `ProviderService` | `providerd` | invoke/stream a resolved model or inspect the caller's invocation journal; no research or holdout imports |
 | `loop.research.v1` | `ResearchService` | `loopd` | enqueue development work for `researchd` workers |
 | `loop.jobs.v1` | `JobService` | `loopd` | inspect, lease, heartbeat, complete, or cancel durable jobs |
@@ -274,7 +274,30 @@ durable state transition, not merely a dropped connection.
 projected status, revision, and submission/update timestamps. Its role package
 owns the development-only `DiscoveryJobInput` and budget, so neither request nor
 response can reach a generic job specification, holdout input, lease, or outcome
-body. `EnqueueFactorEvaluation`, `EnqueueBacktest`, and
+body. Additive `ExecuteDiscovery` and `GetDiscovery` return a `DiscoveryStepView`
+with that same handle, a model-step state, conservative USD/token reservations
+and, only after successful completion, one validated `DiscoveryCandidate`.
+The candidate contains a versioned expression identity and canonical AST JSON,
+bounded to 256 KiB, 4,096 nodes and depth 64. It is small control-plane data,
+not a dataset, executable code, generic artifact reference or admitted factor.
+No generic job, lease, outcome or holdout type becomes reachable through these
+RPCs. An unstarted queued job has UNSPECIFIED step state and no reservation or
+candidate. After reservation, unknown/unspecified states must be rejected.
+
+`ExecuteDiscovery` accepts only fresh command identity, job ID and expected
+revision. The authenticated service resolves the server-owned frozen plan;
+caller fields cannot replace its model, prompt, response schema, data references,
+or budget. The operation reserves before dispatch and reconciles existing
+dispatches instead of automatically sending another paid request. RESERVED,
+DISPATCHED, COMPLETED and AMBIGUOUS refer to durable evidence, not a research
+verdict. AMBIGUOUS retains the conservative reservation. `GetDiscovery` observes
+existing state without acquiring a lease, invoking a model or granting access
+to the raw prompt/response. Their additive capability identity is
+`discovery.model-step.v1`; callers check actual RPC availability until metadata
+negotiation is implemented. UNIMPLEMENTED never permits fallback to an
+unregistered invocation or generic job mutation.
+
+`EnqueueFactorEvaluation`, `EnqueueBacktest`, and
 `EnqueueReconciliation` return a `ResearchJobHandle` with the same narrow
 projection. Their role-owned inputs contain only narrow development-reference
 shapes. The Phase 2 wire validator checks shape and identity syntax only; it
@@ -283,8 +306,10 @@ request into an internal durable `JobSpecification`, loopd must use the
 Phase 4/5 server-owned resolver and capability policy to prove every referenced
 snapshot is allowed. The holdout consume RPC instead returns a narrow
 `JobBatchHandle`; full plan-derived specifications remain inside loopd's durable
-job store. None of these calls run LLM discovery, numerical evaluation,
-backtesting, or reconciliation on the request thread.
+job store. Submission calls do not execute model or research work on the
+request thread. The explicit `ExecuteDiscovery` command owns one bounded model
+step and its lease; numerical evaluation, backtesting and reconciliation remain
+separate worker operations.
 Workers acquire a revision-checked lease, heartbeat it, and commit exactly one
 typed terminal outcome. An RPC deadline expiring after enqueue does not cancel
 durable work; the caller reconciles by idempotency key or returned IDs and

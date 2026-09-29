@@ -104,6 +104,9 @@ async fn main() -> anyhow::Result<()> {
         if let Some(executor) = runtime.statistics {
             service = service.with_statistician(executor);
         }
+        if let Some(executor) = runtime.discovery {
+            service = service.with_discoverer(executor);
+        }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)
                 .await
