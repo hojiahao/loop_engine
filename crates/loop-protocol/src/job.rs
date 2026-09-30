@@ -1728,6 +1728,12 @@ pub fn validate_job_record(record: &JobRecord) -> Result<ValidatedJobShape, JobV
             "state",
         ));
     }
+    if state == JobState::Paused && kind != JobKind::Discovery {
+        return Err(JobValidationError::new(
+            JobValidationCode::InvalidInput,
+            "state",
+        ));
+    }
 
     let has_lease = record.active_lease.is_some();
     let is_active = matches!(state, JobState::Leased | JobState::Running);
@@ -1796,7 +1802,7 @@ fn validate_state_outcome(
 ) -> Result<(), JobValidationError> {
     if matches!(
         state,
-        JobState::Queued | JobState::Leased | JobState::Running
+        JobState::Queued | JobState::Leased | JobState::Running | JobState::Paused
     ) {
         if outcome.is_some() {
             return Err(JobValidationError::new(

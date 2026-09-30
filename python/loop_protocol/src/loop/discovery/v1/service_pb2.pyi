@@ -24,6 +24,7 @@ class DiscoveryJobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED: _ClassVar[DiscoveryJobStatus]
     DISCOVERY_JOB_STATUS_CANCELLED: _ClassVar[DiscoveryJobStatus]
     DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED: _ClassVar[DiscoveryJobStatus]
+    DISCOVERY_JOB_STATUS_PAUSED: _ClassVar[DiscoveryJobStatus]
 
 class DiscoveryStepState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -41,6 +42,7 @@ DISCOVERY_JOB_STATUS_FACTOR_REJECTED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_CANCELLED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED: DiscoveryJobStatus
+DISCOVERY_JOB_STATUS_PAUSED: DiscoveryJobStatus
 DISCOVERY_STEP_STATE_UNSPECIFIED: DiscoveryStepState
 DISCOVERY_STEP_STATE_RESERVED: DiscoveryStepState
 DISCOVERY_STEP_STATE_DISPATCHED: DiscoveryStepState
@@ -156,6 +158,86 @@ class GetDiscoveryRequest(_message.Message):
     def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ...) -> None: ...
 
 class GetDiscoveryResponse(_message.Message):
+    __slots__ = ("step",)
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    step: DiscoveryStepView
+    def __init__(self, step: _Optional[_Union[DiscoveryStepView, _Mapping]] = ...) -> None: ...
+
+class PauseDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class PauseDiscoveryResponse(_message.Message):
+    __slots__ = ("job",)
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    job: DiscoveryJobHandle
+    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ...) -> None: ...
+
+class CancelDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class CancelDiscoveryResponse(_message.Message):
+    __slots__ = ("job",)
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    job: DiscoveryJobHandle
+    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ...) -> None: ...
+
+class ExpireDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class ExpireDiscoveryResponse(_message.Message):
+    __slots__ = ("job",)
+    JOB_FIELD_NUMBER: _ClassVar[int]
+    job: DiscoveryJobHandle
+    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ...) -> None: ...
+
+class ResumeDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class ResumeDiscoveryResponse(_message.Message):
+    __slots__ = ("step",)
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    step: DiscoveryStepView
+    def __init__(self, step: _Optional[_Union[DiscoveryStepView, _Mapping]] = ...) -> None: ...
+
+class ReconcileDiscoveryRequest(_message.Message):
+    __slots__ = ("context", "job_id", "expected_revision")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_REVISION_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    expected_revision: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., expected_revision: _Optional[int] = ...) -> None: ...
+
+class ReconcileDiscoveryResponse(_message.Message):
     __slots__ = ("step",)
     STEP_FIELD_NUMBER: _ClassVar[int]
     step: DiscoveryStepView

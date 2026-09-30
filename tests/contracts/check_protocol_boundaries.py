@@ -160,12 +160,33 @@ def main() -> None:
                 ".loop.discovery.v1.GetDiscoveryRequest",
                 ".loop.discovery.v1.GetDiscoveryResponse",
             ),
+            "PauseDiscovery": (
+                ".loop.discovery.v1.PauseDiscoveryRequest",
+                ".loop.discovery.v1.PauseDiscoveryResponse",
+            ),
+            "CancelDiscovery": (
+                ".loop.discovery.v1.CancelDiscoveryRequest",
+                ".loop.discovery.v1.CancelDiscoveryResponse",
+            ),
+            "ExpireDiscovery": (
+                ".loop.discovery.v1.ExpireDiscoveryRequest",
+                ".loop.discovery.v1.ExpireDiscoveryResponse",
+            ),
+            "ResumeDiscovery": (
+                ".loop.discovery.v1.ResumeDiscoveryRequest",
+                ".loop.discovery.v1.ResumeDiscoveryResponse",
+            ),
+            "ReconcileDiscovery": (
+                ".loop.discovery.v1.ReconcileDiscoveryRequest",
+                ".loop.discovery.v1.ReconcileDiscoveryResponse",
+            ),
         },
     )
     assert dependency_closure(files, DISCOVERY_FILE) == DISCOVERY_FILE_ALLOWLIST
     assert "loop/v1/data.proto" not in dependency_closure(files, DISCOVERY_FILE)
     assert_discovery_graph(descriptor, discovery)
     assert_discovery_exports()
+    assert_lifecycle_surface(descriptor, discovery)
 
     research = require_file(files, RESEARCH_FILE)
     assert set(research.dependency) == {
@@ -267,6 +288,53 @@ def assert_lookup_surface(provider: FileDescriptorProto) -> None:
         ("INVOCATION_STATE_AMBIGUOUS", 2),
         ("INVOCATION_STATE_COMPLETED", 3),
     ]
+
+
+def assert_lifecycle_surface(
+    descriptor: FileDescriptorSet, discovery: FileDescriptorProto
+) -> None:
+    messages = descriptor_messages(descriptor)
+    service = next(service for service in discovery.service if service.name == "DiscoveryService")
+    for name in ("Pause", "Cancel", "Expire", "Resume", "Reconcile"):
+        method = next(method for method in service.method if method.name == f"{name}Discovery")
+        assert not method.client_streaming and not method.server_streaming
+        request = require_message(discovery, f"{name}DiscoveryRequest")
+        assert_message_fields(
+            request,
+            {
+                "context": (1, ".loop.v1.CommandContext"),
+                "job_id": (2, ".loop.v1.JobId"),
+                "expected_revision": (3, ""),
+            },
+        )
+        assert all(field.label == FieldDescriptorProto.LABEL_OPTIONAL for field in request.field)
+        revision = next(field for field in request.field if field.name == "expected_revision")
+        assert revision.type == FieldDescriptorProto.TYPE_UINT64
+        assert reachable_message_types(messages, [method.input_type]) == {
+            f".loop.discovery.v1.{name}DiscoveryRequest",
+            ".loop.v1.CommandContext",
+            ".loop.v1.RequestId",
+            ".loop.v1.CorrelationId",
+            ".loop.v1.CausationId",
+            ".loop.v1.IdempotencyKey",
+            ".loop.v1.Actor",
+            ".loop.v1.ActorId",
+            ".loop.v1.ActorKind",
+            ".loop.v1.JobId",
+            ".google.protobuf.Timestamp",
+        }
+        response = require_message(discovery, f"{name}DiscoveryResponse")
+        if name in ("Resume", "Reconcile"):
+            assert_message_fields(response, {"step": (1, ".loop.discovery.v1.DiscoveryStepView")})
+        else:
+            assert_message_fields(response, {"job": (1, ".loop.discovery.v1.DiscoveryJobHandle")})
+            assert reachable_message_types(messages, [method.output_type]) == {
+                f".loop.discovery.v1.{name}DiscoveryResponse",
+                ".loop.discovery.v1.DiscoveryJobHandle",
+                ".loop.discovery.v1.DiscoveryJobStatus",
+                ".loop.v1.JobId",
+                ".google.protobuf.Timestamp",
+            }
 
 
 def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:

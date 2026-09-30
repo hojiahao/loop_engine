@@ -51,6 +51,31 @@ class DiscoveryServiceStub:
                 request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
                 response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
                 _registered_method=True)
+        self.PauseDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/PauseDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryResponse.FromString,
+                _registered_method=True)
+        self.CancelDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/CancelDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryResponse.FromString,
+                _registered_method=True)
+        self.ExpireDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/ExpireDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryResponse.FromString,
+                _registered_method=True)
+        self.ResumeDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/ResumeDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryResponse.FromString,
+                _registered_method=True)
+        self.ReconcileDiscovery = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/ReconcileDiscovery',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryResponse.FromString,
+                _registered_method=True)
 
 
 class DiscoveryServiceServicer:
@@ -79,6 +104,39 @@ class DiscoveryServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def PauseDiscovery(self, request, context):
+        """Owner-only controls shrink authority without resolving live plan files.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CancelDiscovery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExpireDiscovery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResumeDiscovery(self, request, context):
+        """Resume requires the frozen plan and never replenishes the original budget.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReconcileDiscovery(self, request, context):
+        """Lookup-only evidence recovery cannot authorize another paid invocation.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_DiscoveryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -96,6 +154,31 @@ def add_DiscoveryServiceServicer_to_server(servicer, server):
                     servicer.GetDiscovery,
                     request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.FromString,
                     response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.SerializeToString,
+            ),
+            'PauseDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.PauseDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryResponse.SerializeToString,
+            ),
+            'CancelDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.CancelDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryResponse.SerializeToString,
+            ),
+            'ExpireDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExpireDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryResponse.SerializeToString,
+            ),
+            'ResumeDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResumeDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryResponse.SerializeToString,
+            ),
+            'ReconcileDiscovery': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReconcileDiscovery,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -181,6 +264,141 @@ class DiscoveryService:
             '/loop.discovery.v1.DiscoveryService/GetDiscovery',
             loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
             loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def PauseDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/PauseDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CancelDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/CancelDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.CancelDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ExpireDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/ExpireDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.ExpireDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ResumeDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/ResumeDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.ResumeDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReconcileDiscovery(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/ReconcileDiscovery',
+            loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.ReconcileDiscoveryResponse.FromString,
             options,
             channel_credentials,
             insecure,

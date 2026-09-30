@@ -180,7 +180,7 @@ describe("JobRecord structural validation", () => {
   );
   it("executes every row in the shared fail-closed matrix", () => {
     const shared = vectors();
-    expect(shared).toHaveLength(114);
+    expect(shared).toHaveLength(120);
     for (const vector of shared) {
       const value = record(vector);
       if (vector.expected === "accept") {
@@ -1251,6 +1251,7 @@ function state(value: string): JobState {
     infrastructure_failed: JobState.INFRASTRUCTURE_FAILED,
     cancelled: JobState.CANCELLED,
     budget_exhausted: JobState.BUDGET_EXHAUSTED,
+    paused: JobState.PAUSED,
   };
   const result = values[value];
   if (result === undefined) throw new Error(`unknown state ${value}`);

@@ -28,7 +28,16 @@ def test_execute_request() -> None:
     assert request.context.request_id.value == "execute.1"
     assert service_pb2.ExecuteDiscoveryRequest.FromString(request.SerializeToString()) == request
     service = service_pb2.DESCRIPTOR.services_by_name["DiscoveryService"]
-    assert set(service.methods_by_name) == {"StartDiscovery", "ExecuteDiscovery", "GetDiscovery"}
+    assert set(service.methods_by_name) == {
+        "StartDiscovery",
+        "ExecuteDiscovery",
+        "GetDiscovery",
+        "PauseDiscovery",
+        "CancelDiscovery",
+        "ExpireDiscovery",
+        "ResumeDiscovery",
+        "ReconcileDiscovery",
+    }
     assert service.methods_by_name["ExecuteDiscovery"].input_type is request.DESCRIPTOR
 
 
@@ -50,6 +59,25 @@ def test_completed_candidate() -> None:
     expected = hashlib.sha256(b"loop.factor-ast/v1\0" + candidate.canonical_json).hexdigest()
     assert candidate.expression_id.value == f"sha256:{expected}"
     assert service_pb2.ExecuteDiscoveryResponse.FromString(response.SerializeToString()) == response
+
+
+def test_lifecycle_envelope() -> None:
+    service = service_pb2.DESCRIPTOR.services_by_name["DiscoveryService"]
+    for name in ("Pause", "Cancel", "Expire", "Resume", "Reconcile"):
+        method = service.methods_by_name[f"{name}Discovery"]
+        assert {field.name: field.number for field in method.input_type.fields} == {
+            "context": 1,
+            "job_id": 2,
+            "expected_revision": 3,
+        }
+        expected = "step" if name in ("Resume", "Reconcile") else "job"
+        assert [field.name for field in method.output_type.fields] == [expected]
+
+
+def test_paused_status() -> None:
+    response = service_pb2.PauseDiscoveryResponse.FromString(bytes((10, 2, 16, 9)))
+    assert response.job.status == service_pb2.DISCOVERY_JOB_STATUS_PAUSED
+    assert response.SerializeToString() == bytes((10, 2, 16, 9))
 
 
 def test_unknown_step() -> None:

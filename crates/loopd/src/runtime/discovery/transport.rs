@@ -89,7 +89,7 @@ impl ProviderConnection {
             client
                 .invoke_model(request)
                 .await
-                .map_err(|_| unavailable())?
+                .map_err(provider_error)?
                 .into_inner()
                 .response
                 .ok_or(StoreError::Corrupt("missing provider response"))
@@ -133,13 +133,14 @@ impl ProviderConnection {
             let result = client
                 .lookup_invocation(request)
                 .await
-                .map_err(|_| unavailable())?
+                .map_err(provider_error)?
                 .into_inner();
             let cost = result
                 .reserved_cost
                 .as_ref()
                 .map(|cost| model_money(Some(cost)))
-                .transpose()?;
+                .transpose()
+                .map_err(|_| StoreError::Corrupt("provider reservation format"))?;
             if cost.is_some_and(|cost| cost > step.reserved_nano_usd) {
                 return Err(StoreError::Corrupt("provider reservation mismatch"));
             }
@@ -165,4 +166,46 @@ impl ProviderConnection {
 
 fn unavailable() -> StoreError {
     StoreError::Unavailable("provider invocation evidence")
+}
+
+fn provider_error(error: tonic::Status) -> StoreError {
+    // Never propagate raw supplier/transport text. Only transient lookup errors
+    // are retryable; paid invocation dispatch remains at most once regardless.
+    match error.code() {
+        tonic::Code::Unavailable
+        | tonic::Code::DeadlineExceeded
+        | tonic::Code::ResourceExhausted => unavailable(),
+        tonic::Code::PermissionDenied | tonic::Code::Unauthenticated => StoreError::AdmissionDenied,
+        _ => StoreError::Corrupt("provider invocation contract"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_classification() {
+        for code in [
+            tonic::Code::Unavailable,
+            tonic::Code::DeadlineExceeded,
+            tonic::Code::ResourceExhausted,
+        ] {
+            assert!(matches!(
+                provider_error(tonic::Status::new(code, "sensitive raw detail")),
+                StoreError::Unavailable(_)
+            ));
+        }
+        for code in [
+            tonic::Code::InvalidArgument,
+            tonic::Code::Aborted,
+            tonic::Code::DataLoss,
+            tonic::Code::Internal,
+        ] {
+            assert!(matches!(
+                provider_error(tonic::Status::new(code, "sensitive raw detail")),
+                StoreError::Corrupt("provider invocation contract")
+            ));
+        }
+    }
 }

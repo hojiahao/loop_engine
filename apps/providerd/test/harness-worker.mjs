@@ -5,12 +5,16 @@ import { once } from "node:events";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { toBinary } from "@bufbuild/protobuf";
+import { Code } from "@connectrpc/connect";
 import {
+  ErrorCategory,
   ModelResolutionSnapshotSchema,
   PolicyReferenceSchema,
 } from "@loop-engine/protocol/provider";
 import { plugin_digest, validate_deployment } from "../dist/config.js";
+import { ProviderError } from "../dist/errors.js";
 import { ProviderHost } from "../dist/host.js";
 import { open_journal } from "../dist/journal.js";
 import { create_provider_rpc } from "../dist/rpc.js";
@@ -34,6 +38,8 @@ const supplier = createServer(async (request, response) => {
   bodies.push(body);
   await writeFile(join(root, "supplier-calls.json"), JSON.stringify(calls), { mode: 0o600 });
   await writeFile(join(root, "supplier-bodies.json"), JSON.stringify(bodies), { mode: 0o600 });
+  const wait = await readFile(join(root, "supplier-delay"), "utf8").catch(() => "0");
+  if (wait === "2000") await delay(2000);
   response.writeHead(200, { "content-type": "application/json" });
   const field = await readFile(join(root, "invalid-ast"))
     .then(() => "market.unknown")
@@ -163,6 +169,28 @@ const configuration = saved
     };
 const config = validate_deployment(configuration);
 const host = new ProviderHost(config, await plugin_digest(), {}, fetch, {}, recovery);
+const invoke = host.invoke.bind(host);
+host.invoke = async (...args) => {
+  const response = await invoke(...args);
+  const invalid = await readFile(join(root, "invalid-response"), "utf8").catch(() => "");
+  if (invalid === "usage") response.usage = undefined;
+  if (invalid === "identity")
+    response.requestId = { ...response.requestId, value: "wrong.request" };
+  return response;
+};
+// Faults apply only to this local test listener; successful requests still use
+// the actual authenticated ProviderHost lookup and immutable journal.
+let lookups = JSON.parse(await readFile(join(root, "lookup-calls.json"), "utf8").catch(() => "0"));
+const lookup = host.lookup.bind(host);
+host.lookup = async (...args) => {
+  lookups++;
+  await writeFile(join(root, "lookup-calls.json"), JSON.stringify(lookups), { mode: 0o600 });
+  const failures = Number(await readFile(join(root, "lookup-failures"), "utf8").catch(() => "0"));
+  if (lookups <= failures) {
+    throw new ProviderError("fixture_lookup_transient", Code.Unavailable, ErrorCategory.DEPENDENCY);
+  }
+  return lookup(...args);
+};
 await open_journal(config.journal, !recovery);
 const shutdown = new AbortController();
 const rpc = await create_provider_rpc(host, shutdown.signal);

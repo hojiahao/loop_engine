@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/discovery/v1/service.proto.
  */
 export const file_loop_discovery_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIoIBChJEaXNjb3ZlcnlDYW5kaWRhdGUSMgoNZXhwcmVzc2lvbl9pZBgBIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEiAKGGNhbm9uaWNhbGl6YXRpb25fcHJvZmlsZRgCIAEoCRIWCg5jYW5vbmljYWxfanNvbhgDIAEoDCKdAgoRRGlzY292ZXJ5U3RlcFZpZXcSMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEjQKBXN0YXRlGAIgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFN0YXRlEjgKCWNhbmRpZGF0ZRgDIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUNhbmRpZGF0ZRIlCg1yZXNlcnZlZF9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYBSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgGIAEoBCJ+ChdFeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk4KGEV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRIyCgRzdGVwGAEgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFZpZXciXwoTR2V0RGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkIkoKFEdldERpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyrrAgoSRGlzY292ZXJ5Sm9iU3RhdHVzEiQKIERJU0NPVkVSWV9KT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfUVVFVUVEEAESHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfTEVBU0VEEAISIAocRElTQ09WRVJZX0pPQl9TVEFUVVNfUlVOTklORxADEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX1NVQ0NFRURFRBAEEigKJERJU0NPVkVSWV9KT0JfU1RBVFVTX0ZBQ1RPUl9SRUpFQ1RFRBAFEi4KKkRJU0NPVkVSWV9KT0JfU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAGEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX0NBTkNFTExFRBAHEikKJURJU0NPVkVSWV9KT0JfU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQCCrKAQoSRGlzY292ZXJ5U3RlcFN0YXRlEiQKIERJU0NPVkVSWV9TVEVQX1NUQVRFX1VOU1BFQ0lGSUVEEAASIQodRElTQ09WRVJZX1NURVBfU1RBVEVfUkVTRVJWRUQQARIjCh9ESVNDT1ZFUllfU1RFUF9TVEFURV9ESVNQQVRDSEVEEAISIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQ09NUExFVEVEEAMSIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQU1CSUdVT1VTEAQyxwIKEERpc2NvdmVyeVNlcnZpY2USZQoOU3RhcnREaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlc3BvbnNlEmsKEEV4ZWN1dGVEaXNjb3ZlcnkSKi5sb29wLmRpc2NvdmVyeS52MS5FeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBorLmxvb3AuZGlzY292ZXJ5LnYxLkV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRJfCgxHZXREaXNjb3ZlcnkSJi5sb29wLmRpc2NvdmVyeS52MS5HZXREaXNjb3ZlcnlSZXF1ZXN0GicubG9vcC5kaXNjb3ZlcnkudjEuR2V0RGlzY292ZXJ5UmVzcG9uc2ViBnByb3RvMw", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
+  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIoIBChJEaXNjb3ZlcnlDYW5kaWRhdGUSMgoNZXhwcmVzc2lvbl9pZBgBIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEiAKGGNhbm9uaWNhbGl6YXRpb25fcHJvZmlsZRgCIAEoCRIWCg5jYW5vbmljYWxfanNvbhgDIAEoDCKdAgoRRGlzY292ZXJ5U3RlcFZpZXcSMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEjQKBXN0YXRlGAIgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFN0YXRlEjgKCWNhbmRpZGF0ZRgDIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUNhbmRpZGF0ZRIlCg1yZXNlcnZlZF9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYBSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgGIAEoBCJ+ChdFeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk4KGEV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRIyCgRzdGVwGAEgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFZpZXciXwoTR2V0RGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkIkoKFEdldERpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyJ8ChVQYXVzZURpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCJMChZQYXVzZURpc2NvdmVyeVJlc3BvbnNlEjIKA2pvYhgBIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYkhhbmRsZSJ9ChZDYW5jZWxEaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQiTQoXQ2FuY2VsRGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIn0KFkV4cGlyZURpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCJNChdFeHBpcmVEaXNjb3ZlcnlSZXNwb25zZRIyCgNqb2IYASABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGUifQoWUmVzdW1lRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk0KF1Jlc3VtZURpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyKAAQoZUmVjb25jaWxlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIlAKGlJlY29uY2lsZURpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyqMAwoSRGlzY292ZXJ5Sm9iU3RhdHVzEiQKIERJU0NPVkVSWV9KT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfUVVFVUVEEAESHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfTEVBU0VEEAISIAocRElTQ09WRVJZX0pPQl9TVEFUVVNfUlVOTklORxADEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX1NVQ0NFRURFRBAEEigKJERJU0NPVkVSWV9KT0JfU1RBVFVTX0ZBQ1RPUl9SRUpFQ1RFRBAFEi4KKkRJU0NPVkVSWV9KT0JfU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAGEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX0NBTkNFTExFRBAHEikKJURJU0NPVkVSWV9KT0JfU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQCBIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19QQVVTRUQQCSrKAQoSRGlzY292ZXJ5U3RlcFN0YXRlEiQKIERJU0NPVkVSWV9TVEVQX1NUQVRFX1VOU1BFQ0lGSUVEEAASIQodRElTQ09WRVJZX1NURVBfU1RBVEVfUkVTRVJWRUQQARIjCh9ESVNDT1ZFUllfU1RFUF9TVEFURV9ESVNQQVRDSEVEEAISIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQ09NUExFVEVEEAMSIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQU1CSUdVT1VTEAQy3wYKEERpc2NvdmVyeVNlcnZpY2USZQoOU3RhcnREaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlc3BvbnNlEmsKEEV4ZWN1dGVEaXNjb3ZlcnkSKi5sb29wLmRpc2NvdmVyeS52MS5FeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBorLmxvb3AuZGlzY292ZXJ5LnYxLkV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRJfCgxHZXREaXNjb3ZlcnkSJi5sb29wLmRpc2NvdmVyeS52MS5HZXREaXNjb3ZlcnlSZXF1ZXN0GicubG9vcC5kaXNjb3ZlcnkudjEuR2V0RGlzY292ZXJ5UmVzcG9uc2USZQoOUGF1c2VEaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlc3BvbnNlEmgKD0NhbmNlbERpc2NvdmVyeRIpLmxvb3AuZGlzY292ZXJ5LnYxLkNhbmNlbERpc2NvdmVyeVJlcXVlc3QaKi5sb29wLmRpc2NvdmVyeS52MS5DYW5jZWxEaXNjb3ZlcnlSZXNwb25zZRJoCg9FeHBpcmVEaXNjb3ZlcnkSKS5sb29wLmRpc2NvdmVyeS52MS5FeHBpcmVEaXNjb3ZlcnlSZXF1ZXN0GioubG9vcC5kaXNjb3ZlcnkudjEuRXhwaXJlRGlzY292ZXJ5UmVzcG9uc2USaAoPUmVzdW1lRGlzY292ZXJ5EikubG9vcC5kaXNjb3ZlcnkudjEuUmVzdW1lRGlzY292ZXJ5UmVxdWVzdBoqLmxvb3AuZGlzY292ZXJ5LnYxLlJlc3VtZURpc2NvdmVyeVJlc3BvbnNlEnEKElJlY29uY2lsZURpc2NvdmVyeRIsLmxvb3AuZGlzY292ZXJ5LnYxLlJlY29uY2lsZURpc2NvdmVyeVJlcXVlc3QaLS5sb29wLmRpc2NvdmVyeS52MS5SZWNvbmNpbGVEaXNjb3ZlcnlSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
 
 /**
  * DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
@@ -353,6 +353,226 @@ export const GetDiscoveryResponseSchema: GenMessage<GetDiscoveryResponse> = /*@_
   messageDesc(file_loop_discovery_v1_service, 10);
 
 /**
+ * @generated from message loop.discovery.v1.PauseDiscoveryRequest
+ */
+export type PauseDiscoveryRequest = Message<"loop.discovery.v1.PauseDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.PauseDiscoveryRequest.
+ * Use `create(PauseDiscoveryRequestSchema)` to create a new message.
+ */
+export const PauseDiscoveryRequestSchema: GenMessage<PauseDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 11);
+
+/**
+ * @generated from message loop.discovery.v1.PauseDiscoveryResponse
+ */
+export type PauseDiscoveryResponse = Message<"loop.discovery.v1.PauseDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryJobHandle job = 1;
+   */
+  job?: DiscoveryJobHandle | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.PauseDiscoveryResponse.
+ * Use `create(PauseDiscoveryResponseSchema)` to create a new message.
+ */
+export const PauseDiscoveryResponseSchema: GenMessage<PauseDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 12);
+
+/**
+ * @generated from message loop.discovery.v1.CancelDiscoveryRequest
+ */
+export type CancelDiscoveryRequest = Message<"loop.discovery.v1.CancelDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.CancelDiscoveryRequest.
+ * Use `create(CancelDiscoveryRequestSchema)` to create a new message.
+ */
+export const CancelDiscoveryRequestSchema: GenMessage<CancelDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 13);
+
+/**
+ * @generated from message loop.discovery.v1.CancelDiscoveryResponse
+ */
+export type CancelDiscoveryResponse = Message<"loop.discovery.v1.CancelDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryJobHandle job = 1;
+   */
+  job?: DiscoveryJobHandle | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.CancelDiscoveryResponse.
+ * Use `create(CancelDiscoveryResponseSchema)` to create a new message.
+ */
+export const CancelDiscoveryResponseSchema: GenMessage<CancelDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 14);
+
+/**
+ * @generated from message loop.discovery.v1.ExpireDiscoveryRequest
+ */
+export type ExpireDiscoveryRequest = Message<"loop.discovery.v1.ExpireDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ExpireDiscoveryRequest.
+ * Use `create(ExpireDiscoveryRequestSchema)` to create a new message.
+ */
+export const ExpireDiscoveryRequestSchema: GenMessage<ExpireDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 15);
+
+/**
+ * @generated from message loop.discovery.v1.ExpireDiscoveryResponse
+ */
+export type ExpireDiscoveryResponse = Message<"loop.discovery.v1.ExpireDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryJobHandle job = 1;
+   */
+  job?: DiscoveryJobHandle | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ExpireDiscoveryResponse.
+ * Use `create(ExpireDiscoveryResponseSchema)` to create a new message.
+ */
+export const ExpireDiscoveryResponseSchema: GenMessage<ExpireDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 16);
+
+/**
+ * @generated from message loop.discovery.v1.ResumeDiscoveryRequest
+ */
+export type ResumeDiscoveryRequest = Message<"loop.discovery.v1.ResumeDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ResumeDiscoveryRequest.
+ * Use `create(ResumeDiscoveryRequestSchema)` to create a new message.
+ */
+export const ResumeDiscoveryRequestSchema: GenMessage<ResumeDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 17);
+
+/**
+ * @generated from message loop.discovery.v1.ResumeDiscoveryResponse
+ */
+export type ResumeDiscoveryResponse = Message<"loop.discovery.v1.ResumeDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryStepView step = 1;
+   */
+  step?: DiscoveryStepView | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ResumeDiscoveryResponse.
+ * Use `create(ResumeDiscoveryResponseSchema)` to create a new message.
+ */
+export const ResumeDiscoveryResponseSchema: GenMessage<ResumeDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 18);
+
+/**
+ * @generated from message loop.discovery.v1.ReconcileDiscoveryRequest
+ */
+export type ReconcileDiscoveryRequest = Message<"loop.discovery.v1.ReconcileDiscoveryRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * @generated from field: uint64 expected_revision = 3;
+   */
+  expectedRevision: bigint;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ReconcileDiscoveryRequest.
+ * Use `create(ReconcileDiscoveryRequestSchema)` to create a new message.
+ */
+export const ReconcileDiscoveryRequestSchema: GenMessage<ReconcileDiscoveryRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 19);
+
+/**
+ * @generated from message loop.discovery.v1.ReconcileDiscoveryResponse
+ */
+export type ReconcileDiscoveryResponse = Message<"loop.discovery.v1.ReconcileDiscoveryResponse"> & {
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryStepView step = 1;
+   */
+  step?: DiscoveryStepView | undefined;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ReconcileDiscoveryResponse.
+ * Use `create(ReconcileDiscoveryResponseSchema)` to create a new message.
+ */
+export const ReconcileDiscoveryResponseSchema: GenMessage<ReconcileDiscoveryResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 20);
+
+/**
  * DiscoveryJobStatus is a non-sensitive projection of durable orchestration
  * state. It cannot carry a job specification, input, lease, or outcome body.
  *
@@ -403,6 +623,11 @@ export enum DiscoveryJobStatus {
    * @generated from enum value: DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED = 8;
    */
   BUDGET_EXHAUSTED = 8,
+
+  /**
+   * @generated from enum value: DISCOVERY_JOB_STATUS_PAUSED = 9;
+   */
+  PAUSED = 9,
 }
 
 /**
@@ -485,6 +710,52 @@ export const DiscoveryService: GenService<{
     methodKind: "unary";
     input: typeof GetDiscoveryRequestSchema;
     output: typeof GetDiscoveryResponseSchema;
+  },
+  /**
+   * Owner-only controls shrink authority without resolving live plan files.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.PauseDiscovery
+   */
+  pauseDiscovery: {
+    methodKind: "unary";
+    input: typeof PauseDiscoveryRequestSchema;
+    output: typeof PauseDiscoveryResponseSchema;
+  },
+  /**
+   * @generated from rpc loop.discovery.v1.DiscoveryService.CancelDiscovery
+   */
+  cancelDiscovery: {
+    methodKind: "unary";
+    input: typeof CancelDiscoveryRequestSchema;
+    output: typeof CancelDiscoveryResponseSchema;
+  },
+  /**
+   * @generated from rpc loop.discovery.v1.DiscoveryService.ExpireDiscovery
+   */
+  expireDiscovery: {
+    methodKind: "unary";
+    input: typeof ExpireDiscoveryRequestSchema;
+    output: typeof ExpireDiscoveryResponseSchema;
+  },
+  /**
+   * Resume requires the frozen plan and never replenishes the original budget.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.ResumeDiscovery
+   */
+  resumeDiscovery: {
+    methodKind: "unary";
+    input: typeof ResumeDiscoveryRequestSchema;
+    output: typeof ResumeDiscoveryResponseSchema;
+  },
+  /**
+   * Lookup-only evidence recovery cannot authorize another paid invocation.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.ReconcileDiscovery
+   */
+  reconcileDiscovery: {
+    methodKind: "unary";
+    input: typeof ReconcileDiscoveryRequestSchema;
+    output: typeof ReconcileDiscoveryResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_discovery_v1_service, 0);

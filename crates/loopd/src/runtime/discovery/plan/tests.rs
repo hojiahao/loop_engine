@@ -182,6 +182,34 @@ fn controlled_plan() {
 }
 
 #[test]
+fn previous_descriptor() {
+    for mut fixture in [Fixture::new(), Fixture::controlled()] {
+        fixture
+            .protocol
+            .schema_descriptor_sha256
+            .as_mut()
+            .unwrap()
+            .value = CONTEXT_DESCRIPTOR.to_vec();
+        fixture.protocol.selection_sha256.as_mut().unwrap().value =
+            protocol_selection_sha256(&fixture.protocol)
+                .unwrap()
+                .to_vec();
+        assert!(fixture.load().is_ok());
+        fixture
+            .protocol
+            .schema_descriptor_sha256
+            .as_mut()
+            .unwrap()
+            .value[0] ^= 1;
+        fixture.protocol.selection_sha256.as_mut().unwrap().value =
+            protocol_selection_sha256(&fixture.protocol)
+                .unwrap()
+                .to_vec();
+        assert!(fixture.load().is_err());
+    }
+}
+
+#[test]
 fn template_messages() {
     let mut fixture = Fixture::controlled();
     fixture.tool_invocation.as_mut().unwrap().messages[0].content = vec![];

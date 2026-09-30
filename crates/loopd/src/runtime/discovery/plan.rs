@@ -15,6 +15,12 @@ use crate::runtime::{deployment::read_file, model_codec};
 use crate::store::{StoreError, StoreResult, model_duration, model_money, validate_id};
 
 const MAX_OBJECT: u64 = 1_048_576;
+// The published Phase 10 context descriptor (8199a78) remains compatible with
+// these closed v1/v2 plans. New lifecycle RPCs do not rewrite frozen plan pins.
+const CONTEXT_DESCRIPTOR: [u8; 32] = [
+    0x2c, 0x60, 0xbd, 0x74, 0x3b, 0x8f, 0x4d, 0xb0, 0x9f, 0xdb, 0x19, 0x20, 0x0e, 0xf8, 0x30, 0x7d,
+    0x49, 0xad, 0xc3, 0xb2, 0x7a, 0xdf, 0x28, 0xbf, 0xf6, 0x81, 0x84, 0x58, 0x98, 0xbd, 0x3e, 0x1c,
+];
 const FEATURES: [&str; 5] = [
     "discovery.model-step.v1",
     "jobs.envelope.v1",
@@ -390,6 +396,7 @@ fn validate_protocol(
             .is_none_or(|digest| {
                 digest.value.as_slice()
                     != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
+                    && digest.value.as_slice() != CONTEXT_DESCRIPTOR
             })
         || protocol.selection_sha256.as_ref().is_none_or(|digest| {
             protocol_selection_sha256(protocol).map_or(true, |expected| digest.value != expected)

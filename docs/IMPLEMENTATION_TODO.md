@@ -684,7 +684,7 @@ Chinese task commit and push before starting the next unit):
    is one job/one candidate; account-wide quotas, tools and lifecycle controls
    are not inferred. See `docs/verification/phase-10-durable-model-step.md` and
    `docs/development/durable-model-step.md`.
-3. Controlled tools and context (`in_progress`; ADR 0048): bounded typed conversation and
+3. Controlled tools and context (`complete`; ADR 0048): bounded typed conversation and
    registered tool execution through existing research authorization. Persist
    call/result identity and reject unknown tools, holdout access, oversized
    context and conflicting replay. Acceptance: actual multi-turn tool workflow,
@@ -697,15 +697,21 @@ Chinese task commit and push before starting the next unit):
    entry point), including 20 actual Discovery/Provider workflows and independent
    2/4/8-writer/crash tests; five Provider digest/schema cases and full `just check`
    pass. Commit `b33f0f5` is pushed. CI `36549762127` passed four jobs but exhausted
-   the 1 GiB PostgreSQL fixture in Rust/workspace/container tests; correcting its
-   WAL footprint and rerunning the full suite remain the closing gate. See
+   the 1 GiB PostgreSQL fixture in Rust/workspace/container tests. The WAL
+   correction `8199a78` is pushed and exact-commit CI `36590096683` passed all
+   seven jobs, including the complete workspace and clean-container gates. See
    `docs/verification/phase-10-controlled-context.md` and
    `docs/development/controlled-context.md`.
-4. Run lifecycle (`pending`): pause/cancel/resume, absolute deadlines and explicit
+4. Run lifecycle (`in_progress`; ADR 0049): pause/cancel/resume, absolute deadlines and explicit
    retry policy across model/tool steps. Infrastructure failures remain distinct
    from rejected factors; ambiguous paid calls retain reservations. Acceptance:
    process interruption and clock regression at each transition, stale-worker
    denial, no automatic paid resend, bounded termination and redacted failures.
+   Implementation and local acceptance pass: 159 Rust cases, one intentionally
+   ignored process-worker entry point, 127 TypeScript protocol cases, 324 Python
+   protocol cases and complete workspace checks. Commit/push and exact-commit
+   remote CI remain the closing gate. See `docs/verification/phase-10-discovery-lifecycle.md`
+   and `docs/development/discovery-lifecycle.md`.
 5. Operational acceptance (`pending`): expose usable CLI commands and typed
    status/events for the preceding workflows; document setup, recovery and
    rollback. Acceptance: installed CLI starts/observes/cancels/resumes a synthetic

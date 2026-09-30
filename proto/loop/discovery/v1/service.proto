@@ -17,6 +17,14 @@ service DiscoveryService {
   rpc ExecuteDiscovery(ExecuteDiscoveryRequest) returns (ExecuteDiscoveryResponse);
   // Reads a narrow projection without invoking a model or acquiring a lease.
   rpc GetDiscovery(GetDiscoveryRequest) returns (GetDiscoveryResponse);
+  // Owner-only controls shrink authority without resolving live plan files.
+  rpc PauseDiscovery(PauseDiscoveryRequest) returns (PauseDiscoveryResponse);
+  rpc CancelDiscovery(CancelDiscoveryRequest) returns (CancelDiscoveryResponse);
+  rpc ExpireDiscovery(ExpireDiscoveryRequest) returns (ExpireDiscoveryResponse);
+  // Resume requires the frozen plan and never replenishes the original budget.
+  rpc ResumeDiscovery(ResumeDiscoveryRequest) returns (ResumeDiscoveryResponse);
+  // Lookup-only evidence recovery cannot authorize another paid invocation.
+  rpc ReconcileDiscovery(ReconcileDiscoveryRequest) returns (ReconcileDiscoveryResponse);
 }
 
 // DiscoveryJobStatus is a non-sensitive projection of durable orchestration
@@ -31,6 +39,7 @@ enum DiscoveryJobStatus {
   DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED = 6;
   DISCOVERY_JOB_STATUS_CANCELLED = 7;
   DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED = 8;
+  DISCOVERY_JOB_STATUS_PAUSED = 9;
 }
 
 // DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
@@ -128,5 +137,55 @@ message GetDiscoveryRequest {
 }
 
 message GetDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message PauseDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message PauseDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message CancelDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message CancelDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message ExpireDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ExpireDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message ResumeDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ResumeDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message ReconcileDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ReconcileDiscoveryResponse {
   DiscoveryStepView step = 1;
 }

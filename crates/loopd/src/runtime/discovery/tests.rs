@@ -1,6 +1,8 @@
 //! Real PostgreSQL, mTLS Discovery RPC, compiled Provider and local HTTP supplier.
 
 mod fixture;
+mod lifecycle;
+mod retry;
 use crate::test_support::tls;
 
 use loop_protocol::wire::{discovery::v1 as wire, provider::v1 as provider, v1};
@@ -305,11 +307,24 @@ async fn absent_recovery() {
     case.restart().await;
     let current = case.read(&job).await;
     let result = case.execute(current.job.as_ref().unwrap()).await.unwrap();
-    assert_eq!(result.state, wire::DiscoveryStepState::Ambiguous as i32);
+    assert_eq!(result.state, wire::DiscoveryStepState::Dispatched as i32);
+    assert_eq!(
+        result.job.as_ref().unwrap().status,
+        wire::DiscoveryJobStatus::InfrastructureFailed as i32
+    );
     assert!(result.candidate.is_none());
     assert_eq!(result.reserved_input_tokens, dispatched.reserved_input);
     assert_eq!(result.reserved_output_tokens, dispatched.reserved_output);
     assert_eq!(case.calls(), 0);
+    assert_eq!(
+        case.store
+            .model_step(&case.actor(), &job.job_id.unwrap().value)
+            .await
+            .unwrap()
+            .unwrap()
+            .lookup_attempts,
+        3
+    );
     case.close().await;
 }
 

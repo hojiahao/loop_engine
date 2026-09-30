@@ -267,6 +267,25 @@ impl Case {
     pub(super) fn invalid_ast(&self) {
         private_file(&self.directory.path().join("invalid-ast"), b"1");
     }
+    pub(super) fn invalid_response(&self, mode: &str) {
+        private_file(
+            &self.directory.path().join("invalid-response"),
+            mode.as_bytes(),
+        );
+    }
+    pub(super) fn delay_supplier(&self) {
+        private_file(&self.directory.path().join("supplier-delay"), b"2000");
+    }
+    pub(super) fn corrupt_plan(&self) {
+        private_file(
+            &self
+                .directory
+                .path()
+                .join("plans")
+                .join(&self.plan.sha256[7..]),
+            b"invalid plan",
+        );
+    }
     pub(super) fn invalid_tool(&self, mode: &str) {
         private_file(&self.directory.path().join("invalid-tool"), mode.as_bytes());
     }
@@ -442,6 +461,51 @@ impl Case {
         self.authority = authority;
         self.executor = executor;
     }
+    pub(super) async fn stop_only(&mut self) {
+        self.task.abort();
+        self.store.close().await;
+        let now = self.clock.now_millis().unwrap();
+        let authority = Arc::new(
+            RuntimeAuthority::new(
+                vec![crate::runtime::Identity {
+                    actor_id: "agent.discovery".into(),
+                    subject: "agent:discovery".into(),
+                    display_name: "Discovery fixture".into(),
+                    role: Role::Discovery,
+                    certificate_sha256: vec![self.tls.client_digest()],
+                    not_before_ms: now - 1000,
+                    expires_at_ms: now + 3_600_000,
+                    run_ids: vec!["run.discovery".into()],
+                }],
+                vec![],
+                self.clock.clone(),
+            )
+            .unwrap(),
+        );
+        let mut options = test_support::base_options(&self.directory.path().join("state"));
+        options.clock = self.clock.clone();
+        options.admission = authority.clone();
+        self.store = PgJobStore::open(options).await.unwrap();
+        let broker = Arc::new(
+            ArtifactBroker::open(
+                &self.directory.path().join("data"),
+                &self.directory.path().join("protected"),
+                &self.directory.path().join("views"),
+                vec![],
+            )
+            .unwrap(),
+        );
+        let service = RuntimeService::new(self.store.clone(), authority.clone(), broker);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        self.address = listener.local_addr().unwrap();
+        self.task = tokio::spawn(crate::runtime::serve(
+            service,
+            listener,
+            self.tls.server(),
+            std::future::pending(),
+        ));
+        self.authority = authority;
+    }
     pub(super) async fn restart_provider(&mut self) {
         self.child.kill().await.unwrap();
         self.child.wait().await.unwrap();
@@ -466,6 +530,56 @@ impl Drop for Case {
     fn drop(&mut self) {
         self.task.abort();
         let _ = self.child.start_kill();
+    }
+}
+
+impl Case {
+    pub(super) fn lookup_faults(&self, failures: u32) {
+        private_file(
+            &self.directory.path().join("lookup-failures"),
+            failures.to_string().as_bytes(),
+        );
+    }
+
+    pub(super) fn lookups(&self) -> u64 {
+        fs::read(self.directory.path().join("lookup-calls.json"))
+            .ok()
+            .map_or(0, |bytes| serde_json::from_slice(&bytes).unwrap())
+    }
+
+    pub(super) async fn prior_descriptor(&mut self) {
+        // Create a distinct immutable plan before submission. Never rewrite
+        // submitted jobs or the prior content-addressed protocol artifact.
+        assert!(self.store.audit_events(0, 1).await.unwrap().is_empty());
+        let plans = self.directory.path().join("plans");
+        let mut document: Value =
+            serde_json::from_slice(&fs::read(plans.join(&self.plan.sha256[7..])).unwrap()).unwrap();
+        let reference: ObjectRef = serde_json::from_value(document["protocol"].clone()).unwrap();
+        let mut protocol = v1::ProtocolSelectionSnapshot::decode(
+            fs::read(plans.join(&reference.sha256[7..]))
+                .unwrap()
+                .as_slice(),
+        )
+        .unwrap();
+        protocol.schema_descriptor_sha256 = Some(v1::Sha256Digest {
+            value: vec![
+                0x2c, 0x60, 0xbd, 0x74, 0x3b, 0x8f, 0x4d, 0xb0, 0x9f, 0xdb, 0x19, 0x20, 0x0e, 0xf8,
+                0x30, 0x7d, 0x49, 0xad, 0xc3, 0xb2, 0x7a, 0xdf, 0x28, 0xbf, 0xf6, 0x81, 0x84, 0x58,
+                0x98, 0xbd, 0x3e, 0x1c,
+            ],
+        });
+        protocol.selection_sha256 = Some(v1::Sha256Digest {
+            value: loop_protocol::job::protocol_selection_sha256(&protocol)
+                .unwrap()
+                .to_vec(),
+        });
+        document["protocol"] =
+            serde_json::to_value(put(&plans, &protocol.encode_to_vec())).unwrap();
+        self.plan = put(&plans, &serde_json::to_vec(&document).unwrap());
+        // Loading binds research_policy to this new immutable plan. Submit its
+        // matching input, rather than the previous plan's policy reference.
+        self.input = FrozenPlan::load(&plans, &self.plan).unwrap().input;
+        self.restart().await;
     }
 }
 

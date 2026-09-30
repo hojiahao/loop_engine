@@ -133,7 +133,7 @@ pub(super) fn lease(job: &mut JobRecord, actor: &Actor, now: i64, expiry: i64) -
 }
 
 pub(super) async fn writer(transaction: &mut Transaction<'_, Postgres>) -> StoreResult<()> {
-    sqlx::query("SELECT set_config('loop.model_step_writer', 'v2', true)")
+    sqlx::query("SELECT set_config('loop.model_step_writer', 'v3', true)")
         .execute(&mut **transaction)
         .await?;
     Ok(())
@@ -291,6 +291,13 @@ pub(super) async fn load(
     let state = ModelStepState::parse(&row.try_get::<String, _>("state")?)?;
     let created: i64 = row.try_get("created_revision")?;
     let updated: i64 = row.try_get("updated_revision")?;
+    let lookup_attempts: i32 = row.try_get("lookup_attempts")?;
+    let tool_attempts: i32 = row.try_get("tool_attempts")?;
+    let retry_after_ms: i64 = row.try_get("retry_after_ms")?;
+    let response_revision: Option<i64> = row.try_get("response_revision")?;
+    let response_at_ms: Option<i64> = row.try_get("response_at_ms")?;
+    let created_at_ms: i64 = row.try_get("created_at_ms")?;
+    let updated_at_ms: i64 = row.try_get("updated_at_ms")?;
     if row.try_get::<Vec<u8>, _>("invocation_sha256")? != digest
         || row.try_get::<i64, _>("reserved_input")? != input as i64
         || row.try_get::<i64, _>("reserved_output")? != output as i64
@@ -316,6 +323,27 @@ pub(super) async fn load(
         || created < 2
         || updated < created
         || updated as u64 > job.revision
+        || !(0..=3).contains(&lookup_attempts)
+        || !(0..=3).contains(&tool_attempts)
+        || retry_after_ms < 0
+        || ((lookup_attempts == 0 && tool_attempts == 0) != (retry_after_ms == 0))
+        || (retry_after_ms != 0
+            && (retry_after_ms < created_at_ms
+                || updated_at_ms
+                    .checked_add(250)
+                    .is_none_or(|latest| retry_after_ms > latest)))
+        || (state == ModelStepState::Reserved && lookup_attempts != 0)
+        || (tool_attempts != 0 && (state != ModelStepState::Completed || ordinal != 0))
+        || (tool_attempts != 0
+            && request
+                .invocation
+                .as_ref()
+                .is_none_or(|invocation| invocation.structured_output.is_some()))
+        || (state == ModelStepState::Completed
+            && (response_revision.is_none_or(|revision| revision <= created || revision > updated)
+                || response_at_ms.is_none_or(|time| time < created_at_ms || time > updated_at_ms)))
+        || (state != ModelStepState::Completed
+            && (response_revision.is_some() || response_at_ms.is_some()))
         || row.try_get::<i64, _>("created_at_ms")? > row.try_get::<i64, _>("updated_at_ms")?
         || row.try_get::<i64, _>("updated_at_ms")?
             > postgres::timestamp_millis(
@@ -327,9 +355,22 @@ pub(super) async fn load(
         || (state == ModelStepState::Completed
             && !matches!(
                 JobState::try_from(job.state),
-                Ok(JobState::Succeeded | JobState::InfrastructureFailed | JobState::Running)
+                Ok(JobState::Succeeded
+                    | JobState::InfrastructureFailed
+                    | JobState::Running
+                    | JobState::Paused
+                    | JobState::Cancelled
+                    | JobState::BudgetExhausted)
             ))
-        || (state != ModelStepState::Completed && job.state != JobState::Running as i32)
+        || (state != ModelStepState::Completed
+            && !matches!(
+                JobState::try_from(job.state),
+                Ok(JobState::Running
+                    | JobState::Paused
+                    | JobState::Cancelled
+                    | JobState::BudgetExhausted
+                    | JobState::InfrastructureFailed)
+            ))
     {
         return Err(StoreError::Corrupt("model projection binding"));
     }
@@ -354,14 +395,16 @@ pub(super) async fn load(
         reserved_output: output,
         reserved_nano_usd: cost,
         tool_result: None,
+        lookup_attempts: lookup_attempts as u32,
+        tool_attempts: tool_attempts as u32,
+        retry_after_ms,
     };
     if let Some(response) = &step.response {
         validation::response(&step, response)
             .map_err(|_| StoreError::Corrupt("model response binding"))?;
-        if job.state == JobState::Running as i32 {
-            validation::call(&step, response)
-                .map_err(|_| StoreError::Corrupt("intermediate model response"))?;
-        }
+        // A resumed final response or an invalid candidate recovered while
+        // paused is still immutable Provider evidence. The executor separately
+        // validates its conversation role before it advances the workflow.
     }
     step.tool_result = load_tool(transaction, &step).await?;
     Ok(Some(step))
@@ -428,7 +471,7 @@ async fn load_tool(
     transaction: &mut Transaction<'_, Postgres>,
     step: &ModelStep,
 ) -> StoreResult<Option<loop_protocol::wire::v1::ToolResultContent>> {
-    let row = sqlx::query("SELECT tool_results.*,model_steps.updated_revision AS step_revision,model_steps.updated_at_ms AS step_time FROM tool_results JOIN model_steps USING(job_id,ordinal) WHERE job_id=$1 AND ordinal=$2")
+    let row = sqlx::query("SELECT tool_results.*,model_steps.response_revision AS step_revision,model_steps.response_at_ms AS step_time FROM tool_results JOIN model_steps USING(job_id,ordinal) WHERE job_id=$1 AND ordinal=$2")
         .bind(identity(&step.job)?).bind(step.ordinal as i32)
         .fetch_optional(&mut **transaction).await?;
     let Some(row) = row else {
@@ -501,7 +544,7 @@ pub(super) async fn transition(
 ) -> StoreResult<()> {
     let bytes = response.map(postgres::encode_message).transpose()?;
     let checksum = bytes.as_ref().map(|bytes| Sha256::digest(bytes).to_vec());
-    let result = sqlx::query("UPDATE model_steps SET state=$1,updated_revision=$2,updated_at_ms=$3,response_blob=$4,response_sha256=$5 WHERE job_id=$6 AND ordinal=$7")
+    let result = sqlx::query("UPDATE model_steps SET state=$1,updated_revision=$2,updated_at_ms=$3,response_blob=$4,response_sha256=$5,response_revision=CASE WHEN $1='completed' THEN $2 ELSE response_revision END,response_at_ms=CASE WHEN $1='completed' THEN $3 ELSE response_at_ms END WHERE job_id=$6 AND ordinal=$7")
         .bind(state).bind(job.revision as i64).bind(now).bind(bytes).bind(checksum).bind(identity(job)?).bind(ordinal as i32)
         .execute(&mut **transaction).await?;
     if result.rows_affected() != 1 {
@@ -566,7 +609,32 @@ pub(super) async fn commit(
     if last - requested >= 30_000 {
         return Err(StoreError::Unavailable("model command deadline"));
     }
-    if matches!(operation, "loop.model.reserve" | "loop.model.takeover") {
+    if matches!(
+        operation,
+        "loop.discovery.pause"
+            | "loop.discovery.cancel"
+            | "loop.discovery.expire"
+            | "loop.model.reconcile"
+    ) || (operation == "loop.model.resume" && job.state == JobState::BudgetExhausted as i32)
+    {
+        if command.lease_id.is_some() {
+            return Err(StoreError::LeaseFenced);
+        }
+        if operation == "loop.discovery.pause"
+            && job.state == JobState::Paused as i32
+            && last >= deadline(&job)?
+        {
+            return Err(StoreError::Unavailable("model deadline crossed"));
+        }
+    } else if operation == "loop.model.fail" {
+        super::lifecycle::fence_failure(&original, actor, command, last)?;
+        if job.state == JobState::InfrastructureFailed as i32 && last >= deadline(&job)? {
+            return Err(StoreError::Unavailable("model deadline crossed"));
+        }
+    } else if matches!(
+        operation,
+        "loop.model.reserve" | "loop.model.takeover" | "loop.model.resume"
+    ) {
         if operation == "loop.model.reserve" && command.ordinal == 1 {
             fence(&original, actor, command, last)?;
         }

@@ -1,7 +1,7 @@
 # ADR 0048: Controlled research tools and durable context
 
-Status: implemented with local acceptance passed; Phase 10 unit 3 publication
-and exact-commit CI are tracked in the implementation checklist.
+Status: accepted and implemented; Phase 10 unit 3 complete. Commits `b33f0f5`
+and `8199a78` are pushed; exact-commit CI `36590096683` passed all seven jobs.
 
 ## Requirement
 

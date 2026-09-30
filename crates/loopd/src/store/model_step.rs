@@ -2,7 +2,9 @@
 
 mod validation;
 pub(crate) use validation::{duration as model_duration, money as model_money};
+mod lifecycle;
 mod storage;
+pub(crate) use lifecycle::{ModelControl, ModelRetry};
 #[cfg(test)]
 mod tests;
 
@@ -72,6 +74,21 @@ pub struct ModelStep {
     pub reserved_nano_usd: u64,
     /// Verified immutable result of the sole registered intermediate tool.
     pub tool_result: Option<ToolResultContent>,
+    /// Lookup attempts durably consumed before the read-only Provider request.
+    pub lookup_attempts: u32,
+    /// Tool attempts durably consumed before verifying the development files.
+    pub tool_attempts: u32,
+    /// Absolute earliest time for another safe attempt; zero before any attempt.
+    pub retry_after_ms: i64,
+}
+
+impl ModelStep {
+    /// Verify identity, finish semantics and usage against this immutable
+    /// reservation before runtime result handling. Invalid evidence grants no
+    /// retry, mutation or execution authority and never exposes raw contents.
+    pub(crate) fn check_response(&self, response: &ModelResponse) -> StoreResult<()> {
+        validation::response(self, response)
+    }
 }
 
 /// Result of a dispatch CAS. A replay is deliberately incapable of redispatch.
@@ -100,6 +117,10 @@ struct ReceiptRequest {
     duration: Option<prost_types::Duration>,
     #[prost(message, optional, tag = "7")]
     tool_result: Option<ToolResultContent>,
+    #[prost(string, tag = "8")]
+    failure_code: String,
+    #[prost(uint32, tag = "9")]
+    retry_kind: u32,
 }
 
 impl ModelStepState {
@@ -202,6 +223,9 @@ impl PgJobStore {
             reserved_output: output,
             reserved_nano_usd: cost,
             tool_result: None,
+            lookup_attempts: 0,
+            tool_attempts: 0,
+            retry_after_ms: 0,
         };
         history.push(step.clone());
         validation::totals(&job, &history)?;
@@ -403,10 +427,15 @@ impl PgJobStore {
         storage::revision(&job, &command)?;
         storage::fence(&job, actor, &command, now)?;
         let mut step = storage::current(&mut transaction, &job, command.ordinal).await?;
-        if !matches!(
-            step.state,
-            ModelStepState::Dispatched | ModelStepState::Ambiguous
-        ) {
+        let recovered = step.state == ModelStepState::Completed
+            && outcome.is_some()
+            && step.response.as_ref() == Some(&response);
+        if !recovered
+            && !matches!(
+                step.state,
+                ModelStepState::Dispatched | ModelStepState::Ambiguous
+            )
+        {
             return Err(StoreError::InvalidTransition);
         }
         validation::response(&step, &response)?;
@@ -442,15 +471,17 @@ impl PgJobStore {
         }
         storage::advance(&mut job, now)?;
         storage::writer(&mut transaction).await?;
-        storage::transition(
-            &mut transaction,
-            &job,
-            "completed",
-            Some(&response),
-            now,
-            command.ordinal,
-        )
-        .await?;
+        if !recovered {
+            storage::transition(
+                &mut transaction,
+                &job,
+                "completed",
+                Some(&response),
+                now,
+                command.ordinal,
+            )
+            .await?;
+        }
         storage::commit(
             self,
             transaction,

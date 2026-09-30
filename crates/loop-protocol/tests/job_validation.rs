@@ -90,7 +90,7 @@ fn factor_execution_identity() {
 // Scenario: shared job record matrix fails closed.
 fn shared_job_matrix() {
     let vectors = vectors().collect::<Vec<_>>();
-    assert_eq!(vectors.len(), 114, "all shared rows must execute");
+    assert_eq!(vectors.len(), 120, "all shared rows must execute");
     for vector in vectors {
         let record = record(&vector);
         match validate_job_record(&record) {
@@ -1271,6 +1271,7 @@ fn state(value: &str) -> i32 {
         "infrastructure_failed" => JobState::InfrastructureFailed as i32,
         "cancelled" => JobState::Cancelled as i32,
         "budget_exhausted" => JobState::BudgetExhausted as i32,
+        "paused" => JobState::Paused as i32,
         other => panic!("unknown fixture state {other}"),
     }
 }

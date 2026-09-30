@@ -41,6 +41,7 @@ class JobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     JOB_STATE_INFRASTRUCTURE_FAILED: _ClassVar[JobState]
     JOB_STATE_CANCELLED: _ClassVar[JobState]
     JOB_STATE_BUDGET_EXHAUSTED: _ClassVar[JobState]
+    JOB_STATE_PAUSED: _ClassVar[JobState]
 
 class FactorRejectionCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -70,6 +71,7 @@ JOB_STATE_FACTOR_REJECTED: JobState
 JOB_STATE_INFRASTRUCTURE_FAILED: JobState
 JOB_STATE_CANCELLED: JobState
 JOB_STATE_BUDGET_EXHAUSTED: JobState
+JOB_STATE_PAUSED: JobState
 FACTOR_REJECTION_CODE_UNSPECIFIED: FactorRejectionCode
 FACTOR_REJECTION_CODE_DUPLICATE: FactorRejectionCode
 FACTOR_REJECTION_CODE_PREVIOUSLY_FAILED: FactorRejectionCode

@@ -249,7 +249,7 @@ impl RuntimeAuthority {
         let identity = self.identity(&principal.actor)?;
         id(job_id)?;
         let discovered = identity.role == Role::Discovery
-            && self.discovery.is_some()
+            && (self.discovery.is_some() || control_operation(operation))
             && role_operation(identity.role, operation);
         if (!self.jobs.contains_key(job_id) && !discovered)
             || identity.run_ids.is_empty()
@@ -338,6 +338,20 @@ impl AdmissionPolicy for RuntimeAuthority {
             .specification
             .as_ref()
             .ok_or(StoreError::AdmissionDenied)?;
+        if control_operation(operation) {
+            // Stopping or observing a stopped job can only shrink authority.
+            // Validate durable shape without rereading a missing or changed plan.
+            loop_protocol::job::validate_job_record(record)?;
+            let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
+            if identity.role == Role::Discovery
+                && matches!(job.input, Some(job_specification::Input::Discovery(_)))
+                && job.submitted_by.as_ref() == Some(actor)
+                && identity.run_ids.contains(&run.value)
+            {
+                return Ok(());
+            }
+            return Err(StoreError::AdmissionDenied);
+        }
         self.validate_submission(job)?;
         let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
         let protected = matches!(
@@ -420,9 +434,27 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.model.takeover"
                 | "loop.model.call"
                 | "loop.tool.record"
+                | "loop.model.resume"
+                | "loop.model.retry"
+                | "loop.model.fail"
+                | "loop.model.reconcile"
+                | "loop.discovery.pause"
+                | "loop.discovery.cancel"
+                | "loop.discovery.expire"
+                | "loop.discovery.read_control"
         ),
         Role::Provider => false,
     }
+}
+
+fn control_operation(operation: &str) -> bool {
+    matches!(
+        operation,
+        "loop.discovery.pause"
+            | "loop.discovery.cancel"
+            | "loop.discovery.expire"
+            | "loop.discovery.read_control"
+    )
 }
 
 pub(super) fn digest(value: &str) -> StoreResult<[u8; 32]> {

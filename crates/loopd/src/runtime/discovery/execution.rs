@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::time::Duration;
 
 use loop_protocol::wire::{discovery::v1 as wire, provider::v1::InvokeModelRequest, v1};
@@ -6,9 +7,17 @@ use uuid::Uuid;
 use super::DiscoveryExecutor;
 use crate::runtime::{RuntimeAuthority, model_codec};
 use crate::store::{
-    ModelStep, ModelStepCommand, ModelStepState, PgJobStore, StoreError, StoreResult,
-    model_duration,
+    ModelControl, ModelRetry, ModelStep, ModelStepCommand, ModelStepState, PgJobStore, StoreError,
+    StoreResult, model_duration,
 };
+
+// Safe-attempt loops return a static terminal label separately from storage,
+// clock and fencing errors. The caller retains the latest durable step in both
+// cases; no helper can reset its counter or silently terminalize another lease.
+enum Attempt<T> {
+    Ready(T),
+    Failed(&'static str),
+}
 
 impl DiscoveryExecutor {
     pub(crate) async fn execute(
@@ -22,13 +31,14 @@ impl DiscoveryExecutor {
         if expected_revision != job.revision {
             return Err(StoreError::RevisionConflict);
         }
+        if job.state == v1::JobState::Paused as i32 {
+            return Err(StoreError::InvalidTransition);
+        }
         let specification = job
             .specification
             .as_ref()
             .ok_or(StoreError::Corrupt("discovery specification"))?;
         let plan = self.plan(specification)?;
-        let evidence =
-            crate::manifests::data::resolve(&self.data, &plan.data, specification, false).await?;
         let job_id = &specification
             .job_id
             .as_ref()
@@ -36,14 +46,21 @@ impl DiscoveryExecutor {
             .value;
         let history = store.model_history(actor, job_id).await?;
         check_history(plan, &history)?;
-        let mut step = if let Some(step) = history.last() {
+        if terminal(job.state) {
+            return self.view(&job, &history);
+        }
+        if authority.now()? >= deadline(&job)? {
+            let mut control = command(authority, actor, &job, 0)?;
+            control.lease_id = None;
+            let job = store
+                .control_model(actor, control, ModelControl::Expire)
+                .await?;
+            return self.current_view(store, actor, &job).await;
+        }
+        crate::manifests::data::resolve(&self.data, &plan.data, specification, false).await?;
+        let step = if let Some(step) = history.last() {
             if step.job.revision != expected_revision {
                 return Err(StoreError::RevisionConflict);
-            }
-            if step.state == ModelStepState::Completed
-                && step.job.state != v1::JobState::Running as i32
-            {
-                return self.view(&step.job, &history);
             }
             // A second RPC cannot borrow another in-flight handler's lease.
             let mut takeover = command(authority, actor, &step.job, step.ordinal)?;
@@ -69,34 +86,173 @@ impl DiscoveryExecutor {
                 .reserve_model(actor, command(authority, actor, &job, 0)?, request)
                 .await?
         };
+        Box::pin(self.drive(store, authority, actor, step)).await
+    }
+
+    pub(crate) async fn resume(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        job: v1::JobRecord,
+        control: ModelStepCommand,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        let specification = job
+            .specification
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery specification"))?;
+        let plan = self.plan(specification)?;
+        let id = specification
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery job ID"))?;
+        let history = store.model_history(actor, &id.value).await?;
+        check_history(plan, &history)?;
+        let expired = authority.now()? >= deadline(&job)?;
+        if !expired {
+            crate::manifests::data::resolve(&self.data, &plan.data, specification, false).await?;
+        }
+        let initial = if history.is_empty() && !expired {
+            Some(request(
+                authority,
+                actor,
+                &id.value,
+                plan.tool_invocation
+                    .as_ref()
+                    .unwrap_or(&plan.invocation)
+                    .clone(),
+            )?)
+        } else {
+            None
+        };
+        let claim = store.resume_model(actor, control, initial).await?;
+        if !claim.execute {
+            return self.current_view(store, actor, &claim.job).await;
+        }
+        Box::pin(
+            self.drive(
+                store,
+                authority,
+                actor,
+                claim
+                    .step
+                    .ok_or(StoreError::Corrupt("resumed model step"))?,
+            ),
+        )
+        .await
+    }
+
+    pub(crate) async fn reconcile(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        job: v1::JobRecord,
+        control: ModelStepCommand,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        if let Some(replayed) = store.reconcile_replay(actor, control.clone()).await? {
+            return self.current_view(store, actor, &replayed).await;
+        }
+        if !matches!(
+            v1::JobState::try_from(job.state),
+            Ok(v1::JobState::Paused
+                | v1::JobState::Cancelled
+                | v1::JobState::BudgetExhausted
+                | v1::JobState::InfrastructureFailed)
+        ) {
+            return Err(StoreError::InvalidTransition);
+        }
+        let specification = job
+            .specification
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery specification"))?;
+        let plan = self.plan(specification)?;
+        let id = specification
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery job ID"))?;
+        let history = store.model_history(actor, &id.value).await?;
+        check_history(plan, &history)?;
+        let Some(step) = history.last() else {
+            if control.expected_revision != job.revision {
+                return Err(StoreError::RevisionConflict);
+            }
+            return self.view(&job, &history);
+        };
+        if step.job.revision != control.expected_revision {
+            return Err(StoreError::RevisionConflict);
+        }
+        if step.state == ModelStepState::Reserved || step.state == ModelStepState::Completed {
+            return self.view(&step.job, &history);
+        }
+        // Evidence lookup has a fresh caller deadline; an elapsed execution
+        // budget never grants a lease or a new paid invocation here.
+        let response = self
+            .provider
+            .lookup(
+                step,
+                context(authority, actor, &id.value)?,
+                Duration::from_secs(5),
+            )
+            .await?;
+        if let Some(response) = response {
+            let mut control = control;
+            control.ordinal = step.ordinal;
+            let reconciled = store.reconcile_model(actor, control, response).await?;
+            return self.current_view(store, actor, &reconciled.job).await;
+        }
+        self.view(&step.job, &history)
+    }
+
+    async fn drive(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        mut step: ModelStep,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        let specification = step
+            .job
+            .specification
+            .clone()
+            .ok_or(StoreError::Corrupt("discovery specification"))?;
+        let plan = self.plan(&specification)?;
+        let evidence = guarded(
+            store,
+            authority,
+            actor,
+            &step,
+            crate::manifests::data::resolve(&self.data, &plan.data, &specification, false),
+        )
+        .await?;
+        let job_id = &specification
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery job ID"))?
+            .value;
         // The immutable plan permits at most two model turns, never an unbounded
         // caller-driven conversation. A committed tool result is reused verbatim.
         loop {
             plan.check()?;
-            evidence.check(specification)?;
+            evidence.check(&specification)?;
             if step.state == ModelStepState::Completed {
                 if plan.tool_invocation.is_none() || step.ordinal != 0 {
-                    return Err(StoreError::Corrupt("unexpected intermediate completion"));
+                    let response = step
+                        .response
+                        .clone()
+                        .ok_or(StoreError::Corrupt("model response"))?;
+                    return self
+                        .complete(store, authority, actor, &step, response)
+                        .await;
                 }
                 if step.tool_result.is_none() {
-                    let call = model_codec::response_call(
-                        &step.request,
-                        step.response
-                            .as_ref()
-                            .ok_or(StoreError::Corrupt("tool response"))?,
-                    )?;
-                    let result = tokio::time::timeout(
-                        Duration::from_millis(lease_millis(authority, &step)?.min(30_000) as u64),
-                        super::tools::describe(
-                            &self.data,
-                            &plan.data,
-                            specification,
-                            &plan.registry,
-                            &call,
-                        ),
-                    )
-                    .await
-                    .map_err(|_| StoreError::Unavailable("research tool deadline"))??;
+                    let result =
+                        match Box::pin(self.tool_step(store, authority, actor, &mut step)).await? {
+                            Attempt::Ready(result) => result,
+                            Attempt::Failed(code) => {
+                                return self.fail(store, authority, actor, &step, code).await;
+                            }
+                        };
                     step = store
                         .record_tool(actor, command(authority, actor, &step.job, 0)?, result)
                         .await?;
@@ -116,46 +272,54 @@ impl DiscoveryExecutor {
             } else {
                 false
             };
-            let timeout = remaining(authority, &step, send)?;
-            let result = if send {
-                self.provider
-                    .invoke(step.request.clone(), timeout)
-                    .await
-                    .map(Some)
-            } else {
-                self.provider
-                    .lookup(&step, context(authority, actor, job_id)?, timeout)
-                    .await
-            };
-            let response = match result {
-                Ok(Some(response)) => response,
-                Ok(None) => {
-                    if step.state == ModelStepState::Dispatched {
-                        store
+            let response = if send {
+                let result = guarded(
+                    store,
+                    authority,
+                    actor,
+                    &step,
+                    self.provider
+                        .invoke(step.request.clone(), remaining(authority, &step, true)?),
+                )
+                .await;
+                match result {
+                    Ok(response) => Some(response),
+                    Err(StoreError::Unavailable(_)) => {
+                        step = store
                             .uncertain_model(
                                 actor,
                                 command(authority, actor, &step.job, step.ordinal)?,
                             )
                             .await?;
+                        None
                     }
-                    return self.inspect(store, actor, job_id).await;
-                }
-                Err(error) => {
-                    if step.state == ModelStepState::Dispatched {
-                        // Durable dispatch evidence already prevents a resend if
-                        // a lease or clock failure blocks this uncertainty append.
-                        let _ = store
-                            .uncertain_model(
-                                actor,
-                                command(authority, actor, &step.job, step.ordinal)?,
-                            )
+                    Err(StoreError::AdmissionDenied | StoreError::Corrupt(_)) => {
+                        return self
+                            .fail(store, authority, actor, &step, "model_contract_invalid")
                             .await;
                     }
-                    return Err(error);
+                    Err(error) => return Err(error),
+                }
+            } else {
+                None
+            };
+            let response = if let Some(response) = response {
+                response
+            } else {
+                match Box::pin(self.lookup_step(store, authority, actor, &mut step)).await? {
+                    Attempt::Ready(response) => response,
+                    Attempt::Failed(code) => {
+                        return self.fail(store, authority, actor, &step, code).await;
+                    }
                 }
             };
+            if step.check_response(&response).is_err() {
+                return self
+                    .fail(store, authority, actor, &step, "model_contract_invalid")
+                    .await;
+            }
             plan.check()?;
-            evidence.check(specification)?;
+            evidence.check(&specification)?;
             let intermediate = plan.tool_invocation.is_some() && step.ordinal == 0;
             if intermediate && model_codec::response_call(&step.request, &response).is_ok() {
                 step = store
@@ -167,48 +331,202 @@ impl DiscoveryExecutor {
                     .await?;
                 continue;
             }
-            let outcome = if !intermediate
-                && model_codec::response_ast(&step.request, &response, &plan.registry).is_ok()
-            {
-                v1::job_outcome::Outcome::Success(v1::JobSuccess { outputs: vec![] })
-            } else {
-                v1::job_outcome::Outcome::InfrastructureFailure(v1::InfrastructureFailure {
-                    error: Some(v1::ServiceError {
-                        category: v1::ErrorCategory::Dependency as i32,
-                        code: "model_candidate_invalid".into(),
-                        message: "Provider output violates the frozen conversation contract".into(),
-                        retryable: false,
-                        details: vec![],
-                    }),
-                    attempt: step.job.attempt,
-                    failed_at: Some(timestamp(authority.now()?)),
-                })
-            };
-            store
-                .finish_model(
-                    actor,
-                    command(authority, actor, &step.job, step.ordinal)?,
-                    response,
-                    v1::JobOutcome {
-                        outcome: Some(outcome),
-                    },
-                )
-                .await?;
-            return self.inspect(store, actor, job_id).await;
+            return self
+                .complete(store, authority, actor, &step, response)
+                .await;
         }
     }
 
-    async fn inspect(
+    async fn tool_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &mut ModelStep,
+    ) -> StoreResult<Attempt<v1::ToolResultContent>> {
+        let specification = step
+            .job
+            .specification
+            .clone()
+            .ok_or(StoreError::Corrupt("discovery specification"))?;
+        let plan = self.plan(&specification)?;
+        let Ok(call) = model_codec::response_call(
+            &step.request,
+            step.response
+                .as_ref()
+                .ok_or(StoreError::Corrupt("tool response"))?,
+        ) else {
+            return Ok(Attempt::Failed("tool_contract_invalid"));
+        };
+        loop {
+            if step.tool_attempts >= 3 {
+                return Ok(Attempt::Failed("retry_exhausted"));
+            }
+            retry_wait(store, authority, actor, step).await?;
+            *step = store
+                .retry_model(
+                    actor,
+                    command(authority, actor, &step.job, step.ordinal)?,
+                    ModelRetry::Tool,
+                )
+                .await?;
+            let result = tokio::time::timeout(
+                Duration::from_millis(lease_millis(authority, step)?.min(30_000) as u64),
+                guarded(
+                    store,
+                    authority,
+                    actor,
+                    step,
+                    super::tools::describe(
+                        &self.data,
+                        &plan.data,
+                        &specification,
+                        &plan.registry,
+                        &call,
+                    ),
+                ),
+            )
+            .await
+            .map_err(|_| StoreError::Unavailable("research tool deadline"))
+            .and_then(|result| result);
+            match result {
+                Ok(result) => return Ok(Attempt::Ready(result)),
+                Err(StoreError::Unavailable(_)) => continue,
+                Err(
+                    error @ (StoreError::LeaseFenced
+                    | StoreError::RevisionConflict
+                    | StoreError::ClockRegression),
+                ) => return Err(error),
+                Err(_) => return Ok(Attempt::Failed("tool_contract_invalid")),
+            }
+        }
+    }
+
+    async fn lookup_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &mut ModelStep,
+    ) -> StoreResult<Attempt<v1::ModelResponse>> {
+        let job_id = step
+            .job
+            .specification
+            .as_ref()
+            .and_then(|spec| spec.job_id.as_ref())
+            .ok_or(StoreError::Corrupt("discovery job ID"))?
+            .value
+            .clone();
+        loop {
+            if step.lookup_attempts >= 3 {
+                return Ok(Attempt::Failed("retry_exhausted"));
+            }
+            retry_wait(store, authority, actor, step).await?;
+            *step = store
+                .retry_model(
+                    actor,
+                    command(authority, actor, &step.job, step.ordinal)?,
+                    ModelRetry::Lookup,
+                )
+                .await?;
+            let result = guarded(
+                store,
+                authority,
+                actor,
+                step,
+                self.provider.lookup(
+                    step,
+                    context(authority, actor, &job_id)?,
+                    remaining(authority, step, false)?,
+                ),
+            )
+            .await;
+            match result {
+                Ok(Some(response)) => return Ok(Attempt::Ready(response)),
+                Ok(None) | Err(StoreError::Unavailable(_)) => continue,
+                Err(StoreError::AdmissionDenied | StoreError::Corrupt(_)) => {
+                    return Ok(Attempt::Failed("model_contract_invalid"));
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    async fn complete(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &ModelStep,
+        response: v1::ModelResponse,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        let plan = self.plan(
+            step.job
+                .specification
+                .as_ref()
+                .ok_or(StoreError::Corrupt("discovery specification"))?,
+        )?;
+        let outcome = if model_codec::response_ast(&step.request, &response, &plan.registry).is_ok()
+        {
+            v1::job_outcome::Outcome::Success(v1::JobSuccess { outputs: vec![] })
+        } else {
+            v1::job_outcome::Outcome::InfrastructureFailure(v1::InfrastructureFailure {
+                error: Some(v1::ServiceError {
+                    category: v1::ErrorCategory::Dependency as i32,
+                    code: "model_candidate_invalid".into(),
+                    message: "Provider output violates the frozen conversation contract".into(),
+                    retryable: false,
+                    details: vec![],
+                }),
+                attempt: step.job.attempt,
+                failed_at: Some(timestamp(authority.now()?)),
+            })
+        };
+        store
+            .finish_model(
+                actor,
+                command(authority, actor, &step.job, step.ordinal)?,
+                response,
+                v1::JobOutcome {
+                    outcome: Some(outcome),
+                },
+            )
+            .await?;
+        self.current_view(store, actor, &step.job).await
+    }
+
+    async fn fail(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &ModelStep,
+        code: &'static str,
+    ) -> StoreResult<wire::DiscoveryStepView> {
+        let job = store
+            .fail_model(
+                actor,
+                command(authority, actor, &step.job, step.ordinal)?,
+                code,
+            )
+            .await?;
+        self.current_view(store, actor, &job).await
+    }
+
+    async fn current_view(
         &self,
         store: &PgJobStore,
         actor: &v1::Actor,
-        id: &str,
+        job: &v1::JobRecord,
     ) -> StoreResult<wire::DiscoveryStepView> {
+        let id = &job
+            .specification
+            .as_ref()
+            .and_then(|spec| spec.job_id.as_ref())
+            .ok_or(StoreError::Corrupt("discovery job ID"))?
+            .value;
         let history = store.model_history(actor, id).await?;
-        let job = &history
-            .last()
-            .ok_or(StoreError::Corrupt("missing model history"))?
-            .job;
+        let job = history.last().map_or(job, |step| &step.job);
         self.view(job, &history)
     }
 
@@ -315,6 +633,114 @@ fn check_history(plan: &super::plan::FrozenPlan, history: &[ModelStep]) -> Store
         }
     }
     Ok(())
+}
+
+fn terminal(state: i32) -> bool {
+    matches!(
+        v1::JobState::try_from(state),
+        Ok(v1::JobState::Succeeded
+            | v1::JobState::FactorRejected
+            | v1::JobState::InfrastructureFailed
+            | v1::JobState::Cancelled
+            | v1::JobState::BudgetExhausted)
+    )
+}
+
+fn deadline(job: &v1::JobRecord) -> StoreResult<i64> {
+    let spec = job
+        .specification
+        .as_ref()
+        .ok_or(StoreError::Corrupt("discovery specification"))?;
+    let Some(v1::job_specification::Input::Discovery(input)) = &spec.input else {
+        return Err(StoreError::AdmissionDenied);
+    };
+    let submitted = crate::store::timestamp_millis(
+        spec.submitted_at
+            .as_ref()
+            .ok_or(StoreError::Corrupt("discovery submitted time"))?,
+        false,
+    )?;
+    submitted
+        .checked_add(model_duration(
+            input
+                .budget
+                .as_ref()
+                .and_then(|budget| budget.maximum_wall_time.as_ref()),
+        )?)
+        .ok_or(StoreError::Corrupt("discovery deadline"))
+}
+
+async fn check_running(
+    store: &PgJobStore,
+    authority: &RuntimeAuthority,
+    actor: &v1::Actor,
+    step: &ModelStep,
+) -> StoreResult<()> {
+    let id = step
+        .job
+        .specification
+        .as_ref()
+        .and_then(|spec| spec.job_id.as_ref())
+        .ok_or(StoreError::Corrupt("discovery job ID"))?;
+    let job = tokio::time::timeout(
+        Duration::from_secs(1),
+        store.runtime_job(actor, &id.value, "loop.discovery.read_control"),
+    )
+    .await
+    .map_err(|_| StoreError::Unavailable("discovery control check"))??;
+    if job.revision != step.job.revision
+        || job.active_lease != step.job.active_lease
+        || job.state != v1::JobState::Running as i32
+    {
+        return Err(StoreError::LeaseFenced);
+    }
+    if authority.now()? >= deadline(&job)? {
+        let mut expiry = command(authority, actor, &job, 0)?;
+        expiry.lease_id = None;
+        store
+            .control_model(actor, expiry, ModelControl::Expire)
+            .await?;
+        return Err(StoreError::LeaseFenced);
+    }
+    lease_millis(authority, step)?;
+    Ok(())
+}
+
+async fn guarded<T>(
+    store: &PgJobStore,
+    authority: &RuntimeAuthority,
+    actor: &v1::Actor,
+    step: &ModelStep,
+    operation: impl Future<Output = StoreResult<T>>,
+) -> StoreResult<T> {
+    Box::pin(check_running(store, authority, actor, step)).await?;
+    tokio::pin!(operation);
+    let mut interval = tokio::time::interval(Duration::from_millis(250));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    interval.tick().await;
+    loop {
+        tokio::select! {
+            result = &mut operation => return result,
+            _ = interval.tick() => Box::pin(check_running(store, authority, actor, step)).await?,
+        }
+    }
+}
+
+async fn retry_wait(
+    store: &PgJobStore,
+    authority: &RuntimeAuthority,
+    actor: &v1::Actor,
+    step: &ModelStep,
+) -> StoreResult<()> {
+    let delay = step.retry_after_ms.saturating_sub(authority.now()?).max(0);
+    if delay > 250 {
+        return Err(StoreError::ClockRegression);
+    }
+    guarded(store, authority, actor, step, async {
+        tokio::time::sleep(Duration::from_millis(delay as u64)).await;
+        Ok(())
+    })
+    .await
 }
 
 fn continuation(
@@ -495,6 +921,9 @@ mod tests {
 
     fn step(wall_seconds: i64, lease_millis: i64) -> ModelStep {
         ModelStep {
+            lookup_attempts: 0,
+            tool_attempts: 0,
+            retry_after_ms: 0,
             ordinal: 0,
             tool_result: None,
             job: v1::JobRecord {

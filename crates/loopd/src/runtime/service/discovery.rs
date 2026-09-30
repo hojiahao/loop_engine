@@ -5,10 +5,153 @@ use tonic::{Request, Response, Status};
 
 use super::{RuntimeService, status};
 use crate::runtime::Role;
-use crate::store::{JobRepository, RoleCommand, RoleJobHandle, StoreError};
+use crate::store::{
+    JobRepository, ModelControl, ModelStepCommand, RoleCommand, RoleJobHandle, StoreError,
+};
+use loop_protocol::wire::v1;
 
 #[tonic::async_trait]
 impl DiscoveryService for RuntimeService {
+    async fn pause_discovery(
+        &self,
+        request: Request<wire::PauseDiscoveryRequest>,
+    ) -> Result<Response<wire::PauseDiscoveryResponse>, Status> {
+        let input = request.get_ref();
+        let job = self
+            .stop_discovery(
+                &request,
+                input.context.as_ref(),
+                input.job_id.as_ref(),
+                input.expected_revision,
+                ModelControl::Pause,
+            )
+            .await?;
+        Ok(Response::new(wire::PauseDiscoveryResponse {
+            job: Some(job),
+        }))
+    }
+
+    async fn cancel_discovery(
+        &self,
+        request: Request<wire::CancelDiscoveryRequest>,
+    ) -> Result<Response<wire::CancelDiscoveryResponse>, Status> {
+        let input = request.get_ref();
+        let job = self
+            .stop_discovery(
+                &request,
+                input.context.as_ref(),
+                input.job_id.as_ref(),
+                input.expected_revision,
+                ModelControl::Cancel,
+            )
+            .await?;
+        Ok(Response::new(wire::CancelDiscoveryResponse {
+            job: Some(job),
+        }))
+    }
+
+    async fn expire_discovery(
+        &self,
+        request: Request<wire::ExpireDiscoveryRequest>,
+    ) -> Result<Response<wire::ExpireDiscoveryResponse>, Status> {
+        let input = request.get_ref();
+        let job = self
+            .stop_discovery(
+                &request,
+                input.context.as_ref(),
+                input.job_id.as_ref(),
+                input.expected_revision,
+                ModelControl::Expire,
+            )
+            .await?;
+        Ok(Response::new(wire::ExpireDiscoveryResponse {
+            job: Some(job),
+        }))
+    }
+
+    async fn resume_discovery(
+        &self,
+        request: Request<wire::ResumeDiscoveryRequest>,
+    ) -> Result<Response<wire::ResumeDiscoveryResponse>, Status> {
+        validate_deadline(&request)?;
+        let input = request.get_ref();
+        let (principal, job) = self
+            .job(
+                &request,
+                input.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.model.resume",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        validate_context(
+            input.context.as_ref(),
+            &principal.actor,
+            self.authority.now().map_err(status)?,
+        )?;
+        let executor = self
+            .discoverer
+            .as_ref()
+            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
+        let command = ModelStepCommand {
+            context: input.context.clone(),
+            job_id: input.job_id.clone(),
+            expected_revision: input.expected_revision,
+            lease_id: None,
+            ordinal: 0,
+        };
+        let step = executor
+            .resume(&self.store, &self.authority, &principal.actor, job, command)
+            .await
+            .map_err(status)?;
+        Ok(Response::new(wire::ResumeDiscoveryResponse {
+            step: Some(step),
+        }))
+    }
+
+    async fn reconcile_discovery(
+        &self,
+        request: Request<wire::ReconcileDiscoveryRequest>,
+    ) -> Result<Response<wire::ReconcileDiscoveryResponse>, Status> {
+        validate_deadline(&request)?;
+        let input = request.get_ref();
+        let (principal, job) = self
+            .job(
+                &request,
+                input.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.model.reconcile",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        validate_context(
+            input.context.as_ref(),
+            &principal.actor,
+            self.authority.now().map_err(status)?,
+        )?;
+        let executor = self
+            .discoverer
+            .as_ref()
+            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
+        let command = ModelStepCommand {
+            context: input.context.clone(),
+            job_id: input.job_id.clone(),
+            expected_revision: input.expected_revision,
+            lease_id: None,
+            ordinal: 0,
+        };
+        let mut step = executor
+            .reconcile(&self.store, &self.authority, &principal.actor, job, command)
+            .await
+            .map_err(status)?;
+        // A concurrent Resume may complete before the final evidence read.
+        // This lookup-only RPC never exposes a candidate, even in that race.
+        step.candidate = None;
+        Ok(Response::new(wire::ReconcileDiscoveryResponse {
+            step: Some(step),
+        }))
+    }
+
     async fn start_discovery(
         &self,
         request: Request<wire::StartDiscoveryRequest>,
@@ -132,6 +275,59 @@ impl DiscoveryService for RuntimeService {
         Ok(Response::new(wire::GetDiscoveryResponse {
             step: Some(view),
         }))
+    }
+}
+
+impl RuntimeService {
+    async fn stop_discovery<T>(
+        &self,
+        request: &Request<T>,
+        context: Option<&v1::CommandContext>,
+        id: Option<&v1::JobId>,
+        revision: u64,
+        action: ModelControl,
+    ) -> Result<wire::DiscoveryJobHandle, Status> {
+        validate_deadline(request)?;
+        let operation = match action {
+            ModelControl::Pause => "loop.discovery.pause",
+            ModelControl::Cancel => "loop.discovery.cancel",
+            ModelControl::Expire => "loop.discovery.expire",
+        };
+        let (principal, _) = self
+            .job(request, id.map(|id| id.value.as_str()), operation, false)
+            .await
+            .map_err(status)?;
+        validate_context(
+            context,
+            &principal.actor,
+            self.authority.now().map_err(status)?,
+        )?;
+        let job = self
+            .store
+            .control_model(
+                &principal.actor,
+                ModelStepCommand {
+                    context: context.cloned(),
+                    job_id: id.cloned(),
+                    expected_revision: revision,
+                    lease_id: None,
+                    ordinal: 0,
+                },
+                action,
+            )
+            .await
+            .map_err(status)?;
+        let specification = job
+            .specification
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Corrupt("discovery specification")))?;
+        Ok(wire::DiscoveryJobHandle {
+            job_id: specification.job_id.clone(),
+            status: job.state,
+            revision: job.revision,
+            submitted_at: specification.submitted_at,
+            updated_at: job.updated_at,
+        })
     }
 }
 

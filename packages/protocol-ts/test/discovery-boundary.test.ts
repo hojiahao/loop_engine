@@ -13,6 +13,33 @@ function fixture(name: string): Uint8Array {
 }
 
 describe("discovery public wire boundary", () => {
+  it("limits lifecycle controls to authenticated job revision envelopes", () => {
+    for (const name of [
+      "pauseDiscovery",
+      "cancelDiscovery",
+      "expireDiscovery",
+      "resumeDiscovery",
+      "reconcileDiscovery",
+    ] as const) {
+      const method = discovery.DiscoveryService.method[name];
+      expect(method.input.fields.map((field) => [field.name, field.number])).toEqual([
+        ["context", 1],
+        ["job_id", 2],
+        ["expected_revision", 3],
+      ]);
+      expect(method.output.fields.map((field) => field.name)).toEqual([
+        name === "resumeDiscovery" || name === "reconcileDiscovery" ? "step" : "job",
+      ]);
+    }
+  });
+
+  it("preserves the appended paused status without changing existing enum values", () => {
+    const bytes = Uint8Array.of(10, 2, 16, 9);
+    const response = fromBinary(discovery.PauseDiscoveryResponseSchema, bytes);
+    expect(response.job?.status).toBe(discovery.DiscoveryJobStatus.PAUSED);
+    expect(toBinary(discovery.PauseDiscoveryResponseSchema, response)).toEqual(bytes);
+  });
+
   it("binds execution to a job revision without caller model or prompt overrides", () => {
     const request = fromBinary(
       discovery.ExecuteDiscoveryRequestSchema,

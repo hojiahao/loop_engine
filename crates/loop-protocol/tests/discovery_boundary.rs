@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use loop_protocol::wire::discovery::v1::{
     DiscoveryJobHandle, DiscoveryJobStatus, DiscoveryStepState, DiscoveryStepView,
-    ExecuteDiscoveryRequest, ExecuteDiscoveryResponse, StartDiscoveryResponse,
+    ExecuteDiscoveryRequest, ExecuteDiscoveryResponse, PauseDiscoveryResponse,
+    StartDiscoveryResponse,
 };
 use loop_protocol::wire::v1::JobId;
 use prost::Message;
@@ -12,6 +13,65 @@ use prost_types::{FileDescriptorSet, Timestamp};
 use sha2::{Digest, Sha256};
 
 const DISCOVERY_FILE: &str = "loop/discovery/v1/service.proto";
+
+#[test]
+fn lifecycle_envelope() {
+    let descriptor = FileDescriptorSet::decode(loop_protocol::FILE_DESCRIPTOR_SET).unwrap();
+    let file = descriptor
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some(DISCOVERY_FILE))
+        .unwrap();
+    let service = file.service.first().unwrap();
+    for name in ["Pause", "Cancel", "Expire", "Resume", "Reconcile"] {
+        let method_name = format!("{name}Discovery");
+        let method = service
+            .method
+            .iter()
+            .find(|method| method.name.as_deref() == Some(&method_name))
+            .unwrap();
+        for (message_name, expected) in [
+            (
+                method.input_type.as_ref().unwrap(),
+                vec![("context", 1), ("job_id", 2), ("expected_revision", 3)],
+            ),
+            (
+                method.output_type.as_ref().unwrap(),
+                vec![(
+                    if matches!(name, "Resume" | "Reconcile") {
+                        "step"
+                    } else {
+                        "job"
+                    },
+                    1,
+                )],
+            ),
+        ] {
+            let message = file
+                .message_type
+                .iter()
+                .find(|message| message_name.ends_with(&format!(".{}", message.name())))
+                .unwrap();
+            let fields = message
+                .field
+                .iter()
+                .map(|field| (field.name(), field.number()))
+                .collect::<Vec<_>>();
+            assert_eq!(fields, expected);
+        }
+    }
+}
+
+#[test]
+fn paused_status() {
+    let bytes = [10, 2, 16, 9];
+    let response = PauseDiscoveryResponse::decode(bytes.as_slice()).unwrap();
+    assert_eq!(
+        response.job.as_ref().unwrap().status(),
+        DiscoveryJobStatus::Paused
+    );
+    assert_eq!(response.encode_to_vec(), bytes);
+}
 
 #[test]
 fn execute_request() {

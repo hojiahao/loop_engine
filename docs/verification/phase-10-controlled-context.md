@@ -1,10 +1,10 @@
 # Phase 10 unit 3: Controlled tools and persistent context
 
-Status: implementation, targeted acceptance and full local quality gates pass.
-Publication CI `36549762127` exposed exhausted disposable PostgreSQL storage;
-the capacity correction and full-suite rerun remain the closing gate. The
-preceding unit's CI passed all seven jobs. No synthetic fixture establishes live
-supplier verification.
+Status: complete. Implementation `b33f0f5` and test-storage correction `8199a78`
+are pushed. Exact-commit CI `36590096683` passed all seven jobs, including Rust,
+the unified workspace and clean DaoCloud container. Publication CI `36549762127`
+had exposed exhausted disposable PostgreSQL storage; the subsequent full-suite
+rerun closes that gate. No synthetic fixture establishes live supplier verification.
 
 ## Requirement and design
 

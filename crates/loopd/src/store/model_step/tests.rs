@@ -1,3 +1,4 @@
+mod lifecycle;
 mod processes;
 
 use super::*;
@@ -638,7 +639,7 @@ async fn deployment_privileges() {
         .execute(&mut *transaction)
         .await
         .unwrap();
-    sqlx::query("SELECT set_config('loop.model_step_writer', 'v2', true)")
+    sqlx::query("SELECT set_config('loop.model_step_writer', 'v3', true)")
         .execute(&mut *transaction)
         .await
         .unwrap();
