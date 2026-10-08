@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/discovery/v1/service.proto.
  */
 export const file_loop_discovery_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIoIBChJEaXNjb3ZlcnlDYW5kaWRhdGUSMgoNZXhwcmVzc2lvbl9pZBgBIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEiAKGGNhbm9uaWNhbGl6YXRpb25fcHJvZmlsZRgCIAEoCRIWCg5jYW5vbmljYWxfanNvbhgDIAEoDCKdAgoRRGlzY292ZXJ5U3RlcFZpZXcSMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEjQKBXN0YXRlGAIgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFN0YXRlEjgKCWNhbmRpZGF0ZRgDIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUNhbmRpZGF0ZRIlCg1yZXNlcnZlZF9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYBSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgGIAEoBCJ+ChdFeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk4KGEV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRIyCgRzdGVwGAEgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFZpZXciXwoTR2V0RGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkIkoKFEdldERpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyJ8ChVQYXVzZURpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCJMChZQYXVzZURpc2NvdmVyeVJlc3BvbnNlEjIKA2pvYhgBIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYkhhbmRsZSJ9ChZDYW5jZWxEaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQiTQoXQ2FuY2VsRGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIn0KFkV4cGlyZURpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCJNChdFeHBpcmVEaXNjb3ZlcnlSZXNwb25zZRIyCgNqb2IYASABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGUifQoWUmVzdW1lRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk0KF1Jlc3VtZURpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyKAAQoZUmVjb25jaWxlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIlAKGlJlY29uY2lsZURpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyqMAwoSRGlzY292ZXJ5Sm9iU3RhdHVzEiQKIERJU0NPVkVSWV9KT0JfU1RBVFVTX1VOU1BFQ0lGSUVEEAASHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfUVVFVUVEEAESHwobRElTQ09WRVJZX0pPQl9TVEFUVVNfTEVBU0VEEAISIAocRElTQ09WRVJZX0pPQl9TVEFUVVNfUlVOTklORxADEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX1NVQ0NFRURFRBAEEigKJERJU0NPVkVSWV9KT0JfU1RBVFVTX0ZBQ1RPUl9SRUpFQ1RFRBAFEi4KKkRJU0NPVkVSWV9KT0JfU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAGEiIKHkRJU0NPVkVSWV9KT0JfU1RBVFVTX0NBTkNFTExFRBAHEikKJURJU0NPVkVSWV9KT0JfU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQCBIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19QQVVTRUQQCSrKAQoSRGlzY292ZXJ5U3RlcFN0YXRlEiQKIERJU0NPVkVSWV9TVEVQX1NUQVRFX1VOU1BFQ0lGSUVEEAASIQodRElTQ09WRVJZX1NURVBfU1RBVEVfUkVTRVJWRUQQARIjCh9ESVNDT1ZFUllfU1RFUF9TVEFURV9ESVNQQVRDSEVEEAISIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQ09NUExFVEVEEAMSIgoeRElTQ09WRVJZX1NURVBfU1RBVEVfQU1CSUdVT1VTEAQy3wYKEERpc2NvdmVyeVNlcnZpY2USZQoOU3RhcnREaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5TdGFydERpc2NvdmVyeVJlc3BvbnNlEmsKEEV4ZWN1dGVEaXNjb3ZlcnkSKi5sb29wLmRpc2NvdmVyeS52MS5FeGVjdXRlRGlzY292ZXJ5UmVxdWVzdBorLmxvb3AuZGlzY292ZXJ5LnYxLkV4ZWN1dGVEaXNjb3ZlcnlSZXNwb25zZRJfCgxHZXREaXNjb3ZlcnkSJi5sb29wLmRpc2NvdmVyeS52MS5HZXREaXNjb3ZlcnlSZXF1ZXN0GicubG9vcC5kaXNjb3ZlcnkudjEuR2V0RGlzY292ZXJ5UmVzcG9uc2USZQoOUGF1c2VEaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlc3BvbnNlEmgKD0NhbmNlbERpc2NvdmVyeRIpLmxvb3AuZGlzY292ZXJ5LnYxLkNhbmNlbERpc2NvdmVyeVJlcXVlc3QaKi5sb29wLmRpc2NvdmVyeS52MS5DYW5jZWxEaXNjb3ZlcnlSZXNwb25zZRJoCg9FeHBpcmVEaXNjb3ZlcnkSKS5sb29wLmRpc2NvdmVyeS52MS5FeHBpcmVEaXNjb3ZlcnlSZXF1ZXN0GioubG9vcC5kaXNjb3ZlcnkudjEuRXhwaXJlRGlzY292ZXJ5UmVzcG9uc2USaAoPUmVzdW1lRGlzY292ZXJ5EikubG9vcC5kaXNjb3ZlcnkudjEuUmVzdW1lRGlzY292ZXJ5UmVxdWVzdBoqLmxvb3AuZGlzY292ZXJ5LnYxLlJlc3VtZURpc2NvdmVyeVJlc3BvbnNlEnEKElJlY29uY2lsZURpc2NvdmVyeRIsLmxvb3AuZGlzY292ZXJ5LnYxLlJlY29uY2lsZURpc2NvdmVyeVJlcXVlc3QaLS5sb29wLmRpc2NvdmVyeS52MS5SZWNvbmNpbGVEaXNjb3ZlcnlSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
+  fileDesc("Ch9sb29wL2Rpc2NvdmVyeS92MS9zZXJ2aWNlLnByb3RvEhFsb29wLmRpc2NvdmVyeS52MSLEAQoSRGlzY292ZXJ5Sm9iQnVkZ2V0EhUKDW1heGltdW1fc3RlcHMYASABKA0SHAoUbWF4aW11bV9pbnB1dF90b2tlbnMYAiABKAQSHQoVbWF4aW11bV9vdXRwdXRfdG9rZW5zGAMgASgEEiQKDG1heGltdW1fY29zdBgEIAEoCzIOLmxvb3AudjEuTW9uZXkSNAoRbWF4aW11bV93YWxsX3RpbWUYBSABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24iwAIKEURpc2NvdmVyeUpvYklucHV0EjUKB2RhdGFzZXQYASABKAsyJC5sb29wLnYxLkRldmVsb3BtZW50RGF0YXNldFJlZmVyZW5jZRIxCg9yZXNlYXJjaF9wb2xpY3kYAiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRI1CgttYWtlcl9tb2RlbBgDIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNwoNY2hlY2tlcl9tb2RlbBgEIAEoCzIgLmxvb3AudjEuTW9kZWxSZXNvbHV0aW9uU25hcHNob3QSNQoGYnVkZ2V0GAUgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iQnVkZ2V0EhoKEm1heGltdW1fY2FuZGlkYXRlcxgGIAEoDSJ6ChVTdGFydERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSNwoJZGlzY292ZXJ5GAIgASgLMiQubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSW5wdXQi3wEKEkRpc2NvdmVyeUpvYkhhbmRsZRIeCgZqb2JfaWQYASABKAsyDi5sb29wLnYxLkpvYklkEjUKBnN0YXR1cxgCIAEoDjIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYlN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIwCgxzdWJtaXR0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkwKFlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIoIBChJEaXNjb3ZlcnlDYW5kaWRhdGUSMgoNZXhwcmVzc2lvbl9pZBgBIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEiAKGGNhbm9uaWNhbGl6YXRpb25fcHJvZmlsZRgCIAEoCRIWCg5jYW5vbmljYWxfanNvbhgDIAEoDCK0AgoRRGlzY292ZXJ5U3RlcFZpZXcSMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEjQKBXN0YXRlGAIgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5U3RlcFN0YXRlEjgKCWNhbmRpZGF0ZRgDIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUNhbmRpZGF0ZRIlCg1yZXNlcnZlZF9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYBSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgGIAEoBBIVCg1wbGFuX3ZlcmlmaWVkGAcgASgIIo0BCg5EaXNjb3ZlcnlFdmVudBIQCghzZXF1ZW5jZRgBIAEoBBIvCgtvY2N1cnJlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASOAoJb3BlcmF0aW9uGAMgASgOMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5T3BlcmF0aW9uIo0BChpMaXN0RGlzY292ZXJ5RXZlbnRzUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhYKDmFmdGVyX3NlcXVlbmNlGAMgASgEEg0KBWxpbWl0GAQgASgNIn8KG0xpc3REaXNjb3ZlcnlFdmVudHNSZXNwb25zZRIxCgZldmVudHMYASADKAsyIS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlFdmVudBIbChNuZXh0X2FmdGVyX3NlcXVlbmNlGAIgASgEEhAKCGhhc19tb3JlGAMgASgIIn4KF0V4ZWN1dGVEaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQiTgoYRXhlY3V0ZURpc2NvdmVyeVJlc3BvbnNlEjIKBHN0ZXAYASABKAsyJC5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlTdGVwVmlldyJfChNHZXREaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQiSgoUR2V0RGlzY292ZXJ5UmVzcG9uc2USMgoEc3RlcBgBIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeVN0ZXBWaWV3InwKFVBhdXNlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIkwKFlBhdXNlRGlzY292ZXJ5UmVzcG9uc2USMgoDam9iGAEgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlIn0KFkNhbmNlbERpc2NvdmVyeVJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGam9iX2lkGAIgASgLMg4ubG9vcC52MS5Kb2JJZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCJNChdDYW5jZWxEaXNjb3ZlcnlSZXNwb25zZRIyCgNqb2IYASABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGUifQoWRXhwaXJlRGlzY292ZXJ5UmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZqb2JfaWQYAiABKAsyDi5sb29wLnYxLkpvYklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEIk0KF0V4cGlyZURpc2NvdmVyeVJlc3BvbnNlEjIKA2pvYhgBIAEoCzIlLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYkhhbmRsZSJ9ChZSZXN1bWVEaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQiTQoXUmVzdW1lRGlzY292ZXJ5UmVzcG9uc2USMgoEc3RlcBgBIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeVN0ZXBWaWV3IoABChlSZWNvbmNpbGVEaXNjb3ZlcnlSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBmpvYl9pZBgCIAEoCzIOLmxvb3AudjEuSm9iSWQSGQoRZXhwZWN0ZWRfcmV2aXNpb24YAyABKAQiUAoaUmVjb25jaWxlRGlzY292ZXJ5UmVzcG9uc2USMgoEc3RlcBgBIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeVN0ZXBWaWV3KowDChJEaXNjb3ZlcnlKb2JTdGF0dXMSJAogRElTQ09WRVJZX0pPQl9TVEFUVVNfVU5TUEVDSUZJRUQQABIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19RVUVVRUQQARIfChtESVNDT1ZFUllfSk9CX1NUQVRVU19MRUFTRUQQAhIgChxESVNDT1ZFUllfSk9CX1NUQVRVU19SVU5OSU5HEAMSIgoeRElTQ09WRVJZX0pPQl9TVEFUVVNfU1VDQ0VFREVEEAQSKAokRElTQ09WRVJZX0pPQl9TVEFUVVNfRkFDVE9SX1JFSkVDVEVEEAUSLgoqRElTQ09WRVJZX0pPQl9TVEFUVVNfSU5GUkFTVFJVQ1RVUkVfRkFJTEVEEAYSIgoeRElTQ09WRVJZX0pPQl9TVEFUVVNfQ0FOQ0VMTEVEEAcSKQolRElTQ09WRVJZX0pPQl9TVEFUVVNfQlVER0VUX0VYSEFVU1RFRBAIEh8KG0RJU0NPVkVSWV9KT0JfU1RBVFVTX1BBVVNFRBAJKsoBChJEaXNjb3ZlcnlTdGVwU3RhdGUSJAogRElTQ09WRVJZX1NURVBfU1RBVEVfVU5TUEVDSUZJRUQQABIhCh1ESVNDT1ZFUllfU1RFUF9TVEFURV9SRVNFUlZFRBABEiMKH0RJU0NPVkVSWV9TVEVQX1NUQVRFX0RJU1BBVENIRUQQAhIiCh5ESVNDT1ZFUllfU1RFUF9TVEFURV9DT01QTEVURUQQAxIiCh5ESVNDT1ZFUllfU1RFUF9TVEFURV9BTUJJR1VPVVMQBCqiBAoSRGlzY292ZXJ5T3BlcmF0aW9uEiMKH0RJU0NPVkVSWV9PUEVSQVRJT05fVU5TUEVDSUZJRUQQABIdChlESVNDT1ZFUllfT1BFUkFUSU9OX1NUQVJUEAESHwobRElTQ09WRVJZX09QRVJBVElPTl9SRVNFUlZFEAISIAocRElTQ09WRVJZX09QRVJBVElPTl9ESVNQQVRDSBADEiEKHURJU0NPVkVSWV9PUEVSQVRJT05fVU5DRVJUQUlOEAQSHgoaRElTQ09WRVJZX09QRVJBVElPTl9GSU5JU0gQBRIcChhESVNDT1ZFUllfT1BFUkFUSU9OX0NBTEwQBhIjCh9ESVNDT1ZFUllfT1BFUkFUSU9OX1RPT0xfUkVDT1JEEAcSIAocRElTQ09WRVJZX09QRVJBVElPTl9UQUtFT1ZFUhAIEh4KGkRJU0NPVkVSWV9PUEVSQVRJT05fUkVTVU1FEAkSHQoZRElTQ09WRVJZX09QRVJBVElPTl9SRVRSWRAKEhwKGERJU0NPVkVSWV9PUEVSQVRJT05fRkFJTBALEiEKHURJU0NPVkVSWV9PUEVSQVRJT05fUkVDT05DSUxFEAwSHQoZRElTQ09WRVJZX09QRVJBVElPTl9QQVVTRRANEh4KGkRJU0NPVkVSWV9PUEVSQVRJT05fQ0FOQ0VMEA4SHgoaRElTQ09WRVJZX09QRVJBVElPTl9FWFBJUkUQDzLVBwoQRGlzY292ZXJ5U2VydmljZRJlCg5TdGFydERpc2NvdmVyeRIoLmxvb3AuZGlzY292ZXJ5LnYxLlN0YXJ0RGlzY292ZXJ5UmVxdWVzdBopLmxvb3AuZGlzY292ZXJ5LnYxLlN0YXJ0RGlzY292ZXJ5UmVzcG9uc2USawoQRXhlY3V0ZURpc2NvdmVyeRIqLmxvb3AuZGlzY292ZXJ5LnYxLkV4ZWN1dGVEaXNjb3ZlcnlSZXF1ZXN0GisubG9vcC5kaXNjb3ZlcnkudjEuRXhlY3V0ZURpc2NvdmVyeVJlc3BvbnNlEl8KDEdldERpc2NvdmVyeRImLmxvb3AuZGlzY292ZXJ5LnYxLkdldERpc2NvdmVyeVJlcXVlc3QaJy5sb29wLmRpc2NvdmVyeS52MS5HZXREaXNjb3ZlcnlSZXNwb25zZRJ0ChNMaXN0RGlzY292ZXJ5RXZlbnRzEi0ubG9vcC5kaXNjb3ZlcnkudjEuTGlzdERpc2NvdmVyeUV2ZW50c1JlcXVlc3QaLi5sb29wLmRpc2NvdmVyeS52MS5MaXN0RGlzY292ZXJ5RXZlbnRzUmVzcG9uc2USZQoOUGF1c2VEaXNjb3ZlcnkSKC5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlcXVlc3QaKS5sb29wLmRpc2NvdmVyeS52MS5QYXVzZURpc2NvdmVyeVJlc3BvbnNlEmgKD0NhbmNlbERpc2NvdmVyeRIpLmxvb3AuZGlzY292ZXJ5LnYxLkNhbmNlbERpc2NvdmVyeVJlcXVlc3QaKi5sb29wLmRpc2NvdmVyeS52MS5DYW5jZWxEaXNjb3ZlcnlSZXNwb25zZRJoCg9FeHBpcmVEaXNjb3ZlcnkSKS5sb29wLmRpc2NvdmVyeS52MS5FeHBpcmVEaXNjb3ZlcnlSZXF1ZXN0GioubG9vcC5kaXNjb3ZlcnkudjEuRXhwaXJlRGlzY292ZXJ5UmVzcG9uc2USaAoPUmVzdW1lRGlzY292ZXJ5EikubG9vcC5kaXNjb3ZlcnkudjEuUmVzdW1lRGlzY292ZXJ5UmVxdWVzdBoqLmxvb3AuZGlzY292ZXJ5LnYxLlJlc3VtZURpc2NvdmVyeVJlc3BvbnNlEnEKElJlY29uY2lsZURpc2NvdmVyeRIsLmxvb3AuZGlzY292ZXJ5LnYxLlJlY29uY2lsZURpc2NvdmVyeVJlcXVlc3QaLS5sb29wLmRpc2NvdmVyeS52MS5SZWNvbmNpbGVEaXNjb3ZlcnlSZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_v1_common, file_loop_v1_development_data, file_loop_v1_model]);
 
 /**
  * DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
@@ -260,6 +260,13 @@ export type DiscoveryStepView = Message<"loop.discovery.v1.DiscoveryStepView"> &
    * @generated from field: uint64 reserved_output_tokens = 6;
    */
   reservedOutputTokens: bigint;
+
+  /**
+   * False only for stop-only metadata reads; a candidate then cannot be present.
+   *
+   * @generated from field: bool plan_verified = 7;
+   */
+  planVerified: boolean;
 };
 
 /**
@@ -268,6 +275,96 @@ export type DiscoveryStepView = Message<"loop.discovery.v1.DiscoveryStepView"> &
  */
 export const DiscoveryStepViewSchema: GenMessage<DiscoveryStepView> = /*@__PURE__*/
   messageDesc(file_loop_discovery_v1_service, 6);
+
+/**
+ * @generated from message loop.discovery.v1.DiscoveryEvent
+ */
+export type DiscoveryEvent = Message<"loop.discovery.v1.DiscoveryEvent"> & {
+  /**
+   * @generated from field: uint64 sequence = 1;
+   */
+  sequence: bigint;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp occurred_at = 2;
+   */
+  occurredAt?: Timestamp | undefined;
+
+  /**
+   * @generated from field: loop.discovery.v1.DiscoveryOperation operation = 3;
+   */
+  operation: DiscoveryOperation;
+};
+
+/**
+ * Describes the message loop.discovery.v1.DiscoveryEvent.
+ * Use `create(DiscoveryEventSchema)` to create a new message.
+ */
+export const DiscoveryEventSchema: GenMessage<DiscoveryEvent> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 7);
+
+/**
+ * @generated from message loop.discovery.v1.ListDiscoveryEventsRequest
+ */
+export type ListDiscoveryEventsRequest = Message<"loop.discovery.v1.ListDiscoveryEventsRequest"> & {
+  /**
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId job_id = 2;
+   */
+  jobId?: JobId | undefined;
+
+  /**
+   * Zero begins the job history; other cursors must belong to this job.
+   *
+   * @generated from field: uint64 after_sequence = 3;
+   */
+  afterSequence: bigint;
+
+  /**
+   * Required, from 1 through 100 inclusive.
+   *
+   * @generated from field: uint32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ListDiscoveryEventsRequest.
+ * Use `create(ListDiscoveryEventsRequestSchema)` to create a new message.
+ */
+export const ListDiscoveryEventsRequestSchema: GenMessage<ListDiscoveryEventsRequest> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 8);
+
+/**
+ * @generated from message loop.discovery.v1.ListDiscoveryEventsResponse
+ */
+export type ListDiscoveryEventsResponse = Message<"loop.discovery.v1.ListDiscoveryEventsResponse"> & {
+  /**
+   * @generated from field: repeated loop.discovery.v1.DiscoveryEvent events = 1;
+   */
+  events: DiscoveryEvent[];
+
+  /**
+   * @generated from field: uint64 next_after_sequence = 2;
+   */
+  nextAfterSequence: bigint;
+
+  /**
+   * @generated from field: bool has_more = 3;
+   */
+  hasMore: boolean;
+};
+
+/**
+ * Describes the message loop.discovery.v1.ListDiscoveryEventsResponse.
+ * Use `create(ListDiscoveryEventsResponseSchema)` to create a new message.
+ */
+export const ListDiscoveryEventsResponseSchema: GenMessage<ListDiscoveryEventsResponse> = /*@__PURE__*/
+  messageDesc(file_loop_discovery_v1_service, 9);
 
 /**
  * @generated from message loop.discovery.v1.ExecuteDiscoveryRequest
@@ -294,7 +391,7 @@ export type ExecuteDiscoveryRequest = Message<"loop.discovery.v1.ExecuteDiscover
  * Use `create(ExecuteDiscoveryRequestSchema)` to create a new message.
  */
 export const ExecuteDiscoveryRequestSchema: GenMessage<ExecuteDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 7);
+  messageDesc(file_loop_discovery_v1_service, 10);
 
 /**
  * @generated from message loop.discovery.v1.ExecuteDiscoveryResponse
@@ -311,7 +408,7 @@ export type ExecuteDiscoveryResponse = Message<"loop.discovery.v1.ExecuteDiscove
  * Use `create(ExecuteDiscoveryResponseSchema)` to create a new message.
  */
 export const ExecuteDiscoveryResponseSchema: GenMessage<ExecuteDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 8);
+  messageDesc(file_loop_discovery_v1_service, 11);
 
 /**
  * @generated from message loop.discovery.v1.GetDiscoveryRequest
@@ -333,7 +430,7 @@ export type GetDiscoveryRequest = Message<"loop.discovery.v1.GetDiscoveryRequest
  * Use `create(GetDiscoveryRequestSchema)` to create a new message.
  */
 export const GetDiscoveryRequestSchema: GenMessage<GetDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 9);
+  messageDesc(file_loop_discovery_v1_service, 12);
 
 /**
  * @generated from message loop.discovery.v1.GetDiscoveryResponse
@@ -350,7 +447,7 @@ export type GetDiscoveryResponse = Message<"loop.discovery.v1.GetDiscoveryRespon
  * Use `create(GetDiscoveryResponseSchema)` to create a new message.
  */
 export const GetDiscoveryResponseSchema: GenMessage<GetDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 10);
+  messageDesc(file_loop_discovery_v1_service, 13);
 
 /**
  * @generated from message loop.discovery.v1.PauseDiscoveryRequest
@@ -377,7 +474,7 @@ export type PauseDiscoveryRequest = Message<"loop.discovery.v1.PauseDiscoveryReq
  * Use `create(PauseDiscoveryRequestSchema)` to create a new message.
  */
 export const PauseDiscoveryRequestSchema: GenMessage<PauseDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 11);
+  messageDesc(file_loop_discovery_v1_service, 14);
 
 /**
  * @generated from message loop.discovery.v1.PauseDiscoveryResponse
@@ -394,7 +491,7 @@ export type PauseDiscoveryResponse = Message<"loop.discovery.v1.PauseDiscoveryRe
  * Use `create(PauseDiscoveryResponseSchema)` to create a new message.
  */
 export const PauseDiscoveryResponseSchema: GenMessage<PauseDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 12);
+  messageDesc(file_loop_discovery_v1_service, 15);
 
 /**
  * @generated from message loop.discovery.v1.CancelDiscoveryRequest
@@ -421,7 +518,7 @@ export type CancelDiscoveryRequest = Message<"loop.discovery.v1.CancelDiscoveryR
  * Use `create(CancelDiscoveryRequestSchema)` to create a new message.
  */
 export const CancelDiscoveryRequestSchema: GenMessage<CancelDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 13);
+  messageDesc(file_loop_discovery_v1_service, 16);
 
 /**
  * @generated from message loop.discovery.v1.CancelDiscoveryResponse
@@ -438,7 +535,7 @@ export type CancelDiscoveryResponse = Message<"loop.discovery.v1.CancelDiscovery
  * Use `create(CancelDiscoveryResponseSchema)` to create a new message.
  */
 export const CancelDiscoveryResponseSchema: GenMessage<CancelDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 14);
+  messageDesc(file_loop_discovery_v1_service, 17);
 
 /**
  * @generated from message loop.discovery.v1.ExpireDiscoveryRequest
@@ -465,7 +562,7 @@ export type ExpireDiscoveryRequest = Message<"loop.discovery.v1.ExpireDiscoveryR
  * Use `create(ExpireDiscoveryRequestSchema)` to create a new message.
  */
 export const ExpireDiscoveryRequestSchema: GenMessage<ExpireDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 15);
+  messageDesc(file_loop_discovery_v1_service, 18);
 
 /**
  * @generated from message loop.discovery.v1.ExpireDiscoveryResponse
@@ -482,7 +579,7 @@ export type ExpireDiscoveryResponse = Message<"loop.discovery.v1.ExpireDiscovery
  * Use `create(ExpireDiscoveryResponseSchema)` to create a new message.
  */
 export const ExpireDiscoveryResponseSchema: GenMessage<ExpireDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 16);
+  messageDesc(file_loop_discovery_v1_service, 19);
 
 /**
  * @generated from message loop.discovery.v1.ResumeDiscoveryRequest
@@ -509,7 +606,7 @@ export type ResumeDiscoveryRequest = Message<"loop.discovery.v1.ResumeDiscoveryR
  * Use `create(ResumeDiscoveryRequestSchema)` to create a new message.
  */
 export const ResumeDiscoveryRequestSchema: GenMessage<ResumeDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 17);
+  messageDesc(file_loop_discovery_v1_service, 20);
 
 /**
  * @generated from message loop.discovery.v1.ResumeDiscoveryResponse
@@ -526,7 +623,7 @@ export type ResumeDiscoveryResponse = Message<"loop.discovery.v1.ResumeDiscovery
  * Use `create(ResumeDiscoveryResponseSchema)` to create a new message.
  */
 export const ResumeDiscoveryResponseSchema: GenMessage<ResumeDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 18);
+  messageDesc(file_loop_discovery_v1_service, 21);
 
 /**
  * @generated from message loop.discovery.v1.ReconcileDiscoveryRequest
@@ -553,7 +650,7 @@ export type ReconcileDiscoveryRequest = Message<"loop.discovery.v1.ReconcileDisc
  * Use `create(ReconcileDiscoveryRequestSchema)` to create a new message.
  */
 export const ReconcileDiscoveryRequestSchema: GenMessage<ReconcileDiscoveryRequest> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 19);
+  messageDesc(file_loop_discovery_v1_service, 22);
 
 /**
  * @generated from message loop.discovery.v1.ReconcileDiscoveryResponse
@@ -570,7 +667,7 @@ export type ReconcileDiscoveryResponse = Message<"loop.discovery.v1.ReconcileDis
  * Use `create(ReconcileDiscoveryResponseSchema)` to create a new message.
  */
 export const ReconcileDiscoveryResponseSchema: GenMessage<ReconcileDiscoveryResponse> = /*@__PURE__*/
-  messageDesc(file_loop_discovery_v1_service, 20);
+  messageDesc(file_loop_discovery_v1_service, 23);
 
 /**
  * DiscoveryJobStatus is a non-sensitive projection of durable orchestration
@@ -676,6 +773,99 @@ export const DiscoveryStepStateSchema: GenEnum<DiscoveryStepState> = /*@__PURE__
   enumDesc(file_loop_discovery_v1_service, 1);
 
 /**
+ * Supported durable operations, without caller-controlled audit text.
+ *
+ * @generated from enum loop.discovery.v1.DiscoveryOperation
+ */
+export enum DiscoveryOperation {
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_START = 1;
+   */
+  START = 1,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_RESERVE = 2;
+   */
+  RESERVE = 2,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_DISPATCH = 3;
+   */
+  DISPATCH = 3,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_UNCERTAIN = 4;
+   */
+  UNCERTAIN = 4,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_FINISH = 5;
+   */
+  FINISH = 5,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_CALL = 6;
+   */
+  CALL = 6,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_TOOL_RECORD = 7;
+   */
+  TOOL_RECORD = 7,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_TAKEOVER = 8;
+   */
+  TAKEOVER = 8,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_RESUME = 9;
+   */
+  RESUME = 9,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_RETRY = 10;
+   */
+  RETRY = 10,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_FAIL = 11;
+   */
+  FAIL = 11,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_RECONCILE = 12;
+   */
+  RECONCILE = 12,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_PAUSE = 13;
+   */
+  PAUSE = 13,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_CANCEL = 14;
+   */
+  CANCEL = 14,
+
+  /**
+   * @generated from enum value: DISCOVERY_OPERATION_EXPIRE = 15;
+   */
+  EXPIRE = 15,
+}
+
+/**
+ * Describes the enum loop.discovery.v1.DiscoveryOperation.
+ */
+export const DiscoveryOperationSchema: GenEnum<DiscoveryOperation> = /*@__PURE__*/
+  enumDesc(file_loop_discovery_v1_service, 2);
+
+/**
  * DiscoveryService has no holdout method, grant, period, approval, or protected
  * dataset input. Its runtime principal is never issued a holdout capability.
  *
@@ -710,6 +900,16 @@ export const DiscoveryService: GenService<{
     methodKind: "unary";
     input: typeof GetDiscoveryRequestSchema;
     output: typeof GetDiscoveryResponseSchema;
+  },
+  /**
+   * Owner-scoped, bounded audit projection; never raw payloads or global proof.
+   *
+   * @generated from rpc loop.discovery.v1.DiscoveryService.ListDiscoveryEvents
+   */
+  listDiscoveryEvents: {
+    methodKind: "unary";
+    input: typeof ListDiscoveryEventsRequestSchema;
+    output: typeof ListDiscoveryEventsResponseSchema;
   },
   /**
    * Owner-only controls shrink authority without resolving live plan files.

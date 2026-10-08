@@ -5,10 +5,11 @@ from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from loop.v1 import common_pb2 as _common_pb2
 from loop.v1 import development_data_pb2 as _development_data_pb2
 from loop.v1 import model_pb2 as _model_pb2
+from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Mapping as _Mapping
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
@@ -33,6 +34,25 @@ class DiscoveryStepState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DISCOVERY_STEP_STATE_DISPATCHED: _ClassVar[DiscoveryStepState]
     DISCOVERY_STEP_STATE_COMPLETED: _ClassVar[DiscoveryStepState]
     DISCOVERY_STEP_STATE_AMBIGUOUS: _ClassVar[DiscoveryStepState]
+
+class DiscoveryOperation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DISCOVERY_OPERATION_UNSPECIFIED: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_START: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_RESERVE: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_DISPATCH: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_UNCERTAIN: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_FINISH: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_CALL: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_TOOL_RECORD: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_TAKEOVER: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_RESUME: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_RETRY: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_FAIL: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_RECONCILE: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_PAUSE: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_CANCEL: _ClassVar[DiscoveryOperation]
+    DISCOVERY_OPERATION_EXPIRE: _ClassVar[DiscoveryOperation]
 DISCOVERY_JOB_STATUS_UNSPECIFIED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_QUEUED: DiscoveryJobStatus
 DISCOVERY_JOB_STATUS_LEASED: DiscoveryJobStatus
@@ -48,6 +68,22 @@ DISCOVERY_STEP_STATE_RESERVED: DiscoveryStepState
 DISCOVERY_STEP_STATE_DISPATCHED: DiscoveryStepState
 DISCOVERY_STEP_STATE_COMPLETED: DiscoveryStepState
 DISCOVERY_STEP_STATE_AMBIGUOUS: DiscoveryStepState
+DISCOVERY_OPERATION_UNSPECIFIED: DiscoveryOperation
+DISCOVERY_OPERATION_START: DiscoveryOperation
+DISCOVERY_OPERATION_RESERVE: DiscoveryOperation
+DISCOVERY_OPERATION_DISPATCH: DiscoveryOperation
+DISCOVERY_OPERATION_UNCERTAIN: DiscoveryOperation
+DISCOVERY_OPERATION_FINISH: DiscoveryOperation
+DISCOVERY_OPERATION_CALL: DiscoveryOperation
+DISCOVERY_OPERATION_TOOL_RECORD: DiscoveryOperation
+DISCOVERY_OPERATION_TAKEOVER: DiscoveryOperation
+DISCOVERY_OPERATION_RESUME: DiscoveryOperation
+DISCOVERY_OPERATION_RETRY: DiscoveryOperation
+DISCOVERY_OPERATION_FAIL: DiscoveryOperation
+DISCOVERY_OPERATION_RECONCILE: DiscoveryOperation
+DISCOVERY_OPERATION_PAUSE: DiscoveryOperation
+DISCOVERY_OPERATION_CANCEL: DiscoveryOperation
+DISCOVERY_OPERATION_EXPIRE: DiscoveryOperation
 
 class DiscoveryJobBudget(_message.Message):
     __slots__ = ("maximum_steps", "maximum_input_tokens", "maximum_output_tokens", "maximum_cost", "maximum_wall_time")
@@ -118,20 +154,54 @@ class DiscoveryCandidate(_message.Message):
     def __init__(self, expression_id: _Optional[_Union[_common_pb2.FactorExpressionId, _Mapping]] = ..., canonicalization_profile: _Optional[str] = ..., canonical_json: _Optional[bytes] = ...) -> None: ...
 
 class DiscoveryStepView(_message.Message):
-    __slots__ = ("job", "state", "candidate", "reserved_cost", "reserved_input_tokens", "reserved_output_tokens")
+    __slots__ = ("job", "state", "candidate", "reserved_cost", "reserved_input_tokens", "reserved_output_tokens", "plan_verified")
     JOB_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
     CANDIDATE_FIELD_NUMBER: _ClassVar[int]
     RESERVED_COST_FIELD_NUMBER: _ClassVar[int]
     RESERVED_INPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
     RESERVED_OUTPUT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+    PLAN_VERIFIED_FIELD_NUMBER: _ClassVar[int]
     job: DiscoveryJobHandle
     state: DiscoveryStepState
     candidate: DiscoveryCandidate
     reserved_cost: _common_pb2.Money
     reserved_input_tokens: int
     reserved_output_tokens: int
-    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ..., state: _Optional[_Union[DiscoveryStepState, str]] = ..., candidate: _Optional[_Union[DiscoveryCandidate, _Mapping]] = ..., reserved_cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., reserved_input_tokens: _Optional[int] = ..., reserved_output_tokens: _Optional[int] = ...) -> None: ...
+    plan_verified: bool
+    def __init__(self, job: _Optional[_Union[DiscoveryJobHandle, _Mapping]] = ..., state: _Optional[_Union[DiscoveryStepState, str]] = ..., candidate: _Optional[_Union[DiscoveryCandidate, _Mapping]] = ..., reserved_cost: _Optional[_Union[_common_pb2.Money, _Mapping]] = ..., reserved_input_tokens: _Optional[int] = ..., reserved_output_tokens: _Optional[int] = ..., plan_verified: _Optional[bool] = ...) -> None: ...
+
+class DiscoveryEvent(_message.Message):
+    __slots__ = ("sequence", "occurred_at", "operation")
+    SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    OCCURRED_AT_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_FIELD_NUMBER: _ClassVar[int]
+    sequence: int
+    occurred_at: _timestamp_pb2.Timestamp
+    operation: DiscoveryOperation
+    def __init__(self, sequence: _Optional[int] = ..., occurred_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., operation: _Optional[_Union[DiscoveryOperation, str]] = ...) -> None: ...
+
+class ListDiscoveryEventsRequest(_message.Message):
+    __slots__ = ("context", "job_id", "after_sequence", "limit")
+    CONTEXT_FIELD_NUMBER: _ClassVar[int]
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    AFTER_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    context: _common_pb2.CommandContext
+    job_id: _common_pb2.JobId
+    after_sequence: int
+    limit: int
+    def __init__(self, context: _Optional[_Union[_common_pb2.CommandContext, _Mapping]] = ..., job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., after_sequence: _Optional[int] = ..., limit: _Optional[int] = ...) -> None: ...
+
+class ListDiscoveryEventsResponse(_message.Message):
+    __slots__ = ("events", "next_after_sequence", "has_more")
+    EVENTS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_AFTER_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
+    HAS_MORE_FIELD_NUMBER: _ClassVar[int]
+    events: _containers.RepeatedCompositeFieldContainer[DiscoveryEvent]
+    next_after_sequence: int
+    has_more: bool
+    def __init__(self, events: _Optional[_Iterable[_Union[DiscoveryEvent, _Mapping]]] = ..., next_after_sequence: _Optional[int] = ..., has_more: _Optional[bool] = ...) -> None: ...
 
 class ExecuteDiscoveryRequest(_message.Message):
     __slots__ = ("context", "job_id", "expected_revision")

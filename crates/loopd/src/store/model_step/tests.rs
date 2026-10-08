@@ -1,4 +1,5 @@
 mod lifecycle;
+mod observation;
 mod processes;
 
 use super::*;

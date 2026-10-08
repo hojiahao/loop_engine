@@ -2,7 +2,7 @@
 
 The authenticated Discovery gRPC service controls the existing bounded v1/v2
 research plan. It does not admit a factor or implement the outer research Loop.
-The operational CLI is a separate Phase 10 delivery unit.
+The operational CLI is documented in [Discovery operations](discovery-cli.md).
 
 | RPC | Required state | Effect |
 | --- | --- | --- |

@@ -26,6 +26,7 @@ fi
 export RUST_TEST_THREADS="${RUST_TEST_THREADS:-1}"
 # Harness acceptance invokes the compiled TypeScript Provider over actual mTLS.
 ./scripts/pnpm.sh --filter @loop-engine/providerd build
+./scripts/cargo.sh build --locked --offline --workspace --all-features --bins
 ./scripts/cargo.sh test --locked --offline --workspace --all-features
 ./scripts/pnpm.sh test
 ./scripts/uv.sh sync --all-packages --all-groups --locked --offline

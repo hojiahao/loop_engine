@@ -1,5 +1,6 @@
 //! Real PostgreSQL, mTLS Discovery RPC, compiled Provider and local HTTP supplier.
 
+mod cli;
 mod fixture;
 mod lifecycle;
 mod retry;

@@ -160,6 +160,10 @@ def main() -> None:
                 ".loop.discovery.v1.GetDiscoveryRequest",
                 ".loop.discovery.v1.GetDiscoveryResponse",
             ),
+            "ListDiscoveryEvents": (
+                ".loop.discovery.v1.ListDiscoveryEventsRequest",
+                ".loop.discovery.v1.ListDiscoveryEventsResponse",
+            ),
             "PauseDiscovery": (
                 ".loop.discovery.v1.PauseDiscoveryRequest",
                 ".loop.discovery.v1.PauseDiscoveryResponse",
@@ -187,6 +191,7 @@ def main() -> None:
     assert_discovery_graph(descriptor, discovery)
     assert_discovery_exports()
     assert_lifecycle_surface(descriptor, discovery)
+    assert_observation_surface(descriptor, discovery)
 
     research = require_file(files, RESEARCH_FILE)
     assert set(research.dependency) == {
@@ -290,9 +295,7 @@ def assert_lookup_surface(provider: FileDescriptorProto) -> None:
     ]
 
 
-def assert_lifecycle_surface(
-    descriptor: FileDescriptorSet, discovery: FileDescriptorProto
-) -> None:
+def assert_lifecycle_surface(descriptor: FileDescriptorSet, discovery: FileDescriptorProto) -> None:
     messages = descriptor_messages(descriptor)
     service = next(service for service in discovery.service if service.name == "DiscoveryService")
     for name in ("Pause", "Cancel", "Expire", "Resume", "Reconcile"):
@@ -335,6 +338,57 @@ def assert_lifecycle_surface(
                 ".loop.v1.JobId",
                 ".google.protobuf.Timestamp",
             }
+
+
+def assert_observation_surface(
+    descriptor: FileDescriptorSet, discovery: FileDescriptorProto
+) -> None:
+    messages = descriptor_messages(descriptor)
+    request = require_message(discovery, "ListDiscoveryEventsRequest")
+    assert_message_fields(
+        request,
+        {
+            "context": (1, ".loop.v1.CommandContext"),
+            "job_id": (2, ".loop.v1.JobId"),
+            "after_sequence": (3, ""),
+            "limit": (4, ""),
+        },
+    )
+    assert request.field[2].type == FieldDescriptorProto.TYPE_UINT64
+    assert request.field[3].type == FieldDescriptorProto.TYPE_UINT32
+    response = require_message(discovery, "ListDiscoveryEventsResponse")
+    assert_message_fields(
+        response,
+        {
+            "events": (1, ".loop.discovery.v1.DiscoveryEvent"),
+            "next_after_sequence": (2, ""),
+            "has_more": (3, ""),
+        },
+    )
+    assert response.field[0].label == FieldDescriptorProto.LABEL_REPEATED
+    assert response.field[1].type == FieldDescriptorProto.TYPE_UINT64
+    assert response.field[2].type == FieldDescriptorProto.TYPE_BOOL
+    event = require_message(discovery, "DiscoveryEvent")
+    assert_message_fields(
+        event,
+        {
+            "sequence": (1, ""),
+            "occurred_at": (2, ".google.protobuf.Timestamp"),
+            "operation": (3, ".loop.discovery.v1.DiscoveryOperation"),
+        },
+    )
+    assert event.field[0].type == FieldDescriptorProto.TYPE_UINT64
+    assert reachable_message_types(
+        messages, [".loop.discovery.v1.ListDiscoveryEventsResponse"]
+    ) == {
+        ".loop.discovery.v1.ListDiscoveryEventsResponse",
+        ".loop.discovery.v1.DiscoveryEvent",
+        ".loop.discovery.v1.DiscoveryOperation",
+        ".google.protobuf.Timestamp",
+    }
+    view = require_message(discovery, "DiscoveryStepView")
+    verified = next(field for field in view.field if field.name == "plan_verified")
+    assert verified.number == 7 and verified.type == FieldDescriptorProto.TYPE_BOOL
 
 
 def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:

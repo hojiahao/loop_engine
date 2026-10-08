@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:18f2fc91664720844b87cef5990046237bd62d8c3f81430a6c5f6ea799bfa9d5"
+    "sha256": "sha256:1560ea744617c07d3f749073170db0f77c50000ea6e2aa38cb20bfb3e29db48f"
   },
   "expected_domain_projection": {
     "supported_packages": [
@@ -42,7 +42,7 @@
       ],
       "source": {
         "path": "tests/contracts/protocol/generate_wire_fixtures.py",
-        "sha256": "sha256:f2a021e5c4f824ad839502e05287a1dd1e0e4fdfad92e2a154922cf50d31d8e5"
+        "sha256": "sha256:dacc5c290dd34612760b0c1a9000cc0ede5eefba6950c5968d087d2a92aefbef"
       },
       "path": "protocol_info_v1.binpb",
       "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
@@ -134,7 +134,7 @@
     },
     {
       "path": "discovery_completed_v1.binpb",
-      "wire_sha256": "sha256:065f87329c90851d69f47aec5669fa664e9adef353331b639c9604488b7870c3",
+      "wire_sha256": "sha256:b3832d378e9c13f6183ae0e37b40ab296815c2c5292f1f5589410b8a843a65cb",
       "producer_language": "python",
       "capability_identity": "discovery.model-step.v1"
     }

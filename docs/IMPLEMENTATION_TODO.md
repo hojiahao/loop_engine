@@ -709,15 +709,25 @@ Chinese task commit and push before starting the next unit):
    denial, no automatic paid resend, bounded termination and redacted failures.
    Implementation and local acceptance pass: 159 Rust cases, one intentionally
    ignored process-worker entry point, 127 TypeScript protocol cases, 324 Python
-   protocol cases and complete workspace checks. Commit/push and exact-commit
-   remote CI remain the closing gate. See `docs/verification/phase-10-discovery-lifecycle.md`
+   protocol cases and complete workspace checks. Commit `12768ff` is pushed;
+   CI `36689533660` passed six jobs; the unified job exhausted its 75-minute
+   timeout after Rust/TypeScript passed and Python research reached 96%.
+   Unit 5 retains the full suite with a 120-minute budget; passing descendant
+   CI remains the closing gate. See `docs/verification/phase-10-discovery-lifecycle.md`
    and `docs/development/discovery-lifecycle.md`.
-5. Operational acceptance (`pending`): expose usable CLI commands and typed
+5. Operational acceptance (`in_progress`; ADR 0050): expose usable CLI commands and typed
    status/events for the preceding workflows; document setup, recovery and
    rollback. Acceptance: installed CLI starts/observes/cancels/resumes a synthetic
    discovery run through authenticated services with audit evidence, plus full
    quality gates and remote CI. This does not implement the autonomous outer Loop
    or waive licensed-data/independent-research admission gates.
+   Local acceptance passes 56 CLI unit cases, 15 database observation cases,
+   nine installed CLI workflows, two adjacent recovery regressions, 10 Rust
+   Discovery boundary cases, 129 TypeScript and 326 Python protocol cases.
+   Workspace checks pass. First deployment to the authorized production host
+   is running in stop-only mode with PostgreSQL TLS, mTLS and restart acceptance;
+   no Provider/research executor is configured. Publication and descendant CI
+   remain open; see `docs/verification/phase-10-discovery-operations.md`.
 
 - [ ] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.

@@ -565,44 +565,10 @@ impl DiscoveryExecutor {
         } else {
             None
         };
-        let state = match step.map(|step| step.state) {
-            None => wire::DiscoveryStepState::Unspecified,
-            Some(ModelStepState::Reserved) => wire::DiscoveryStepState::Reserved,
-            Some(ModelStepState::Dispatched) => wire::DiscoveryStepState::Dispatched,
-            Some(ModelStepState::Ambiguous) => wire::DiscoveryStepState::Ambiguous,
-            Some(ModelStepState::Completed) => wire::DiscoveryStepState::Completed,
-        };
-        let mut input = 0_u64;
-        let mut output = 0_u64;
-        let mut cost = 0_u64;
-        for step in history {
-            input = input
-                .checked_add(step.reserved_input)
-                .ok_or(StoreError::Corrupt("input reservation sum"))?;
-            output = output
-                .checked_add(step.reserved_output)
-                .ok_or(StoreError::Corrupt("output reservation sum"))?;
-            cost = cost
-                .checked_add(step.reserved_nano_usd)
-                .ok_or(StoreError::Corrupt("cost reservation sum"))?;
-        }
-        Ok(wire::DiscoveryStepView {
-            job: Some(wire::DiscoveryJobHandle {
-                job_id: specification.job_id.clone(),
-                status: job.state,
-                revision: job.revision,
-                submitted_at: specification.submitted_at,
-                updated_at: job.updated_at,
-            }),
-            state: state as i32,
-            candidate,
-            reserved_cost: step.map(|_| v1::Money {
-                currency_code: "USD".into(),
-                amount: Some(v1::ExactDecimal { value: usd(cost) }),
-            }),
-            reserved_input_tokens: input,
-            reserved_output_tokens: output,
-        })
+        let mut view = super::metadata(job, history)?;
+        view.candidate = candidate;
+        view.plan_verified = true;
+        Ok(view)
     }
 }
 
@@ -884,7 +850,7 @@ fn timestamp(millis: i64) -> prost_types::Timestamp {
     }
 }
 
-fn usd(value: u64) -> String {
+pub(super) fn usd(value: u64) -> String {
     if value.is_multiple_of(1_000_000_000) {
         return (value / 1_000_000_000).to_string();
     }

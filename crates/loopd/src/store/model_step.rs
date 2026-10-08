@@ -3,6 +3,7 @@
 mod validation;
 pub(crate) use validation::{duration as model_duration, money as model_money};
 mod lifecycle;
+mod observation;
 mod storage;
 pub(crate) use lifecycle::{ModelControl, ModelRetry};
 #[cfg(test)]

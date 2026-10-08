@@ -240,11 +240,11 @@ impl DiscoveryService for RuntimeService {
     ) -> Result<Response<wire::GetDiscoveryResponse>, Status> {
         validate_deadline(&request)?;
         let command = request.get_ref();
-        let (principal, job) = self
+        let (principal, _) = self
             .job(
                 &request,
                 command.job_id.as_ref().map(|id| id.value.as_str()),
-                "loop.model.read",
+                "loop.discovery.read_control",
                 false,
             )
             .await
@@ -254,27 +254,57 @@ impl DiscoveryService for RuntimeService {
             &principal.actor,
             self.authority.now().map_err(status)?,
         )?;
-        let executor = self
-            .discoverer
-            .as_ref()
-            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
         let id = &command
             .job_id
             .as_ref()
             .ok_or_else(|| status(StoreError::Invalid("discovery job ID")))?
             .value;
-        let history = self
+        let (job, history) = self
             .store
-            .model_history(&principal.actor, id)
+            .discovery_status(&principal.actor, id)
             .await
             .map_err(status)?;
-        // The second store read is the authoritative same-transaction projection;
-        // a concurrent completion must not combine an old job with a newer step.
-        let current = history.last().map_or(&job, |step| &step.job);
-        let view = executor.view(current, &history).map_err(status)?;
+        let view = match &self.discoverer {
+            Some(executor) => executor.view(&job, &history),
+            None => crate::runtime::discovery::metadata(&job, &history),
+        }
+        .map_err(status)?;
         Ok(Response::new(wire::GetDiscoveryResponse {
             step: Some(view),
         }))
+    }
+
+    async fn list_discovery_events(
+        &self,
+        request: Request<wire::ListDiscoveryEventsRequest>,
+    ) -> Result<Response<wire::ListDiscoveryEventsResponse>, Status> {
+        validate_deadline(&request)?;
+        let command = request.get_ref();
+        let (principal, _) = self
+            .job(
+                &request,
+                command.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.discovery.read_control",
+                false,
+            )
+            .await
+            .map_err(status)?;
+        validate_context(
+            command.context.as_ref(),
+            &principal.actor,
+            self.authority.now().map_err(status)?,
+        )?;
+        let id = &command
+            .job_id
+            .as_ref()
+            .ok_or_else(|| status(StoreError::Invalid("discovery job ID")))?
+            .value;
+        let page = self
+            .store
+            .discovery_events(&principal.actor, id, command.after_sequence, command.limit)
+            .await
+            .map_err(status)?;
+        Ok(Response::new(page))
     }
 }
 

@@ -221,6 +221,7 @@ def _discovery_fixtures() -> dict[str, bytes]:
             ),
             reserved_input_tokens=4096,
             reserved_output_tokens=1024,
+            plan_verified=True,
         )
     )
     return {

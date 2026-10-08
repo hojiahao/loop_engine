@@ -436,6 +436,32 @@ fn validate_protocol_limits(limits: &ProtocolLimits) -> Result<(), JobValidation
     Ok(())
 }
 
+/// Validate the narrow Discovery input before transport without manufacturing a
+/// job or protocol selection. This checks inline shape and time bindings only;
+/// server-owned plan, dataset and actor authorization remain required.
+#[cfg(feature = "discovery-service")]
+pub fn validate_discovery_input(
+    input: &crate::wire::discovery::v1::DiscoveryJobInput,
+    submitted_at: &prost_types::Timestamp,
+) -> Result<(), JobValidationError> {
+    let submitted_at = require_timestamp(Some(submitted_at), "specification.submitted_at")?;
+    let input = crate::wire::v1::DiscoveryJobInput {
+        dataset: input.dataset.clone(),
+        research_policy: input.research_policy.clone(),
+        maker_model: input.maker_model.clone(),
+        checker_model: input.checker_model.clone(),
+        budget: input.budget.as_ref().map(|budget| JobBudget {
+            maximum_steps: budget.maximum_steps,
+            maximum_input_tokens: budget.maximum_input_tokens,
+            maximum_output_tokens: budget.maximum_output_tokens,
+            maximum_cost: budget.maximum_cost.clone(),
+            maximum_wall_time: budget.maximum_wall_time,
+        }),
+        maximum_candidates: input.maximum_candidates,
+    };
+    validate_job_input(&job_specification::Input::Discovery(input), submitted_at)
+}
+
 fn validate_job_input(
     input: &job_specification::Input,
     submitted_at: (i64, i32),

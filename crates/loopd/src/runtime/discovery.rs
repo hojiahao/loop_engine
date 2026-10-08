@@ -2,6 +2,8 @@
 
 mod execution;
 mod plan;
+mod projection;
+pub(super) use projection::metadata;
 #[cfg(test)]
 mod tests;
 mod tools;
@@ -17,7 +19,8 @@ use self::transport::ProviderConnection;
 use crate::manifests::{LocalArtifacts, ObjectRef};
 use crate::store::{StoreError, StoreResult};
 
-/// Explicit single-step deployment. Absent configuration denies Discovery RPCs.
+/// Explicit bounded execution deployment. Absent configuration retains owner
+/// stop/status/events while denying execution and candidate reads.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DiscoveryConfig {

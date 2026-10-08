@@ -19,6 +19,64 @@ _FORBIDDEN = (
 )
 
 
+def test_observation_roundtrip() -> None:
+    # Shared vector exercises exact uint64 transport and typed audit projection.
+    wire = bytes(
+        (
+            10,
+            21,
+            8,
+            129,
+            128,
+            128,
+            128,
+            128,
+            128,
+            128,
+            16,
+            18,
+            8,
+            8,
+            128,
+            202,
+            214,
+            212,
+            6,
+            16,
+            123,
+            24,
+            13,
+            16,
+            129,
+            128,
+            128,
+            128,
+            128,
+            128,
+            128,
+            16,
+            24,
+            1,
+        )
+    )
+    page = service_pb2.ListDiscoveryEventsResponse.FromString(wire)
+    assert len(page.events) == 1
+    assert page.events[0].sequence == 9_007_199_254_740_993
+    assert page.events[0].operation == service_pb2.DISCOVERY_OPERATION_PAUSE
+    assert page.events[0].occurred_at.nanos == 123
+    assert page.next_after_sequence == page.events[0].sequence
+    assert page.has_more
+    assert page.SerializeToString() == wire
+
+
+def test_observation_unknown() -> None:
+    event = service_pb2.DiscoveryEvent.FromString(bytes((24, 127)))
+    assert event.operation not in service_pb2.DiscoveryOperation.values()
+    metadata = service_pb2.DiscoveryStepView.FromString(bytes((16, 1)))
+    assert not metadata.plan_verified
+    assert not metadata.HasField("candidate")
+
+
 def test_execute_request() -> None:
     request = service_pb2.ExecuteDiscoveryRequest.FromString(
         (_FIXTURES / "discovery_execute_v1.binpb").read_bytes()
@@ -32,6 +90,7 @@ def test_execute_request() -> None:
         "StartDiscovery",
         "ExecuteDiscovery",
         "GetDiscovery",
+        "ListDiscoveryEvents",
         "PauseDiscovery",
         "CancelDiscovery",
         "ExpireDiscovery",
@@ -51,6 +110,7 @@ def test_completed_candidate() -> None:
     assert step.job.revision == 5
     assert step.reserved_input_tokens == 4096
     assert step.reserved_output_tokens == 1024
+    assert step.plan_verified
     assert step.reserved_cost.amount.value == "0.125"
     assert step.reserved_cost.currency_code == "USD"
     candidate = step.candidate

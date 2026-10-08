@@ -13,6 +13,64 @@ function fixture(name: string): Uint8Array {
 }
 
 describe("discovery public wire boundary", () => {
+  it("preserves exact sequence identities through the narrow event projection", () => {
+    const bytes = Uint8Array.of(
+      10,
+      21,
+      8,
+      129,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      16,
+      18,
+      8,
+      8,
+      128,
+      202,
+      214,
+      212,
+      6,
+      16,
+      123,
+      24,
+      13,
+      16,
+      129,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      16,
+      24,
+      1,
+    );
+    const page = fromBinary(discovery.ListDiscoveryEventsResponseSchema, bytes);
+    expect(page.events).toHaveLength(1);
+    expect(page.events[0]?.sequence).toBe(9_007_199_254_740_993n);
+    expect(page.events[0]?.operation).toBe(discovery.DiscoveryOperation.PAUSE);
+    expect(page.events[0]?.occurredAt?.nanos).toBe(123);
+    expect(page.nextAfterSequence).toBe(page.events[0]?.sequence);
+    expect(page.hasMore).toBe(true);
+    expect(toBinary(discovery.ListDiscoveryEventsResponseSchema, page)).toEqual(bytes);
+  });
+
+  it("preserves unknown operations and defaults metadata verification to false", () => {
+    const event = fromBinary(discovery.DiscoveryEventSchema, Uint8Array.of(24, 127));
+    expect(event.operation).toBe(127);
+    expect(discovery.DiscoveryOperationSchema.values.map((value) => value.number)).not.toContain(
+      127,
+    );
+    const metadata = fromBinary(discovery.DiscoveryStepViewSchema, Uint8Array.of(16, 1));
+    expect(metadata.planVerified).toBe(false);
+    expect(metadata.candidate).toBeUndefined();
+  });
+
   it("limits lifecycle controls to authenticated job revision envelopes", () => {
     for (const name of [
       "pauseDiscovery",
@@ -73,6 +131,7 @@ describe("discovery public wire boundary", () => {
     expect(step?.job?.revision).toBe(5n);
     expect(step?.reservedInputTokens).toBe(4096n);
     expect(step?.reservedOutputTokens).toBe(1024n);
+    expect(step?.planVerified).toBe(true);
     expect(step?.reservedCost?.amount?.value).toBe("0.125");
     expect(step?.reservedCost?.currencyCode).toBe("USD");
     const candidate = step?.candidate;

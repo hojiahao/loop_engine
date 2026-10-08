@@ -51,6 +51,11 @@ class DiscoveryServiceStub:
                 request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
                 response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
                 _registered_method=True)
+        self.ListDiscoveryEvents = channel.unary_unary(
+                '/loop.discovery.v1.DiscoveryService/ListDiscoveryEvents',
+                request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsRequest.SerializeToString,
+                response_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsResponse.FromString,
+                _registered_method=True)
         self.PauseDiscovery = channel.unary_unary(
                 '/loop.discovery.v1.DiscoveryService/PauseDiscovery',
                 request_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.PauseDiscoveryRequest.SerializeToString,
@@ -99,6 +104,13 @@ class DiscoveryServiceServicer:
 
     def GetDiscovery(self, request, context):
         """Reads a narrow projection without invoking a model or acquiring a lease.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListDiscoveryEvents(self, request, context):
+        """Owner-scoped, bounded audit projection; never raw payloads or global proof.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -154,6 +166,11 @@ def add_DiscoveryServiceServicer_to_server(servicer, server):
                     servicer.GetDiscovery,
                     request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.FromString,
                     response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.SerializeToString,
+            ),
+            'ListDiscoveryEvents': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListDiscoveryEvents,
+                    request_deserializer=loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsRequest.FromString,
+                    response_serializer=loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsResponse.SerializeToString,
             ),
             'PauseDiscovery': grpc.unary_unary_rpc_method_handler(
                     servicer.PauseDiscovery,
@@ -264,6 +281,33 @@ class DiscoveryService:
             '/loop.discovery.v1.DiscoveryService/GetDiscovery',
             loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryRequest.SerializeToString,
             loop_dot_discovery_dot_v1_dot_service__pb2.GetDiscoveryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListDiscoveryEvents(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.discovery.v1.DiscoveryService/ListDiscoveryEvents',
+            loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsRequest.SerializeToString,
+            loop_dot_discovery_dot_v1_dot_service__pb2.ListDiscoveryEventsResponse.FromString,
             options,
             channel_credentials,
             insecure,

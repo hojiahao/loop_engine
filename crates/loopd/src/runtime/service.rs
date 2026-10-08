@@ -98,7 +98,8 @@ impl RuntimeService {
     }
 
     /// Attach the same frozen Discovery executor used by runtime authority.
-    /// Without it all Discovery RPCs deny, including historical projections.
+    /// Without it execution denies; owner-scoped observation and stop controls
+    /// remain available without returning an unverified candidate.
     pub fn with_discoverer(mut self, executor: Arc<super::DiscoveryExecutor>) -> Self {
         self.discoverer = Some(executor);
         self

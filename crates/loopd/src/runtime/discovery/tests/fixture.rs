@@ -27,6 +27,8 @@ use crate::runtime::{ArtifactBroker, Role, RuntimeAuthority, RuntimeService, mod
 use crate::store::{AdmissionPolicy, Clock, JobRepository, PgJobStore, StoreResult, SystemClock};
 use crate::test_support;
 
+pub(super) mod operations;
+
 pub(super) struct OffsetClock(pub(super) AtomicI64);
 
 impl Clock for OffsetClock {
@@ -321,23 +323,7 @@ impl Case {
     }
     pub(super) async fn verify_deployment(&self, job: &wire::DiscoveryJobHandle) {
         let root = self.directory.path();
-        let now = self.clock.now_millis().unwrap();
-        let mut value = json!({
-            "schema":"loop.runtime/v1", "bind":"127.0.0.1:8443",
-            "server_certificate_file":self.tls.path("server.pem"),
-            "server_key_file":self.tls.path("server.key"), "client_ca_file":self.tls.path("ca.pem"),
-            "identities":[{"actor_id":"agent.discovery", "subject":"agent:discovery",
-                "display_name":"Discovery fixture", "role":"discovery",
-                "certificate_sha256":[self.tls.client_digest()], "not_before_ms":now-1000,
-                "expires_at_ms":now+3600000, "run_ids":["run.discovery"]}],
-            "jobs":[], "data":[], "development_store":root.join("data"),
-            "protected_store":root.join("protected"), "view_store":root.join("views"),
-            "discovery":{"plan_store":root.join("plans"), "plans":[self.plan], "provider":{
-                "endpoint":format!("https://localhost:{}", self.port), "domain":"localhost",
-                "actor_id":"agent.discovery", "subject":"agent:discovery", "display_name":"Discovery fixture",
-                "ca_file":self.tls.path("ca.pem"), "certificate_file":self.tls.path("client.pem"),
-                "private_key_file":self.tls.path("client.key")}},
-        });
+        let mut value = self.deployment();
         let path = root.join("runtime.json");
         private_file(&path, &serde_json::to_vec(&value).unwrap());
         let deployment = crate::runtime::RuntimeDeployment::load(&path).unwrap();
@@ -359,6 +345,27 @@ impl Case {
         value["discovery"]["plan_store"] = json!(root.join("data"));
         private_file(&path, &serde_json::to_vec(&value).unwrap());
         assert!(crate::runtime::RuntimeDeployment::load(&path).is_err());
+    }
+
+    fn deployment(&self) -> Value {
+        let root = self.directory.path();
+        let now = self.clock.now_millis().unwrap();
+        json!({
+            "schema":"loop.runtime/v1", "bind":"127.0.0.1:8443",
+            "server_certificate_file":self.tls.path("server.pem"),
+            "server_key_file":self.tls.path("server.key"), "client_ca_file":self.tls.path("ca.pem"),
+            "identities":[{"actor_id":"agent.discovery", "subject":"agent:discovery",
+                "display_name":"Discovery fixture", "role":"discovery",
+                "certificate_sha256":[self.tls.client_digest()], "not_before_ms":now-1000,
+                "expires_at_ms":now+3600000, "run_ids":["run.discovery"]}],
+            "jobs":[], "data":[], "development_store":root.join("data"),
+            "protected_store":root.join("protected"), "view_store":root.join("views"),
+            "discovery":{"plan_store":root.join("plans"), "plans":[self.plan], "provider":{
+                "endpoint":format!("https://localhost:{}", self.port), "domain":"localhost",
+                "actor_id":"agent.discovery", "subject":"agent:discovery", "display_name":"Discovery fixture",
+                "ca_file":self.tls.path("ca.pem"), "certificate_file":self.tls.path("client.pem"),
+                "private_key_file":self.tls.path("client.key")}},
+        })
     }
     pub(super) fn context(&self) -> v1::CommandContext {
         let id = uuid::Uuid::new_v4().to_string();

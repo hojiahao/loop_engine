@@ -17,6 +17,8 @@ service DiscoveryService {
   rpc ExecuteDiscovery(ExecuteDiscoveryRequest) returns (ExecuteDiscoveryResponse);
   // Reads a narrow projection without invoking a model or acquiring a lease.
   rpc GetDiscovery(GetDiscoveryRequest) returns (GetDiscoveryResponse);
+  // Owner-scoped, bounded audit projection; never raw payloads or global proof.
+  rpc ListDiscoveryEvents(ListDiscoveryEventsRequest) returns (ListDiscoveryEventsResponse);
   // Owner-only controls shrink authority without resolving live plan files.
   rpc PauseDiscovery(PauseDiscoveryRequest) returns (PauseDiscoveryResponse);
   rpc CancelDiscovery(CancelDiscoveryRequest) returns (CancelDiscoveryResponse);
@@ -119,6 +121,49 @@ message DiscoveryStepView {
   loop.v1.Money reserved_cost = 4;
   uint64 reserved_input_tokens = 5;
   uint64 reserved_output_tokens = 6;
+  // False only for stop-only metadata reads; a candidate then cannot be present.
+  bool plan_verified = 7;
+}
+
+// Supported durable operations, without caller-controlled audit text.
+enum DiscoveryOperation {
+  DISCOVERY_OPERATION_UNSPECIFIED = 0;
+  DISCOVERY_OPERATION_START = 1;
+  DISCOVERY_OPERATION_RESERVE = 2;
+  DISCOVERY_OPERATION_DISPATCH = 3;
+  DISCOVERY_OPERATION_UNCERTAIN = 4;
+  DISCOVERY_OPERATION_FINISH = 5;
+  DISCOVERY_OPERATION_CALL = 6;
+  DISCOVERY_OPERATION_TOOL_RECORD = 7;
+  DISCOVERY_OPERATION_TAKEOVER = 8;
+  DISCOVERY_OPERATION_RESUME = 9;
+  DISCOVERY_OPERATION_RETRY = 10;
+  DISCOVERY_OPERATION_FAIL = 11;
+  DISCOVERY_OPERATION_RECONCILE = 12;
+  DISCOVERY_OPERATION_PAUSE = 13;
+  DISCOVERY_OPERATION_CANCEL = 14;
+  DISCOVERY_OPERATION_EXPIRE = 15;
+}
+
+message DiscoveryEvent {
+  uint64 sequence = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  DiscoveryOperation operation = 3;
+}
+
+message ListDiscoveryEventsRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  // Zero begins the job history; other cursors must belong to this job.
+  uint64 after_sequence = 3;
+  // Required, from 1 through 100 inclusive.
+  uint32 limit = 4;
+}
+
+message ListDiscoveryEventsResponse {
+  repeated DiscoveryEvent events = 1;
+  uint64 next_after_sequence = 2;
+  bool has_more = 3;
 }
 
 message ExecuteDiscoveryRequest {

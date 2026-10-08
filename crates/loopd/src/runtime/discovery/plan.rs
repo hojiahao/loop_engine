@@ -21,6 +21,12 @@ const CONTEXT_DESCRIPTOR: [u8; 32] = [
     0x2c, 0x60, 0xbd, 0x74, 0x3b, 0x8f, 0x4d, 0xb0, 0x9f, 0xdb, 0x19, 0x20, 0x0e, 0xf8, 0x30, 0x7d,
     0x49, 0xad, 0xc3, 0xb2, 0x7a, 0xdf, 0x28, 0xbf, 0xf6, 0x81, 0x84, 0x58, 0x98, 0xbd, 0x3e, 0x1c,
 ];
+// The published lifecycle descriptor (12768ff) remains explicitly supported.
+// Observation fields do not alter the frozen execution inputs or plan meaning.
+const LIFECYCLE_DESCRIPTOR: [u8; 32] = [
+    0x18, 0xf2, 0xfc, 0x91, 0x66, 0x47, 0x20, 0x84, 0x4b, 0x87, 0xce, 0xf5, 0x99, 0x00, 0x46, 0x23,
+    0x7b, 0xd6, 0x2d, 0x8c, 0x3f, 0x81, 0x43, 0x0a, 0x6c, 0x5f, 0x6e, 0xa7, 0x99, 0xbf, 0xa9, 0xd5,
+];
 const FEATURES: [&str; 5] = [
     "discovery.model-step.v1",
     "jobs.envelope.v1",
@@ -397,6 +403,7 @@ fn validate_protocol(
                 digest.value.as_slice()
                     != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
                     && digest.value.as_slice() != CONTEXT_DESCRIPTOR
+                    && digest.value.as_slice() != LIFECYCLE_DESCRIPTOR
             })
         || protocol.selection_sha256.as_ref().is_none_or(|digest| {
             protocol_selection_sha256(protocol).map_or(true, |expected| digest.value != expected)
@@ -446,5 +453,7 @@ fn checked_read(path: &Path, reference: &ObjectRef) -> StoreResult<Vec<u8>> {
     Ok(bytes)
 }
 
+#[cfg(test)]
+mod compatibility;
 #[cfg(test)]
 mod tests;

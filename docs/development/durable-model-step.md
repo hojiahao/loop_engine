@@ -8,6 +8,8 @@ Use development data only; protected-data authority is never granted here.
 This guide describes `loop.discovery-plan/v1`. See
 [controlled research context](controlled-context.md) for the separately pinned
 two-call profile and its read-only tool.
+For the installed command-line workflow, use the later
+[Discovery CLI and deployment recovery guide](discovery-cli.md).
 
 ## Deployment prerequisites
 

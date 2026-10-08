@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use loop_protocol::wire::discovery::v1::{
-    DiscoveryJobHandle, DiscoveryJobStatus, DiscoveryStepState, DiscoveryStepView,
-    ExecuteDiscoveryRequest, ExecuteDiscoveryResponse, PauseDiscoveryResponse,
-    StartDiscoveryResponse,
+    DiscoveryEvent, DiscoveryJobHandle, DiscoveryJobStatus, DiscoveryOperation, DiscoveryStepState,
+    DiscoveryStepView, ExecuteDiscoveryRequest, ExecuteDiscoveryResponse,
+    ListDiscoveryEventsResponse, PauseDiscoveryResponse, StartDiscoveryResponse,
 };
 use loop_protocol::wire::v1::JobId;
 use prost::Message;
@@ -13,6 +13,33 @@ use prost_types::{FileDescriptorSet, Timestamp};
 use sha2::{Digest, Sha256};
 
 const DISCOVERY_FILE: &str = "loop/discovery/v1/service.proto";
+
+#[test]
+fn observation_roundtrip() {
+    // Shared three-language vector preserves uint64 values beyond JavaScript's
+    // exact Number range and the narrow typed event surface.
+    let bytes = [
+        10, 21, 8, 129, 128, 128, 128, 128, 128, 128, 16, 18, 8, 8, 128, 202, 214, 212, 6, 16, 123,
+        24, 13, 16, 129, 128, 128, 128, 128, 128, 128, 16, 24, 1,
+    ];
+    let page = ListDiscoveryEventsResponse::decode(bytes.as_slice()).unwrap();
+    assert_eq!(page.events.len(), 1);
+    assert_eq!(page.events[0].sequence, 9_007_199_254_740_993);
+    assert_eq!(page.events[0].operation(), DiscoveryOperation::Pause);
+    assert_eq!(page.events[0].occurred_at.unwrap().nanos, 123);
+    assert_eq!(page.next_after_sequence, page.events[0].sequence);
+    assert!(page.has_more);
+    assert_eq!(page.encode_to_vec(), bytes);
+}
+
+#[test]
+fn observation_unknown() {
+    let event = DiscoveryEvent::decode([24, 127].as_slice()).unwrap();
+    assert!(DiscoveryOperation::try_from(event.operation).is_err());
+    let metadata = DiscoveryStepView::decode([16, 1].as_slice()).unwrap();
+    assert!(!metadata.plan_verified);
+    assert!(metadata.candidate.is_none());
+}
 
 #[test]
 fn lifecycle_envelope() {
@@ -115,6 +142,7 @@ fn completed_candidate() {
     assert_eq!(step.job.as_ref().unwrap().revision, 5);
     assert_eq!(step.reserved_input_tokens, 4096);
     assert_eq!(step.reserved_output_tokens, 1024);
+    assert!(step.plan_verified);
     let reserve = step.reserved_cost.as_ref().unwrap();
     assert_eq!(reserve.amount.as_ref().unwrap().value, "0.125");
     assert_eq!(reserve.currency_code, "USD");

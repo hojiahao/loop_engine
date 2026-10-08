@@ -40,6 +40,7 @@ const supplier = createServer(async (request, response) => {
   await writeFile(join(root, "supplier-bodies.json"), JSON.stringify(bodies), { mode: 0o600 });
   const wait = await readFile(join(root, "supplier-delay"), "utf8").catch(() => "0");
   if (wait === "2000") await delay(2000);
+  if (wait === "30000") await delay(30000);
   response.writeHead(200, { "content-type": "application/json" });
   const field = await readFile(join(root, "invalid-ast"))
     .then(() => "market.unknown")

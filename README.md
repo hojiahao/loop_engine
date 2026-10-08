@@ -20,6 +20,8 @@ Loop Engine 将行情与基本面数据、因子表达式、组合回测、统�
   流式响应、模型能力目录、调用回执、限流和费用预算。
 - **执行完整性**：PostgreSQL 事务、作业租约、幂等回执、mTLS 身份、权限隔离、
   不可变审计和有界进程执行。大数据以校验和引用传递，不放入 RPC。
+- **受控模型研究**：固定计划下生成规范候选，持久化工具上下文与预算；通过
+  `loopctl discovery` 查看、暂停、取消和恢复任务，查询所属审计事件。
 
 当前可用入口是研究 CLI、授权 gRPC 服务和 Provider 服务。完整自动 Agent 循环、
 运行级调度及操作型 React Web/Ratatui TUI 尚未交付；现有客户端骨架不代表完整产品界面。
@@ -36,7 +38,8 @@ Loop Engine 将行情与基本面数据、因子表达式、组合回测、统�
 | `python/zipline_validation` | 独立事件驱动组合复核 | Zipline Reloaded |
 | `proto`、`packages/protocol-ts`、`python/loop_protocol` | 跨语言协议与契约 | Protobuf/gRPC |
 | `migrations/postgres` | 版本化元数据迁移 | PostgreSQL |
-| `apps/web`、`crates/loop-tui`、`crates/loopctl` | 客户端代码；`loopctl` 当前提供诊断 | React、Ratatui、Clap |
+| `crates/loopctl` | 诊断与受控 Discovery 任务操作 | Rust、Clap、mTLS/gRPC |
+| `apps/web`、`crates/loop-tui` | Web/TUI 客户端骨架 | React、Ratatui |
 
 Provider 不读取研究数据库或留出数据；数值研究服务不实现模型厂商路由。
 原始数据、研究视图、Provider 提示材料和受保护样本使用独立权限与存储边界。
@@ -167,6 +170,18 @@ Groq、Together、Fireworks、Cerebras、Perplexity、GLM、Kimi 和 MiniMax 有
 未由账单证据确认的费用只作为估算或预留，不宣称实际收费。
 
 ## 服务运行与运维
+
+准备好固定研究计划和私有客户端身份后，可操作受控 Discovery 任务：
+
+```bash
+loopctl discovery --config /absolute/private/client.json status --job JOB_ID
+loopctl discovery --config /absolute/private/client.json events --job JOB_ID
+```
+
+安装、启动、暂停、恢复、取消及停用模型执行后的状态查询，见
+[Discovery CLI 与部署恢复](docs/development/discovery-cli.md)。每次写操作要求明确的
+幂等键和适用的任务版本；客户端不会自动改用新任务或重复发送可能计费的请求。
+该入口执行受控计划，尚不等于自主因子搜索循环。
 
 按[PostgreSQL 部署](docs/development/postgresql.md)准备数据库、TLS、受限应用账号和
 私有连接文件。迁移由管理员显式执行，普通服务启动不自动执行 DDL：

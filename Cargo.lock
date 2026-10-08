@@ -1138,10 +1138,20 @@ dependencies = [
 name = "loopctl"
 version = "0.2.0-alpha.1"
 dependencies = [
- "anyhow",
  "clap",
  "loop-core",
+ "loop-protocol",
+ "prost",
+ "prost-types",
+ "rustix 1.1.4",
+ "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tonic",
+ "url",
+ "uuid",
 ]
 
 [[package]]

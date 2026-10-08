@@ -204,7 +204,7 @@ pub(super) async fn read_page(
     Ok(events)
 }
 
-fn event_from_row(row: &PgRow, ledger_id: &str) -> StoreResult<AuditEvent> {
+pub(super) fn event_from_row(row: &PgRow, ledger_id: &str) -> StoreResult<AuditEvent> {
     let event = AuditEvent {
         audit_ledger_id: ledger_id.to_owned(),
         sequence: u64::try_from(row.try_get::<i64, _>("sequence")?)
