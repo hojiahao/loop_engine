@@ -1,7 +1,8 @@
 # Phase 10 unit 5: CLI and deployment recovery
 
-Status: implementation and local operational acceptance pass; task publication
-and exact-commit remote CI remain delivery gates. Design: ADR 0050. Operations:
+Status: implementation and local operational acceptance pass; task `b692e30`
+is published. CI `37724315501` passed six jobs; a bounded image-preparation
+correction awaits publication and descendant CI. Design: ADR 0050. Operations:
 `docs/development/discovery-cli.md` and `docs/development/production-cutover.md`.
 
 ## Remote prerequisite
@@ -13,6 +14,22 @@ Its 337 loopd library cases took 3,351.45 seconds; test-profile compilation took
 only 1 minute 42 seconds. Keep the serial real-process checks and increase this
 full clean-workspace job's bounded budget to 120 minutes. The descendant commit
 must pass the entire job before either unit's remote gate is closed.
+
+For `b692e30`, Rust, Python, TypeScript, legacy and clean DaoCloud-container jobs
+all passed. The unified job completed `just check` and the full `just test`, then
+failed in `just test-isolation` before Provider startup: DaoCloud returned a TLS
+handshake timeout while Docker implicitly pulled the pinned Node image.
+
+Prepare that exact digest in a separate bounded hook: use the local exact
+reference when cached, otherwise try the same DaoCloud pull at most three times
+with 60-second deadlines and 1/2-second backoff. Verify the local image after a
+successful pull. The hook has a 195-second ceiling; the existing behavioral test
+retains 180 seconds. Compose up and client run both use `--pull never`, and every
+rendered service must match the same pinned digest. No registry fallback,
+tag-only substitution, workflow retry or model-call retry is introduced.
+Actual local Provider/container isolation passes in 23.57 seconds after this
+correction; syntax, formatting and naming checks pass. Rollback restores only
+the test setup; deployed runtime, database and research evidence are unaffected.
 
 ## Local evidence
 
@@ -50,7 +67,11 @@ receipts or audit events; all migration-6/7/9 historical blockers were zero.
   `/var/lib/postgresql/loop-backups/20261008-first-install/loop_engine.dump`;
   `pg_restore --list` passed. SHA-256:
   `2517632f3e1d88e49964e7cd92df1d685c29f52e91c60e2dcdd8eedaac49fa76`.
-  This checks archive readability, not a full restore drill.
+  A subsequent isolated restore into `loop_engine_restore_20261008` also passed:
+  migrations 1–5 all succeeded, zero jobs/receipts/events matched the source, and
+  the ledger identity remained `ledger.loopd`. The temporary database had public
+  connection permission revoked and was deleted after verification. Production
+  retained all 14 migrations, zero jobs, an active service and readiness 204.
 - Applied the reviewed production bundle transactionally; all 14 migration
   receipts are successful and the installed binary verified exact checksums.
 - Runtime connections use PostgreSQL TLS. Runtime has no schema CREATE, owner

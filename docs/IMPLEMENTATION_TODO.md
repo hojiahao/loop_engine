@@ -726,8 +726,12 @@ Chinese task commit and push before starting the next unit):
    Discovery boundary cases, 129 TypeScript and 326 Python protocol cases.
    Workspace checks pass. First deployment to the authorized production host
    is running in stop-only mode with PostgreSQL TLS, mTLS and restart acceptance;
-   no Provider/research executor is configured. Publication and descendant CI
-   remain open; see `docs/verification/phase-10-discovery-operations.md`.
+   no Provider/research executor is configured. Commit `b692e30` is pushed;
+   CI `37724315501` passed six jobs. Unified workspace completed all language
+   tests but DaoCloud's Node-image TLS handshake failed during container setup.
+   A bounded exact-digest preparation correction passes actual local isolation;
+   its publication and descendant CI remain open. See
+   `docs/verification/phase-10-discovery-operations.md`.
 
 - [ ] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.
