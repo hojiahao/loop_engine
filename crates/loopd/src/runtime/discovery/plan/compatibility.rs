@@ -2,7 +2,11 @@ use super::*;
 
 #[test]
 fn preceding_descriptors() {
-    for descriptor in [CONTEXT_DESCRIPTOR, LIFECYCLE_DESCRIPTOR] {
+    for descriptor in [
+        CONTEXT_DESCRIPTOR,
+        LIFECYCLE_DESCRIPTOR,
+        OPERATIONS_DESCRIPTOR,
+    ] {
         for controlled in [false, true] {
             let mut protocol = crate::test_support::command(1)
                 .specification

@@ -9,6 +9,8 @@ pub mod holdout;
 pub mod job;
 pub mod negotiation;
 pub mod provenance;
+#[cfg(feature = "runs-service")]
+pub mod runs;
 pub mod runtime_validation;
 
 pub const PROTOCOL_VERSION: &str = "loop-engine.v1alpha1";
@@ -66,6 +68,13 @@ pub mod wire {
     pub mod research {
         pub mod v1 {
             include!("generated/r#loop.research.v1.rs");
+        }
+    }
+
+    #[cfg(feature = "runs-service")]
+    pub mod runs {
+        pub mod v1 {
+            include!("generated/r#loop.runs.v1.rs");
         }
     }
 }

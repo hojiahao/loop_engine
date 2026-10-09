@@ -43,11 +43,33 @@ pub(crate) struct Connection {
     pub(crate) actor: v1::Actor,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum Profile {
+    Discovery,
+    Operator,
+}
+
+impl Profile {
+    fn schema(self) -> &'static str {
+        match self {
+            Self::Discovery => "loop.client/v1",
+            Self::Operator => "loop.operator/v1",
+        }
+    }
+
+    fn actor_kind(self) -> v1::ActorKind {
+        match self {
+            Self::Discovery => v1::ActorKind::Agent,
+            Self::Operator => v1::ActorKind::Human,
+        }
+    }
+}
+
 impl Connection {
-    pub(crate) fn load(path: &Path, timeout: Duration) -> Result<Self, Failure> {
+    pub(crate) fn load(path: &Path, timeout: Duration, profile: Profile) -> Result<Self, Failure> {
         let bytes = read_file(path, true, 65_536)?;
         let config: Config = serde_json::from_slice(&bytes).map_err(|_| Failure::Configuration)?;
-        config.validate()?;
+        config.validate(profile)?;
         let ca = read_file(&config.ca_file, false, 131_072)?;
         let certificate = read_file(&config.certificate_file, false, 131_072)?;
         let key = read_file(&config.private_key_file, true, 131_072)?;
@@ -72,7 +94,7 @@ impl Connection {
                 actor_id: Some(v1::ActorId {
                     value: config.actor.actor_id,
                 }),
-                kind: v1::ActorKind::Agent as i32,
+                kind: profile.actor_kind() as i32,
                 display_name: config.actor.display_name,
                 authenticated_subject: config.actor.subject,
             },
@@ -81,9 +103,9 @@ impl Connection {
 }
 
 impl Config {
-    fn validate(&self) -> Result<(), Failure> {
+    fn validate(&self, profile: Profile) -> Result<(), Failure> {
         let endpoint = url::Url::parse(&self.endpoint).map_err(|_| Failure::Configuration)?;
-        if self.schema != "loop.client/v1"
+        if self.schema != profile.schema()
             || !self.endpoint.starts_with("https://")
             || self.endpoint.chars().any(char::is_whitespace)
             || endpoint.scheme() != "https"

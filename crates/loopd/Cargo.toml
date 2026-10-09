@@ -13,7 +13,7 @@ axum.workspace = true
 clap.workspace = true
 chrono.workspace = true
 loop-core = { path = "../loop-core" }
-loop-protocol = { path = "../loop-protocol", features = ["jobs-service", "holdout-service", "discovery-service", "research-service", "provider-service"] }
+loop-protocol = { path = "../loop-protocol", features = ["jobs-service", "holdout-service", "discovery-service", "research-service", "provider-service", "runs-service"] }
 prost.workspace = true
 prost-types.workspace = true
 rustix.workspace = true

@@ -17,6 +17,7 @@ SUPPORTED_PACKAGES = [
     "loop.protocol.v1",
     "loop.provider.v1",
     "loop.research.v1",
+    "loop.runs.v1",
     "loop.v1",
 ]
 FEATURES = [

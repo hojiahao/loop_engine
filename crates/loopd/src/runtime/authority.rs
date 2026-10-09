@@ -94,6 +94,7 @@ pub struct RuntimeAuthority {
     clock: Arc<dyn Clock>,
     last_observed: Mutex<i64>,
     discovery: Option<Arc<super::DiscoveryExecutor>>,
+    runs: Option<Arc<super::RunCatalog>>,
 }
 
 /// Proof constructed only after tonic exposes a verified TLS peer certificate.
@@ -164,6 +165,7 @@ impl RuntimeAuthority {
             clock,
             last_observed: Mutex::new(0),
             discovery: None,
+            runs: None,
         })
     }
 
@@ -179,6 +181,71 @@ impl RuntimeAuthority {
         }
         self.discovery = Some(executor);
         Ok(self)
+    }
+
+    /// Bind human-owned run plans to existing registered Discovery executors.
+    /// Configuration never permits caller-selected roles or cross-run access.
+    /// Missing, expired or mismatched identities deny startup. Replacing this
+    /// startup-only registry requires restart and does not mutate durable runs.
+    pub fn with_runs(mut self, catalog: Arc<super::RunCatalog>) -> StoreResult<Self> {
+        for specification in catalog.specifications() {
+            let owner = specification
+                .owner
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            self.authorize_run(owner, specification)?;
+            let executor = specification
+                .executor
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            let identity = self.identity(executor)?;
+            let run = specification
+                .run_id
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+                return Err(StoreError::AdmissionDenied);
+            }
+            self.discovery
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?
+                .verify_run(specification)?;
+        }
+        self.runs = Some(catalog);
+        Ok(self)
+    }
+
+    pub(super) fn verify_run(
+        &self,
+        actor: &Actor,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        self.authorize_run(actor, specification)?;
+        let executor = specification
+            .executor
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        let identity = self.identity(executor)?;
+        let run = specification
+            .run_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        self.runs
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .verify(specification)
+    }
+
+    pub(super) fn run_lookup(&self, actor: &Actor, run_id: &str) -> StoreResult<()> {
+        id(run_id)?;
+        let identity = self.identity(actor)?;
+        if identity.role != Role::Operator || !identity.run_ids.iter().any(|run| run == run_id) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(())
     }
 
     pub(super) fn now(&self) -> StoreResult<i64> {
@@ -272,6 +339,25 @@ impl RuntimeAuthority {
 }
 
 impl AdmissionPolicy for RuntimeAuthority {
+    fn authorize_run(
+        &self,
+        actor: &Actor,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        let identity = self.identity(actor)?;
+        let run = specification
+            .run_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Operator
+            || specification.owner.as_ref() != Some(actor)
+            || !identity.run_ids.contains(&run.value)
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(())
+    }
+
     fn validate_submission(&self, job: &JobSpecification) -> StoreResult<()> {
         if matches!(job.input, Some(job_specification::Input::Discovery(_)))
             && let Some(discovery) = &self.discovery

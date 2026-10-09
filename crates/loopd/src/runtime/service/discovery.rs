@@ -361,7 +361,7 @@ impl RuntimeService {
     }
 }
 
-fn validate_deadline<T>(request: &Request<T>) -> Result<(), Status> {
+pub(super) fn validate_deadline<T>(request: &Request<T>) -> Result<(), Status> {
     let invalid = || status(StoreError::Invalid("discovery caller deadline"));
     let value = request
         .metadata()
@@ -396,7 +396,7 @@ fn validate_deadline<T>(request: &Request<T>) -> Result<(), Status> {
     Ok(())
 }
 
-fn validate_context(
+pub(super) fn validate_context(
     context: Option<&loop_protocol::wire::v1::CommandContext>,
     actor: &loop_protocol::wire::v1::Actor,
     now: i64,

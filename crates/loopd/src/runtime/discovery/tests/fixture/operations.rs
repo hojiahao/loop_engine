@@ -22,6 +22,9 @@ pub(in crate::runtime::discovery::tests) struct Operations {
     runtime: PathBuf,
     database: PathBuf,
     server: Option<Child>,
+    run_deployment: Option<serde_json::Value>,
+    run_config: PathBuf,
+    run_reference: PathBuf,
 }
 
 impl Case {
@@ -78,8 +81,11 @@ impl Case {
             loopd: bin.join("loopd"),
             runtime: directory.path().join("runtime.json"),
             database: directory.path().join("database-url"),
-            _directory: directory,
             server: None,
+            run_deployment: None,
+            run_config: directory.path().join("operator.json"),
+            run_reference: directory.path().join("run-reference.binpb"),
+            _directory: directory,
         }
     }
 
@@ -95,6 +101,15 @@ impl Case {
         operations.stop(false).await;
         let mut deployment = self.deployment();
         deployment["bind"] = self.address.to_string().into();
+        if let Some(run) = &operations.run_deployment {
+            deployment["identities"]
+                .as_array_mut()
+                .unwrap()
+                .push(run["identity"].clone());
+            if !stop_only {
+                deployment["runs"] = run["runs"].clone();
+            }
+        }
         if stop_only {
             deployment.as_object_mut().unwrap().remove("discovery");
         }
@@ -141,6 +156,50 @@ impl Case {
 }
 
 impl Operations {
+    pub(super) fn directory(&self) -> &std::path::Path {
+        self._directory.path()
+    }
+
+    pub(super) fn configure_run(
+        &mut self,
+        deployment: serde_json::Value,
+        config: &serde_json::Value,
+        policy: &loop_protocol::wire::v1::PolicyReference,
+    ) {
+        private_file(&self.run_config, &serde_json::to_vec(config).unwrap());
+        private_file(&self.run_reference, &policy.encode_to_vec());
+        self.run_deployment = Some(deployment);
+    }
+
+    pub(in crate::runtime::discovery::tests) async fn run_cli(&self, args: &[&str]) -> Output {
+        let mut command = Command::new(&self.loopctl);
+        command
+            .current_dir(self._directory.path())
+            .arg("run")
+            .arg("--config")
+            .arg(&self.run_config)
+            .arg("--timeout-seconds")
+            .arg("30");
+        for argument in args {
+            if *argument == "PLAN" {
+                command.arg(&self.run_reference);
+            } else {
+                command.arg(argument);
+            }
+        }
+        let child = command
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(35), child.wait_with_output())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
     pub(in crate::runtime::discovery::tests) async fn cli(&self, args: &[&str]) -> Output {
         let child = self.spawn_cli(args);
         tokio::time::timeout(Duration::from_secs(35), child.wait_with_output())

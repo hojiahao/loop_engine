@@ -132,6 +132,27 @@ impl DiscoveryExecutor {
         self.plan(job).map(|_| ())
     }
 
+    pub(super) fn verify_run(
+        &self,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        let actor = specification
+            .executor
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        let input = specification
+            .discovery
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        let metadata = self.submission(actor, input)?;
+        if specification.run_id.as_ref() != Some(&metadata.run_id)
+            || specification.protocol_selection.as_ref() != Some(&metadata.protocol_selection)
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(())
+    }
+
     fn plan(&self, job: &v1::JobSpecification) -> StoreResult<&FrozenPlan> {
         if job.submitted_by.as_ref() != Some(&self.provider.actor) {
             return Err(StoreError::AdmissionDenied);

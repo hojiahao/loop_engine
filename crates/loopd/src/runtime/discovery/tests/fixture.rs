@@ -28,6 +28,7 @@ use crate::store::{AdmissionPolicy, Clock, JobRepository, PgJobStore, StoreResul
 use crate::test_support;
 
 pub(super) mod operations;
+mod run_operations;
 
 pub(super) struct OffsetClock(pub(super) AtomicI64);
 

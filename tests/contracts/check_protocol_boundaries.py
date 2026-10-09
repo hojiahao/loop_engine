@@ -19,6 +19,7 @@ from loop.v1.common_pb2 import ERROR_CATEGORY_DEPENDENCY, ErrorCategory, Service
 
 PROVIDER_FILE = "loop/provider/v1/service.proto"
 DISCOVERY_FILE = "loop/discovery/v1/service.proto"
+RUN_FILE = "loop/runs/v1/service.proto"
 RESEARCH_FILE = "loop/research/v1/service.proto"
 ARTIFACT_FILE = "loop/v1/artifact.proto"
 COMMON_FILE = "loop/v1/common.proto"
@@ -192,6 +193,7 @@ def main() -> None:
     assert_discovery_exports()
     assert_lifecycle_surface(descriptor, discovery)
     assert_observation_surface(descriptor, discovery)
+    assert_run_surface(descriptor, files)
 
     research = require_file(files, RESEARCH_FILE)
     assert set(research.dependency) == {
@@ -293,6 +295,72 @@ def assert_lookup_surface(provider: FileDescriptorProto) -> None:
         ("INVOCATION_STATE_AMBIGUOUS", 2),
         ("INVOCATION_STATE_COMPLETED", 3),
     ]
+
+
+def assert_run_surface(
+    descriptor: FileDescriptorSet, files: dict[str, FileDescriptorProto]
+) -> None:
+    run_file = require_file(files, RUN_FILE)
+    assert dependency_closure(files, RUN_FILE) == DISCOVERY_FILE_ALLOWLIST | {RUN_FILE}
+    assert_service(
+        run_file,
+        "RunService",
+        {
+            f"{operation}Run": (
+                f".loop.runs.v1.{operation}RunRequest",
+                f".loop.runs.v1.{operation}RunResponse",
+            )
+            for operation in ("Start", "Step", "Get")
+        },
+    )
+    for operation, fields in {
+        "Start": {
+            "context": (1, ".loop.v1.CommandContext"),
+            "plan": (2, ".loop.v1.PolicyReference"),
+        },
+        "Step": {
+            "context": (1, ".loop.v1.CommandContext"),
+            "run_id": (2, ".loop.v1.RunId"),
+            "expected_revision": (3, ""),
+        },
+        "Get": {"context": (1, ".loop.v1.CommandContext"), "run_id": (2, ".loop.v1.RunId")},
+    }.items():
+        assert_message_fields(require_message(run_file, f"{operation}RunRequest"), fields)
+        assert_message_fields(
+            require_message(run_file, f"{operation}RunResponse"),
+            {"run": (1, ".loop.runs.v1.RunView")},
+        )
+    methods = run_file.service[0].method
+    messages = descriptor_messages(descriptor)
+    inputs = reachable_message_types(messages, [method.input_type for method in methods])
+    outputs = reachable_message_types(messages, [method.output_type for method in methods])
+    for name in inputs | outputs:
+        assert not any(token in name.lower() for token in DISCOVERY_FORBIDDEN_TYPE_TOKENS)
+    assert ".loop.runs.v1.RunBudget" not in inputs
+    assert ".loop.discovery.v1.DiscoveryJobHandle" in outputs
+    forbidden = {
+        ".loop.runs.v1.RunSpecification",
+        ".loop.discovery.v1.DiscoveryJobInput",
+        ".loop.discovery.v1.DiscoveryCandidate",
+        ".loop.v1.ModelResolutionSnapshot",
+        ".loop.v1.DevelopmentDatasetReference",
+        ".loop.v1.ProtocolSelectionSnapshot",
+    }
+    assert forbidden.isdisjoint(inputs | outputs)
+    specification = require_message(run_file, "RunSpecification")
+    assert_message_fields(
+        specification,
+        {
+            "plan": (1, ".loop.v1.PolicyReference"),
+            "run_id": (2, ".loop.v1.RunId"),
+            "owner": (3, ".loop.v1.Actor"),
+            "executor": (4, ".loop.v1.Actor"),
+            "discovery": (5, ".loop.discovery.v1.DiscoveryJobInput"),
+            "protocol_selection": (6, ".loop.v1.ProtocolSelectionSnapshot"),
+            "budget": (7, ".loop.runs.v1.RunBudget"),
+            "maximum_rounds": (8, ""),
+        },
+    )
 
 
 def assert_lifecycle_surface(descriptor: FileDescriptorSet, discovery: FileDescriptorProto) -> None:

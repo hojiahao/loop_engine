@@ -25,7 +25,7 @@ fn file(root: &Path, name: &str, mode: u32) -> PathBuf {
 
 #[test]
 fn accepts_https() {
-    assert!(config().validate().is_ok());
+    assert!(config().validate(Profile::Discovery).is_ok());
 }
 
 #[test]
@@ -41,7 +41,10 @@ fn rejects_endpoints() {
     ] {
         let mut value = config();
         value.endpoint = endpoint.into();
-        assert_eq!(value.validate(), Err(Failure::Configuration));
+        assert_eq!(
+            value.validate(Profile::Discovery),
+            Err(Failure::Configuration)
+        );
     }
 }
 
@@ -57,7 +60,10 @@ fn rejects_server_names() {
     ] {
         let mut value = config();
         value.server_name = name.into();
-        assert_eq!(value.validate(), Err(Failure::Configuration));
+        assert_eq!(
+            value.validate(Profile::Discovery),
+            Err(Failure::Configuration)
+        );
     }
 }
 
@@ -86,7 +92,27 @@ fn rejects_duplicate_config() {
 fn rejects_actor_controls() {
     let mut value = config();
     value.actor.subject = "spoofed\nsubject".into();
-    assert_eq!(value.validate(), Err(Failure::Configuration));
+    assert_eq!(
+        value.validate(Profile::Discovery),
+        Err(Failure::Configuration)
+    );
+}
+
+#[test]
+fn isolates_operator_profile() {
+    let mut value = config();
+    assert_eq!(
+        value.validate(Profile::Operator),
+        Err(Failure::Configuration)
+    );
+    value.schema = "loop.operator/v1".into();
+    assert!(value.validate(Profile::Operator).is_ok());
+    assert_eq!(
+        value.validate(Profile::Discovery),
+        Err(Failure::Configuration)
+    );
+    assert_eq!(Profile::Operator.actor_kind(), v1::ActorKind::Human);
+    assert_eq!(Profile::Discovery.actor_kind(), v1::ActorKind::Agent);
 }
 
 #[test]

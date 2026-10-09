@@ -9,7 +9,7 @@ publish.workspace = true
 [dependencies]
 clap.workspace = true
 loop-core = { path = "../loop-core" }
-loop-protocol = { path = "../loop-protocol", features = ["discovery-service"] }
+loop-protocol = { path = "../loop-protocol", features = ["discovery-service", "runs-service"] }
 prost.workspace = true
 prost-types.workspace = true
 rustix.workspace = true

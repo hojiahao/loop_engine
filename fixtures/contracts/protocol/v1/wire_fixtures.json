@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:1560ea744617c07d3f749073170db0f77c50000ea6e2aa38cb20bfb3e29db48f"
+    "sha256": "sha256:545a74f721c0d13373197f60284e4c71417dcfa3c0acc0e10b730e6ca2cf35c2"
   },
   "expected_domain_projection": {
     "supported_packages": [
@@ -14,6 +14,7 @@
       "loop.protocol.v1",
       "loop.provider.v1",
       "loop.research.v1",
+      "loop.runs.v1",
       "loop.v1"
     ],
     "features": [
@@ -42,10 +43,10 @@
       ],
       "source": {
         "path": "tests/contracts/protocol/generate_wire_fixtures.py",
-        "sha256": "sha256:dacc5c290dd34612760b0c1a9000cc0ede5eefba6950c5968d087d2a92aefbef"
+        "sha256": "sha256:e89278266e353819200aee197b93bd54ac4fe1d0312f2ab48f60f310ca55918c"
       },
       "path": "protocol_info_v1.binpb",
-      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+      "wire_sha256": "sha256:f11fdac100eda673c8f370e83fec8a5dff9f5e03504941685eb9c94c85698959"
     },
     {
       "language": "rust",
@@ -55,10 +56,10 @@
       ],
       "source": {
         "path": "crates/loop-protocol/src/bin/generate_wire_fixture.rs",
-        "sha256": "sha256:4cf76ad3458fc8a8cd2da005bd43c0bbdd8ef751b21b3cb6bc967e2ce381a6ae"
+        "sha256": "sha256:f39fcc91c1efba2dd3275d7e3c19b782575b505cf5fa29153922bae395035ebc"
       },
       "path": "protocol_info_v1.rust.binpb",
-      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+      "wire_sha256": "sha256:f11fdac100eda673c8f370e83fec8a5dff9f5e03504941685eb9c94c85698959"
     },
     {
       "language": "typescript",
@@ -69,16 +70,16 @@
       ],
       "source": {
         "path": "packages/protocol-ts/src/bin/generate-wire-fixture.ts",
-        "sha256": "sha256:48febc8b6eeb369f0f2478480d1a263aa52c4b39300cd70fdecb0a980c44f19c"
+        "sha256": "sha256:f3ac7e0bf7ca3a0db4fdb9d80cad63d655331c9b1e9776dc63d120e1766b49fa"
       },
       "path": "protocol_info_v1.typescript.binpb",
-      "wire_sha256": "sha256:15687e24b490fe1051b5e642bc55607e64969680e035b2ccf1b6d89017ad9ccd"
+      "wire_sha256": "sha256:f11fdac100eda673c8f370e83fec8a5dff9f5e03504941685eb9c94c85698959"
     }
   ],
   "compatibility_fixtures": [
     {
       "path": "protocol_info_v1_unknown_field.binpb",
-      "wire_sha256": "sha256:eb2e00cecc7ccdb729940947561dbad4d1095a8af2e9cdb615823bd0d446e164",
+      "wire_sha256": "sha256:c66f2947178ec62c75c945d1004f98434e820d045d25812b9b2f7bfd31e66e36",
       "contains_injected_unknown_field": true,
       "unknown_field": {
         "field_number": 536870911,

@@ -636,7 +636,7 @@ fn validate_development_dataset(
     Ok(())
 }
 
-fn validate_policy_reference(
+pub(crate) fn validate_policy_reference(
     policy: Option<&PolicyReference>,
     field: &'static str,
 ) -> Result<(), JobValidationError> {
@@ -1086,7 +1086,7 @@ fn validate_budget(
     Ok(())
 }
 
-fn validate_money(
+pub(crate) fn validate_money(
     money: Option<&crate::wire::v1::Money>,
     field: &'static str,
 ) -> Result<(), JobValidationError> {
@@ -2176,7 +2176,10 @@ fn validate_lease(
     Ok(())
 }
 
-fn validate_actor(actor: Option<&Actor>, field: &'static str) -> Result<(), JobValidationError> {
+pub(crate) fn validate_actor(
+    actor: Option<&Actor>,
+    field: &'static str,
+) -> Result<(), JobValidationError> {
     let actor =
         actor.ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, field))?;
     require_token_id(
@@ -2253,7 +2256,7 @@ fn require_sha256_id<'a>(
     Ok(value)
 }
 
-fn require_token_id<'a>(
+pub(crate) fn require_token_id<'a>(
     value: Option<&'a str>,
     field: &'static str,
 ) -> Result<&'a str, JobValidationError> {
@@ -2279,7 +2282,7 @@ fn require_token_id<'a>(
     Ok(value)
 }
 
-fn require_timestamp(
+pub(crate) fn require_timestamp(
     timestamp: Option<&prost_types::Timestamp>,
     field: &'static str,
 ) -> Result<(i64, i32), JobValidationError> {

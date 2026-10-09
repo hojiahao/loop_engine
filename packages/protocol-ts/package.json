@@ -38,6 +38,10 @@
     "./research": {
       "types": "./dist/wire/research.d.ts",
       "default": "./dist/wire/research.js"
+    },
+    "./runs": {
+      "types": "./dist/wire/runs.d.ts",
+      "default": "./dist/wire/runs.js"
     }
   },
   "scripts": {

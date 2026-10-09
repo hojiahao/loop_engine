@@ -743,7 +743,39 @@ Chinese task commit and push before starting the next unit):
 - [x] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.
 
-## Phase 11 - Loop Runtime (`pending`)
+## Phase 11 - Loop Runtime (`in_progress`)
+
+Delivery units (complete implementation, tests, documentation, Chinese task
+commit, push and remote gate before the next unit):
+
+1. Persistent runs and cross-job budgets (`implemented`; ADR 0051): human-owned
+   frozen runs, atomic cumulative reservations and controlled Discovery child
+   creation, explicit CLI start/step/status, finite rounds and crash recovery.
+   Acceptance includes two real synthetic-supplier rounds, deterministic stop,
+   old-entry-point bypass denial, 2/4/8 process races and kill/restart.
+   Local acceptance passes 71 database/service cases, 76 CLI unit cases, five
+   Rust run-contract cases, 165 TypeScript protocol cases, 362 Python protocol
+   cases and complete workspace checks. Publish as one task commit; its push and
+   exact-commit remote checks remain the delivery gate before unit 2. See
+   `docs/verification/phase-11-persistent-runs.md` and
+   `docs/development/research-runs-cli.md`.
+2. Candidate-to-numerical workflow (`pending`): convert canonical candidates into
+   frozen factor specifications and authorized evaluation/portfolio jobs; reuse
+   trial, coverage and failure filtering without giving Discovery research or
+   holdout authority. Recover without duplicate children.
+3. Feedback and perturbation (`pending`): bounded verified-result feedback,
+   persistent Sharpe/random history, failure memory and deterministic stopping;
+   normal and perturbed candidates use the same numerical workflow.
+4. Maker/checker evidence (`pending`): execute the separate frozen semantic
+   checker request and register bound accept/reject/unknown evidence. Recover
+   uncertain invocations without paid resends.
+5. Economic criteria and admission (`pending`): freeze thresholds and missing-
+   statistic policy before search; bind whole-population statistics, independent
+   reconciliation and semantic evidence to the shared admission command.
+   Licensed-data eligibility remains independently required.
+6. Scheduling and escalation (`pending`): bounded background advancement,
+   run pause/cancel/resume/events, expiry and persistent human escalation; verify
+   installed multi-round recovery and the complete workspace/remote gates.
 
 - [ ] Implement persistent discovery, maker/checker validation, feedback,
       perturbation, failure memory, bounded termination, and human escalation.

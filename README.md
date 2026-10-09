@@ -22,6 +22,8 @@ Loop Engine 将行情与基本面数据、因子表达式、组合回测、统�
   不可变审计和有界进程执行。大数据以校验和引用传递，不放入 RPC。
 - **受控模型研究**：固定计划下生成规范候选，持久化工具上下文与预算；通过
   `loopctl discovery` 查看、暂停、取消和恢复任务，查询所属审计事件。
+- **有限轮运行**：通过 `loopctl run` 人工启动并逐轮推进研究运行，跨子任务保留
+  步数、token、费用和时间上限；重启与重复命令不会重置预留预算。
 
 当前可用入口是研究 CLI、授权 gRPC 服务和 Provider 服务。完整自动 Agent 循环、
 运行级调度及操作型 React Web/Ratatui TUI 尚未交付；现有客户端骨架不代表完整产品界面。
@@ -38,7 +40,7 @@ Loop Engine 将行情与基本面数据、因子表达式、组合回测、统�
 | `python/zipline_validation` | 独立事件驱动组合复核 | Zipline Reloaded |
 | `proto`、`packages/protocol-ts`、`python/loop_protocol` | 跨语言协议与契约 | Protobuf/gRPC |
 | `migrations/postgres` | 版本化元数据迁移 | PostgreSQL |
-| `crates/loopctl` | 诊断与受控 Discovery 任务操作 | Rust、Clap、mTLS/gRPC |
+| `crates/loopctl` | 诊断、Discovery 任务与有限轮研究运行 | Rust、Clap、mTLS/gRPC |
 | `apps/web`、`crates/loop-tui` | Web/TUI 客户端骨架 | React、Ratatui |
 
 Provider 不读取研究数据库或留出数据；数值研究服务不实现模型厂商路由。
@@ -182,6 +184,21 @@ loopctl discovery --config /absolute/private/client.json events --job JOB_ID
 [Discovery CLI 与部署恢复](docs/development/discovery-cli.md)。每次写操作要求明确的
 幂等键和适用的任务版本；客户端不会自动改用新任务或重复发送可能计费的请求。
 该入口执行受控计划，尚不等于自主因子搜索循环。
+
+管理员还可固定一个由 Human 身份持有的有限轮运行计划，再通过独立的操作员配置执行：
+
+```bash
+loopctl run --config /absolute/private/operator.json start \
+  --plan /absolute/private/run-plan.binpb --key start.research.001
+loopctl run --config /absolute/private/operator.json status --run RUN_ID
+loopctl run --config /absolute/private/operator.json step \
+  --run RUN_ID --revision REVISION --key step.research.001
+```
+
+使用响应中的实际运行 ID 和 revision。每次 `step` 最多推进一轮；创建子任务前预留其
+完整预算，预算不足即停止。预算预留不代表实际账单。身份、计划准备及回执恢复见
+[研究运行 CLI](docs/development/research-runs-cli.md)。此入口目前连接候选生成任务，
+因子评测、准入和后台自动调度仍需分别接入。
 
 按[PostgreSQL 部署](docs/development/postgresql.md)准备数据库、TLS、受限应用账号和
 私有连接文件。迁移由管理员显式执行，普通服务启动不自动执行 DDL：

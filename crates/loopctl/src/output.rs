@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::config::valid_id;
 
-const SCHEMA: &str = "loop.discovery-cli/v1";
+pub(crate) const SCHEMA: &str = "loop.discovery-cli/v1";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Failure {
@@ -39,7 +39,7 @@ impl Failure {
         }
     }
 
-    pub(crate) fn envelope(self) -> Value {
+    pub(crate) fn envelope(self, schema: &str) -> Value {
         let category = match self {
             Self::Arguments => "arguments",
             Self::Configuration => "configuration",
@@ -56,7 +56,7 @@ impl Failure {
             Self::Internal => "internal",
             Self::Interrupted => "interrupted",
         };
-        json!({"schema":SCHEMA,"error":{"category":category}})
+        json!({"schema":schema,"error":{"category":category}})
     }
 
     pub(crate) fn from_status(status: tonic::Status) -> Self {
@@ -87,7 +87,7 @@ pub(crate) fn job(
     Ok((json!({"schema":SCHEMA,"command":command,"job":job}), code))
 }
 
-fn handle(job: wire::DiscoveryJobHandle) -> Result<(Value, u8), Failure> {
+pub(crate) fn handle(job: wire::DiscoveryJobHandle) -> Result<(Value, u8), Failure> {
     let id = job.job_id.ok_or(Failure::Protocol)?.value;
     if !valid_id(&id) || job.revision == 0 {
         return Err(Failure::Protocol);
@@ -159,7 +159,7 @@ pub(crate) fn step(
     ))
 }
 
-fn money(value: v1::Money) -> Result<Value, Failure> {
+pub(crate) fn money(value: v1::Money) -> Result<Value, Failure> {
     let amount = value.amount.ok_or(Failure::Protocol)?.value;
     if amount.len() > 128
         || amount.starts_with('-')
@@ -171,7 +171,7 @@ fn money(value: v1::Money) -> Result<Value, Failure> {
     Ok(json!({"amount":amount,"currency_code":value.currency_code}))
 }
 
-fn timestamp(value: prost_types::Timestamp) -> Result<Value, Failure> {
+pub(crate) fn timestamp(value: prost_types::Timestamp) -> Result<Value, Failure> {
     if !(-62_135_596_800..=253_402_300_799).contains(&value.seconds)
         || !(0..1_000_000_000).contains(&value.nanos)
     {

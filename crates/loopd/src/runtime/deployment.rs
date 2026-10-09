@@ -41,6 +41,8 @@ struct Configuration {
     statistics: Option<StatisticsConfig>,
     #[serde(default)]
     discovery: Option<super::DiscoveryConfig>,
+    #[serde(default)]
+    runs: Option<super::RunConfig>,
 }
 
 #[derive(Deserialize)]
@@ -78,6 +80,8 @@ pub struct RuntimeDeployment {
     pub statistics: Option<Arc<StatisticsExecutor>>,
     /// Optional frozen one-step model executor; absent keeps Discovery disabled.
     pub discovery: Option<Arc<super::DiscoveryExecutor>>,
+    /// Optional human-owned finite runs; absence disables creation/advancement.
+    pub runs: Option<Arc<super::RunCatalog>>,
     tls: ServerTlsConfig,
 }
 
@@ -133,10 +137,48 @@ impl RuntimeDeployment {
                 super::DiscoveryExecutor::open(discovery, &config.development_store).map(Arc::new)
             })
             .transpose()?;
+        let runs = config
+            .runs
+            .map(|runs| {
+                let mut namespaces = vec![
+                    &config.development_store,
+                    &config.protected_store,
+                    &config.view_store,
+                ];
+                if let Some(evaluation) = &config.evaluation {
+                    namespaces.push(&evaluation.output_store);
+                }
+                if let Some(portfolio) = &config.portfolio {
+                    namespaces.push(&portfolio.output_store);
+                }
+                if let Some(statistics) = &config.statistics {
+                    namespaces.push(&statistics.output_store);
+                }
+                if let Some(reconciliation) = &config.reconciliation {
+                    namespaces.extend([
+                        &reconciliation.output_store,
+                        &reconciliation.cache,
+                        &reconciliation.alphalens_project,
+                        &reconciliation.zipline_project,
+                    ]);
+                }
+                if namespaces
+                    .iter()
+                    .any(|path| super::reconciliation::overlaps(path, &runs.plan_store))
+                {
+                    return Err(StoreError::Invalid("run plans overlap research storage"));
+                }
+                super::RunCatalog::open(runs, discovery.clone().ok_or(StoreError::AdmissionDenied)?)
+                    .map(Arc::new)
+            })
+            .transpose()?;
         let mut authority =
             RuntimeAuthority::new(config.identities, config.jobs, Arc::new(SystemClock))?;
         if let Some(discovery) = &discovery {
             authority = authority.with_discovery(discovery.clone())?;
+        }
+        if let Some(runs) = &runs {
+            authority = authority.with_runs(runs.clone())?;
         }
         let authority = Arc::new(authority);
         let artifacts = Arc::new(ArtifactBroker::open(
@@ -283,6 +325,7 @@ impl RuntimeDeployment {
             reconciliation,
             statistics,
             discovery,
+            runs,
             tls: ServerTlsConfig::new()
                 .identity(TlsIdentity::from_pem(certificate, key))
                 .client_ca_root(Certificate::from_pem(ca)),

@@ -26,6 +26,7 @@ pub(crate) use postgres::timestamp_millis;
 mod reconciliation;
 mod rejection;
 mod research_ledger;
+mod runs;
 mod runtime;
 mod statistics;
 mod submission;
@@ -55,6 +56,7 @@ pub use portfolio::PortfolioLineage;
 pub use postgres::{PgJobStore, StoreOptions};
 pub(crate) use research_ledger::TrialSnapshot;
 pub use research_ledger::{TrialEntry, TrialLedger};
+pub use runs::RunSnapshot;
 pub(crate) use runtime::live_lease;
 pub use submission::{RoleCommand, RoleJobHandle, RoleSubmissionResult, SubmissionMetadata};
 
@@ -184,6 +186,18 @@ impl Clock for SystemClock {
 pub trait AdmissionPolicy: Send + Sync {
     /// Approve frozen references and protocol availability or deny admission.
     fn validate_submission(&self, specification: &JobSpecification) -> StoreResult<()>;
+
+    /// Authorize a transport-authenticated human to observe or advance its frozen
+    /// run. Implementations validate durable ownership without relying on a live
+    /// execution plan; execution handlers separately prove that plan is available.
+    /// The default denies, including receipt replay and read-only observation.
+    fn authorize_run(
+        &self,
+        _actor: &Actor,
+        _specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        Err(StoreError::AdmissionDenied)
+    }
 
     /// Authorize a transport-authenticated principal for this operation and job.
     /// The default denies all lifecycle commands, including recovery.

@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tonic::Request;
 use uuid::Uuid;
 
-use crate::config::{Connection, read_file, valid_id};
+use crate::config::{Connection, Profile, read_file, valid_id};
 use crate::output::{self, Failure};
 
 #[derive(Args)]
@@ -120,7 +120,7 @@ pub(crate) async fn run(arguments: Arguments) -> Result<u8, Failure> {
     if !valid_id(&key) || arguments.command.job().is_some_and(|job| !valid_id(job)) {
         return Err(Failure::Arguments);
     }
-    let connection = Connection::load(&arguments.config, timeout)?;
+    let connection = Connection::load(&arguments.config, timeout, Profile::Discovery)?;
     let context = context(connection.actor.clone(), key)?;
     let input = match &arguments.command {
         Command::Start { input, .. } => Some(read_input(
@@ -152,12 +152,20 @@ pub(crate) async fn run(arguments: Arguments) -> Result<u8, Failure> {
 }
 
 fn context(actor: v1::Actor, key: String) -> Result<v1::CommandContext, Failure> {
+    context_with(actor, key, b"loop.discovery-cli.command/v1\0")
+}
+
+pub(crate) fn context_with(
+    actor: v1::Actor,
+    key: String,
+    namespace: &[u8],
+) -> Result<v1::CommandContext, Failure> {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|_| Failure::Internal)?;
     let seconds = i64::try_from(now.as_secs()).map_err(|_| Failure::Internal)?;
     let mut digest = Sha256::new();
-    digest.update(b"loop.discovery-cli.command/v1\0");
+    digest.update(namespace);
     digest.update(key.as_bytes());
     let digest = format!("{:x}", digest.finalize());
     Ok(v1::CommandContext {
@@ -202,7 +210,7 @@ fn decode_input(
     Ok(input)
 }
 
-fn request<T>(message: T, timeout: Duration) -> Request<T> {
+pub(crate) fn request<T>(message: T, timeout: Duration) -> Request<T> {
     let mut request = Request::new(message);
     request.set_timeout(timeout);
     request

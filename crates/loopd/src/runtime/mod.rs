@@ -11,6 +11,7 @@ pub(crate) mod model_codec;
 mod portfolio;
 mod process;
 mod reconciliation;
+mod runs;
 mod service;
 mod statistics;
 #[cfg(test)]
@@ -25,6 +26,7 @@ pub use evaluation::FactorExecutor;
 pub use portfolio::PortfolioExecutor;
 pub(crate) use reconciliation::ValidationTask;
 pub use reconciliation::{ReconciliationConfig, ReconciliationExecutor, ValidationPin};
+pub use runs::{RunCatalog, RunConfig};
 pub use service::{RuntimeService, serve};
 pub(crate) use statistics::StatisticsTask;
 pub use statistics::{StatisticsConfig, StatisticsExecutor};

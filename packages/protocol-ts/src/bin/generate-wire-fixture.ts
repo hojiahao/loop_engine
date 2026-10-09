@@ -21,6 +21,7 @@ if (outputPath === undefined || unexpected !== undefined) {
       "loop.protocol.v1",
       "loop.provider.v1",
       "loop.research.v1",
+      "loop.runs.v1",
       "loop.v1",
     ],
     features: ["artifacts.by-reference.v1", "factors.canonical-json.v1"],

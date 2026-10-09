@@ -274,7 +274,7 @@ fn redacts_server_errors() {
     ));
     assert_eq!(error.exit_code(), 3);
     assert_eq!(
-        error.envelope(),
+        error.envelope(SCHEMA),
         json!({"schema":"loop.discovery-cli/v1","error":{"category":"authorization"}})
     );
 }
@@ -283,7 +283,7 @@ fn redacts_server_errors() {
 fn distinguishes_interruption() {
     assert_eq!(Failure::Interrupted.exit_code(), 130);
     assert_eq!(
-        Failure::Interrupted.envelope()["error"]["category"],
+        Failure::Interrupted.envelope(SCHEMA)["error"]["category"],
         "interrupted"
     );
     assert_eq!(Failure::RemoteCancelled.exit_code(), 6);

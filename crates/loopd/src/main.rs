@@ -111,6 +111,9 @@ async fn main() -> anyhow::Result<()> {
         if let Some(executor) = runtime.discovery {
             service = service.with_discoverer(executor);
         }
+        if let Some(catalog) = runtime.runs {
+            service = service.with_runs(catalog);
+        }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)
                 .await
