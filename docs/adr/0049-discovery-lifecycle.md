@@ -1,7 +1,7 @@
 # ADR 0049: Bounded discovery lifecycle and recovery
 
-Status: accepted for implementation; Phase 10 unit 4 remains in progress until
-the task's behavioral gates, commit, push and remote verification pass.
+Status: implemented and verified. Phase 10 unit 4's local gates and published
+implementation are accepted by descendant `5a25008`, CI `37733309351` (7/7).
 
 ## Requirement
 

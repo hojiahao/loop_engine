@@ -1,11 +1,12 @@
 # Phase 10 unit 4: Discovery lifecycle
 
-Status: implementation and local behavioral validation passed; commit `12768ff`
-was pushed. Run `36689533660` passed six jobs, including Rust and the clean
+Status: complete. Implementation and local behavioral validation passed;
+commit `12768ff` was pushed. Run `36689533660` passed six jobs, including Rust and the clean
 DaoCloud container. The unified job passed Rust/TypeScript and reached Python
 research at 96% before its 75-minute job timeout; it did not report a test
-failure. Full descendant CI remains the closing gate. Unit 5 preserves all
-checks and adjusts that job budget to 120 minutes. ADR 0049 defines the design and scope;
+failure. Unit 5 preserves all checks and adjusts that job budget to 120 minutes.
+Descendant `5a25008` passes all seven jobs in CI `37733309351`, closing the
+remote gate. ADR 0049 defines the design and scope;
 `docs/development/discovery-lifecycle.md` documents controls and rollback.
 
 ## Acceptance cases

@@ -649,7 +649,13 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
 - [x] Implement compatible, self-hosted, and gateway transports.
 - [x] Implement the hot-reload capability catalog and provider contract suite.
 
-## Phase 10 - Run Harness (`in_progress`)
+## Phase 10 - Run Harness (`complete`)
+
+All five delivery units are implemented, committed and pushed. Correction
+`5a25008` passed all seven jobs in exact-commit CI `37733309351`, including the
+full unified workspace and clean DaoCloud container. This also closes unit 4's
+descendant-CI prerequisite. Production control-service deployment is verified;
+autonomous research execution remains Phase 11 and is not enabled on that host.
 
 Delivery units (complete implementation, negative-path tests, documentation,
 Chinese task commit and push before starting the next unit):
@@ -702,7 +708,7 @@ Chinese task commit and push before starting the next unit):
    seven jobs, including the complete workspace and clean-container gates. See
    `docs/verification/phase-10-controlled-context.md` and
    `docs/development/controlled-context.md`.
-4. Run lifecycle (`in_progress`; ADR 0049): pause/cancel/resume, absolute deadlines and explicit
+4. Run lifecycle (`complete`; ADR 0049): pause/cancel/resume, absolute deadlines and explicit
    retry policy across model/tool steps. Infrastructure failures remain distinct
    from rejected factors; ambiguous paid calls retain reservations. Acceptance:
    process interruption and clock regression at each transition, stale-worker
@@ -712,10 +718,11 @@ Chinese task commit and push before starting the next unit):
    protocol cases and complete workspace checks. Commit `12768ff` is pushed;
    CI `36689533660` passed six jobs; the unified job exhausted its 75-minute
    timeout after Rust/TypeScript passed and Python research reached 96%.
-   Unit 5 retains the full suite with a 120-minute budget; passing descendant
-   CI remains the closing gate. See `docs/verification/phase-10-discovery-lifecycle.md`
+   Unit 5 retains the full suite with a 120-minute budget; descendant commit
+   `5a25008` passed all seven jobs in CI `37733309351`, closing this gate.
+   See `docs/verification/phase-10-discovery-lifecycle.md`
    and `docs/development/discovery-lifecycle.md`.
-5. Operational acceptance (`in_progress`; ADR 0050): expose usable CLI commands and typed
+5. Operational acceptance (`complete`; ADR 0050): expose usable CLI commands and typed
    status/events for the preceding workflows; document setup, recovery and
    rollback. Acceptance: installed CLI starts/observes/cancels/resumes a synthetic
    discovery run through authenticated services with audit evidence, plus full
@@ -729,11 +736,11 @@ Chinese task commit and push before starting the next unit):
    no Provider/research executor is configured. Commit `b692e30` is pushed;
    CI `37724315501` passed six jobs. Unified workspace completed all language
    tests but DaoCloud's Node-image TLS handshake failed during container setup.
-   A bounded exact-digest preparation correction passes actual local isolation;
-   its publication and descendant CI remain open. See
+   The bounded exact-digest preparation correction `5a25008` is pushed and
+   passes actual local isolation and all seven jobs in CI `37733309351`. See
    `docs/verification/phase-10-discovery-operations.md`.
 
-- [ ] Implement typed context, tools, capability authorization, budgets,
+- [x] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.
 
 ## Phase 11 - Loop Runtime (`pending`)

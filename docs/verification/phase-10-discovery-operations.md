@@ -1,8 +1,9 @@
 # Phase 10 unit 5: CLI and deployment recovery
 
-Status: implementation and local operational acceptance pass; task `b692e30`
-is published. CI `37724315501` passed six jobs; a bounded image-preparation
-correction awaits publication and descendant CI. Design: ADR 0050. Operations:
+Status: complete. Implementation and local operational acceptance pass;
+task `b692e30` and bounded image-preparation correction `5a25008` are published.
+Exact-commit CI `37733309351` passes all seven jobs, including the full unified
+workspace and clean DaoCloud container. Design: ADR 0050. Operations:
 `docs/development/discovery-cli.md` and `docs/development/production-cutover.md`.
 
 ## Remote prerequisite
@@ -100,6 +101,23 @@ backup and evidence. There was no previous application release to restore;
 future replacements must understand all 14 migrations. The application unit is
 versioned at `infra/systemd/loopd.service`; private credentials and certificates
 are never part of the release or Git history.
+
+On 2026-10-09, reverified the same deployment on `117.50.81.155`: both installed
+binary SHA-256 digests match the original release manifest; the service remains
+active and enabled, with zero automatic restarts and main exit status zero.
+The actual health endpoints are `/healthz` (200) and `/readyz` (204) on loopback
+18080; `/health` and `/ready` are not routes. The installed binary's database
+check succeeds; migrations 1–14 are successful, runtime sessions use TLS 1.3,
+forbidden table privileges and disabled protection-trigger counts are zero.
+Jobs, command receipts and audit events remain empty. Client-certificate TLS 1.3
+verification on loopback 18443 succeeds, and the installed CLI denies the absent
+probe job with exit 3. Every optional executor remains disabled.
+
+Commit `5a25008` changes only test setup and documentation relative to `b692e30`;
+it requires no production binary replacement or database migration. This
+reverification preserves the original release identity and development-profile
+limitation rather than relabeling the binaries as an optimized release. No
+temporary deployment files, new research jobs or paid supplier calls were made.
 
 ## Required evidence
 

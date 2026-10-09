@@ -1,7 +1,8 @@
 # ADR 0050: Usable Discovery operations and deployment recovery
 
-Status: accepted for implementation; Phase 10 unit 5. Delivery requires the
-installed CLI workflow, negative-path tests, documentation, commit/push and CI.
+Status: implemented and verified. Phase 10 unit 5 is published as `b692e30`;
+correction `5a25008` passes CI `37733309351` (7/7). Installed CLI workflows,
+negative paths and production control-service recovery are accepted.
 
 ## Requirement and decision
 
