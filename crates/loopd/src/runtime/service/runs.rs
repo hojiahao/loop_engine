@@ -1,10 +1,12 @@
 use loop_protocol::wire::{runs::v1 as wire, v1};
 use tonic::{Request, Response, Status};
 
-use super::discovery::{validate_context, validate_deadline};
+use super::discovery::{check_deadline, validate_context, validate_deadline};
 use super::{RuntimeService, status};
 use crate::runtime::{Role, authority::Principal};
 use crate::store::StoreError;
+
+mod workflow;
 
 #[tonic::async_trait]
 impl wire::run_service_server::RunService for RuntimeService {
@@ -23,14 +25,28 @@ impl wire::run_service_server::RunService for RuntimeService {
             .as_ref()
             .ok_or_else(|| status(StoreError::Invalid("run plan")))?;
         let specification = catalog.resolve(reference).map_err(status)?;
+        check_version(request.get_ref().workflow_version, specification).map_err(status)?;
         self.authority
             .verify_run(&principal.actor, specification)
             .map_err(status)?;
-        let mut run = self
-            .store
-            .start_run(&principal.actor, request.get_ref(), specification)
-            .await
-            .map_err(status)?;
+        let mut run = if specification.numerical.is_some() {
+            let (_, frozen) = self.frozen_numerical(specification).await.map_err(status)?;
+            let prepared = crate::runtime::workflow::PreparedRun::new(frozen).map_err(status)?;
+            self.store
+                .start_numerical(
+                    &principal.actor,
+                    request.get_ref(),
+                    specification,
+                    &prepared,
+                )
+                .await
+                .map_err(status)?
+        } else {
+            self.store
+                .start_run(&principal.actor, request.get_ref(), specification)
+                .await
+                .map_err(status)?
+        };
         run.plan_verified = true;
         Ok(Response::new(wire::StartRunResponse { run: Some(run) }))
     }
@@ -53,8 +69,14 @@ impl wire::run_service_server::RunService for RuntimeService {
             .read_run(&principal.actor, &run_id.value)
             .await
             .map_err(hidden_status)?;
+        check_version(request.get_ref().workflow_version, &snapshot.specification)
+            .map_err(status)?;
         let mut run = snapshot.view;
-        if self.runs.is_some() {
+        if self
+            .runs
+            .as_ref()
+            .is_some_and(|catalog| catalog.contains(snapshot.specification.plan.as_ref()))
+        {
             self.authority
                 .verify_run(&principal.actor, &snapshot.specification)
                 .map_err(status)?;
@@ -69,8 +91,13 @@ impl wire::run_service_server::RunService for RuntimeService {
         &self,
         request: Request<wire::StepRunRequest>,
     ) -> Result<Response<wire::StepRunResponse>, Status> {
-        let principal = self.run_owner(&request, request.get_ref().context.as_ref())?;
         let input = request.get_ref();
+        let principal = if input.workflow_version == 2 {
+            check_deadline(&request, 240_000_000_000)?;
+            self.owner_context(&request, input.context.as_ref())?
+        } else {
+            self.run_owner(&request, input.context.as_ref())?
+        };
         let run_id = input
             .run_id
             .as_ref()
@@ -83,6 +110,7 @@ impl wire::run_service_server::RunService for RuntimeService {
             .read_run(&principal.actor, &run_id.value)
             .await
             .map_err(hidden_status)?;
+        check_version(input.workflow_version, &snapshot.specification).map_err(status)?;
         if let Some(mut run) = self
             .store
             .replay_step(&principal.actor, input)
@@ -90,7 +118,11 @@ impl wire::run_service_server::RunService for RuntimeService {
             .map_err(status)?
         {
             run.plan_verified = false;
-            if self.runs.is_some() {
+            if self
+                .runs
+                .as_ref()
+                .is_some_and(|catalog| catalog.contains(snapshot.specification.plan.as_ref()))
+            {
                 self.authority
                     .verify_run(&principal.actor, &snapshot.specification)
                     .map_err(status)?;
@@ -104,6 +136,13 @@ impl wire::run_service_server::RunService for RuntimeService {
         self.authority
             .verify_run(&principal.actor, &snapshot.specification)
             .map_err(status)?;
+        if snapshot.specification.numerical.is_some() {
+            let mut run = Box::pin(self.step_numerical(&principal.actor, input, snapshot))
+                .await
+                .map_err(status)?;
+            run.plan_verified = true;
+            return Ok(Response::new(wire::StepRunResponse { run: Some(run) }));
+        }
         let execution = RunExecution::new(snapshot, self.authority.now().map_err(status)?)?;
         let discoverer = self
             .discoverer
@@ -144,6 +183,14 @@ impl RuntimeService {
         context: Option<&v1::CommandContext>,
     ) -> Result<Principal, Status> {
         validate_deadline(request)?;
+        self.owner_context(request, context)
+    }
+
+    fn owner_context<T>(
+        &self,
+        request: &Request<T>,
+        context: Option<&v1::CommandContext>,
+    ) -> Result<Principal, Status> {
         let principal = self.authority.authenticate(request).map_err(status)?;
         if principal.identity.role != Role::Operator {
             return Err(status(StoreError::AdmissionDenied));
@@ -208,4 +255,15 @@ fn hidden_status(error: StoreError) -> Status {
         StoreError::NotFound => StoreError::AdmissionDenied,
         other => other,
     })
+}
+
+fn check_version(
+    version: u32,
+    specification: &wire::RunSpecification,
+) -> crate::store::StoreResult<()> {
+    loop_protocol::runs::validate_workflow(version)?;
+    if (version == 2) != specification.numerical.is_some() {
+        return Err(StoreError::Invalid("run workflow version mismatch"));
+    }
+    Ok(())
 }

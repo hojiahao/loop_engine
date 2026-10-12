@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 
 from loop.discovery.v1 import service_pb2 as discovery
+from loop.research.v1 import service_pb2 as research
 from loop.runs.v1 import service_pb2 as runs
-from loop_protocol.runs import validate_view
+from loop_protocol.runs import validate_view, validate_workflow
 
 _FIXTURE = json.loads(
     (
@@ -14,6 +15,107 @@ _FIXTURE = json.loads(
     ).read_text(encoding="utf-8")
 )
 _WIRE = bytes.fromhex(_FIXTURE["wire_hex"])
+_NUMERICAL = bytes.fromhex(
+    json.loads(
+        (
+            Path(__file__).resolve().parents[3] / "fixtures/contracts/protocol/v1/run_view_v2.json"
+        ).read_text(encoding="utf-8")
+    )["wire_hex"]
+)
+
+
+def test_numerical_golden() -> None:
+    view = runs.RunView.FromString(_NUMERICAL)
+    validate_view(view)
+    assert view.SerializeToString(deterministic=True) == _NUMERICAL
+    validate_workflow(0)
+    validate_workflow(2)
+    for version in (1, 3, -1, True):
+        with pytest.raises(ValueError):
+            validate_workflow(version)
+
+
+def test_numerical_terminals() -> None:
+    view = runs.RunView.FromString(_NUMERICAL)
+    view.status = runs.RUN_STATUS_COMPLETED
+    view.completed_rounds = view.maximum_rounds
+    view.research.disposition = runs.ROUND_DISPOSITION_INSUFFICIENT_COVERAGE
+    view.research.research.status = research.RESEARCH_JOB_STATUS_SUCCEEDED
+    validate_view(view)
+    view.research.stage = runs.RUN_STAGE_PORTFOLIO
+    view.research.disposition = runs.ROUND_DISPOSITION_EVALUATED
+    view.research.research.job_id.value = "job.portfolio.2"
+    validate_view(view)
+    view.research.disposition = 0
+    with pytest.raises(ValueError):
+        validate_view(view)
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        ("revision", 8),
+        ("research.round", 0),
+        ("research.round", 1),
+        ("research.stage", 127),
+        ("research.stage", 0),
+        ("research.stage", runs.RUN_STAGE_DISCOVERY),
+        ("research.binding_sha256", None),
+        ("research.binding_sha256.value", b"a" * 31),
+        ("research.research", None),
+        ("research.evaluation_job_id", None),
+        ("research.discovery_job_id", None),
+        ("research.expression_id", None),
+        ("research.factor_spec_id.value", "sha256:" + "b" * 64 + "\n"),
+        ("research.disposition", 127),
+        ("research.disposition", runs.ROUND_DISPOSITION_EVALUATED),
+        ("research.disposition", runs.ROUND_DISPOSITION_INSUFFICIENT_COVERAGE),
+        ("research.discovery_job_id.value", "job.evaluation.2"),
+    ],
+)
+def test_numerical_failures(path: str, value: int | str | bytes | None) -> None:
+    view = runs.RunView.FromString(_NUMERICAL)
+    target: Any = view
+    *parents, field = path.split(".")
+    for parent in parents:
+        target = getattr(target, parent)
+    if value is None:
+        target.ClearField(field)
+    else:
+        setattr(target, field, value)
+    with pytest.raises(ValueError):
+        validate_view(view)
+
+
+def test_ambiguous_handle() -> None:
+    view = runs.RunView.FromString(_NUMERICAL)
+    view.current_job.CopyFrom(runs.RunView.FromString(_WIRE).current_job)
+    with pytest.raises(ValueError):
+        validate_view(view)
+
+
+def test_discovery_filter() -> None:
+    view = runs.RunView.FromString(_NUMERICAL)
+    view.status = runs.RUN_STATUS_COMPLETED
+    view.completed_rounds = view.maximum_rounds
+    view.research.stage = runs.RUN_STAGE_DISCOVERY
+    view.research.discovery.CopyFrom(runs.RunView.FromString(_WIRE).current_job)
+    view.research.discovery.status = discovery.DISCOVERY_JOB_STATUS_SUCCEEDED
+    view.research.ClearField("evaluation_job_id")
+    for disposition in (
+        runs.ROUND_DISPOSITION_DUPLICATE,
+        runs.ROUND_DISPOSITION_PREVIOUSLY_REJECTED,
+    ):
+        view.research.disposition = disposition
+        validate_view(view)
+
+
+def test_legacy_version() -> None:
+    assert runs.StartRunRequest().SerializeToString(deterministic=True) == b""
+    assert (
+        runs.StartRunRequest(workflow_version=2).SerializeToString(deterministic=True)
+        == b"\x18\x02"
+    )
 
 
 def test_exact_reservations() -> None:
@@ -88,11 +190,16 @@ def test_invalid_views(path: str, value: int | str | None) -> None:
 def test_operator_surface() -> None:
     service = runs.DESCRIPTOR.services_by_name["RunService"]
     assert list(service.methods_by_name) == ["StartRun", "StepRun", "GetRun"]
-    assert [field.name for field in runs.StartRunRequest.DESCRIPTOR.fields] == ["context", "plan"]
+    assert [field.name for field in runs.StartRunRequest.DESCRIPTOR.fields] == [
+        "context",
+        "plan",
+        "workflow_version",
+    ]
     assert [field.name for field in runs.StepRunRequest.DESCRIPTOR.fields] == [
         "context",
         "run_id",
         "expected_revision",
+        "workflow_version",
     ]
     visited: set[str] = set()
     pending = [

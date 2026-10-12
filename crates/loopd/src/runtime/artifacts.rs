@@ -50,6 +50,23 @@ impl ArtifactBroker {
             .ok_or(StoreError::AdmissionDenied)?
             .value;
         let pin = self.pins.get(id).ok_or(StoreError::AdmissionDenied)?;
+        self.portfolio_pin(job, lease, pin).await
+    }
+
+    pub(crate) async fn portfolio_pin(
+        &self,
+        job: &loop_protocol::wire::v1::JobSpecification,
+        lease: &str,
+        pin: &DataPin,
+    ) -> StoreResult<PathBuf> {
+        let id = &job
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value;
+        if pin.job_id != *id {
+            return Err(StoreError::AdmissionDenied);
+        }
         if pin.protected
             || !matches!(
                 job.input,
@@ -161,6 +178,23 @@ impl ArtifactBroker {
         command: &PrepareJobArtifactsRequest,
         job: &JobRecord,
     ) -> StoreResult<PrepareJobArtifactsResponse> {
+        let id = &command
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value;
+        let pin = self.pins.get(id).ok_or(StoreError::AdmissionDenied)?;
+        self.prepare_pin(store, actor, command, job, pin).await
+    }
+
+    pub(crate) async fn prepare_pin(
+        &self,
+        store: &PgJobStore,
+        actor: &Actor,
+        command: &PrepareJobArtifactsRequest,
+        job: &JobRecord,
+        pin: &DataPin,
+    ) -> StoreResult<PrepareJobArtifactsResponse> {
         let _permit = self
             .publications
             .try_acquire()
@@ -176,7 +210,9 @@ impl ArtifactBroker {
             .as_ref()
             .ok_or(StoreError::Invalid("data lease ID"))?
             .value;
-        let pin = self.pins.get(job_id).ok_or(StoreError::AdmissionDenied)?;
+        if &pin.job_id != job_id {
+            return Err(StoreError::AdmissionDenied);
+        }
         let protected = super::service::protected(job);
         if protected != pin.protected {
             return Err(StoreError::AdmissionDenied);

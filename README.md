@@ -143,7 +143,7 @@ Groq、Together、Fireworks、Cerebras、Perplexity、GLM、Kimi 和 MiniMax 有
 
 ## 运行与恢复
 
-`loopctl run` 在固定计划下启动并人工逐轮推进候选生成任务，跨子任务保存步数、token、
+`loopctl run` 在固定计划下启动并人工推进研究任务，跨子任务保存步数、token、
 费用和时间预算。安装客户端、配置 mTLS 身份并由管理员登记研究计划后，可执行：
 
 ```bash
@@ -157,6 +157,12 @@ loopctl run --config /absolute/private/operator.json step \
 使用响应中的真实 `RUN_ID` 和 `REVISION`。每次 `step` 最多推进一轮；新任务先预留
 完整预算，重复命令与重启不会重置预留。预算预留与估计费用不等同于实际账单。
 完整配置与回执语义见[研究运行 CLI](docs/development/research-runs-cli.md)。
+
+登记数值研究计划后，在 `start`、`step` 和 `status` 中显式加入
+`--workflow-version 2`，可按“候选生成 → 因子评测 → 组合回测”逐阶段推进。
+每次 `step` 最多执行一个子任务；评测使用冻结的 IS 数据、因子方向、随机种子和政策，
+由独立 Research 服务身份执行。重复或已拒绝候选、覆盖率不足会留下相应记录；
+组合结果登记不代表正式准入。准备方法见[数值研究配置](docs/development/research-runs-cli.md#numerical-workflow-opt-in)。
 
 单个 Discovery 任务通过独立客户端身份查看和控制：
 

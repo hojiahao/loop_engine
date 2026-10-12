@@ -47,6 +47,7 @@ impl Case {
             discovery: Some(self.input.clone()),
             protocol_selection: Some(metadata.protocol_selection),
             maximum_rounds: rounds,
+            numerical: None,
             budget: Some(wire::RunBudget {
                 maximum_steps: u64::from(budget.maximum_steps) * allowance,
                 maximum_input_tokens: budget.maximum_input_tokens * allowance,

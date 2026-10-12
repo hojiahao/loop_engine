@@ -246,6 +246,7 @@ async fn operator_scope() {
         .await
         .get_run(super::fixture::timed(
             loop_protocol::wire::runs::v1::GetRunRequest {
+                workflow_version: 0,
                 context: Some(case.context()),
                 run_id: Some(super::v1::RunId {
                     value: "run.discovery".into(),

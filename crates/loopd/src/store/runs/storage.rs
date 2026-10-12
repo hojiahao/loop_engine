@@ -1,7 +1,9 @@
 use loop_core::audit::{AuditAction, AuditTarget, AuditTargetKind, canonicalize_audit_payload};
 use loop_protocol::wire::discovery::v1::{DiscoveryJobHandle, DiscoveryJobStatus};
 use loop_protocol::wire::runs::v1::{RunSpecification, RunStatus, RunView};
-use loop_protocol::wire::v1::{CommandContext, ExactDecimal, JobRecord, Money, job_specification};
+use loop_protocol::wire::v1::{
+    CommandContext, ExactDecimal, JobBudget, JobRecord, Money, job_specification,
+};
 use prost::Message;
 use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Row, Transaction};
@@ -52,6 +54,26 @@ pub(super) fn reserve(
         .as_ref()
         .and_then(|input| input.budget.as_ref())
         .ok_or(StoreError::Corrupt("run child budget"))?;
+    reserve_budget(
+        view,
+        specification,
+        &JobBudget {
+            maximum_steps: child.maximum_steps,
+            maximum_input_tokens: child.maximum_input_tokens,
+            maximum_output_tokens: child.maximum_output_tokens,
+            maximum_cost: child.maximum_cost.clone(),
+            maximum_wall_time: child.maximum_wall_time,
+        },
+        now,
+    )
+}
+
+pub(super) fn reserve_budget(
+    view: &mut RunView,
+    specification: &RunSpecification,
+    child: &JobBudget,
+    now: i64,
+) -> StoreResult<bool> {
     let parent = specification
         .budget
         .as_ref()
@@ -113,6 +135,15 @@ pub(super) async fn load(
     transaction: &mut Transaction<'_, Postgres>,
     run_id: &str,
 ) -> StoreResult<RunSnapshot> {
+    // Historical authorization embeds this reader in several transaction and
+    // RPC futures. Heap-own its state once rather than copying it into each.
+    Box::pin(load_snapshot(transaction, run_id)).await
+}
+
+async fn load_snapshot(
+    transaction: &mut Transaction<'_, Postgres>,
+    run_id: &str,
+) -> StoreResult<RunSnapshot> {
     let row = sqlx::query("SELECT * FROM research_runs WHERE run_id = $1")
         .bind(run_id)
         .fetch_optional(&mut **transaction)
@@ -161,15 +192,13 @@ pub(super) async fn load(
             != timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?
         || row.try_get::<i64, _>("deadline_ms")?
             != timestamp_millis(view.deadline.as_ref().expect("validated deadline"), true)?
-        || row.try_get::<String, _>("current_job_id")?
-            != view
-                .current_job
-                .as_ref()
-                .expect("validated child")
-                .job_id
-                .as_ref()
-                .expect("validated child ID")
-                .value
+        || row.try_get::<String, _>("current_job_id")? != current_id(&view)?
+        || row.try_get::<i32, _>("workflow_version")?
+            != if specification.numerical.is_some() {
+                2
+            } else {
+                1
+            }
     {
         return Err(StoreError::Corrupt("run projection binding"));
     }
@@ -185,6 +214,17 @@ pub(super) async fn load(
         .ok_or(StoreError::Corrupt("run deadline overflow"))?;
     if deadline != row.try_get::<i64, _>("deadline_ms")? {
         return Err(StoreError::Corrupt("run deadline binding"));
+    }
+    if specification.numerical.is_some() {
+        // Keep the v2 history state machine off callers' stacks, including v1
+        // readers whose future otherwise embeds this inactive branch as well.
+        return Box::pin(super::transitions::load(
+            transaction,
+            specification,
+            view,
+            &row,
+        ))
+        .await;
     }
     let jobs = sqlx::query(
         "SELECT * FROM jobs WHERE run_id = $1 ORDER BY submitted_at_ms, job_id LIMIT 65",
@@ -322,6 +362,7 @@ pub(super) async fn load(
         specification,
         view,
         current_job,
+        binding: None,
     })
 }
 
@@ -334,27 +375,26 @@ pub(super) async fn persist(
     loop_protocol::runs::validate_view(view)?;
     let spec_bytes = encode_message(specification)?;
     let view_bytes = encode_message(view)?;
-    sqlx::query("SELECT set_config('loop.run_writer', 'v1', true)")
+    let workflow_version = if specification.numerical.is_some() {
+        2
+    } else {
+        1
+    };
+    sqlx::query("SELECT set_config('loop.run_writer', $1, true)")
+        .bind(format!("v{workflow_version}"))
         .execute(&mut **transaction)
         .await?;
     let run_id = &view.run_id.as_ref().expect("validated run").value;
-    let current = &view
-        .current_job
-        .as_ref()
-        .expect("validated child")
-        .job_id
-        .as_ref()
-        .expect("validated ID")
-        .value;
+    let current = current_id(view)?;
     let now = timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?;
     if let Some(first) = first_job {
-        sqlx::query("INSERT INTO research_runs (run_id, owner_id, first_job_id, current_job_id, status, revision, completed_rounds, reserved_steps, reserved_input, reserved_output, reserved_nano_usd, submitted_at_ms, updated_at_ms, deadline_ms, specification_blob, specification_sha256, view_blob, view_sha256) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14,$15,$16,$17)")
+        sqlx::query("INSERT INTO research_runs (run_id, owner_id, first_job_id, current_job_id, status, revision, completed_rounds, reserved_steps, reserved_input, reserved_output, reserved_nano_usd, submitted_at_ms, updated_at_ms, deadline_ms, specification_blob, specification_sha256, view_blob, view_sha256, workflow_version) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12,$13,$14,$15,$16,$17,$18)")
             .bind(run_id).bind(&specification.owner.as_ref().expect("validated owner").actor_id.as_ref().expect("validated owner ID").value)
             .bind(first).bind(current).bind(view.status).bind(view.revision as i64).bind(view.completed_rounds as i32)
             .bind(view.reserved_steps as i64).bind(view.reserved_input_tokens as i64).bind(view.reserved_output_tokens as i64)
             .bind(model_money(view.reserved_cost.as_ref())? as i64).bind(now)
             .bind(timestamp_millis(view.deadline.as_ref().expect("validated deadline"), true)?)
-            .bind(&spec_bytes).bind(Sha256::digest(&spec_bytes).to_vec()).bind(&view_bytes).bind(Sha256::digest(&view_bytes).to_vec())
+            .bind(&spec_bytes).bind(Sha256::digest(&spec_bytes).to_vec()).bind(&view_bytes).bind(Sha256::digest(&view_bytes).to_vec()).bind(workflow_version)
             .execute(&mut **transaction).await?;
     } else {
         let affected = sqlx::query("UPDATE research_runs SET current_job_id=$2,status=$3,revision=$4,completed_rounds=$5,reserved_steps=$6,reserved_input=$7,reserved_output=$8,reserved_nano_usd=$9,updated_at_ms=$10,view_blob=$11,view_sha256=$12 WHERE run_id=$1 AND revision=$4-1")
@@ -415,6 +455,11 @@ pub(super) async fn receipt(
         .await?
         .ok_or(StoreError::Corrupt("run receipt parent"))?;
     let snapshot = load(transaction, run_id).await?;
+    if snapshot.specification.numerical.is_some() {
+        super::transitions::check_receipt(transaction, &snapshot, &view, &row, &parent, &bytes)
+            .await?;
+        return Ok(Some(view));
+    }
     let child_budget = snapshot
         .specification
         .discovery
@@ -514,6 +559,23 @@ pub(super) async fn receipt(
         return Err(StoreError::Corrupt("run receipt binding"));
     }
     Ok(Some(view))
+}
+
+pub(super) fn current_id(view: &RunView) -> StoreResult<&str> {
+    use loop_protocol::wire::runs::v1::research_run_view::CurrentChild;
+    let id = if let Some(research) = &view.research {
+        match research.current_child.as_ref() {
+            Some(CurrentChild::Discovery(value)) => value.job_id.as_ref(),
+            Some(CurrentChild::Research(value)) => value.job_id.as_ref(),
+            None => None,
+        }
+    } else {
+        view.current_job
+            .as_ref()
+            .and_then(|value| value.job_id.as_ref())
+    };
+    id.map(|id| id.value.as_str())
+        .ok_or(StoreError::Corrupt("run current child ID"))
 }
 
 pub(super) struct ReceiptInput<'a> {

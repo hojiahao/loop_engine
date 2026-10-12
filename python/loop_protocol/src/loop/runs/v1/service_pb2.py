@@ -25,36 +25,45 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from loop.discovery.v1 import service_pb2 as loop_dot_discovery_dot_v1_dot_service__pb2
+from loop.research.v1 import service_pb2 as loop_dot_research_dot_v1_dot_service__pb2
 from loop.v1 import common_pb2 as loop_dot_v1_dot_common__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aloop/runs/v1/service.proto\x12\x0cloop.runs.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1floop/discovery/v1/service.proto\x1a\x14loop/v1/common.proto\"\xbb\x01\n\tRunBudget\x12\x15\n\rmaximum_steps\x18\x01 \x01(\x04\x12\x1c\n\x14maximum_input_tokens\x18\x02 \x01(\x04\x12\x1d\n\x15maximum_output_tokens\x18\x03 \x01(\x04\x12$\n\x0cmaximum_cost\x18\x04 \x01(\x0b\x32\x0e.loop.v1.Money\x12\x34\n\x11maximum_wall_time\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\"\xd5\x02\n\x10RunSpecification\x12&\n\x04plan\x18\x01 \x01(\x0b\x32\x18.loop.v1.PolicyReference\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\x1d\n\x05owner\x18\x03 \x01(\x0b\x32\x0e.loop.v1.Actor\x12 \n\x08\x65xecutor\x18\x04 \x01(\x0b\x32\x0e.loop.v1.Actor\x12\x37\n\tdiscovery\x18\x05 \x01(\x0b\x32$.loop.discovery.v1.DiscoveryJobInput\x12>\n\x12protocol_selection\x18\x06 \x01(\x0b\x32\".loop.v1.ProtocolSelectionSnapshot\x12\'\n\x06\x62udget\x18\x07 \x01(\x0b\x32\x17.loop.runs.v1.RunBudget\x12\x16\n\x0emaximum_rounds\x18\x08 \x01(\r\"\xa0\x04\n\x07RunView\x12\x1e\n\x06run_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\'\n\x06status\x18\x02 \x01(\x0e\x32\x17.loop.runs.v1.RunStatus\x12\x10\n\x08revision\x18\x03 \x01(\x04\x12\x16\n\x0emaximum_rounds\x18\x04 \x01(\r\x12\x18\n\x10\x63ompleted_rounds\x18\x05 \x01(\r\x12:\n\x0b\x63urrent_job\x18\x06 \x01(\x0b\x32%.loop.discovery.v1.DiscoveryJobHandle\x12\'\n\x06\x62udget\x18\x07 \x01(\x0b\x32\x17.loop.runs.v1.RunBudget\x12\x16\n\x0ereserved_steps\x18\x08 \x01(\x04\x12\x1d\n\x15reserved_input_tokens\x18\t \x01(\x04\x12\x1e\n\x16reserved_output_tokens\x18\n \x01(\x04\x12%\n\rreserved_cost\x18\x0b \x01(\x0b\x32\x0e.loop.v1.Money\x12\x30\n\x0csubmitted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x08\x64\x65\x61\x64line\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x15\n\rplan_verified\x18\x0f \x01(\x08\"c\n\x0fStartRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12&\n\x04plan\x18\x02 \x01(\x0b\x32\x18.loop.v1.PolicyReference\"6\n\x10StartRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView\"u\n\x0eStepRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\"5\n\x0fStepRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView\"Y\n\rGetRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\"4\n\x0eGetRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView*\xc1\x01\n\tRunStatus\x12\x1a\n\x16RUN_STATUS_UNSPECIFIED\x10\x00\x12\x15\n\x11RUN_STATUS_ACTIVE\x10\x01\x12\x18\n\x14RUN_STATUS_COMPLETED\x10\x02\x12\x1f\n\x1bRUN_STATUS_BUDGET_EXHAUSTED\x10\x03\x12$\n RUN_STATUS_INFRASTRUCTURE_FAILED\x10\x04\x12 \n\x1cRUN_STATUS_DEADLINE_EXCEEDED\x10\x05\x32\xe4\x01\n\nRunService\x12I\n\x08StartRun\x12\x1d.loop.runs.v1.StartRunRequest\x1a\x1e.loop.runs.v1.StartRunResponse\x12\x46\n\x07StepRun\x12\x1c.loop.runs.v1.StepRunRequest\x1a\x1d.loop.runs.v1.StepRunResponse\x12\x43\n\x06GetRun\x12\x1b.loop.runs.v1.GetRunRequest\x1a\x1c.loop.runs.v1.GetRunResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1aloop/runs/v1/service.proto\x12\x0cloop.runs.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1floop/discovery/v1/service.proto\x1a\x1eloop/research/v1/service.proto\x1a\x14loop/v1/common.proto\"\xbb\x01\n\tRunBudget\x12\x15\n\rmaximum_steps\x18\x01 \x01(\x04\x12\x1c\n\x14maximum_input_tokens\x18\x02 \x01(\x04\x12\x1d\n\x15maximum_output_tokens\x18\x03 \x01(\x04\x12$\n\x0cmaximum_cost\x18\x04 \x01(\x0b\x32\x0e.loop.v1.Money\x12\x34\n\x11maximum_wall_time\x18\x05 \x01(\x0b\x32\x19.google.protobuf.Duration\"\x89\x03\n\x10RunSpecification\x12&\n\x04plan\x18\x01 \x01(\x0b\x32\x18.loop.v1.PolicyReference\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\x1d\n\x05owner\x18\x03 \x01(\x0b\x32\x0e.loop.v1.Actor\x12 \n\x08\x65xecutor\x18\x04 \x01(\x0b\x32\x0e.loop.v1.Actor\x12\x37\n\tdiscovery\x18\x05 \x01(\x0b\x32$.loop.discovery.v1.DiscoveryJobInput\x12>\n\x12protocol_selection\x18\x06 \x01(\x0b\x32\".loop.v1.ProtocolSelectionSnapshot\x12\'\n\x06\x62udget\x18\x07 \x01(\x0b\x32\x17.loop.runs.v1.RunBudget\x12\x16\n\x0emaximum_rounds\x18\x08 \x01(\r\x12\x32\n\tnumerical\x18\t \x01(\x0b\x32\x1f.loop.runs.v1.NumericalWorkflow\"\xa7\x02\n\x11NumericalWorkflow\x12)\n\x11research_executor\x18\x01 \x01(\x0b\x32\x0e.loop.v1.Actor\x12(\n\x06recipe\x18\x02 \x01(\x0b\x32\x18.loop.v1.PolicyReference\x12>\n\x11\x65valuation_budget\x18\x03 \x01(\x0b\x32#.loop.research.v1.ResearchJobBudget\x12=\n\x10portfolio_budget\x18\x04 \x01(\x0b\x32#.loop.research.v1.ResearchJobBudget\x12>\n\x12protocol_selection\x18\x05 \x01(\x0b\x32\".loop.v1.ProtocolSelectionSnapshot\"\xe9\x03\n\x0fResearchRunView\x12\r\n\x05round\x18\x01 \x01(\r\x12%\n\x05stage\x18\x02 \x01(\x0e\x32\x16.loop.runs.v1.RunStage\x12:\n\tdiscovery\x18\x03 \x01(\x0b\x32%.loop.discovery.v1.DiscoveryJobHandleH\x00\x12\x37\n\x08research\x18\x04 \x01(\x0b\x32#.loop.research.v1.ResearchJobHandleH\x00\x12(\n\x10\x64iscovery_job_id\x18\x05 \x01(\x0b\x32\x0e.loop.v1.JobId\x12)\n\x11\x65valuation_job_id\x18\x06 \x01(\x0b\x32\x0e.loop.v1.JobId\x12\x32\n\rexpression_id\x18\x07 \x01(\x0b\x32\x1b.loop.v1.FactorExpressionId\x12-\n\x0e\x66\x61\x63tor_spec_id\x18\x08 \x01(\x0b\x32\x15.loop.v1.FactorSpecId\x12-\n\x0e\x62inding_sha256\x18\t \x01(\x0b\x32\x15.loop.v1.Sha256Digest\x12\x33\n\x0b\x64isposition\x18\n \x01(\x0e\x32\x1e.loop.runs.v1.RoundDispositionB\x0f\n\rcurrent_child\"\xd1\x04\n\x07RunView\x12\x1e\n\x06run_id\x18\x01 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\'\n\x06status\x18\x02 \x01(\x0e\x32\x17.loop.runs.v1.RunStatus\x12\x10\n\x08revision\x18\x03 \x01(\x04\x12\x16\n\x0emaximum_rounds\x18\x04 \x01(\r\x12\x18\n\x10\x63ompleted_rounds\x18\x05 \x01(\r\x12:\n\x0b\x63urrent_job\x18\x06 \x01(\x0b\x32%.loop.discovery.v1.DiscoveryJobHandle\x12\'\n\x06\x62udget\x18\x07 \x01(\x0b\x32\x17.loop.runs.v1.RunBudget\x12\x16\n\x0ereserved_steps\x18\x08 \x01(\x04\x12\x1d\n\x15reserved_input_tokens\x18\t \x01(\x04\x12\x1e\n\x16reserved_output_tokens\x18\n \x01(\x04\x12%\n\rreserved_cost\x18\x0b \x01(\x0b\x32\x0e.loop.v1.Money\x12\x30\n\x0csubmitted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12.\n\nupdated_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12,\n\x08\x64\x65\x61\x64line\x18\x0e \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x15\n\rplan_verified\x18\x0f \x01(\x08\x12/\n\x08research\x18\x10 \x01(\x0b\x32\x1d.loop.runs.v1.ResearchRunView\"}\n\x0fStartRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12&\n\x04plan\x18\x02 \x01(\x0b\x32\x18.loop.v1.PolicyReference\x12\x18\n\x10workflow_version\x18\x03 \x01(\r\"6\n\x10StartRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView\"\x8f\x01\n\x0eStepRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\x19\n\x11\x65xpected_revision\x18\x03 \x01(\x04\x12\x18\n\x10workflow_version\x18\x04 \x01(\r\"5\n\x0fStepRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView\"s\n\rGetRunRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12\x1e\n\x06run_id\x18\x02 \x01(\x0b\x32\x0e.loop.v1.RunId\x12\x18\n\x10workflow_version\x18\x03 \x01(\r\"4\n\x0eGetRunResponse\x12\"\n\x03run\x18\x01 \x01(\x0b\x32\x15.loop.runs.v1.RunView*\xc1\x01\n\tRunStatus\x12\x1a\n\x16RUN_STATUS_UNSPECIFIED\x10\x00\x12\x15\n\x11RUN_STATUS_ACTIVE\x10\x01\x12\x18\n\x14RUN_STATUS_COMPLETED\x10\x02\x12\x1f\n\x1bRUN_STATUS_BUDGET_EXHAUSTED\x10\x03\x12$\n RUN_STATUS_INFRASTRUCTURE_FAILED\x10\x04\x12 \n\x1cRUN_STATUS_DEADLINE_EXCEEDED\x10\x05*q\n\x08RunStage\x12\x19\n\x15RUN_STAGE_UNSPECIFIED\x10\x00\x12\x17\n\x13RUN_STAGE_DISCOVERY\x10\x01\x12\x18\n\x14RUN_STAGE_EVALUATION\x10\x02\x12\x17\n\x13RUN_STAGE_PORTFOLIO\x10\x03*\xcf\x01\n\x10RoundDisposition\x12!\n\x1dROUND_DISPOSITION_UNSPECIFIED\x10\x00\x12\x1f\n\x1bROUND_DISPOSITION_EVALUATED\x10\x01\x12\x1f\n\x1bROUND_DISPOSITION_DUPLICATE\x10\x02\x12)\n%ROUND_DISPOSITION_PREVIOUSLY_REJECTED\x10\x03\x12+\n\'ROUND_DISPOSITION_INSUFFICIENT_COVERAGE\x10\x04\x32\xe4\x01\n\nRunService\x12I\n\x08StartRun\x12\x1d.loop.runs.v1.StartRunRequest\x1a\x1e.loop.runs.v1.StartRunResponse\x12\x46\n\x07StepRun\x12\x1c.loop.runs.v1.StepRunRequest\x1a\x1d.loop.runs.v1.StepRunResponse\x12\x43\n\x06GetRun\x12\x1b.loop.runs.v1.GetRunRequest\x1a\x1c.loop.runs.v1.GetRunResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'loop.runs.v1.service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_RUNSTATUS']._serialized_start=1722
-  _globals['_RUNSTATUS']._serialized_end=1915
-  _globals['_RUNBUDGET']._serialized_start=165
-  _globals['_RUNBUDGET']._serialized_end=352
-  _globals['_RUNSPECIFICATION']._serialized_start=355
-  _globals['_RUNSPECIFICATION']._serialized_end=696
-  _globals['_RUNVIEW']._serialized_start=699
-  _globals['_RUNVIEW']._serialized_end=1243
-  _globals['_STARTRUNREQUEST']._serialized_start=1245
-  _globals['_STARTRUNREQUEST']._serialized_end=1344
-  _globals['_STARTRUNRESPONSE']._serialized_start=1346
-  _globals['_STARTRUNRESPONSE']._serialized_end=1400
-  _globals['_STEPRUNREQUEST']._serialized_start=1402
-  _globals['_STEPRUNREQUEST']._serialized_end=1519
-  _globals['_STEPRUNRESPONSE']._serialized_start=1521
-  _globals['_STEPRUNRESPONSE']._serialized_end=1574
-  _globals['_GETRUNREQUEST']._serialized_start=1576
-  _globals['_GETRUNREQUEST']._serialized_end=1665
-  _globals['_GETRUNRESPONSE']._serialized_start=1667
-  _globals['_GETRUNRESPONSE']._serialized_end=1719
-  _globals['_RUNSERVICE']._serialized_start=1918
-  _globals['_RUNSERVICE']._serialized_end=2146
+  _globals['_RUNSTATUS']._serialized_start=2724
+  _globals['_RUNSTATUS']._serialized_end=2917
+  _globals['_RUNSTAGE']._serialized_start=2919
+  _globals['_RUNSTAGE']._serialized_end=3032
+  _globals['_ROUNDDISPOSITION']._serialized_start=3035
+  _globals['_ROUNDDISPOSITION']._serialized_end=3242
+  _globals['_RUNBUDGET']._serialized_start=197
+  _globals['_RUNBUDGET']._serialized_end=384
+  _globals['_RUNSPECIFICATION']._serialized_start=387
+  _globals['_RUNSPECIFICATION']._serialized_end=780
+  _globals['_NUMERICALWORKFLOW']._serialized_start=783
+  _globals['_NUMERICALWORKFLOW']._serialized_end=1078
+  _globals['_RESEARCHRUNVIEW']._serialized_start=1081
+  _globals['_RESEARCHRUNVIEW']._serialized_end=1570
+  _globals['_RUNVIEW']._serialized_start=1573
+  _globals['_RUNVIEW']._serialized_end=2166
+  _globals['_STARTRUNREQUEST']._serialized_start=2168
+  _globals['_STARTRUNREQUEST']._serialized_end=2293
+  _globals['_STARTRUNRESPONSE']._serialized_start=2295
+  _globals['_STARTRUNRESPONSE']._serialized_end=2349
+  _globals['_STEPRUNREQUEST']._serialized_start=2352
+  _globals['_STEPRUNREQUEST']._serialized_end=2495
+  _globals['_STEPRUNRESPONSE']._serialized_start=2497
+  _globals['_STEPRUNRESPONSE']._serialized_end=2550
+  _globals['_GETRUNREQUEST']._serialized_start=2552
+  _globals['_GETRUNREQUEST']._serialized_end=2667
+  _globals['_GETRUNRESPONSE']._serialized_start=2669
+  _globals['_GETRUNRESPONSE']._serialized_end=2721
+  _globals['_RUNSERVICE']._serialized_start=3245
+  _globals['_RUNSERVICE']._serialized_end=3473
 # @@protoc_insertion_point(module_scope)

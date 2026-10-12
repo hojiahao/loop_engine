@@ -22,8 +22,8 @@ pub(in crate::runtime::discovery::tests) struct Operations {
     runtime: PathBuf,
     database: PathBuf,
     server: Option<Child>,
-    run_deployment: Option<serde_json::Value>,
-    run_config: PathBuf,
+    pub(super) run_deployment: Option<serde_json::Value>,
+    pub(super) run_config: PathBuf,
     run_reference: PathBuf,
 }
 
@@ -106,8 +106,19 @@ impl Case {
                 .as_array_mut()
                 .unwrap()
                 .push(run["identity"].clone());
+            if let Some(identity) = run.get("research_identity") {
+                deployment["identities"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(identity.clone());
+            }
             if !stop_only {
                 deployment["runs"] = run["runs"].clone();
+                for section in ["evaluation", "portfolio"] {
+                    if let Some(configuration) = run.get(section) {
+                        deployment[section] = configuration.clone();
+                    }
+                }
             }
         }
         if stop_only {
@@ -177,9 +188,10 @@ impl Operations {
             .current_dir(self._directory.path())
             .arg("run")
             .arg("--config")
-            .arg(&self.run_config)
-            .arg("--timeout-seconds")
-            .arg("30");
+            .arg(&self.run_config);
+        if !args.contains(&"--timeout-seconds") {
+            command.arg("--timeout-seconds").arg("30");
+        }
         for argument in args {
             if *argument == "PLAN" {
                 command.arg(&self.run_reference);
@@ -194,7 +206,12 @@ impl Operations {
             .kill_on_drop(true)
             .spawn()
             .unwrap();
-        tokio::time::timeout(Duration::from_secs(35), child.wait_with_output())
+        let timeout = if args.contains(&"--timeout-seconds") {
+            245
+        } else {
+            35
+        };
+        tokio::time::timeout(Duration::from_secs(timeout), child.wait_with_output())
             .await
             .unwrap()
             .unwrap()

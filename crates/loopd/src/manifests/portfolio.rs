@@ -13,7 +13,7 @@ use prost::Message;
 use serde::{Deserialize, Serialize};
 
 use super::files::VerifiedFile;
-use super::loading::Materializer;
+use super::loading::{Materializer, ResolvedContext};
 use super::policy::check_files;
 use super::{LocalArtifacts, ObjectRef, model, verification};
 use crate::store::{
@@ -41,7 +41,7 @@ pub(crate) struct PortfolioResolver {
     pins: BTreeMap<String, PortfolioPin>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Recipe {
     schema: String,
@@ -84,6 +84,19 @@ pub(crate) struct PortfolioInputs {
     files: Vec<Arc<VerifiedFile>>,
 }
 
+/// Fully materialized portfolio recipe before the database assigns submission
+/// time. No authority or worker permit is implied by this file-backed proof.
+#[derive(Clone)]
+pub(crate) struct FrozenPortfolio {
+    pin: PortfolioPin,
+    specification: model::Backtest,
+    context: ResolvedContext,
+    factor: loop_core::factor::FactorSpec,
+    work: FactorEvaluationWork,
+    recipe: Recipe,
+    files: Vec<Arc<VerifiedFile>>,
+}
+
 pub(crate) struct PreparedPortfolio {
     pub inputs: PortfolioInputs,
     pub result: Option<BacktestResult>,
@@ -95,7 +108,7 @@ pub(crate) struct PreparedPortfolio {
 
 impl PortfolioResolver {
     pub(crate) fn open(root: &Path, pins: Vec<PortfolioPin>) -> StoreResult<Self> {
-        if pins.is_empty() || pins.len() > 4096 {
+        if pins.len() > 4096 {
             return Err(StoreError::Invalid("portfolio pin bounds"));
         }
         let mut entries = BTreeMap::new();
@@ -128,12 +141,19 @@ impl PortfolioResolver {
             )
             .ok_or(StoreError::AdmissionDenied)?
             .clone();
+        self.prepare_pin(&pin).await?.bind_job(job)
+    }
+
+    /// Materialize a transition-bound pin outside the state transaction. The
+    /// returned proof still requires exact job binding before submission.
+    pub(crate) async fn prepare_pin(&self, pin: &PortfolioPin) -> StoreResult<FrozenPortfolio> {
+        crate::store::validate_id(&pin.job_id)?;
+        crate::store::validate_id(&pin.evaluation_job_id)?;
         let registries = [self.registry.clone()];
         let mut loader = Materializer::for_evaluation(&self.source, &registries);
         let specification: model::Backtest = loader.json(&pin.specification).await?;
         let context = loader.context(&specification.context).await?;
         let factor = loader.factor(&specification.factor, &context).await?;
-        verification::frozen_job(job, &specification, &context, &factor)?;
         if specification.engine_version != "authorized-portfolio.1"
             || specification.engine != model::Engine::PrimaryCrossSectional
             || context.portfolio_request.as_ref() != Some(&pin.request)
@@ -205,15 +225,42 @@ impl PortfolioResolver {
         loader.object(&recipe.evaluation_result, true).await?;
         loader.object(&recipe.factor_values, false).await?;
         check_files(&loader.files)?;
-        Ok(PortfolioInputs {
-            job: job.clone(),
-            pin,
+        Ok(FrozenPortfolio {
+            pin: pin.clone(),
             specification,
-            provenance: context.provenance,
+            context,
+            factor,
             work,
             recipe,
             files: loader.files,
         })
+    }
+}
+
+impl FrozenPortfolio {
+    /// Recheck metadata guards and bind the exact canonical job without parsing,
+    /// hashing file contents, or launching a worker inside the transaction.
+    pub(crate) fn bind_job(&self, job: &JobSpecification) -> StoreResult<PortfolioInputs> {
+        if job.job_id.as_ref().map(|id| id.value.as_str()) != Some(self.pin.job_id.as_str()) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        check_files(&self.files)?;
+        verification::frozen_job(job, &self.specification, &self.context, &self.factor)?;
+        Ok(PortfolioInputs {
+            job: job.clone(),
+            pin: self.pin.clone(),
+            specification: self.specification.clone(),
+            provenance: self.context.provenance.clone(),
+            work: self.work.clone(),
+            recipe: self.recipe.clone(),
+            files: self.files.clone(),
+        })
+    }
+}
+
+impl BacktestPolicy for FrozenPortfolio {
+    fn validate_inputs(&self, job: &JobSpecification) -> StoreResult<()> {
+        self.bind_job(job).map(|_| ())
     }
 }
 

@@ -3,6 +3,8 @@ use std::sync::{Arc, atomic::AtomicI64};
 use loop_protocol::wire::v1::{
     Actor, ActorId, ActorKind, JobLease, JobRecord, JobState, LeaseId, job_specification,
 };
+use prost::Message;
+use sha2::{Digest, Sha256};
 use tonic::{Request, metadata::MetadataValue};
 
 use super::authority::{CAPABILITY_HEADER, Principal};
@@ -61,6 +63,95 @@ fn unpinned_job_envelopes() {
             .validate_submission(&support::command(1).specification),
         Err(StoreError::AdmissionDenied)
     ));
+}
+
+fn pinned_authority(job: &loop_protocol::wire::v1::JobSpecification) -> RuntimeAuthority {
+    RuntimeAuthority::new(
+        vec![identity()],
+        vec![super::JobPin {
+            job_id: job.job_id.as_ref().unwrap().value.clone(),
+            specification_sha256: format!("sha256:{:x}", Sha256::digest(job.encode_to_vec())),
+        }],
+        Arc::new(support::FixtureClock(AtomicI64::new(NOW))),
+    )
+    .unwrap()
+}
+
+#[test]
+fn published_descriptor() {
+    let mut job = support::command(1).specification;
+    let selection = job.protocol_selection.as_mut().unwrap();
+    selection.enabled_features = [
+        "jobs.envelope.v1",
+        "jobs.kind-input.v1",
+        "jobs.prelease-terminal.v1",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    selection.schema_descriptor_sha256 = Some(loop_protocol::wire::v1::Sha256Digest {
+        value: super::authority::RUNS_DESCRIPTOR.to_vec(),
+    });
+    selection.selection_sha256 = Some(loop_protocol::wire::v1::Sha256Digest {
+        value: loop_protocol::job::protocol_selection_sha256(selection)
+            .unwrap()
+            .to_vec(),
+    });
+    pinned_authority(&job).validate_submission(&job).unwrap();
+    job.protocol_selection
+        .as_mut()
+        .unwrap()
+        .schema_descriptor_sha256
+        .as_mut()
+        .unwrap()
+        .value[0] ^= 1;
+    let selection = job.protocol_selection.as_mut().unwrap();
+    selection.selection_sha256 = Some(loop_protocol::wire::v1::Sha256Digest {
+        value: loop_protocol::job::protocol_selection_sha256(selection)
+            .unwrap()
+            .to_vec(),
+    });
+    assert!(pinned_authority(&job).validate_submission(&job).is_err());
+}
+
+#[test]
+fn historical_executor_rotation() {
+    use loop_protocol::wire::{runs::v1 as runs, v1};
+    let mut reader = identity();
+    reader.role = Role::Research;
+    let actor = Actor {
+        actor_id: Some(ActorId {
+            value: reader.actor_id.clone(),
+        }),
+        kind: ActorKind::Service as i32,
+        authenticated_subject: reader.subject.clone(),
+        display_name: reader.display_name.clone(),
+    };
+    let mut historical = actor.clone();
+    historical.actor_id = Some(ActorId {
+        value: "retired.worker".to_owned(),
+    });
+    historical.authenticated_subject = "service:retired".to_owned();
+    let authority = registry(vec![reader]).unwrap();
+    let mut job = support::command(1).specification;
+    let (kind, input) = support::research::inputs().remove(1);
+    job.kind = kind as i32;
+    job.input = Some(input);
+    job.submitted_by = Some(historical.clone());
+    let run = runs::RunSpecification {
+        run_id: job.run_id.clone(),
+        numerical: Some(runs::NumericalWorkflow {
+            research_executor: Some(historical),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    authority.authorize_run_trial(&actor, &run, &job).unwrap();
+    assert!(authority.validate_submission(&job).is_err());
+    let mut other = run;
+    other.run_id = Some(v1::RunId {
+        value: "run.other".to_owned(),
+    });
+    assert!(authority.authorize_run_trial(&actor, &other, &job).is_err());
 }
 
 fn leased() -> (Principal, JobRecord) {

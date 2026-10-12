@@ -404,7 +404,7 @@ impl PortfolioCase {
     }
 }
 
-fn configure(f: &mut Fixture, extended: bool) {
+pub(super) fn configure(f: &mut Fixture, extended: bool) {
     let mut configuration: model::Configuration =
         serde_json::from_slice(&std::fs::read(f.path(&f.context.configuration)).unwrap()).unwrap();
     for entry in &mut configuration.policies {

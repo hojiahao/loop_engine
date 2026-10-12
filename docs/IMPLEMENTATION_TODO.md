@@ -806,7 +806,7 @@ commit, push and remote gate before the next unit):
    PR #2 merged as `6be2471`. This closes unit 1, not the whole phase. See
    `docs/verification/phase-11-persistent-runs.md` and
    `docs/development/research-runs-cli.md`.
-2. Candidate-to-numerical workflow (`pending`): convert canonical candidates into
+2. Candidate-to-numerical workflow (`in_progress`; ADR 0053): convert canonical candidates into
    frozen factor specifications and authorized evaluation/portfolio jobs; reuse
    trial, coverage and failure filtering without giving Discovery research or
    holdout authority. Bind a testable hypothesis and proposal evidence; reserve

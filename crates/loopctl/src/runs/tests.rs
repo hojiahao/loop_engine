@@ -77,6 +77,7 @@ fn view() -> wire::RunView {
         updated_at: Some(time(1)),
         deadline: Some(time(60)),
         plan_verified: true,
+        research: None,
     }
 }
 
@@ -133,9 +134,177 @@ fn preserves_revision_input() {
 
 #[test]
 fn bounds_command_deadline() {
-    for value in ["0", "121"] {
+    for value in ["0", "241"] {
         assert!(cli(&["--timeout-seconds", value, "status", "--run", "run.fixture"]).is_err());
     }
+    let crate::Command::Run(arguments) =
+        cli(&["--timeout-seconds", "121", "status", "--run", "run.fixture"])
+            .unwrap()
+            .command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.timeout(), Err(Failure::Arguments));
+}
+
+#[test]
+fn selects_numerical_workflow() {
+    let crate::Command::Run(arguments) =
+        cli(&["--workflow-version", "2", "status", "--run", "run.fixture"])
+            .unwrap()
+            .command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.workflow_version, 2);
+    assert_eq!(arguments.schema(), NUMERICAL_SCHEMA);
+    let crate::Command::Run(arguments) = cli(&["status", "--run", "run.fixture"]).unwrap().command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.workflow_version, 0);
+    assert_eq!(arguments.schema(), SCHEMA);
+    for value in ["1", "3", "02", "-1"] {
+        assert!(
+            cli(&[
+                "--workflow-version",
+                value,
+                "status",
+                "--run",
+                "run.fixture"
+            ])
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn bounds_numerical_deadline() {
+    let crate::Command::Run(arguments) = cli(&[
+        "--workflow-version",
+        "2",
+        "--timeout-seconds",
+        "240",
+        "step",
+        "--run",
+        "run.fixture",
+        "--revision",
+        "1",
+        "--key",
+        "step.fixture",
+    ])
+    .unwrap()
+    .command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.timeout(), Ok(Duration::from_secs(240)));
+    let crate::Command::Run(arguments) = cli(&[
+        "--workflow-version",
+        "2",
+        "--timeout-seconds",
+        "240",
+        "status",
+        "--run",
+        "run.fixture",
+    ])
+    .unwrap()
+    .command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.timeout(), Err(Failure::Arguments));
+    let crate::Command::Run(arguments) = cli(&[
+        "--timeout-seconds",
+        "240",
+        "step",
+        "--run",
+        "run.fixture",
+        "--revision",
+        "1",
+        "--key",
+        "step.fixture",
+    ])
+    .unwrap()
+    .command
+    else {
+        panic!("run arguments");
+    };
+    assert_eq!(arguments.timeout(), Err(Failure::Arguments));
+}
+
+fn numerical_view() -> wire::RunView {
+    let mut view = view();
+    view.research = Some(wire::ResearchRunView {
+        round: 1,
+        stage: wire::RunStage::Discovery as i32,
+        current_child: Some(wire::research_run_view::CurrentChild::Discovery(
+            view.current_job.take().unwrap(),
+        )),
+        discovery_job_id: Some(v1::JobId {
+            value: "job.child".into(),
+        }),
+        binding_sha256: Some(v1::Sha256Digest { value: vec![3; 32] }),
+        ..Default::default()
+    });
+    view
+}
+
+#[test]
+fn displays_numerical_stage() {
+    let (document, code) = render("status", Some(numerical_view())).unwrap();
+    assert_eq!(code, 0);
+    assert_eq!(document["schema"], NUMERICAL_SCHEMA);
+    assert!(document["run"].get("current_job").is_none());
+    assert_eq!(document["run"]["research"]["round"], "1");
+    assert_eq!(document["run"]["research"]["stage"], "discovery");
+    assert_eq!(
+        document["run"]["research"]["current_child"]["job_id"],
+        "job.child"
+    );
+    assert_eq!(document["run"]["research"]["disposition"], "pending");
+    assert_eq!(
+        document["run"]["research"]["binding_sha256"],
+        format!("sha256:{}", "03".repeat(32))
+    );
+    assert!(document["run"]["research"].get("candidate").is_none());
+    assert!(document["run"]["research"]["factor_spec_id"].is_null());
+}
+
+#[test]
+fn displays_research_child() {
+    use loop_protocol::wire::research::v1::{ResearchJobHandle, ResearchJobStatus};
+    let mut view = numerical_view();
+    let projection = view.research.as_mut().unwrap();
+    projection.stage = wire::RunStage::Evaluation as i32;
+    projection.evaluation_job_id = Some(v1::JobId {
+        value: "job.evaluation".into(),
+    });
+    projection.expression_id = Some(v1::FactorExpressionId {
+        value: format!("sha256:{}", "a".repeat(64)),
+    });
+    projection.factor_spec_id = Some(v1::FactorSpecId {
+        value: format!("sha256:{}", "b".repeat(64)),
+    });
+    projection.current_child = Some(wire::research_run_view::CurrentChild::Research(
+        ResearchJobHandle {
+            job_id: projection.evaluation_job_id.clone(),
+            status: ResearchJobStatus::Running as i32,
+            revision: 3,
+            submitted_at: Some(time(0)),
+            updated_at: Some(time(1)),
+        },
+    ));
+    let (document, _) = render("step", Some(view)).unwrap();
+    assert_eq!(document["run"]["research"]["stage"], "evaluation");
+    assert_eq!(
+        document["run"]["research"]["current_child"]["status"],
+        "running"
+    );
+    assert_eq!(
+        document["run"]["research"]["evaluation_job_id"],
+        "job.evaluation"
+    );
 }
 
 #[test]

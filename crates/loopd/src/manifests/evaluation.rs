@@ -75,10 +75,12 @@ struct PanelDocument {
 
 impl EvaluationResolver {
     /// Open an absolute deployment-owned development object store and exact pins.
-    /// No directory scan discovers trust. No database mutation or worker launch
+    /// Empty pins enable only the internal transition-bound preparation path;
+    /// ordinary job lookup continues to deny. No directory scan discovers trust.
+    /// No database mutation or worker launch
     /// occurs; transport authorization must precede `prepare` at the runtime.
     pub fn open(root: &std::path::Path, pins: Vec<EvaluationPin>) -> StoreResult<Self> {
-        if pins.is_empty() || pins.len() > 4096 {
+        if pins.len() > 4096 {
             return Err(StoreError::Invalid("evaluation registry bounds"));
         }
         let mut contexts = BTreeMap::new();
@@ -104,6 +106,35 @@ impl EvaluationResolver {
         job: &JobSpecification,
         lease: &LeaseId,
     ) -> StoreResult<EvaluationInputs> {
+        let job_id = &job
+            .job_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .value;
+        let context = self.pins.get(job_id).ok_or(StoreError::AdmissionDenied)?;
+        self.prepare_pin(
+            job,
+            lease,
+            &EvaluationPin {
+                job_id: job_id.clone(),
+                context: context.clone(),
+            },
+        )
+        .await
+    }
+
+    /// Resolve an operation-local pin already bound to a durable run transition.
+    /// This proves file integrity only; callers must separately establish the
+    /// research identity, current child, reservation and active lease.
+    pub(crate) async fn prepare_pin(
+        &self,
+        job: &JobSpecification,
+        lease: &LeaseId,
+        pin: &EvaluationPin,
+    ) -> StoreResult<EvaluationInputs> {
+        if job.job_id.as_ref().map(|id| id.value.as_str()) != Some(pin.job_id.as_str()) {
+            return Err(StoreError::AdmissionDenied);
+        }
         let Some(job_specification::Input::FactorEvaluation(input)) = &job.input else {
             return Err(StoreError::AdmissionDenied);
         };
@@ -118,18 +149,9 @@ impl EvaluationResolver {
             .as_ref()
             .filter(|seed| seed.value.len() == 32)
             .ok_or(StoreError::AdmissionDenied)?;
-        let context = self
-            .pins
-            .get(
-                &job.job_id
-                    .as_ref()
-                    .ok_or(StoreError::AdmissionDenied)?
-                    .value,
-            )
-            .ok_or(StoreError::AdmissionDenied)?;
         let registries = [self.registry.clone()];
         let mut loader = Materializer::for_evaluation(&self.artifacts, &registries);
-        let resolved = loader.context(context).await?;
+        let resolved = loader.context(&pin.context).await?;
         if provenance != &resolved.provenance
             || input.dataset.as_ref() != Some(&resolved.dataset.reference(&resolved.manifest.data)?)
             || !matches!(
@@ -451,6 +473,10 @@ impl EvaluationInputs {
 }
 
 impl EvaluationEvidence {
+    pub(crate) fn guards(&self) -> Vec<Arc<VerifiedFile>> {
+        self.files.clone()
+    }
+
     pub(crate) fn check(&self, record: &JobRecord) -> StoreResult<()> {
         check_files(&self.files)?;
         let expected = self.success()?;

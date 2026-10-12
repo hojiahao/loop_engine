@@ -8,7 +8,9 @@ import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { DiscoveryJobHandle, DiscoveryJobInput } from "../../discovery/v1/service_pb.js";
 import { file_loop_discovery_v1_service } from "../../discovery/v1/service_pb.js";
-import type { Actor, CommandContext, Money, PolicyReference, ProtocolSelectionSnapshot, RunId } from "../../v1/common_pb.js";
+import type { ResearchJobBudget, ResearchJobHandle } from "../../research/v1/service_pb.js";
+import { file_loop_research_v1_service } from "../../research/v1/service_pb.js";
+import type { Actor, CommandContext, FactorExpressionId, FactorSpecId, JobId, Money, PolicyReference, ProtocolSelectionSnapshot, RunId, Sha256Digest } from "../../v1/common_pb.js";
 import { file_loop_v1_common } from "../../v1/common_pb.js";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -16,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/runs/v1/service.proto.
  */
 export const file_loop_runs_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Chpsb29wL3J1bnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5ydW5zLnYxIrsBCglSdW5CdWRnZXQSFQoNbWF4aW11bV9zdGVwcxgBIAEoBBIcChRtYXhpbXVtX2lucHV0X3Rva2VucxgCIAEoBBIdChVtYXhpbXVtX291dHB1dF90b2tlbnMYAyABKAQSJAoMbWF4aW11bV9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRI0ChFtYXhpbXVtX3dhbGxfdGltZRgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiLVAgoQUnVuU3BlY2lmaWNhdGlvbhImCgRwbGFuGAEgASgLMhgubG9vcC52MS5Qb2xpY3lSZWZlcmVuY2USHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIdCgVvd25lchgDIAEoCzIOLmxvb3AudjEuQWN0b3ISIAoIZXhlY3V0b3IYBCABKAsyDi5sb29wLnYxLkFjdG9yEjcKCWRpc2NvdmVyeRgFIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYklucHV0Ej4KEnByb3RvY29sX3NlbGVjdGlvbhgGIAEoCzIiLmxvb3AudjEuUHJvdG9jb2xTZWxlY3Rpb25TbmFwc2hvdBInCgZidWRnZXQYByABKAsyFy5sb29wLnJ1bnMudjEuUnVuQnVkZ2V0EhYKDm1heGltdW1fcm91bmRzGAggASgNIqAECgdSdW5WaWV3Eh4KBnJ1bl9pZBgBIAEoCzIOLmxvb3AudjEuUnVuSWQSJwoGc3RhdHVzGAIgASgOMhcubG9vcC5ydW5zLnYxLlJ1blN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIWCg5tYXhpbXVtX3JvdW5kcxgEIAEoDRIYChBjb21wbGV0ZWRfcm91bmRzGAUgASgNEjoKC2N1cnJlbnRfam9iGAYgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEicKBmJ1ZGdldBgHIAEoCzIXLmxvb3AucnVucy52MS5SdW5CdWRnZXQSFgoOcmVzZXJ2ZWRfc3RlcHMYCCABKAQSHQoVcmVzZXJ2ZWRfaW5wdXRfdG9rZW5zGAkgASgEEh4KFnJlc2VydmVkX291dHB1dF90b2tlbnMYCiABKAQSJQoNcmVzZXJ2ZWRfY29zdBgLIAEoCzIOLmxvb3AudjEuTW9uZXkSMAoMc3VibWl0dGVkX2F0GAwgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghkZWFkbGluZRgOIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFQoNcGxhbl92ZXJpZmllZBgPIAEoCCJjCg9TdGFydFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSJgoEcGxhbhgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlIjYKEFN0YXJ0UnVuUmVzcG9uc2USIgoDcnVuGAEgASgLMhUubG9vcC5ydW5zLnYxLlJ1blZpZXcidQoOU3RlcFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBCI1Cg9TdGVwUnVuUmVzcG9uc2USIgoDcnVuGAEgASgLMhUubG9vcC5ydW5zLnYxLlJ1blZpZXciWQoNR2V0UnVuUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZydW5faWQYAiABKAsyDi5sb29wLnYxLlJ1bklkIjQKDkdldFJ1blJlc3BvbnNlEiIKA3J1bhgBIAEoCzIVLmxvb3AucnVucy52MS5SdW5WaWV3KsEBCglSdW5TdGF0dXMSGgoWUlVOX1NUQVRVU19VTlNQRUNJRklFRBAAEhUKEVJVTl9TVEFUVVNfQUNUSVZFEAESGAoUUlVOX1NUQVRVU19DT01QTEVURUQQAhIfChtSVU5fU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQAxIkCiBSVU5fU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAEEiAKHFJVTl9TVEFUVVNfREVBRExJTkVfRVhDRUVERUQQBTLkAQoKUnVuU2VydmljZRJJCghTdGFydFJ1bhIdLmxvb3AucnVucy52MS5TdGFydFJ1blJlcXVlc3QaHi5sb29wLnJ1bnMudjEuU3RhcnRSdW5SZXNwb25zZRJGCgdTdGVwUnVuEhwubG9vcC5ydW5zLnYxLlN0ZXBSdW5SZXF1ZXN0Gh0ubG9vcC5ydW5zLnYxLlN0ZXBSdW5SZXNwb25zZRJDCgZHZXRSdW4SGy5sb29wLnJ1bnMudjEuR2V0UnVuUmVxdWVzdBocLmxvb3AucnVucy52MS5HZXRSdW5SZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_discovery_v1_service, file_loop_v1_common]);
+  fileDesc("Chpsb29wL3J1bnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5ydW5zLnYxIrsBCglSdW5CdWRnZXQSFQoNbWF4aW11bV9zdGVwcxgBIAEoBBIcChRtYXhpbXVtX2lucHV0X3Rva2VucxgCIAEoBBIdChVtYXhpbXVtX291dHB1dF90b2tlbnMYAyABKAQSJAoMbWF4aW11bV9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRI0ChFtYXhpbXVtX3dhbGxfdGltZRgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiKJAwoQUnVuU3BlY2lmaWNhdGlvbhImCgRwbGFuGAEgASgLMhgubG9vcC52MS5Qb2xpY3lSZWZlcmVuY2USHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIdCgVvd25lchgDIAEoCzIOLmxvb3AudjEuQWN0b3ISIAoIZXhlY3V0b3IYBCABKAsyDi5sb29wLnYxLkFjdG9yEjcKCWRpc2NvdmVyeRgFIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYklucHV0Ej4KEnByb3RvY29sX3NlbGVjdGlvbhgGIAEoCzIiLmxvb3AudjEuUHJvdG9jb2xTZWxlY3Rpb25TbmFwc2hvdBInCgZidWRnZXQYByABKAsyFy5sb29wLnJ1bnMudjEuUnVuQnVkZ2V0EhYKDm1heGltdW1fcm91bmRzGAggASgNEjIKCW51bWVyaWNhbBgJIAEoCzIfLmxvb3AucnVucy52MS5OdW1lcmljYWxXb3JrZmxvdyKnAgoRTnVtZXJpY2FsV29ya2Zsb3cSKQoRcmVzZWFyY2hfZXhlY3V0b3IYASABKAsyDi5sb29wLnYxLkFjdG9yEigKBnJlY2lwZRgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlEj4KEWV2YWx1YXRpb25fYnVkZ2V0GAMgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI9ChBwb3J0Zm9saW9fYnVkZ2V0GAQgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI+ChJwcm90b2NvbF9zZWxlY3Rpb24YBSABKAsyIi5sb29wLnYxLlByb3RvY29sU2VsZWN0aW9uU25hcHNob3Qi6QMKD1Jlc2VhcmNoUnVuVmlldxINCgVyb3VuZBgBIAEoDRIlCgVzdGFnZRgCIAEoDjIWLmxvb3AucnVucy52MS5SdW5TdGFnZRI6CglkaXNjb3ZlcnkYAyABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGVIABI3CghyZXNlYXJjaBgEIAEoCzIjLmxvb3AucmVzZWFyY2gudjEuUmVzZWFyY2hKb2JIYW5kbGVIABIoChBkaXNjb3Zlcnlfam9iX2lkGAUgASgLMg4ubG9vcC52MS5Kb2JJZBIpChFldmFsdWF0aW9uX2pvYl9pZBgGIAEoCzIOLmxvb3AudjEuSm9iSWQSMgoNZXhwcmVzc2lvbl9pZBgHIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEi0KDmZhY3Rvcl9zcGVjX2lkGAggASgLMhUubG9vcC52MS5GYWN0b3JTcGVjSWQSLQoOYmluZGluZ19zaGEyNTYYCSABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIzCgtkaXNwb3NpdGlvbhgKIAEoDjIeLmxvb3AucnVucy52MS5Sb3VuZERpc3Bvc2l0aW9uQg8KDWN1cnJlbnRfY2hpbGQi0QQKB1J1blZpZXcSHgoGcnVuX2lkGAEgASgLMg4ubG9vcC52MS5SdW5JZBInCgZzdGF0dXMYAiABKA4yFy5sb29wLnJ1bnMudjEuUnVuU3RhdHVzEhAKCHJldmlzaW9uGAMgASgEEhYKDm1heGltdW1fcm91bmRzGAQgASgNEhgKEGNvbXBsZXRlZF9yb3VuZHMYBSABKA0SOgoLY3VycmVudF9qb2IYBiABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGUSJwoGYnVkZ2V0GAcgASgLMhcubG9vcC5ydW5zLnYxLlJ1bkJ1ZGdldBIWCg5yZXNlcnZlZF9zdGVwcxgIIAEoBBIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYCSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgKIAEoBBIlCg1yZXNlcnZlZF9jb3N0GAsgASgLMg4ubG9vcC52MS5Nb25leRIwCgxzdWJtaXR0ZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGRlYWRsaW5lGA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1wbGFuX3ZlcmlmaWVkGA8gASgIEi8KCHJlc2VhcmNoGBAgASgLMh0ubG9vcC5ydW5zLnYxLlJlc2VhcmNoUnVuVmlldyJ9Cg9TdGFydFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSJgoEcGxhbhgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlEhgKEHdvcmtmbG93X3ZlcnNpb24YAyABKA0iNgoQU3RhcnRSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyKPAQoOU3RlcFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIYChB3b3JrZmxvd192ZXJzaW9uGAQgASgNIjUKD1N0ZXBSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyJzCg1HZXRSdW5SZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBnJ1bl9pZBgCIAEoCzIOLmxvb3AudjEuUnVuSWQSGAoQd29ya2Zsb3dfdmVyc2lvbhgDIAEoDSI0Cg5HZXRSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyrBAQoJUnVuU3RhdHVzEhoKFlJVTl9TVEFUVVNfVU5TUEVDSUZJRUQQABIVChFSVU5fU1RBVFVTX0FDVElWRRABEhgKFFJVTl9TVEFUVVNfQ09NUExFVEVEEAISHwobUlVOX1NUQVRVU19CVURHRVRfRVhIQVVTVEVEEAMSJAogUlVOX1NUQVRVU19JTkZSQVNUUlVDVFVSRV9GQUlMRUQQBBIgChxSVU5fU1RBVFVTX0RFQURMSU5FX0VYQ0VFREVEEAUqcQoIUnVuU3RhZ2USGQoVUlVOX1NUQUdFX1VOU1BFQ0lGSUVEEAASFwoTUlVOX1NUQUdFX0RJU0NPVkVSWRABEhgKFFJVTl9TVEFHRV9FVkFMVUFUSU9OEAISFwoTUlVOX1NUQUdFX1BPUlRGT0xJTxADKs8BChBSb3VuZERpc3Bvc2l0aW9uEiEKHVJPVU5EX0RJU1BPU0lUSU9OX1VOU1BFQ0lGSUVEEAASHwobUk9VTkRfRElTUE9TSVRJT05fRVZBTFVBVEVEEAESHwobUk9VTkRfRElTUE9TSVRJT05fRFVQTElDQVRFEAISKQolUk9VTkRfRElTUE9TSVRJT05fUFJFVklPVVNMWV9SRUpFQ1RFRBADEisKJ1JPVU5EX0RJU1BPU0lUSU9OX0lOU1VGRklDSUVOVF9DT1ZFUkFHRRAEMuQBCgpSdW5TZXJ2aWNlEkkKCFN0YXJ0UnVuEh0ubG9vcC5ydW5zLnYxLlN0YXJ0UnVuUmVxdWVzdBoeLmxvb3AucnVucy52MS5TdGFydFJ1blJlc3BvbnNlEkYKB1N0ZXBSdW4SHC5sb29wLnJ1bnMudjEuU3RlcFJ1blJlcXVlc3QaHS5sb29wLnJ1bnMudjEuU3RlcFJ1blJlc3BvbnNlEkMKBkdldFJ1bhIbLmxvb3AucnVucy52MS5HZXRSdW5SZXF1ZXN0GhwubG9vcC5ydW5zLnYxLkdldFJ1blJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_discovery_v1_service, file_loop_research_v1_service, file_loop_v1_common]);
 
 /**
  * Cumulative reservation ceilings over all children of one run. Steps, tokens
@@ -107,6 +109,13 @@ export type RunSpecification = Message<"loop.runs.v1.RunSpecification"> & {
    * @generated from field: uint32 maximum_rounds = 8;
    */
   maximumRounds: number;
+
+  /**
+   * Presence opts into the v2 numerical workflow; absent preserves v1 bytes.
+   *
+   * @generated from field: loop.runs.v1.NumericalWorkflow numerical = 9;
+   */
+  numerical?: NumericalWorkflow | undefined;
 };
 
 /**
@@ -115,6 +124,118 @@ export type RunSpecification = Message<"loop.runs.v1.RunSpecification"> & {
  */
 export const RunSpecificationSchema: GenMessage<RunSpecification> = /*@__PURE__*/
   messageDesc(file_loop_runs_v1_service, 1);
+
+/**
+ * Immutable research delegation. This actor must have a separately registered
+ * Research Service identity; a Discovery Agent cannot acquire numerical permissions.
+ *
+ * @generated from message loop.runs.v1.NumericalWorkflow
+ */
+export type NumericalWorkflow = Message<"loop.runs.v1.NumericalWorkflow"> & {
+  /**
+   * @generated from field: loop.v1.Actor research_executor = 1;
+   */
+  researchExecutor?: Actor | undefined;
+
+  /**
+   * @generated from field: loop.v1.PolicyReference recipe = 2;
+   */
+  recipe?: PolicyReference | undefined;
+
+  /**
+   * @generated from field: loop.research.v1.ResearchJobBudget evaluation_budget = 3;
+   */
+  evaluationBudget?: ResearchJobBudget | undefined;
+
+  /**
+   * @generated from field: loop.research.v1.ResearchJobBudget portfolio_budget = 4;
+   */
+  portfolioBudget?: ResearchJobBudget | undefined;
+
+  /**
+   * @generated from field: loop.v1.ProtocolSelectionSnapshot protocol_selection = 5;
+   */
+  protocolSelection?: ProtocolSelectionSnapshot | undefined;
+};
+
+/**
+ * Describes the message loop.runs.v1.NumericalWorkflow.
+ * Use `create(NumericalWorkflowSchema)` to create a new message.
+ */
+export const NumericalWorkflowSchema: GenMessage<NumericalWorkflow> = /*@__PURE__*/
+  messageDesc(file_loop_runs_v1_service, 2);
+
+/**
+ * Safe v2 projection, without inputs, data references, leases or candidate AST.
+ * The digest binds the immutable transition evidence; it is not an authority.
+ *
+ * @generated from message loop.runs.v1.ResearchRunView
+ */
+export type ResearchRunView = Message<"loop.runs.v1.ResearchRunView"> & {
+  /**
+   * @generated from field: uint32 round = 1;
+   */
+  round: number;
+
+  /**
+   * @generated from field: loop.runs.v1.RunStage stage = 2;
+   */
+  stage: RunStage;
+
+  /**
+   * @generated from oneof loop.runs.v1.ResearchRunView.current_child
+   */
+  currentChild: {
+    /**
+     * @generated from field: loop.discovery.v1.DiscoveryJobHandle discovery = 3;
+     */
+    value: DiscoveryJobHandle;
+    case: "discovery";
+  } | {
+    /**
+     * @generated from field: loop.research.v1.ResearchJobHandle research = 4;
+     */
+    value: ResearchJobHandle;
+    case: "research";
+  } | { case: undefined; value?: undefined };
+
+  /**
+   * @generated from field: loop.v1.JobId discovery_job_id = 5;
+   */
+  discoveryJobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.JobId evaluation_job_id = 6;
+   */
+  evaluationJobId?: JobId | undefined;
+
+  /**
+   * @generated from field: loop.v1.FactorExpressionId expression_id = 7;
+   */
+  expressionId?: FactorExpressionId | undefined;
+
+  /**
+   * @generated from field: loop.v1.FactorSpecId factor_spec_id = 8;
+   */
+  factorSpecId?: FactorSpecId | undefined;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest binding_sha256 = 9;
+   */
+  bindingSha256?: Sha256Digest | undefined;
+
+  /**
+   * @generated from field: loop.runs.v1.RoundDisposition disposition = 10;
+   */
+  disposition: RoundDisposition;
+};
+
+/**
+ * Describes the message loop.runs.v1.ResearchRunView.
+ * Use `create(ResearchRunViewSchema)` to create a new message.
+ */
+export const ResearchRunViewSchema: GenMessage<ResearchRunView> = /*@__PURE__*/
+  messageDesc(file_loop_runs_v1_service, 3);
 
 /**
  * Safe persisted projection. Reservations charge each child's full frozen
@@ -200,6 +321,13 @@ export type RunView = Message<"loop.runs.v1.RunView"> & {
    * @generated from field: bool plan_verified = 15;
    */
   planVerified: boolean;
+
+  /**
+   * v2 only; mutually exclusive with the v1 current_job field.
+   *
+   * @generated from field: loop.runs.v1.ResearchRunView research = 16;
+   */
+  research?: ResearchRunView | undefined;
 };
 
 /**
@@ -207,7 +335,7 @@ export type RunView = Message<"loop.runs.v1.RunView"> & {
  * Use `create(RunViewSchema)` to create a new message.
  */
 export const RunViewSchema: GenMessage<RunView> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 2);
+  messageDesc(file_loop_runs_v1_service, 4);
 
 /**
  * @generated from message loop.runs.v1.StartRunRequest
@@ -222,6 +350,13 @@ export type StartRunRequest = Message<"loop.runs.v1.StartRunRequest"> & {
    * @generated from field: loop.v1.PolicyReference plan = 2;
    */
   plan?: PolicyReference | undefined;
+
+  /**
+   * 0 preserves v1; 2 explicitly selects numerical workflow semantics.
+   *
+   * @generated from field: uint32 workflow_version = 3;
+   */
+  workflowVersion: number;
 };
 
 /**
@@ -229,7 +364,7 @@ export type StartRunRequest = Message<"loop.runs.v1.StartRunRequest"> & {
  * Use `create(StartRunRequestSchema)` to create a new message.
  */
 export const StartRunRequestSchema: GenMessage<StartRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 3);
+  messageDesc(file_loop_runs_v1_service, 5);
 
 /**
  * @generated from message loop.runs.v1.StartRunResponse
@@ -246,7 +381,7 @@ export type StartRunResponse = Message<"loop.runs.v1.StartRunResponse"> & {
  * Use `create(StartRunResponseSchema)` to create a new message.
  */
 export const StartRunResponseSchema: GenMessage<StartRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 4);
+  messageDesc(file_loop_runs_v1_service, 6);
 
 /**
  * @generated from message loop.runs.v1.StepRunRequest
@@ -266,6 +401,11 @@ export type StepRunRequest = Message<"loop.runs.v1.StepRunRequest"> & {
    * @generated from field: uint64 expected_revision = 3;
    */
   expectedRevision: bigint;
+
+  /**
+   * @generated from field: uint32 workflow_version = 4;
+   */
+  workflowVersion: number;
 };
 
 /**
@@ -273,7 +413,7 @@ export type StepRunRequest = Message<"loop.runs.v1.StepRunRequest"> & {
  * Use `create(StepRunRequestSchema)` to create a new message.
  */
 export const StepRunRequestSchema: GenMessage<StepRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 5);
+  messageDesc(file_loop_runs_v1_service, 7);
 
 /**
  * @generated from message loop.runs.v1.StepRunResponse
@@ -290,7 +430,7 @@ export type StepRunResponse = Message<"loop.runs.v1.StepRunResponse"> & {
  * Use `create(StepRunResponseSchema)` to create a new message.
  */
 export const StepRunResponseSchema: GenMessage<StepRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 6);
+  messageDesc(file_loop_runs_v1_service, 8);
 
 /**
  * @generated from message loop.runs.v1.GetRunRequest
@@ -305,6 +445,11 @@ export type GetRunRequest = Message<"loop.runs.v1.GetRunRequest"> & {
    * @generated from field: loop.v1.RunId run_id = 2;
    */
   runId?: RunId | undefined;
+
+  /**
+   * @generated from field: uint32 workflow_version = 3;
+   */
+  workflowVersion: number;
 };
 
 /**
@@ -312,7 +457,7 @@ export type GetRunRequest = Message<"loop.runs.v1.GetRunRequest"> & {
  * Use `create(GetRunRequestSchema)` to create a new message.
  */
 export const GetRunRequestSchema: GenMessage<GetRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 7);
+  messageDesc(file_loop_runs_v1_service, 9);
 
 /**
  * @generated from message loop.runs.v1.GetRunResponse
@@ -329,7 +474,7 @@ export type GetRunResponse = Message<"loop.runs.v1.GetRunResponse"> & {
  * Use `create(GetRunResponseSchema)` to create a new message.
  */
 export const GetRunResponseSchema: GenMessage<GetRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 8);
+  messageDesc(file_loop_runs_v1_service, 10);
 
 /**
  * @generated from enum loop.runs.v1.RunStatus
@@ -373,6 +518,77 @@ export const RunStatusSchema: GenEnum<RunStatus> = /*@__PURE__*/
   enumDesc(file_loop_runs_v1_service, 0);
 
 /**
+ * @generated from enum loop.runs.v1.RunStage
+ */
+export enum RunStage {
+  /**
+   * @generated from enum value: RUN_STAGE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: RUN_STAGE_DISCOVERY = 1;
+   */
+  DISCOVERY = 1,
+
+  /**
+   * @generated from enum value: RUN_STAGE_EVALUATION = 2;
+   */
+  EVALUATION = 2,
+
+  /**
+   * @generated from enum value: RUN_STAGE_PORTFOLIO = 3;
+   */
+  PORTFOLIO = 3,
+}
+
+/**
+ * Describes the enum loop.runs.v1.RunStage.
+ */
+export const RunStageSchema: GenEnum<RunStage> = /*@__PURE__*/
+  enumDesc(file_loop_runs_v1_service, 1);
+
+/**
+ * @generated from enum loop.runs.v1.RoundDisposition
+ */
+export enum RoundDisposition {
+  /**
+   * Zero explicitly means this round has no committed research disposition.
+   *
+   * @generated from enum value: ROUND_DISPOSITION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Registered portfolio evidence, never an assertion of formal admission.
+   *
+   * @generated from enum value: ROUND_DISPOSITION_EVALUATED = 1;
+   */
+  EVALUATED = 1,
+
+  /**
+   * @generated from enum value: ROUND_DISPOSITION_DUPLICATE = 2;
+   */
+  DUPLICATE = 2,
+
+  /**
+   * @generated from enum value: ROUND_DISPOSITION_PREVIOUSLY_REJECTED = 3;
+   */
+  PREVIOUSLY_REJECTED = 3,
+
+  /**
+   * @generated from enum value: ROUND_DISPOSITION_INSUFFICIENT_COVERAGE = 4;
+   */
+  INSUFFICIENT_COVERAGE = 4,
+}
+
+/**
+ * Describes the enum loop.runs.v1.RoundDisposition.
+ */
+export const RoundDispositionSchema: GenEnum<RoundDisposition> = /*@__PURE__*/
+  enumDesc(file_loop_runs_v1_service, 2);
+
+/**
  * RunService is owned by the authenticated Human operator. The server resolves
  * the frozen plan and Agent executor; callers cannot supply child job inputs,
  * replacement models, budgets, datasets, or protected research capabilities.
@@ -411,4 +627,3 @@ export const RunService: GenService<{
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_runs_v1_service, 0);
-

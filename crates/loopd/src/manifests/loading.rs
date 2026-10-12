@@ -22,6 +22,7 @@ pub(super) struct Materializer<'a> {
     budget: ReadBudget,
 }
 
+#[derive(Clone)]
 pub(super) struct ResolvedContext {
     pub manifest: model::Context,
     pub registry: Arc<OperatorPolicyRegistry>,

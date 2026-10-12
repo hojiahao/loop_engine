@@ -270,6 +270,12 @@ async fn fixture(transformed: bool) -> Fixture {
     fixture_with_minimum(transformed, 9500).await
 }
 
+pub(in crate::manifests::tests) async fn run_fixture() -> Fixture {
+    let mut fixture = fixture_with_minimum(false, 6666).await;
+    portfolio::configure_run(&mut fixture);
+    fixture
+}
+
 async fn fixture_with_minimum(transformed: bool, minimum: u32) -> Fixture {
     let mut fixture = Fixture::new();
     let captured = tokio::time::timeout(

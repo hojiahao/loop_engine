@@ -362,6 +362,10 @@ impl RuntimeService {
 }
 
 pub(super) fn validate_deadline<T>(request: &Request<T>) -> Result<(), Status> {
+    check_deadline(request, 120_000_000_000)
+}
+
+pub(super) fn check_deadline<T>(request: &Request<T>, maximum: u64) -> Result<(), Status> {
     let invalid = || status(StoreError::Invalid("discovery caller deadline"));
     let value = request
         .metadata()
@@ -387,7 +391,7 @@ pub(super) fn validate_deadline<T>(request: &Request<T>) -> Result<(), Status> {
     };
     if amount
         .checked_mul(nanos)
-        .is_none_or(|nanos| nanos == 0 || nanos > 120_000_000_000)
+        .is_none_or(|nanos| nanos == 0 || nanos > maximum)
     {
         return Err(invalid());
     }
@@ -436,6 +440,18 @@ mod tests {
                 .metadata_mut()
                 .insert("grpc-timeout", value.parse().unwrap());
             assert!(validate_deadline(&request).is_ok(), "{value}");
+        }
+    }
+
+    #[test]
+    fn numerical_deadline() {
+        for (value, allowed) in [("240S", true), ("241S", false)] {
+            let mut request = Request::new(());
+            request
+                .metadata_mut()
+                .insert("grpc-timeout", value.parse().unwrap());
+            assert_eq!(check_deadline(&request, 240_000_000_000).is_ok(), allowed);
+            assert!(validate_deadline(&request).is_err());
         }
     }
 }

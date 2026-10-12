@@ -37,7 +37,7 @@ pub(super) struct BacktestEntry {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Context {
+pub(crate) struct Context {
     pub schema: String,
     pub source: ObjectRef,
     pub registry: ObjectRef,
@@ -103,7 +103,7 @@ impl Policy {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct PolicyDocument {
     pub schema: String,

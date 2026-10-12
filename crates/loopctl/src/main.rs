@@ -50,7 +50,7 @@ async fn main() -> ExitCode {
         Err(_) => return report(output::Failure::Arguments, schema),
     };
     let schema = match &cli.command {
-        Command::Run(_) => runs::SCHEMA,
+        Command::Run(arguments) => arguments.schema(),
         _ => output::SCHEMA,
     };
     let result = match cli.command {

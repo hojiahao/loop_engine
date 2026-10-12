@@ -1,7 +1,7 @@
 # Persistent research run CLI
 
 `loopctl run` operates one human-owned, administrator-pinned research run. The
-run shares a durable budget across its Discovery children. This workflow does
+default version-0 workflow shares a durable budget across its Discovery children. It does
 not perform numerical evaluation, semantic checking, factor admission or
 unattended scheduling; those are separate integrations.
 
@@ -206,8 +206,356 @@ Both restart and repeated commands preserve the original absolute deadline.
 Errors print a redacted `loop.run-cli/v1` envelope to stderr. A terminal run
 response still prints its safe projection to stdout even when it exits with 7.
 SIGINT only drops the client RPC; it does not claim to cancel the durable run or
-refund reservations. `--timeout-seconds` bounds connection plus RPC to 1–120
+refund reservations. For the default workflow, `--timeout-seconds` bounds connection plus RPC to 1–120
 seconds (default 30); a deadline does not authorize resending a model invocation.
+
+## Numerical workflow (opt-in)
+
+Phase 11.2 adds an explicitly selected workflow for candidate-to-evaluation and
+portfolio execution. The configuration below describes the implemented contract;
+acceptance remains in progress until the installed service, database, worker,
+restart and remote gates are recorded in the
+[numerical workflow evidence](../verification/phase-11-numerical-workflow.md).
+It does not enable formal factor admission.
+
+The default `--workflow-version 0` preserves existing discovery-only plans,
+request bytes and `loop.run-cli/v1` output. Select `--workflow-version 2` for
+every start, step and status request against a numerical plan; the version must
+match the stored plan. A version flag cannot convert an existing run or grant
+Discovery access to Research or holdout data. Only versions 0 and 2 are valid.
+The numerical executor is a separately registered Research **Service** identity,
+distinct from both the Human owner and Discovery Agent. Its frozen protocol uses
+`loop.v1` and exactly `jobs.envelope.v1`, `jobs.kind-input.v1` and
+`jobs.prelease-terminal.v1`; copying Discovery or Provider capabilities into
+this selection is rejected.
+
+### Prepare the numerical inputs
+
+Prepare a fresh, unused run ID and its Discovery plan first. Both the Discovery
+input and numerical recipe must identify the same complete dataset manifest and
+ordered snapshot IDs. An existing run cannot be converted to v2. Use the
+[causal panel workflow](causal-factor-panels.md),
+[factor evaluation guide](factor-evaluation.md) and
+[authorized portfolio guide](authorized-portfolios.md) to publish:
+
+- The six-component `loop.research-context/v1` manifest and every referenced
+  source, registry, configuration, data, calendar and environment object.
+- One explicit factor-panel snapshot, its actual value objects and any declared
+  transformation exposures, plus the execution snapshots used by the portfolio.
+- A `loop.execution_tape` version-1 artifact with `application/json` media type,
+  registered inside that same frozen dataset. A loose tape file is insufficient.
+- Nine actual policy documents, including the frozen coverage, portfolio,
+  execution, cost and statistical settings required by the installed workers.
+
+The context must use the `in_sample` role within the frozen 2007–2016 boundary,
+the primary cross-sectional engine, and `factor-evaluator.2` for a raw panel or
+`factor-evaluator.3` for a transformed panel. It must not already contain a
+`portfolio_request`. Development validation, warmup-only and protected samples
+are rejected by this workflow, even though other authorized numerical workflows
+may support development validation. Snapshot `known_through_ms` cannot exceed
+the sample end. Synthetic and public-development fixtures do not establish
+licensed, survivorship-aware production data quality.
+
+Publish this recipe in the private run-plan object store. Replace every digest
+and byte count with the actual referenced object; the displayed sizes are
+examples. Policy values must be exact IDs from the context configuration,
+distinct across all nine roles; their names need not use the `policy.` prefix.
+
+```json
+{
+  "schema": "loop.run-numerical/v1",
+  "id": "recipe.us.research",
+  "revision": "1",
+  "evaluation_context": {"sha256": "sha256:<context digest>", "byte_size": 900},
+  "direction": "higher_is_better",
+  "deterministic_seed": "sha256:<fixed 64 lowercase hexadecimal digits>",
+  "execution_tape": {"sha256": "sha256:<registered tape digest>", "byte_size": 320},
+  "policies": {
+    "calendar_policy": "policy.calendar",
+    "cost_policy": "policy.cost",
+    "data_policy": "policy.data",
+    "evaluation_policy": "policy.evaluation",
+    "execution_policy": "policy.execution",
+    "neutralization_policy": "policy.neutralization",
+    "portfolio_policy": "policy.portfolio",
+    "preprocess_policy": "policy.preprocess",
+    "universe_policy": "policy.universe"
+  },
+  "hypothesis": "The preregistered signal ranks the declared IS cross section.",
+  "required_observations": ["Causal daily prices and next-session execution observations."],
+  "falsification_criteria": ["Coverage or economic evidence fails the frozen research policy."]
+}
+```
+
+`direction` accepts only `higher_is_better` or `lower_is_better`. There is no
+automatic direction selection. The exact 32-byte seed remains fixed across
+rounds so renaming jobs or advancing the run cannot evade duplicate detection.
+The hypothesis is nonempty; each observation/criterion list has 1–16 entries.
+Every narrative entry is at most 2,048 UTF-8 bytes, has no control characters or
+leading/trailing whitespace. These are administrator declarations, recorded as
+recipe-declared claims, not model reasoning or evidence that a factor works.
+
+The recipe parser rejects unknown fields and requires its compact canonical
+encoding. Preserve the top-level field order shown above, the `ObjectRef` order
+`sha256`, `byte_size`, and lexicographically sorted policy-role keys; encode as
+UTF-8 without insignificant spaces or a trailing newline. For example, after
+replacing placeholders in a private `numerical-recipe.source.json`, use the
+installed project interpreter to construct the bytes:
+
+```python
+import hashlib
+import json
+from pathlib import Path
+
+source = json.loads(Path("/srv/loop/private/numerical-recipe.source.json").read_text())
+fields = (
+    "schema", "id", "revision", "evaluation_context", "direction",
+    "deterministic_seed", "execution_tape", "policies", "hypothesis",
+    "required_observations", "falsification_criteria",
+)
+if set(source) != set(fields):
+    raise ValueError("unexpected or missing recipe fields")
+recipe = {name: source[name] for name in fields}
+for name in ("evaluation_context", "execution_tape"):
+    ref = recipe[name]
+    if set(ref) != {"sha256", "byte_size"}:
+        raise ValueError("invalid object reference")
+    recipe[name] = {"sha256": ref["sha256"], "byte_size": ref["byte_size"]}
+recipe["policies"] = dict(sorted(recipe["policies"].items()))
+recipe_bytes = json.dumps(recipe, ensure_ascii=False, separators=(",", ":")).encode()
+recipe_ref = {
+    "sha256": "sha256:" + hashlib.sha256(recipe_bytes).hexdigest(),
+    "byte_size": len(recipe_bytes),
+}
+```
+
+Publish `recipe_bytes` once using the no-overwrite object-publication procedure
+above and retain `recipe_ref`. The context and tape remain in the development
+artifact store; only the small recipe belongs in the run-plan store. An object
+reference is always a digest **and** an exact byte count, never a caller path.
+
+### Register the Research service
+
+Add a separate entry to the runtime `identities` array. This is an array element,
+not a new top-level `research_identity` configuration property:
+
+```json
+{
+  "actor_id": "service.research.us",
+  "subject": "service:research:us",
+  "display_name": "US numerical research",
+  "role": "research",
+  "certificate_sha256": ["sha256:<Research leaf certificate DER digest>"],
+  "not_before_ms": 1791763200000,
+  "expires_at_ms": 1794441600000,
+  "run_ids": ["run.numerical.001"]
+}
+```
+
+Replace the example dates with the approved execution interval and the digest
+with the actual independently provisioned certificate. The server checks
+identity validity at execution time; changing the display name, subject or
+actor in the frozen plan requires a new plan. Numerical children use an
+internally scoped Research service delegation. The Human operator is never
+turned into a Research principal, and the Discovery Agent never receives this
+service's certificate, numerical access or holdout capability.
+
+For a deployment that operates only dynamically reserved run children, the
+existing `jobs` and `data` arrays may be empty. Add both workers and retain the
+existing TLS, identity, Discovery and storage sections:
+
+```json
+{
+  "jobs": [],
+  "data": [],
+  "evaluation": {
+    "python": "/srv/loop/runtime/python/bin/python3.14",
+    "output_store": "/srv/loop/private/evaluation-output",
+    "contexts": []
+  },
+  "portfolio": {
+    "python": "/srv/loop/runtime/python/bin/python3.14",
+    "output_store": "/srv/loop/private/portfolio-output",
+    "jobs": []
+  }
+}
+```
+
+Replace the example interpreter with the installed, canonical absolute path;
+do not register a symlink or create another environment merely to match this
+example. Empty static pins do not enable generic
+jobs: only a verified current run transition can supply a dynamic pin. Preserve
+existing static pins if this deployment also serves standalone numerical jobs.
+The development, protected, view and two output roots must be separate;
+run plans must overlap none of them. Output and development directories are
+owned by the runtime UID with mode `0700`. The development object store also
+receives controlled, immutable derived manifests and verified copies of factor
+outputs; no existing market-data object is overwritten. The service account
+must therefore be able to publish new objects there. Both installed numerical
+workers are required before a v2 run can reserve its first child.
+
+### Encode the v2 run template
+
+Use the same base fields as the v1 template, with `plan` omitted. Set
+`RunSpecification.numerical` with these exact fields:
+
+| Field | Binding |
+| --- | --- |
+| `research_executor` | Full registered Research actor with `kind = ACTOR_KIND_SERVICE` |
+| `recipe` | `PolicyReference` for the recipe's ID, revision and raw SHA-256 |
+| `evaluation_budget` | Positive steps/wall time; explicit token and exact USD ceilings |
+| `portfolio_budget` | Positive steps/wall time; explicit token and exact USD ceilings |
+| `protocol_selection` | Separate installed numerical protocol snapshot described below |
+
+Both budgets use `loop.research.v1.ResearchJobBudget`. Numerical work makes no
+model calls, so set input/output token ceilings and USD cost to zero. Retain a
+positive step ceiling and enough wall time for verification, actual worker
+execution and completion. The evaluator is bounded to 60 seconds of worker time;
+the portfolio worker to 180 seconds. Those are limits, not promised runtimes.
+If nonzero token ceilings are configured, they remain part of the frozen child
+budget and parent reservation; the runtime does not silently replace them.
+The parent must fit complete Discovery, evaluation and portfolio reservations
+for each intended round, plus elapsed orchestration time. No child receives a
+clipped budget and no unused reservation is refunded. A filtered candidate can
+finish a round without creating a numerical child.
+
+Prepare the numerical protocol from actual deployed client/server build pins
+and the compatible descriptor, using the same fields and bounds documented in
+the Discovery guide. Set `selected_package` to `loop.v1`, set exactly the three
+sorted numerical features below, then recompute the domain-separated selection
+digest. Do not hash Protobuf bytes as the selection identity:
+
+```python
+from loop.v1 import common_pb2
+from loop_protocol.job import protocol_selection_sha256
+
+numerical_protocol = common_pb2.ProtocolSelectionSnapshot()
+numerical_protocol.CopyFrom(approved_protocol)
+numerical_protocol.selected_package = "loop.v1"
+del numerical_protocol.enabled_features[:]
+numerical_protocol.enabled_features.extend([
+    "jobs.envelope.v1", "jobs.kind-input.v1", "jobs.prelease-terminal.v1",
+])
+numerical_protocol.selection_sha256.value = protocol_selection_sha256(numerical_protocol)
+```
+
+Here `approved_protocol` is the generated snapshot prepared for the actual
+deployment, with a non-future selection time, exact descriptor/build hashes and
+valid effective limits. It is not a discovery permission grant. Use
+`from loop.runs.v1 import service_pb2 as runs` and
+`from loop.research.v1 import service_pb2 as research` for the generated workflow
+and budget messages. For example, extend a fresh base template prepared using
+the first section of this guide. The private `run-base.binpb` already contains
+the exact Discovery input, actors, protocol, run ID and approved parent budget;
+it has never been registered or started as a v1 run. The example child budgets
+are administrative ceilings, not measured performance estimates:
+
+```python
+from google.protobuf.duration_pb2 import Duration
+from loop.runs.v1 import service_pb2 as runs
+from loop.research.v1 import service_pb2 as research
+
+specification = runs.RunSpecification()
+specification.ParseFromString(Path("/srv/loop/private/run-base.binpb").read_bytes())
+if specification.HasField("plan") or specification.HasField("numerical"):
+    raise ValueError("base template must omit plan and numerical")
+specification.numerical.CopyFrom(runs.NumericalWorkflow(
+    research_executor=common_pb2.Actor(
+        actor_id=common_pb2.ActorId(value="service.research.us"),
+        kind=common_pb2.ACTOR_KIND_SERVICE,
+        display_name="US numerical research",
+        authenticated_subject="service:research:us",
+    ),
+    recipe=common_pb2.PolicyReference(
+        policy_id=common_pb2.PolicyId(value=recipe["id"]),
+        revision=recipe["revision"],
+        sha256=common_pb2.Sha256Digest(value=hashlib.sha256(recipe_bytes).digest()),
+    ),
+    evaluation_budget=research.ResearchJobBudget(
+        maximum_steps=1, maximum_input_tokens=0, maximum_output_tokens=0,
+        maximum_cost=common_pb2.Money(
+            currency_code="USD", amount=common_pb2.ExactDecimal(value="0"),
+        ),
+        maximum_wall_time=Duration(seconds=120),
+    ),
+    portfolio_budget=research.ResearchJobBudget(
+        maximum_steps=1, maximum_input_tokens=0, maximum_output_tokens=0,
+        maximum_cost=common_pb2.Money(
+            currency_code="USD", amount=common_pb2.ExactDecimal(value="0"),
+        ),
+        maximum_wall_time=Duration(seconds=240),
+    ),
+    protocol_selection=numerical_protocol,
+))
+template_bytes = specification.SerializeToString(deterministic=True)
+template_ref = {
+    "sha256": "sha256:" + hashlib.sha256(template_bytes).hexdigest(),
+    "byte_size": len(template_bytes),
+}
+```
+
+Publish `template_bytes` once in the same private run-plan store. Then publish
+this v2 wrapper, using the computed `template_ref` and `recipe_ref` values:
+
+```json
+{
+  "schema": "loop.research-run/v2",
+  "id": "research.us.numerical",
+  "revision": "1",
+  "specification": {"sha256": "sha256:<v2 template digest>", "byte_size": 2345},
+  "numerical_recipe": {"sha256": "sha256:<recipe digest>", "byte_size": 1200}
+}
+```
+
+The recipe digest in this wrapper must equal the template's
+`numerical.recipe.sha256`. A v1 wrapper must omit `numerical_recipe` and its
+template must omit `numerical`; both are mandatory for v2. Add the v2 wrapper's
+full reference to `runs.plans`, restart the compatible service, and encode the
+operator's private `PolicyReference` from this wrapper's ID/revision/hash. That
+small binary reference is the `--plan` file in the following commands.
+
+### Execute and inspect
+
+```bash
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 2 start \
+  --plan /srv/loop/operator/numerical-plan.binpb --key start.numerical.001
+
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 2 step \
+  --timeout-seconds 240 --run run.numerical.001 --revision 1 --key step.numerical.001
+
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 2 status \
+  --run run.numerical.001
+```
+
+One explicit step executes or recovers at most one child and commits at most
+one stage transition. Numerical steps accept a total client deadline up to
+240 seconds, to cover the bounded 180-second portfolio worker plus orchestration.
+Other commands and the legacy workflow retain the 120-second ceiling. The
+default remains 30 seconds; no command retries automatically or replenishes
+budget. After an uncertain response, reuse the exact version, key and revision.
+
+The original parent deadline also bounds input preparation, numerical execution
+and completed-child verification. If it expires during that work, the current
+call returns an unavailable error; a subsequent explicit `step` records the
+durable `deadline_exceeded` run status. The CLI does not issue that next command
+automatically. A retry that finds an already committed command receipt returns
+the original historical projection without launching a worker. This receipt
+replay differs from recovering a completed child whose parent transition has
+not committed, which must still verify its actual evidence.
+
+Run state, transition ancestry and the global trial ledger are read within
+PostgreSQL `REPEATABLE READ READ ONLY` transactions. A concurrent commit cannot
+mix old parent state with newer children or trial history in one response.
+Unavailable or unauthorized historical evidence denies the complete ledger;
+the reader does not silently remove those trials.
+
+Numerical responses use `loop.run-cli/v2`. Its `run.research` object contains
+`round`, `stage` (`discovery`, `evaluation`, `portfolio`), a typed current-child
+projection, source job IDs, factor identities, the immutable binding digest and
+the round disposition. The legacy `run.current_job` field is absent in v2.
+All integers remain decimal strings. The view never contains input data, an AST,
+lease or capability. `evaluated` means portfolio evidence was registered; it is
+not factor admission, a positive finding or independent backtest agreement.
 
 ## Disable and recover
 
@@ -219,8 +567,12 @@ commands require the registered Agent identity; changing an operator JSON actor
 does not grant that role. Run-level pause/cancel/resume and background scheduling
 are subsequent delivery units.
 
-Migration 0015 is additive. Disable writers before a deployment rollback, keep a
+Migrations 0015 and 0016 are additive. The latter adds immutable v2 transition
+evidence and fences incompatible writers; installing it does not convert v1
+runs. Disable writers before a deployment rollback, keep a
 migration-aware binary and preserve research history. Do not deploy an older
 writer over the new schema or perform destructive down-migrations. The design
 and verification requirements are recorded in
-[ADR 0051](../adr/0051-persistent-research-runs.md).
+[ADR 0051](../adr/0051-persistent-research-runs.md) and
+[ADR 0053](../adr/0053-numerical-run-workflow.md). Local acceptance commands do not
+authorize production migration, dataset purchases or confirmation-set unlocks.

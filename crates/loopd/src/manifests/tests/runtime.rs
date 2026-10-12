@@ -1,5 +1,5 @@
 mod deployment;
-mod evaluation;
+pub(super) mod evaluation;
 mod holdout;
 mod process;
 use crate::test_support::tls;

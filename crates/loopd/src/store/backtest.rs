@@ -202,7 +202,7 @@ impl BacktestRepository for PgJobStore {
                 None,
             )
             .await?;
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = super::research_ledger::begin_snapshot(self).await?;
         let (_, result) = current_in_transaction(
             &prepared,
             &mut transaction,

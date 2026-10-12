@@ -5,6 +5,7 @@ mod fixture;
 mod lifecycle;
 mod retry;
 mod runs;
+mod workflow;
 use crate::test_support::tls;
 
 use loop_protocol::wire::{discovery::v1 as wire, provider::v1 as provider, v1};

@@ -1,11 +1,22 @@
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 
 import { DiscoveryJobStatus } from "./generated/loop/discovery/v1/service_pb.js";
-import { RunStatus, type RunView } from "./generated/loop/runs/v1/service_pb.js";
+import { ResearchJobStatus } from "./generated/loop/research/v1/service_pb.js";
+import {
+  RoundDisposition,
+  RunStage,
+  RunStatus,
+  type RunView,
+} from "./generated/loop/runs/v1/service_pb.js";
 import type { Money } from "./generated/loop/v1/common_pb.js";
 
 const MAX_SIGNED = 9_223_372_036_854_775_807n;
 const MAX_WALL = 2_592_000n;
+
+/** Version selection is explicit and must be checked before any side effect. */
+export function validate_workflow(version: number): void {
+  if (version !== 0 && version !== 2) invalid();
+}
 
 /** Shape checks only: transport authority and historical spend are server gates. */
 export function validate_view(view: RunView): void {
@@ -75,6 +86,10 @@ export function validate_view(view: RunView): void {
     timestamp(view.deadline) - submitted !== wall.seconds * 1_000_000_000n + BigInt(wall.nanos)
   )
     invalid();
+  if (view.research !== undefined) {
+    validate_research(view);
+    return;
+  }
   const child = view.currentJob;
   if (child === undefined) invalid();
   identity(child.jobId?.value);
@@ -89,6 +104,88 @@ export function validate_view(view: RunView): void {
     invalid();
   const childSubmitted = timestamp(child.submittedAt);
   if (childSubmitted < submitted || timestamp(child.updatedAt) < childSubmitted) invalid();
+}
+
+function validate_research(view: RunView): void {
+  const research = view.research;
+  if (research === undefined) invalid();
+  if (
+    view.currentJob !== undefined ||
+    view.revision > BigInt(view.maximumRounds * 3 + 1) ||
+    !Number.isInteger(research.round) ||
+    research.round < 1 ||
+    research.round > view.maximumRounds ||
+    research.round < view.completedRounds ||
+    research.round > view.completedRounds + 1 ||
+    (view.status === RunStatus.ACTIVE && research.round !== view.completedRounds + 1) ||
+    (view.status === RunStatus.COMPLETED && research.round !== view.completedRounds) ||
+    research.bindingSha256?.value.length !== 32 ||
+    ![RunStage.DISCOVERY, RunStage.EVALUATION, RunStage.PORTFOLIO].includes(research.stage) ||
+    ![
+      RoundDisposition.UNSPECIFIED,
+      RoundDisposition.EVALUATED,
+      RoundDisposition.DUPLICATE,
+      RoundDisposition.PREVIOUSLY_REJECTED,
+      RoundDisposition.INSUFFICIENT_COVERAGE,
+    ].includes(research.disposition)
+  )
+    invalid();
+  identity(research.discoveryJobId?.value);
+  const filtered = [RoundDisposition.DUPLICATE, RoundDisposition.PREVIOUSLY_REJECTED].includes(
+    research.disposition,
+  );
+  if (research.stage !== RunStage.DISCOVERY || filtered) {
+    factor_id(research.expressionId?.value);
+    factor_id(research.factorSpecId?.value);
+  } else if (research.expressionId !== undefined || research.factorSpecId !== undefined) invalid();
+  if (research.stage === RunStage.DISCOVERY) {
+    if (
+      research.evaluationJobId !== undefined ||
+      (!filtered && research.disposition !== RoundDisposition.UNSPECIFIED)
+    )
+      invalid();
+  } else {
+    identity(research.evaluationJobId?.value);
+    if (research.evaluationJobId?.value === research.discoveryJobId?.value) invalid();
+  }
+  if (
+    (filtered && research.stage !== RunStage.DISCOVERY) ||
+    (research.disposition === RoundDisposition.INSUFFICIENT_COVERAGE &&
+      research.stage !== RunStage.EVALUATION) ||
+    (research.disposition === RoundDisposition.EVALUATED &&
+      research.stage !== RunStage.PORTFOLIO) ||
+    (view.status === RunStatus.ACTIVE && research.disposition !== RoundDisposition.UNSPECIFIED) ||
+    (view.status === RunStatus.COMPLETED && research.disposition === RoundDisposition.UNSPECIFIED)
+  )
+    invalid();
+  const current = research.currentChild;
+  if (current.case === undefined) invalid();
+  const child = current.value;
+  const discovery = current.case === "discovery";
+  if (
+    (research.stage === RunStage.DISCOVERY) !== discovery ||
+    !Number.isInteger(child.status) ||
+    child.status < 1 ||
+    child.status > (discovery ? DiscoveryJobStatus.PAUSED : ResearchJobStatus.BUDGET_EXHAUSTED) ||
+    (discovery && child.jobId?.value !== research.discoveryJobId?.value) ||
+    (research.stage === RunStage.EVALUATION &&
+      child.jobId?.value !== research.evaluationJobId?.value) ||
+    (research.stage === RunStage.PORTFOLIO &&
+      (child.jobId?.value === research.discoveryJobId?.value ||
+        child.jobId?.value === research.evaluationJobId?.value)) ||
+    child.revision <= 0n ||
+    child.revision > MAX_SIGNED ||
+    (research.disposition !== RoundDisposition.UNSPECIFIED &&
+      child.status !== (discovery ? DiscoveryJobStatus.SUCCEEDED : ResearchJobStatus.SUCCEEDED))
+  )
+    invalid();
+  identity(child.jobId?.value);
+  const submitted = timestamp(child.submittedAt);
+  if (submitted < timestamp(view.submittedAt) || timestamp(child.updatedAt) < submitted) invalid();
+}
+
+function factor_id(value: string | undefined): void {
+  if (value === undefined || /^sha256:[a-f0-9]{64}$/.exec(value)?.[0] !== value) invalid();
 }
 
 function identity(value: string | undefined): void {

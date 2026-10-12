@@ -34,6 +34,58 @@ pub struct RunSpecification {
     pub budget: ::core::option::Option<RunBudget>,
     #[prost(uint32, tag = "8")]
     pub maximum_rounds: u32,
+    #[prost(message, optional, tag = "9")]
+    pub numerical: ::core::option::Option<NumericalWorkflow>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NumericalWorkflow {
+    #[prost(message, optional, tag = "1")]
+    pub research_executor: ::core::option::Option<super::super::v1::Actor>,
+    #[prost(message, optional, tag = "2")]
+    pub recipe: ::core::option::Option<super::super::v1::PolicyReference>,
+    #[prost(message, optional, tag = "3")]
+    pub evaluation_budget: ::core::option::Option<
+        super::super::research::v1::ResearchJobBudget,
+    >,
+    #[prost(message, optional, tag = "4")]
+    pub portfolio_budget: ::core::option::Option<
+        super::super::research::v1::ResearchJobBudget,
+    >,
+    #[prost(message, optional, tag = "5")]
+    pub protocol_selection: ::core::option::Option<
+        super::super::v1::ProtocolSelectionSnapshot,
+    >,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResearchRunView {
+    #[prost(uint32, tag = "1")]
+    pub round: u32,
+    #[prost(enumeration = "RunStage", tag = "2")]
+    pub stage: i32,
+    #[prost(message, optional, tag = "5")]
+    pub discovery_job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "6")]
+    pub evaluation_job_id: ::core::option::Option<super::super::v1::JobId>,
+    #[prost(message, optional, tag = "7")]
+    pub expression_id: ::core::option::Option<super::super::v1::FactorExpressionId>,
+    #[prost(message, optional, tag = "8")]
+    pub factor_spec_id: ::core::option::Option<super::super::v1::FactorSpecId>,
+    #[prost(message, optional, tag = "9")]
+    pub binding_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
+    #[prost(enumeration = "RoundDisposition", tag = "10")]
+    pub disposition: i32,
+    #[prost(oneof = "research_run_view::CurrentChild", tags = "3, 4")]
+    pub current_child: ::core::option::Option<research_run_view::CurrentChild>,
+}
+/// Nested message and enum types in `ResearchRunView`.
+pub mod research_run_view {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum CurrentChild {
+        #[prost(message, tag = "3")]
+        Discovery(super::super::super::discovery::v1::DiscoveryJobHandle),
+        #[prost(message, tag = "4")]
+        Research(super::super::super::research::v1::ResearchJobHandle),
+    }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunView {
@@ -69,6 +121,8 @@ pub struct RunView {
     pub deadline: ::core::option::Option<::prost_types::Timestamp>,
     #[prost(bool, tag = "15")]
     pub plan_verified: bool,
+    #[prost(message, optional, tag = "16")]
+    pub research: ::core::option::Option<ResearchRunView>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StartRunRequest {
@@ -76,6 +130,8 @@ pub struct StartRunRequest {
     pub context: ::core::option::Option<super::super::v1::CommandContext>,
     #[prost(message, optional, tag = "2")]
     pub plan: ::core::option::Option<super::super::v1::PolicyReference>,
+    #[prost(uint32, tag = "3")]
+    pub workflow_version: u32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StartRunResponse {
@@ -90,6 +146,8 @@ pub struct StepRunRequest {
     pub run_id: ::core::option::Option<super::super::v1::RunId>,
     #[prost(uint64, tag = "3")]
     pub expected_revision: u64,
+    #[prost(uint32, tag = "4")]
+    pub workflow_version: u32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StepRunResponse {
@@ -102,6 +160,8 @@ pub struct GetRunRequest {
     pub context: ::core::option::Option<super::super::v1::CommandContext>,
     #[prost(message, optional, tag = "2")]
     pub run_id: ::core::option::Option<super::super::v1::RunId>,
+    #[prost(uint32, tag = "3")]
+    pub workflow_version: u32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetRunResponse {
@@ -142,6 +202,73 @@ impl RunStatus {
             "RUN_STATUS_BUDGET_EXHAUSTED" => Some(Self::BudgetExhausted),
             "RUN_STATUS_INFRASTRUCTURE_FAILED" => Some(Self::InfrastructureFailed),
             "RUN_STATUS_DEADLINE_EXCEEDED" => Some(Self::DeadlineExceeded),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum RunStage {
+    Unspecified = 0,
+    Discovery = 1,
+    Evaluation = 2,
+    Portfolio = 3,
+}
+impl RunStage {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "RUN_STAGE_UNSPECIFIED",
+            Self::Discovery => "RUN_STAGE_DISCOVERY",
+            Self::Evaluation => "RUN_STAGE_EVALUATION",
+            Self::Portfolio => "RUN_STAGE_PORTFOLIO",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RUN_STAGE_UNSPECIFIED" => Some(Self::Unspecified),
+            "RUN_STAGE_DISCOVERY" => Some(Self::Discovery),
+            "RUN_STAGE_EVALUATION" => Some(Self::Evaluation),
+            "RUN_STAGE_PORTFOLIO" => Some(Self::Portfolio),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum RoundDisposition {
+    Unspecified = 0,
+    Evaluated = 1,
+    Duplicate = 2,
+    PreviouslyRejected = 3,
+    InsufficientCoverage = 4,
+}
+impl RoundDisposition {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "ROUND_DISPOSITION_UNSPECIFIED",
+            Self::Evaluated => "ROUND_DISPOSITION_EVALUATED",
+            Self::Duplicate => "ROUND_DISPOSITION_DUPLICATE",
+            Self::PreviouslyRejected => "ROUND_DISPOSITION_PREVIOUSLY_REJECTED",
+            Self::InsufficientCoverage => "ROUND_DISPOSITION_INSUFFICIENT_COVERAGE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "ROUND_DISPOSITION_UNSPECIFIED" => Some(Self::Unspecified),
+            "ROUND_DISPOSITION_EVALUATED" => Some(Self::Evaluated),
+            "ROUND_DISPOSITION_DUPLICATE" => Some(Self::Duplicate),
+            "ROUND_DISPOSITION_PREVIOUSLY_REJECTED" => Some(Self::PreviouslyRejected),
+            "ROUND_DISPOSITION_INSUFFICIENT_COVERAGE" => Some(Self::InsufficientCoverage),
             _ => None,
         }
     }

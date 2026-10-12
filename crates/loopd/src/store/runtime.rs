@@ -21,6 +21,14 @@ struct Receipt {
 }
 
 impl PgJobStore {
+    pub(crate) fn with_workflow_authority(
+        &self,
+        authority: std::sync::Arc<crate::runtime::workflow::WorkflowAuthority>,
+    ) -> Self {
+        let mut store = self.clone();
+        store.admission = authority;
+        store
+    }
     pub(crate) async fn runtime_lease(
         &self,
         actor: &Actor,
