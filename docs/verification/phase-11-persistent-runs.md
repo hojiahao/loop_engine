@@ -1,8 +1,8 @@
 # Phase 11 unit 1: Persistent runs and cross-job budgets
 
-Status: implementation and local acceptance passed. Publication requires one
-task commit, push and its exact-commit remote CI; use the attached GitHub checks
-as the publication receipt. Design: ADR 0051. Operator workflow:
+Status: complete. Implementation, local gates, published corrections and both
+exact-head remote runs passed. PR #2 merged on 2026-10-12 as `6be2471`.
+Design: ADR 0051. Operator workflow:
 `docs/development/research-runs-cli.md`.
 
 ## Delivered scope and boundaries
@@ -156,6 +156,23 @@ the run-table UPDATE grant and both writer triggers. Stop-only instructions
 remove `runs` together with `discovery`, matching the loader's dependency check.
 These documentation corrections do not apply a production migration or enable
 execution. The branch and pull-request checks remain the merge gate.
+
+## Publication receipt
+
+Fixture correction `818098a` and deployment documentation `d7aacbb` were pushed
+without rewriting the original implementation. At the exact final head
+`d7aacbbbcdce7522218e052d0f684a842fc442cf`, both
+[branch CI 38212689666](https://github.com/hojiahao/loop_engine/actions/runs/38212689666)
+and [PR CI 38212887483](https://github.com/hojiahao/loop_engine/actions/runs/38212887483)
+completed successfully with all seven jobs, including Rust, unified workspace
+and DaoCloud container acceptance. These results resolve the pending remote
+gates recorded above.
+
+[PR #2](https://github.com/hojiahao/loop_engine/pull/2) merged on
+2026-10-12 at 07:53:29 UTC as
+`6be2471dd7384b439eb32b87d7dab1d4b2ad02e6`. Unit 1 is complete. The main push
+check is a separate run; the two pre-merge results do not claim its completion.
+Production migration 0015 and subsequent numerical workflow remain undeployed.
 
 ## Rollback and cleanup
 

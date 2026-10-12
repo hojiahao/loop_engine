@@ -12,8 +12,15 @@ The owner's instruction to finish Phase 9 before the first merge was fulfilled
 on 2026-09-28. All seven jobs passed in branch CI `35978805422` and PR CI
 `35979594702`; PR #1 merged as `d671cffd2d8aa348569fd4e03205ddd0b1de6422`.
 The product-oriented README was included before merging. Continue task-sized
-Chinese commits and pushes on `feature/run-harness`, created from that main
-commit; preserve the original refactor branch and published history.
+Chinese task commits and pushes; preserve published commit history.
+PR #2 merged `feature/run-harness` as
+`6be2471dd7384b439eb32b87d7dab1d4b2ad02e6` on 2026-10-12 after both branch
+CI `38212689666` and PR CI `38212887483` passed all seven jobs at `d7aacbb`.
+Continue the remaining Loop Runtime units from this merged baseline.
+After the owner's branch-cleanup instruction, both merged development branches
+were removed locally and from `origin`; `main` is the only permanent branch.
+Remove future task branches after verifying their merge, without discarding
+unmerged work or rewriting published commits.
 The README describes usable capabilities,
 installation, configuration and workflows; phase progress and acceptance history
 stay in the repository's maintenance documentation. Do not include that history
@@ -745,10 +752,18 @@ Chinese task commit and push before starting the next unit):
 
 ## Phase 11 - Loop Runtime (`in_progress`)
 
+The owner-approved 2026-10-12 amendment adopts verified operational/research
+feedback and bounded scheduling (ADR 0052). The detailed remaining delivery
+units, acceptance and recovery paths are in
+[`docs/development/execution-plan.md`](development/execution-plan.md).
+Use 11.2, 11.3a–c, 11.4, 11.5 and 11.6a–c as nine remaining task/commit units;
+do not treat the additional plan as implemented behavior or restart completed
+phases. Unit 11.1's remote and PR merge gates have passed; unit 11.2 is next.
+
 Delivery units (complete implementation, tests, documentation, Chinese task
 commit, push and remote gate before the next unit):
 
-1. Persistent runs and cross-job budgets (`implemented`; ADR 0051): human-owned
+1. Persistent runs and cross-job budgets (`complete`; ADR 0051): human-owned
    frozen runs, atomic cumulative reservations and controlled Discovery child
    creation, explicit CLI start/step/status, finite rounds and crash recovery.
    Acceptance includes two real synthetic-supplier rounds, deterministic stop,
@@ -759,17 +774,27 @@ commit, push and remote gate before the next unit):
    `37913044037` exposed accumulated test schemas and one bounded-call fixture
    failure. The fixture correction passes 14 database cleanup cases, 36 selected
    runtime/storage cases, five repeated concurrent executions and complete Rust
-   Clippy/format gates; no test schemas remain. The corrected commit's push and
-   exact-commit remote checks remain the delivery gate before unit 2. See
+   Clippy/format gates; no test schemas remain. Fixture correction `818098a` and
+   deployment-documentation correction `d7aacbb` are published. Both exact-head
+   branch CI `38212689666` and PR CI `38212887483` passed all seven jobs;
+   PR #2 merged as `6be2471`. This closes unit 1, not the whole phase. See
    `docs/verification/phase-11-persistent-runs.md` and
    `docs/development/research-runs-cli.md`.
 2. Candidate-to-numerical workflow (`pending`): convert canonical candidates into
    frozen factor specifications and authorized evaluation/portfolio jobs; reuse
    trial, coverage and failure filtering without giving Discovery research or
-   holdout authority. Recover without duplicate children.
-3. Feedback and perturbation (`pending`): bounded verified-result feedback,
-   persistent Sharpe/random history, failure memory and deterministic stopping;
-   normal and perturbed candidates use the same numerical workflow.
+   holdout authority. Bind a testable hypothesis and proposal evidence; reserve
+   all child work and recover without duplicate children. Preserve frozen v1
+   discovery-only plans through an explicitly versioned numerical workflow.
+3. Feedback and perturbation (`pending`; three sequential delivery units):
+   - 11.3a: bounded verified IS-result feedback, persistent Sharpe/random history,
+     failure memory and deterministic stopping; ordinary and perturbed candidates
+     use the same numerical workflow.
+   - 11.3b: separate operational and research lessons; source-bound immutable
+     playbook revisions, validation-gated promotion and per-run version pinning.
+     No protected outcomes, arbitrary code edits or permission changes.
+   - 11.3c: reproducible development comparison of no feedback, fixed playbooks
+     and validated feedback, with fixed budgets and honest offline/live limits.
 4. Maker/checker evidence (`pending`): execute the separate frozen semantic
    checker request and register bound accept/reject/unknown evidence. Recover
    uncertain invocations without paid resends.
@@ -777,9 +802,14 @@ commit, push and remote gate before the next unit):
    statistic policy before search; bind whole-population statistics, independent
    reconciliation and semantic evidence to the shared admission command.
    Licensed-data eligibility remains independently required.
-6. Scheduling and escalation (`pending`): bounded background advancement,
-   run pause/cancel/resume/events, expiry and persistent human escalation; verify
-   installed multi-round recovery and the complete workspace/remote gates.
+6. Scheduling and escalation (`pending`; three sequential delivery units):
+   - 11.6a: bounded background advancement, run pause/cancel/resume/events, expiry
+     and persistent human escalation; initial configured concurrency is one.
+   - 11.6b: durable cross-run shared quotas/resource reservations, bounded
+     concurrency, fairness and backpressure; no account-wide budget claim from
+     the existing single-run or Provider sliding-window limits.
+   - 11.6c: installed multi-round recovery and complete workspace/remote gates.
+     Multi-host claims additionally require actual artifact/host-loss acceptance.
 
 - [ ] Implement persistent discovery, maker/checker validation, feedback,
       perturbation, failure memory, bounded termination, and human escalation.
@@ -790,11 +820,20 @@ commit, push and remote gate before the next unit):
 
 ## Phase 12 - Web and TUI (`pending`)
 
+Deliver sequential task units 12.1 operational API/information model, 12.2 React,
+12.3 Ratatui and 12.4 installed UI acceptance, as defined in the execution plan.
+Expose lesson sources/revisions and experiment/resource evidence with the same
+authority boundaries as other research views.
+
 - [ ] Refresh the early architecture diagram for the accepted PostgreSQL backend.
 - [ ] Implement the operational React application and Ratatui interface.
 - [ ] Verify desktop/mobile layout, keyboard access, screenshots, and TUI flows.
 
 ## Phase 13 - Migration and retest (`pending`)
+
+Deliver sequential units 13.1 legacy diagnostics, 13.2 licensed-data acceptance,
+13.3 US search/freeze and 13.4 confirmation/prospective acceptance. Phase 5's
+deferred coverage gate remains mandatory; no paid subscription is implied.
 
 - [ ] Quarantine the A-share archive without rewriting audit evidence.
 - [ ] Import semantically mappable expressions as non-admitted diagnostics.
@@ -802,6 +841,10 @@ commit, push and remote gate before the next unit):
 - [ ] Unlock 2021-2024 and 2025-01-01 through 2026-08-31 exactly once.
 
 ## Phase 14 - Release (`pending`)
+
+Deliver sequential units 14.1 documentation/inventory, 14.2 security/reproduction
+and 14.3 release/deployment acceptance. Each unit includes its own reviewable
+commit and successful remote gate.
 
 - [ ] Rewrite the final README as product documentation: purpose, requirements,
       installation/deployment, configuration, workflows and examples, interfaces,
