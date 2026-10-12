@@ -204,5 +204,3 @@ Provider 不读取研究数据库或留出数据；数值研究不实现厂商�
 
 本仓库当前未授予 MIT、Apache-2.0 或其他开源许可证。
 第三方依赖、字体和数据分别遵循各自许可，历史作者信息及法定署名予以保留。
-
-维护者：[hojiahao](https://github.com/hojiahao) · [hojiahao@outlook.com](mailto:hojiahao@outlook.com)
