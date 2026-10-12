@@ -65,8 +65,11 @@ SBOM verification are a Phase 14 release gate.
 
 ## Host bootstrap
 
-The supported host path is Linux x86-64 with Node.js 24.17.0, Corepack, uv
-0.11.29, curl, SHA-256 tooling, tar, and xz available. `$HOME/.local/bin` must
+The supported host path is Linux x86-64 with a C compiler, linker and system
+development headers (for example, Debian/Ubuntu's `build-essential`), Node.js
+24.17.0, Corepack, uv 0.11.29, curl, SHA-256 tooling, tar, and xz available.
+Bootstrap does not install operating-system development packages; Rust's native
+dependencies require them during `just build`. `$HOME/.local/bin` must
 be on `PATH` when just is not already installed. Start with the script because
 a clean host may not have just yet:
 

@@ -28,6 +28,27 @@ in product screens or production runtime images. Development/test containers may
 still need source documentation for their verification commands. The final
 release-documentation gate remains part of Phase 14.
 
+## Product documentation delivery
+
+The owner requires a product README that documents implemented behavior only.
+Do not add future-interface previews, phase status, roadmaps or placeholder
+features. Add newly delivered functions and real examples with their task
+commit. The GitHub reference study, visual rules, content structure and staged
+documentation tasks are in
+[`docs/development/readme-design.md`](development/readme-design.md).
+
+- [x] Implement the product-homepage refinement: grouped Google Sans Code
+      badges, research-oriented content and real navigation. Asset generation,
+      link/anchor checks, CLI help and desktop/mobile verification pass; evidence
+      is in the design document. Publication uses this documentation task's
+      Chinese commit, push and attached remote checks, not a phase-completion claim.
+- [ ] With unit 11.2, add the actually delivered candidate-to-evaluation usage;
+      with units 11.3–11.6, update each corresponding capability and command.
+- [ ] With Phase 12, publish an implementation-backed architecture diagram and
+      screenshots only after each real interface passes its acceptance gate.
+- [ ] With Phase 13, publish reproducible report examples with verified data,
+      sample and cost context; complete the final product review in Phase 14.1.
+
 ## Global invariants
 
 - [ ] The Loop Runtime has no provider-specific branches.

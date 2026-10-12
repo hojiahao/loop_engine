@@ -3,218 +3,148 @@
     <source media="(max-width: 620px) and (prefers-color-scheme: dark)" srcset="docs/brand/banner-dark-compact.svg">
     <source media="(max-width: 620px)" srcset="docs/brand/banner-light-compact.svg">
     <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.svg">
-    <img src="docs/brand/banner-light.svg" alt="Loop Engine — Automated US equity factor research. Provider neutral. Evidence first." width="1280">
+    <img src="docs/brand/banner-light.svg" alt="Loop Engine — US equity factor research. Provider neutral. Evidence first." width="1280">
   </picture>
 </p>
 
-<p align="center">面向美股横截面因子研究的可审计研究平台。</p>
+<p align="center">美股因子研究 · 可恢复的模型执行 · 可追溯的评测证据</p>
 
 <p align="center">
-  <a href="rust-toolchain.toml"><img src="docs/brand/badge-rust.svg" alt="Rust 1.93.1" height="30"></a>
-  <a href="tsconfig.base.json"><img src="docs/brand/badge-typescript.svg" alt="TypeScript strict" height="30"></a>
-  <a href=".python-version"><img src="docs/brand/badge-python.svg" alt="Python 3.14.4" height="30"></a>
-  <a href="docs/development/postgresql.md"><img src="docs/brand/badge-postgresql.svg" alt="PostgreSQL 17" height="30"></a>
+  <a href="#研究工作流"><img src="docs/brand/badge-market.svg" alt="Market: US equities" height="30"></a>
+  <a href="#运行与恢复"><img src="docs/brand/badge-interface.svg" alt="Interface: CLI" height="30"></a>
+  <a href="#数据与模型"><img src="docs/brand/badge-providers.svg" alt="Models: pluggable" height="30"></a>
+  <a href="https://github.com/hojiahao/loop_engine/actions/workflows/ci.yml"><img src="docs/brand/badge-ci.svg" alt="CI checks — view actual results" height="30"></a>
   <br>
-  <a href="proto"><img src="docs/brand/badge-grpc.svg" alt="Protocol: gRPC" height="30"></a>
-  <a href="docs/development/source-snapshots.md"><img src="docs/brand/badge-parquet.svg" alt="Data: Parquet" height="30"></a>
-  <a href="#模型-provider"><img src="docs/brand/badge-providers.svg" alt="Pluggable Providers" height="30"></a>
-  <a href="https://github.com/hojiahao/loop_engine/actions/workflows/ci.yml"><img src="docs/brand/badge-ci.svg" alt="CI workflows — view actual check results" height="30"></a>
+  <a href="crates/loopd"><img src="docs/brand/badge-rust.svg" alt="Rust: control" height="30"></a>
+  <a href="apps/providerd"><img src="docs/brand/badge-typescript.svg" alt="TypeScript: providers" height="30"></a>
+  <a href="python/loop_research"><img src="docs/brand/badge-python.svg" alt="Python: research" height="30"></a>
+  <a href="docs/development/postgresql.md"><img src="docs/brand/badge-postgresql.svg" alt="PostgreSQL: state" height="30"></a>
 </p>
 
 <p align="center">
-  <a href="#安装与检查">快速开始</a> ·
-  <a href="#数据接入">数据接入</a> ·
-  <a href="#研究与复核工作流">研究工作流</a> ·
-  <a href="#模型-provider">模型接入</a> ·
-  <a href="#服务运行与运维">部署运维</a>
+  <a href="#开始使用">开始使用</a> ·
+  <a href="#研究工作流">研究工作流</a> ·
+  <a href="#数据与模型">数据与模型</a> ·
+  <a href="#运行与恢复">运行与恢复</a> ·
+  <a href="#文档导航">文档</a>
 </p>
 
 ---
 
-Loop Engine 将行情与基本面数据、因子表达式、组合回测、统计评测、独立复核和模型调用
-连接到可追溯的执行流程。研究结果绑定实际代码、环境、配置和数据快照；基础设施故障、
-数据缺失及证据过期会阻止继续执行，不会被当作有效的因子结论。
+Loop Engine 是面向美股横截面因子研究的可审计研究平台。研究人员可以生成因子候选，
+在固定数据与交易假设下评测表达式，并通过独立计算核对统计与组合结果。
+每次评测保留数据来源、代码与配置指纹；模型任务保留上下文、预算和执行回执。
 
-维护者：[hojiahao](https://github.com/hojiahao) · hojiahao@outlook.com
+它适用于因子假设验证、组合回测、独立复核和受控模型实验。通过研究 CLI、
+`loopctl` 与授权 gRPC 服务使用各项能力。
 
-## 能力与适用范围
+## 核心能力
 
-- **数据与因子**：受限数据获取、不可变 Parquet 快照、PIT 查询、交易日历、规范 AST、
-  因果滚动算子、横截面变换、覆盖率、试验记录和失败记忆。
-- **组合与统计**：下一可交易时点执行、现金/持仓/NAV 账本、公司行动、借券与融资、
-  容量和交易成本；IC、Rank IC、Newey–West、BY-FDR、DSR 与 CSCV/PBO。
-- **独立复核**：Alphalens Reloaded 重算因子统计，Zipline Reloaded 独立回放组合账本，
-  保存逐项差异，并接入授权结果登记与准入前置检查。
-- **模型平台**：原生协议、云部署、厂商插件、自托管与网关；工具消息、结构化输出、
-  流式响应、模型能力目录、调用回执、限流和费用预算。
-- **执行完整性**：PostgreSQL 事务、作业租约、幂等回执、mTLS 身份、权限隔离、
-  不可变审计和有界进程执行。大数据以校验和引用传递，不放入 RPC。
-- **受控模型研究**：固定计划下生成规范候选，持久化工具上下文与预算；通过
-  `loopctl discovery` 查看、暂停、取消和恢复任务，查询所属审计事件。
-- **有限轮运行**：通过 `loopctl run` 人工启动并逐轮推进研究运行，跨子任务保留
-  步数、token、费用和时间上限；重启与重复命令不会重置预留预算。
+- **可追溯数据** — 获取行情与基本面，构造不可变 Parquet 快照，保存时间可见性、
+  历史证券信息、交易日历与数据血缘。
+- **确定性因子计算** — 规范 AST 与表达式标识，计算因果滚动算子和横截面变换，
+  检查覆盖率，并登记试验与失败记录。
+- **组合与统计评测** — 回放现金、持仓和 NAV，处理公司行动、借券、融资与交易成本；
+  计算 IC、Rank IC、风险暴露和全局多重检验。
+- **独立结果复核** — 使用 Alphalens 重算因子统计，使用 Zipline 独立回放组合，
+  保存差异、来源和授权登记回执。
+- **可插拔模型接入** — 原生协议、云部署、自托管与网关共用调用边界，支持工具消息、
+  结构化输出和流式响应，每次调用固定模型、能力与价格快照。
+- **可恢复模型执行** — 持久化任务状态、工具上下文和幂等回执；在固定计划和跨任务
+  预算下，人工逐轮推进候选生成，重启后继续读取和操作原任务。
 
-当前可用入口是研究 CLI、授权 gRPC 服务和 Provider 服务。完整自动 Agent 循环、
-运行级调度及操作型 React Web/Ratatui TUI 尚未交付；现有客户端骨架不代表完整产品界面。
-本项目不提供实盘下单，也没有可用于收益承诺的正式美股因子结果。
+## 开始使用
 
-## 架构与目录
-
-| 组件 | 职责 | 技术 |
-| --- | --- | --- |
-| `crates/loopd` | 作业、权限、事务、研究执行与结果登记 | Rust、Tokio、Axum、SQLx |
-| `apps/providerd` | 模型协议、认证、能力与调用状态 | TypeScript、Node.js |
-| `python/loop_research` | 数据、因子、组合账本和统计 | Python、Polars、Arrow、NumPy、SciPy |
-| `python/alphalens_validation` | 独立因子统计复核 | Alphalens Reloaded |
-| `python/zipline_validation` | 独立事件驱动组合复核 | Zipline Reloaded |
-| `proto`、`packages/protocol-ts`、`python/loop_protocol` | 跨语言协议与契约 | Protobuf/gRPC |
-| `migrations/postgres` | 版本化元数据迁移 | PostgreSQL |
-| `crates/loopctl` | 诊断、Discovery 任务与有限轮研究运行 | Rust、Clap、mTLS/gRPC |
-| `apps/web`、`crates/loop-tui` | Web/TUI 客户端骨架 | React、Ratatui |
-
-Provider 不读取研究数据库或留出数据；数值研究服务不实现模型厂商路由。
-原始数据、研究视图、Provider 提示材料和受保护样本使用独立权限与存储边界。
-元数据使用 PostgreSQL，数据与结果使用内容寻址的不可变文件。
-
-## 安装与检查
-
-支持的宿主机为 Linux x86-64。准备 Node.js 24.17.0、Corepack、uv 0.11.29、
-curl、tar、xz 和 SHA-256 工具。若尚未安装 `just`，请先将 `$HOME/.local/bin`
-加入 `PATH`，以便 Bootstrap 安装并调用它。在仓库根目录执行：
+支持 Linux x86-64。宿主需准备 C 编译器、链接器与开发头文件（Debian/Ubuntu 可安装
+`build-essential`），以及 Node.js 24.17.0、Corepack、uv 0.11.29、curl、tar、xz 与
+SHA-256 工具；`$HOME/.local/bin` 应在 `PATH` 中。
+克隆仓库后，在根目录执行：
 
 ```bash
 ./scripts/bootstrap.sh
-just check
-just test
 just build
 just doctor
 ```
 
-Bootstrap 按仓库清单安装 Rust 1.93.1、pnpm 11.25.0 和 just 1.45.0，
-按 lockfile 安装依赖。主 Python 为 3.14.4，使用根 uv workspace 和一个根 `.venv`。
-独立复核使用各自锁定的临时环境；Zipline 因上游兼容性单独使用 Python 3.12.13，
-不改变主研究解释器，也不创建第二个持久项目虚拟环境。
+Bootstrap 按工具链清单和 lockfile 安装依赖。主研究环境使用 Python 3.14.4 与根
+uv workspace；独立复核环境按兼容性单独锁定。工具版本、DaoCloud 容器和缓存位置见
+[安装指南](docs/development/bootstrap.md)。`doctor` 检查本地组件，不启动研究任务。
 
-完整集成测试需要 Docker；隔离验收还需要 root 或非交互 `sudo chown` 来准备私有挂载。
-开发容器通过 DaoCloud 拉取固定摘要的镜像：
+查看实际命令入口：
 
 ```bash
-just test-isolation
-just container-gate
+./scripts/cargo.sh run --locked --offline -p loopctl -- --help
+./scripts/uv-research.sh run --locked --offline --no-sync loop-research --help
 ```
 
-安装前提、镜像与 Rust 下载源、缓存位置及资源要求见
-[开发环境](docs/development/bootstrap.md)。运行数据、私有配置和凭据应与代码分开保存。
+接下来可按[数据指南](docs/development/development-data.md)准备研究输入，或按
+[模型任务指南](docs/development/discovery-cli.md)配置服务、身份和固定计划。
+研究数据、证书与凭据保存在私有目录中。
 
-## 数据接入
+## 研究工作流
 
-| 数据路径 | 用途 | 需要准备 |
+使用研究命令按以下顺序组织一次因子评测：
+
+1. **准备数据**：验证源快照，按当时可见信息构造证券池与因子面板。
+2. **确定表达式**：规范 AST、计算 SHA-256，冻结方向、参数与数据口径。
+3. **评测因子**：计算因子值与横截面变换，检查覆盖率，登记试验。
+4. **回放组合**：按下一可交易时点执行，计算成本后的持仓、收益和统计。
+5. **独立复核**：从原始输入分别运行 Alphalens 和 Zipline，定位统计与账本差异。
+6. **登记证据**：保存报告和回执，在统一准入路径检查权限、覆盖、试验历史及新鲜度。
+
+每次研究留下可关联的快照、FactorSpec、试验记录、组合账本和复核报告。
+具体输入与命令见[因子求值](docs/development/factor-evaluation.md)、
+[组合回测](docs/development/portfolio-backtest.md)和
+[授权复核](docs/development/authorized-reconciliation.md)。
+
+## 研究完整性
+
+研究结论依赖可核验的计算与数据条件：
+
+| 约束 | 实现方式 |
+| --- | --- |
+| 时间可见性 | PIT 查询与因果算子；方向在 IS 确定，确认集使用独立权限与存储边界。 |
+| 结果新鲜度 | 指标绑定代码、算子、配置、数据、日历和环境；依赖变化后结果失效。 |
+| 试验完整性 | 保留失败记录与全局试验总体，采用 BY-FDR、DSR、CSCV/PBO 评估选择风险。 |
+| 计算独立性 | Alphalens 复算统计，Zipline 独立回放；差异与不可用结果显式保留。 |
+| 执行可追溯性 | PostgreSQL 事务、租约与幂等回执绑定状态变化、预算预留和审计。 |
+
+数值一致性不等于经济有效性，多重检验也不能消除数据污染或幸存者偏差。
+正式历史研究需要数据授权、历史覆盖与 PIT 质量验收；历史留出结果不称为前瞻结果。
+Loop Engine 用于研究与回测，不提供实盘下单或收益承诺。
+
+## 数据与模型
+
+### 数据接入
+
+| 数据源 | 研究用途 | 接入条件 |
 | --- | --- | --- |
 | SEC Company Facts | 申报数据开发验证 | 配置真实联系邮箱，无需 API key |
 | Alpaca | 指定证券与 feed 的行情开发验证 | `LOOP_ALPACA_KEY_ID`、`LOOP_ALPACA_SECRET_KEY` |
 | Nasdaq Data Link / Sharadar | 明确授权表的历史数据获取 | `LOOP_SHARADAR_API_KEY`、订阅与许可配置 |
 | WRDS / CRSP / Compustat | 机构授权的数据获取 | WRDS 身份、数据权限与许可配置 |
 
-依次按[凭据接入](docs/development/data-credentials.md)、
-[开发数据](docs/development/development-data.md)或
-[授权数据](docs/development/licensed-data.md)准备私有配置与数据目录。
-Key 由环境或 secret manager 注入，不写入配置文件、Git、日志或命令行参数。
+具体步骤见[凭据接入](docs/development/data-credentials.md)、
+[开发数据](docs/development/development-data.md)和[授权数据](docs/development/licensed-data.md)。
+SEC 与 Alpaca 开发接入不代表完整历史证券池或退市覆盖；行情权限按实际 feed 记录。
+API key 通过环境或 secret reference 注入，不写入 Git、日志或命令行参数。
 
-研究 CLI 可显示实际支持的命令：
-
-```bash
-./scripts/uv-research.sh run --locked --offline --no-sync loop-research --help
-```
-
-例如，在准备好当前用户所有、权限 `0700` 的绝对路径缓存目录，并核对 SEC 联系信息后：
-
-```bash
-./scripts/uv.sh run --package loop-research --locked --offline --no-sync \
-  loop-research data-fetch config/data/sec-development.toml \
-  --store /absolute/private/development-cache
-```
-
-`uv --offline` 仅禁止依赖下载；`data-fetch` 会执行配置中明确要求的数据请求。
-缓存可通过 `data-replay` 离线核验，随后由 `data-snapshot`/`data-sync` 构造数据快照。
-具体参数与血缘要求见[源快照](docs/development/source-snapshots.md)和
-[PIT 数据](docs/development/point-in-time-data.md)。
-
-SEC 与 Alpaca 的开发接入不证明完整历史证券池、退市覆盖或历史 PIT 质量。
-Alpaca 权限按实际 feed 响应记录，不静默替换为其他行情源。当前申报数据的抓取时间
-不能冒充过去已知的发布时间。正式历史研究需要授权数据覆盖和质量验收。
-
-## 研究与复核工作流
-
-1. 获取并验证源快照，按当时可见信息构造证券池与因子面板。
-2. 规范化表达式并计算 SHA-256；冻结方向、研究参数、数据、成本与执行口径。
-3. 运行组合回放与统计评测，登记全部尝试并保留失败结果。
-4. 导出验证后的原始输入，由 Alphalens 和 Zipline 独立重算。
-5. 对账、登记不可变回执，并在统一准入路径重新检查权限、覆盖、试验历史和证据新鲜度。
-
-实际命令及输入示例分别见：
-
-- [因子求值](docs/development/factor-evaluation.md)、[因果面板](docs/development/causal-factor-panels.md)
-  与[横截面变换](docs/development/cross-sectional-transforms.md)。
-- [组合回测](docs/development/portfolio-backtest.md)、[统计评测](docs/development/portfolio-statistics.md)
-  与[全局试验统计](docs/development/global-statistics.md)。
-- [Alphalens 复核](docs/development/independent-statistics.md)、
-  [Zipline 对账](docs/development/independent-accounting.md)与
-  [授权复核](docs/development/authorized-reconciliation.md)。
-
-检查独立环境可直接运行：
-
-```bash
-./scripts/uv-alphalens.sh run --locked --offline loop-alphalens doctor
-./scripts/uv-zipline.sh run --locked --offline loop-zipline doctor
-```
-
-数值一致不等于经济有效或正式准入。全局多重检验不能消除数据污染、幸存者偏差或
-研究者自由度；授权数据、预先登记的经济准入规则和语义复核仍各自构成门槛。
-方向只在 IS 决定，确认集不得用于返工调参；历史留出集不称为前瞻结果。
-代码、数据、环境或试验总体变化会使依赖结果失效，不能继续沿用旧指标。
-
-## 模型 Provider
+### 模型接入
 
 OpenAI Responses/Chat 和 Anthropic Messages 保留一级原生实现；Google、Cohere、
 Bedrock、Azure 与 Vertex 使用对应协议或部署适配。Mistral、DeepSeek、Qwen、xAI、
 Groq、Together、Fireworks、Cerebras、Perplexity、GLM、Kimi 和 MiniMax 有独立厂商配置。
 兼容层覆盖 OpenAI/Anthropic-compatible、自托管服务和 LiteLLM、Portkey、OpenRouter 网关。
 
-模型是否可用取决于精确模型 ID、协议能力、账号、区域和权限。
-契约测试通过不代表真实账号验证；未支持的能力明确拒绝，网关不冒充底层供应商。
-每次调用固定模型、价格和能力快照；模型目录可以原子更新，已解析调用不会跟随别名漂移。
+可用性取决于模型 ID、协议能力、账号、区域与权限；契约验证和真实账号验证分别记录。
+接入方法见[原生协议](docs/development/native-providers.md)、
+[云部署](docs/development/cloud-providers.md)、[厂商插件](docs/development/vendor-providers.md)
+和[兼容服务](docs/development/compatible-providers.md)。
 
-- [原生协议与 mTLS 配置](docs/development/native-providers.md)
-- [云部署](docs/development/cloud-providers.md)、[厂商插件](docs/development/vendor-providers.md)
-  与[兼容、自托管及网关](docs/development/compatible-providers.md)
-- [模型目录与签名更新](docs/development/model-catalog.md)
-- [隔离容器、出站许可与限流](docs/development/provider-runtime.md)
-- [超时与重启后的模型调用回执查询](docs/development/invocation-recovery.md)
+## 运行与恢复
 
-将示例配置复制到私有目录，填写真实模型、价格、认证身份及密钥引用后，使用
-`node apps/providerd/dist/index.js --describe` 检查模型与策略摘要；
-`PROVIDERD_DEPLOYMENT` 指向该私有配置。API key 本身不会打开调用入口。
-生产隔离部署只挂载编译产物、Provider 私有配置与状态，并通过指定目标的出站网关访问厂商。
-
-调用具有 token、费用、时间及并发限制，不自动重试可能已计费的生成请求。
-滑动窗口限流属于单进程流量控制，不是跨实例或跨重启的总预算账本。
-未由账单证据确认的费用只作为估算或预留，不宣称实际收费。
-
-## 服务运行与运维
-
-准备好固定研究计划和私有客户端身份后，可操作受控 Discovery 任务：
-
-```bash
-loopctl discovery --config /absolute/private/client.json status --job JOB_ID
-loopctl discovery --config /absolute/private/client.json events --job JOB_ID
-```
-
-安装、启动、暂停、恢复、取消及停用模型执行后的状态查询，见
-[Discovery CLI 与部署恢复](docs/development/discovery-cli.md)。每次写操作要求明确的
-幂等键和适用的任务版本；客户端不会自动改用新任务或重复发送可能计费的请求。
-该入口执行受控计划，尚不等于自主因子搜索循环。
-
-管理员还可固定一个由 Human 身份持有的有限轮运行计划，再通过独立的操作员配置执行：
+`loopctl run` 在固定计划下启动并人工逐轮推进候选生成任务，跨子任务保存步数、token、
+费用和时间预算。安装客户端、配置 mTLS 身份并由管理员登记研究计划后，可执行：
 
 ```bash
 loopctl run --config /absolute/private/operator.json start \
@@ -224,34 +154,55 @@ loopctl run --config /absolute/private/operator.json step \
   --run RUN_ID --revision REVISION --key step.research.001
 ```
 
-使用响应中的实际运行 ID 和 revision。每次 `step` 最多推进一轮；创建子任务前预留其
-完整预算，预算不足即停止。预算预留不代表实际账单。身份、计划准备及回执恢复见
-[研究运行 CLI](docs/development/research-runs-cli.md)。此入口目前连接候选生成任务，
-因子评测、准入和后台自动调度仍需分别接入。
+使用响应中的真实 `RUN_ID` 和 `REVISION`。每次 `step` 最多推进一轮；新任务先预留
+完整预算，重复命令与重启不会重置预留。预算预留与估计费用不等同于实际账单。
+完整配置与回执语义见[研究运行 CLI](docs/development/research-runs-cli.md)。
 
-按[PostgreSQL 部署](docs/development/postgresql.md)准备数据库、TLS、受限应用账号和
-私有连接文件。迁移由管理员显式执行，普通服务启动不自动执行 DDL：
+单个 Discovery 任务通过独立客户端身份查看和控制：
 
 ```bash
-./scripts/cargo.sh run -p loopd --locked --offline -- --check-database
+loopctl discovery --config /absolute/private/client.json status --job JOB_ID
+loopctl discovery --config /absolute/private/client.json events --job JOB_ID
 ```
 
-授权 worker 与服务部署见[运行时身份和数据权限](docs/development/runtime-authority.md)、
-[授权组合执行](docs/development/authorized-portfolios.md)。健康检查不代表数据订阅、
-模型账号或研究质量已验证。未配置权限与可信引用的操作默认拒绝。
+暂停、取消、恢复和审计查询见[Discovery 操作指南](docs/development/discovery-cli.md)。
+不确定是否已经计费的模型请求不会自动重新发送。
 
-备份 PostgreSQL、不可变数据与结果、Provider 回执及模型目录历史。
-回退时先停止新作业和写入，再恢复兼容版本；保留审计与模糊调用记录，不删除历史来重新执行。
-不要将数据库、留出数据、宿主目录或 Docker socket 挂入 Provider。
+## 系统架构
+
+控制、模型传输与数值研究分别承担明确职责，以 Protobuf/gRPC 交换控制消息。
+数据和结果保存在不可变文件中，服务之间传递 URI、schema 与校验和。
+
+| 组件 | 职责 | 实现 |
+| --- | --- | --- |
+| [loopctl](crates/loopctl) | 本地诊断、模型任务与有限轮候选运行 | Rust、Clap |
+| [loopd](crates/loopd) | 持久状态、权限、预算、研究执行与结果登记 | Rust、Tokio、SQLx |
+| [providerd](apps/providerd) | 模型协议、认证、能力目录与调用状态 | TypeScript、Node.js |
+| [loop_research](python/loop_research) | 数据处理、因子求值、组合账本与统计 | Python、Polars、Arrow、NumPy、SciPy |
+| [独立统计](python/alphalens_validation) / [独立组合回放](python/zipline_validation) | 复算与对账 | Alphalens Reloaded、Zipline Reloaded |
+| [元数据](migrations/postgres) / [服务契约](proto) | 事务与迁移、跨语言接口 | PostgreSQL、Protobuf/gRPC |
+
+Provider 不读取研究数据库或留出数据；数值研究不实现厂商路由。
+原始数据、研究视图与模型提示材料使用独立权限边界。
+
+## 文档导航
+
+| 要完成的任务 | 指南 |
+| --- | --- |
+| 搭建与检查环境 | [Bootstrap、工具链和容器](docs/development/bootstrap.md) |
+| 获取和验证数据 | [凭据](docs/development/data-credentials.md) · [源快照](docs/development/source-snapshots.md) · [PIT 数据](docs/development/point-in-time-data.md) |
+| 编写和计算因子 | [求值](docs/development/factor-evaluation.md) · [因果面板](docs/development/causal-factor-panels.md) · [横截面变换](docs/development/cross-sectional-transforms.md) |
+| 评估和复核结果 | [组合回测](docs/development/portfolio-backtest.md) · [统计](docs/development/portfolio-statistics.md) · [全局试验](docs/development/global-statistics.md) · [独立复核](docs/development/authorized-reconciliation.md) |
+| 配置模型与恢复调用 | [模型目录](docs/development/model-catalog.md) · [Provider 部署](docs/development/provider-runtime.md) · [调用恢复](docs/development/invocation-recovery.md) |
+| 部署和维护服务 | [PostgreSQL](docs/development/postgresql.md) · [身份与数据权限](docs/development/runtime-authority.md) · [部署与回退](docs/development/production-cutover.md) |
 
 ## 开发与许可
 
-贡献要求见 [AGENTS.md](AGENTS.md) 和[命名与 Rust 规范](docs/development/rust-style.md)。
-架构决策、实施清单与验收记录保留在 `docs/` 供维护使用，不属于产品操作界面或运行数据。
+开发规范见 [AGENTS.md](AGENTS.md) 和[命名与 Rust 规范](docs/development/rust-style.md)。
+在完成 Bootstrap 的环境中运行 `just check`、`just test`、`just build` 与 `just doctor`；
+完整集成测试需要 Docker，隔离与容器验收前提见安装指南。
 
-旧 `code/`、`output/` 等 A 股资产保留用于历史审计与回归，不能作为美股结果使用。
-23 个旧因子绩效已失效，不继承到美股因子库；私有 AlphaLab 不是新研究服务的必要依赖。
+本仓库当前未授予 MIT、Apache-2.0 或其他开源许可证。
+第三方依赖、字体和数据分别遵循各自许可，历史作者信息及法定署名予以保留。
 
-仓库尚未授予 MIT、Apache-2.0 或其他开源许可证；继承代码的授权状态仍需确认。
-第三方软件与数据受各自许可约束，历史作者信息及法定署名予以保留。
-本项目以公开、可测试的工程规则验收，不声称符合任何金融机构未公开的内部标准。
+维护者：[hojiahao](https://github.com/hojiahao) · [hojiahao@outlook.com](mailto:hojiahao@outlook.com)

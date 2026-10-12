@@ -99,7 +99,7 @@ def banner(font: TTFont, theme: str, compact: bool) -> str:
             width,
             height,
             "Loop Engine",
-            "Automated US equity factor research. Provider neutral. Evidence first.",
+            "US equity factor research. Provider neutral. Evidence first.",
         ),
         (
             f'<rect x="1" y="1" width="{width - 2}" height="{height - 2}" '
@@ -114,7 +114,7 @@ def banner(font: TTFont, theme: str, compact: bool) -> str:
             [
                 outlines(font, "RESEARCH / VERIFY / REPEAT", 32, 111, 14, p["accent"]),
                 outlines(font, "Loop Engine", 28, 185, 68, p["text"], 650),
-                outlines(font, "AUTOMATED US EQUITY", 32, 232, 18, p["muted"]),
+                outlines(font, "US EQUITY", 32, 232, 18, p["muted"]),
                 outlines(font, "FACTOR RESEARCH", 32, 261, 18, p["muted"]),
                 f'<path d="M32 305 H568" stroke="{p["line"]}"/>',
                 outlines(font, "PROVIDER NEUTRAL", 32, 350, 14, p["accent"], 500),
@@ -127,9 +127,7 @@ def banner(font: TTFont, theme: str, compact: bool) -> str:
             [
                 outlines(font, "RESEARCH / VERIFY / REPEAT", 64, 116, 16, p["accent"]),
                 outlines(font, "Loop Engine", 56, 232, 106, p["text"], 650),
-                outlines(
-                    font, "AUTOMATED US EQUITY FACTOR RESEARCH", 64, 282, 20, p["muted"]
-                ),
+                outlines(font, "US EQUITY FACTOR RESEARCH", 64, 282, 20, p["muted"]),
                 f'<path d="M64 319 H765" stroke="{p["line"]}"/>',
                 outlines(font, "PROVIDER NEUTRAL", 64, 356, 14, p["accent"], 500),
                 outlines(font, "EVIDENCE FIRST", 302, 356, 14, p["muted"], 500),
@@ -178,14 +176,14 @@ def main() -> None:
             for compact in (False, True)
         }
         for name, label, value in (
-            ("rust", "Rust", "1.93.1"),
-            ("typescript", "TypeScript", "strict"),
-            ("python", "Python", "3.14.4"),
-            ("postgresql", "PostgreSQL", "17"),
-            ("grpc", "Protocol", "gRPC"),
-            ("parquet", "Data", "Parquet"),
-            ("providers", "Providers", "pluggable"),
-            ("ci", "CI", "workflows"),
+            ("market", "Market", "US equities"),
+            ("interface", "Interface", "CLI"),
+            ("providers", "Models", "pluggable"),
+            ("ci", "CI", "checks"),
+            ("rust", "Rust", "control"),
+            ("typescript", "TypeScript", "providers"),
+            ("python", "Python", "research"),
+            ("postgresql", "PostgreSQL", "state"),
         ):
             assets[f"badge-{name}.svg"] = badge(font, label, value)
     for name, content in assets.items():
