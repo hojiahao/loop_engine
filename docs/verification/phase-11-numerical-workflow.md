@@ -4,6 +4,10 @@ Status: `in_progress`. Code, fixtures and documentation are being integrated.
 This record is not a claim that local acceptance, remote CI, publication or
 production deployment has completed. Phase 11 remains open.
 
+The initial implementation is published as `2ec2965` in draft
+[PR #4](https://github.com/hojiahao/loop_engine/pull/4). Review fixes stay on
+the same branch; neither that publication nor a pending CI run closes the unit.
+
 ## Requirement and design
 
 One explicit, human-owned step advances one current Discovery, evaluation or
@@ -91,8 +95,8 @@ actual command results, commit IDs and CI links during delivery:
 
 - Manifest code and fixtures have been formatted with the pinned Rust formatter;
   `git diff --check` passed for that work at integration time.
-- The first Clippy pass completed successfully. Changes made after that pass
-  require another check; the final revision's Clippy result is **pending**.
+- Full workspace Clippy, including all targets/features and `-D warnings`,
+  passes after the stage split, boxed transition records and deadline fixes.
 - The administrator guide's generated Python constructors for the Research
   actor, `ResearchJobBudget`, exact USD and `NumericalWorkflow` were executed
   against the installed bindings and serialized successfully. This validates
@@ -119,13 +123,26 @@ actual command results, commit IDs and CI links during delivery:
   Default-stack regression and installed execution must pass before merge and
   completion; the draft PR retains this unresolved acceptance record.
 - Targeted TypeScript and Python run-boundary suites each pass 58 cases. The
-  handwritten Python/Rust/Shell naming check passes 4,918 declarations at this
+  complete Python protocol suite passes 384 cases after synchronizing the
+  shared fixture's current descriptor hash. Ruff and mypy also pass.
+  The handwritten Python/Rust/Shell naming check passes 4,928 declarations at this
   integration checkpoint; subsequent tests must also pass the final gate.
 - Fresh `loopd` and `loopctl` binaries build with all features, and the actual
   Provider host compiles. Rust protocol, installed CLI workflow,
   state/concurrency/recovery and full workspace/remote checks remain **pending**.
 - No live model supplier, paid market-data download, production migration or
   formal factor admission is established by synthetic fixtures.
+
+Review also identified two deadline cases now covered by regression fixtures:
+an expired queued numerical child must use recovery rather than repeatedly fail
+lease acquisition, and a transaction must recheck its clock before writing and
+before commit. The latter rolls back all state/receipt/audit writes on clock
+regression or a newly crossed parent deadline. Their final execution is pending.
+
+The initial PR CI found stale current-descriptor metadata in
+`wire_fixtures.json` and a missing generator-produced trailing blank line in
+the TypeScript binding. These were corrected without changing the historical
+baseline or relaxing comparisons; replacement CI remains required.
 
 The delivery owner must record the tested Git revision, command outputs,
 failures and corrections, Chinese task commit, remote push and successful CI

@@ -216,11 +216,11 @@ impl PgJobStore {
         }
         let state = JobState::try_from(snapshot.current_job.state)
             .map_err(|_| StoreError::Corrupt("run child state"))?;
-        let expired = now
-            >= timestamp_millis(
-                snapshot.view.deadline.as_ref().expect("validated deadline"),
-                true,
-            )?;
+        let deadline = timestamp_millis(
+            snapshot.view.deadline.as_ref().expect("validated deadline"),
+            true,
+        )?;
+        let expired = now >= deadline;
         if !expired
             && matches!(
                 state,
@@ -306,6 +306,11 @@ impl PgJobStore {
         if let Some(prepared) = prepared {
             prepared.check_for(specification)?;
         }
+        // A command which began before the deadline cannot publish a late
+        // advancement. Roll it back so a retry can record the expired state.
+        // Commands already observing expiry may commit that terminal record.
+        let final_deadline = (!expired).then_some(deadline);
+        let checked = final_time(self, now, final_deadline)?;
         persist(&mut transaction, specification, &view, None).await?;
         if let Some(child) = &next {
             insert_child(self, &mut transaction, child, now).await?;
@@ -331,11 +336,23 @@ impl PgJobStore {
         .await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_step_before").await;
+        final_time(self, checked, final_deadline)?;
         transaction.commit().await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_step_after").await;
         Ok(view)
     }
+}
+
+fn final_time(store: &PgJobStore, previous: i64, deadline: Option<i64>) -> StoreResult<i64> {
+    let now = store.clock.now_millis()?;
+    if now < previous {
+        return Err(StoreError::ClockRegression);
+    }
+    if deadline.is_some_and(|deadline| now >= deadline) {
+        return Err(StoreError::Unavailable("run commit deadline"));
+    }
+    Ok(now)
 }
 
 async fn advance_stage(

@@ -8,6 +8,42 @@ use loop_protocol::wire::runs::v1::{
     NumericalWorkflow, ResearchRunView, RunStage, research_run_view::CurrentChild,
 };
 use sha2::{Digest, Sha256};
+use std::sync::atomic::AtomicUsize;
+
+struct CommitClock {
+    reads: AtomicUsize,
+    final_value: i64,
+}
+
+impl crate::store::Clock for CommitClock {
+    fn now_millis(&self) -> StoreResult<i64> {
+        // Observe the ledger and pass the pre-write check, then change time
+        // only at the final check after all transactional writes and audit.
+        Ok(if self.reads.fetch_add(1, Ordering::SeqCst) < 2 {
+            fixture::NOW
+        } else {
+            self.final_value
+        })
+    }
+}
+
+async fn cancelled_run(store: &PgJobStore) -> RunView {
+    seed(store).await;
+    let job = store
+        .read_run(&owner(), "run.managed")
+        .await
+        .unwrap()
+        .current_job;
+    store
+        .control_model(
+            &executor(),
+            model_command(&job, "cancel.clock"),
+            ModelControl::Cancel,
+        )
+        .await
+        .unwrap();
+    store.read_run(&owner(), "run.managed").await.unwrap().view
+}
 
 pub(super) fn numerical_spec() -> RunSpecification {
     let mut specification = specification();
@@ -256,6 +292,73 @@ async fn numerical_expiry() {
         store.read_run(&owner(), "run.managed").await.unwrap().view,
         view
     );
+    store.close().await;
+}
+
+#[tokio::test]
+async fn commit_deadline() {
+    let (_directory, store, clock) = setup().await;
+    let before = cancelled_run(&store).await;
+    let audit = store.audit_events(0, 100).await.unwrap();
+    let changed = Arc::new(CommitClock {
+        reads: AtomicUsize::new(0),
+        final_value: fixture::NOW + 3_600_000,
+    });
+    let mut late = store.clone();
+    late.clock = changed.clone();
+    let mut request = step(1);
+    request.workflow_version = 2;
+    assert!(matches!(
+        late.advance_numerical(&owner(), &request, &numerical_spec(), None)
+            .await,
+        Err(StoreError::Unavailable("run commit deadline"))
+    ));
+    assert_eq!(changed.reads.load(Ordering::SeqCst), 3);
+    assert_eq!(
+        store.read_run(&owner(), "run.managed").await.unwrap().view,
+        before
+    );
+    assert_eq!(store.audit_events(0, 100).await.unwrap(), audit);
+    assert_eq!(store.replay_step(&owner(), &request).await.unwrap(), None);
+
+    // The failed commit consumed neither its CAS revision nor idempotency key.
+    clock.0.store(fixture::NOW + 3_600_000, Ordering::SeqCst);
+    let ended = store
+        .advance_numerical(&owner(), &request, &numerical_spec(), None)
+        .await
+        .unwrap();
+    assert_eq!(ended.status, RunStatus::DeadlineExceeded as i32);
+    assert_eq!(ended.revision, 2);
+    assert_eq!(ended.reserved_steps, before.reserved_steps);
+    store.close().await;
+}
+
+#[tokio::test]
+async fn commit_regression() {
+    let (_directory, store, _) = setup().await;
+    let before = cancelled_run(&store).await;
+    let audit = store.audit_events(0, 100).await.unwrap();
+    let changed = Arc::new(CommitClock {
+        reads: AtomicUsize::new(0),
+        final_value: fixture::NOW - 1,
+    });
+    let mut regressed = store.clone();
+    regressed.clock = changed.clone();
+    let mut request = step(1);
+    request.workflow_version = 2;
+    assert!(matches!(
+        regressed
+            .advance_numerical(&owner(), &request, &numerical_spec(), None)
+            .await,
+        Err(StoreError::ClockRegression)
+    ));
+    assert_eq!(changed.reads.load(Ordering::SeqCst), 3);
+    assert_eq!(
+        store.read_run(&owner(), "run.managed").await.unwrap().view,
+        before
+    );
+    assert_eq!(store.audit_events(0, 100).await.unwrap(), audit);
+    assert_eq!(store.replay_step(&owner(), &request).await.unwrap(), None);
     store.close().await;
 }
 

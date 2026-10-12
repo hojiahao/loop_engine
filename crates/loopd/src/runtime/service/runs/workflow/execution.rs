@@ -182,9 +182,11 @@ impl RuntimeService {
         job: &v1::JobRecord,
     ) -> StoreResult<Box<v1::JobRecord>> {
         let id = job_id(job)?;
-        let mutation = if job.state != v1::JobState::Queued as i32 {
+        let mutation = if needs_recovery(job, self.authority.now()?)? {
             // Never borrow an in-flight handler's lease. An abandoned numerical
             // execution becomes a distinct infrastructure failure after expiry.
+            // Queued work past its own deadline instead exhausts wall time;
+            // trying Acquire would leave that child and parent stuck active.
             JobMutation::Recover(RecoveryCommand {
                 context: Some(self.numerical_context(&stage.actor, &id, "recover")?),
                 job_id: Some(v1::JobId { value: id }),
@@ -244,4 +246,103 @@ fn lease(job: &v1::JobRecord) -> StoreResult<v1::LeaseId> {
         .as_ref()
         .and_then(|lease| lease.lease_id.clone())
         .ok_or(StoreError::LeaseFenced)
+}
+
+fn needs_recovery(job: &v1::JobRecord, now: i64) -> StoreResult<bool> {
+    if job.state != v1::JobState::Queued as i32 {
+        return Ok(true);
+    }
+    let specification = job
+        .specification
+        .as_ref()
+        .ok_or(StoreError::Corrupt("numerical child specification"))?;
+    let budget = match &specification.input {
+        Some(v1::job_specification::Input::FactorEvaluation(input)) => input.budget.as_ref(),
+        Some(v1::job_specification::Input::Backtest(input)) => input.budget.as_ref(),
+        _ => return Err(StoreError::Corrupt("numerical child input")),
+    }
+    .ok_or(StoreError::Corrupt("numerical child budget"))?;
+    let duration = budget
+        .maximum_wall_time
+        .as_ref()
+        .ok_or(StoreError::Corrupt("numerical child wall time"))?;
+    let submitted = specification
+        .submitted_at
+        .as_ref()
+        .ok_or(StoreError::Corrupt("numerical child submission"))?;
+    // Match lifecycle::deadline_millis: sum before rounding, so the dispatch
+    // boundary and the transaction's lease fence use the same exact instant.
+    let nanos = (i128::from(submitted.seconds) + i128::from(duration.seconds)) * 1_000_000_000
+        + i128::from(submitted.nanos)
+        + i128::from(duration.nanos);
+    let deadline = i64::try_from(nanos / 1_000_000)
+        .map_err(|_| StoreError::Corrupt("numerical child deadline"))?;
+    Ok(now >= deadline)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn queued(kind: v1::JobKind) -> v1::JobRecord {
+        let budget = Some(v1::JobBudget {
+            maximum_wall_time: Some(prost_types::Duration {
+                seconds: 1,
+                nanos: 250_000_000,
+            }),
+            ..Default::default()
+        });
+        let input = match kind {
+            v1::JobKind::FactorEvaluation => {
+                v1::job_specification::Input::FactorEvaluation(v1::FactorEvaluationJobInput {
+                    budget,
+                    ..Default::default()
+                })
+            }
+            v1::JobKind::Backtest => v1::job_specification::Input::Backtest(v1::BacktestJobInput {
+                budget,
+                ..Default::default()
+            }),
+            _ => unreachable!("numerical test kind"),
+        };
+        v1::JobRecord {
+            state: v1::JobState::Queued as i32,
+            specification: Some(v1::JobSpecification {
+                kind: kind as i32,
+                submitted_at: Some(prost_types::Timestamp {
+                    seconds: 100,
+                    nanos: 750_000_000,
+                }),
+                input: Some(input),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn evaluation_deadline() {
+        let job = queued(v1::JobKind::FactorEvaluation);
+        assert!(!needs_recovery(&job, 101_999).unwrap());
+        assert!(needs_recovery(&job, 102_000).unwrap());
+        assert!(needs_recovery(&job, 102_001).unwrap());
+    }
+
+    #[test]
+    fn portfolio_deadline() {
+        let job = queued(v1::JobKind::Backtest);
+        assert!(!needs_recovery(&job, 101_999).unwrap());
+        assert!(needs_recovery(&job, 102_000).unwrap());
+        assert!(needs_recovery(&job, 102_001).unwrap());
+    }
+
+    #[test]
+    fn corrupt_deadline() {
+        let mut job = queued(v1::JobKind::FactorEvaluation);
+        let specification = job.specification.as_mut().unwrap();
+        specification.submitted_at.as_mut().unwrap().seconds = i64::MAX;
+        assert!(needs_recovery(&job, 102_000).is_err());
+        job.specification.as_mut().unwrap().input = None;
+        assert!(needs_recovery(&job, 102_000).is_err());
+    }
 }
