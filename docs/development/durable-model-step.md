@@ -228,7 +228,10 @@ ceiling merely because actual charges are absent. Inspect explicit status, not
 just transport completion. Use [read-only Provider recovery](invocation-recovery.md)
 when the normal Provider catalog is unavailable.
 
-To stop new work, remove/disable the discovery configuration and restart loopd.
+To stop new work, remove the optional `runs` and `discovery` configuration
+sections and restart loopd. A run catalog requires its Discovery executor;
+leaving `runs` configured after removing `discovery` prevents startup. Keep
+registered owner identities so authorized status remains available.
 Retain the plan objects, Provider journal, `model_steps`, command receipts and
 audit events. Do not delete claims, reset reservations, or manually change
 dispatch state to force a retry. The supported rollback disables this feature on

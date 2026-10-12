@@ -183,8 +183,11 @@ Expire can record budget exhaustion; no unattended expiry sweeper is claimed.
 
 ## Stop-only deployment and rollback
 
-Stop `loopd`, remove its optional `discovery` section and restart the same
-migration-aware binary while retaining the owner identity and storage config.
+Stop `loopd`, remove its optional `runs` and `discovery` sections and restart the
+same migration-aware binary while retaining the owner identities and storage
+config. A configured run catalog requires Discovery; retaining `runs` without
+`discovery` prevents startup. Removing only `runs` disables new run start/step
+commands while keeping independently configured Discovery execution available.
 Status, scoped events and stop commands remain available even if plan files are
 unavailable. Execute/Resume/Reconcile require their original supported plan and
 connector; stop-only mode cannot bypass those requirements.

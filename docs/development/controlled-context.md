@@ -134,8 +134,9 @@ Recovery observes the existing revision, lease and absolute deadline. A live
 worker's lease cannot be borrowed by another Execute request. A committed
 intermediate response renews the bounded tool lease; resumption after expiry
 must acquire a new fenced lease without extending the original job deadline.
-Broader cancellation, post-deadline reconciliation and user-facing lifecycle
-commands are subsequent work.
+Cancellation and post-deadline reconciliation follow the
+[Discovery lifecycle](discovery-lifecycle.md); installed commands and stop-only
+recovery are documented in the [Discovery CLI guide](discovery-cli.md).
 
 Rollback disables new v2 plans on a migration-aware binary. Retain model/tool
 history, original plan objects, Provider receipts, reservations and audit events.

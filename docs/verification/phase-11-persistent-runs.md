@@ -149,6 +149,14 @@ of its unchanged 1 GiB tmpfs (16%). The disposable container/network and the
 empty `var/tmp/phase11-ci` directory were removed, releasing about 155 MiB of
 synthetic database/WAL data. The corrected commit's remote gate remains pending.
 
+Pre-merge documentation review compared the production bundle, migration 0015
+and runtime configuration loader with the operator guides. The upgrade procedure
+now distinguishes the deployed 1–14 baseline from the new 1–15 target and checks
+the run-table UPDATE grant and both writer triggers. Stop-only instructions
+remove `runs` together with `discovery`, matching the loader's dependency check.
+These documentation corrections do not apply a production migration or enable
+execution. The branch and pull-request checks remain the merge gate.
+
 ## Rollback and cleanup
 
 Disable the optional `runs` execution configuration while retaining owner

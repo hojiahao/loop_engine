@@ -7,6 +7,10 @@ not a migration of a running research workload. Recheck these facts immediately
 before applying changes; this document is a procedure, not a deployment receipt.
 The executed first-install receipt is in
 [Phase 10 operational verification](../verification/phase-10-discovery-operations.md).
+That deployment applied migrations 1 through 14. The current source also includes
+migration 15; upgrading to it is a separate cutover, not an already-executed
+production change. Inventory the host again and retain the same backup and
+compatibility checks for that upgrade.
 
 Install `loopd` and `loopctl` with Discovery execution disabled. No Provider
 deployment, model credential, administrator-approved execution plan or licensed
@@ -111,6 +115,7 @@ startup upgrades PostgreSQL itself.
 | 11–12 | Add model/tool evidence and a two-ordinal key. Model writer tokens advance from `v1` to `v2`. |
 | 13 | Add retry/response chronology and Discovery Paused state; preserve original bytes and reservations. Require writer token `v3` for model/tool changes and all updates to Discovery jobs, including jobs with no model step yet. |
 | 14 | Add only the partial `audit_events(job_id, sequence)` index. |
+| 15 | Add `research_runs`, monotonic reservation/revision protection and a `jobs` insertion fence. Managed children require atomic parent reservations; preserve all existing job and audit history. |
 
 Migration 13 temporarily disables the model protection trigger only inside the
 migration transaction to populate response chronology, then re-enables it.
@@ -121,8 +126,8 @@ when only additive changes were applied.
 
 The bundle grants SELECT/INSERT on application tables and UPDATE only on
 `store_metadata`, `jobs`, `holdout_periods`, `holdout_grants`,
-`perturbation_states`, `factor_states` and `model_steps`. It revokes migration
-INSERT/UPDATE/DELETE. New tables need no sequence privileges. Existing default
+`perturbation_states`, `factor_states`, `model_steps` and `research_runs`. It
+revokes migration INSERT/UPDATE/DELETE. New tables need no sequence privileges. Existing default
 privileges do not grant the UPDATE rights, so applying raw SQL files alone is
 insufficient. The bundle does not repair unrelated over-broad historical grants;
 check the resulting effective permissions explicitly:
@@ -146,16 +151,19 @@ SELECT version, success, encode(checksum, 'hex') AS checksum
 FROM public._sqlx_migrations ORDER BY version LIMIT 100;
 SELECT tgname, tgenabled FROM pg_trigger
 WHERE tgrelid IN ('public.jobs'::regclass, 'public.model_steps'::regclass,
-                 'public.tool_results'::regclass, 'public.audit_events'::regclass)
+                 'public.tool_results'::regclass, 'public.audit_events'::regclass,
+                 'public.research_runs'::regclass)
   AND NOT tgisinternal ORDER BY tgname;
 SELECT indexdef FROM pg_indexes
 WHERE schemaname = 'public' AND indexname = 'audit_events_job_sequence';
 COMMIT;
 ```
 
-Require successful versions 1–14, no owner membership/schema CREATE, no runtime
-DELETE/TRUNCATE, migration metadata INSERT/UPDATE denied, and UPDATE only on
-the mutable allowlist. All ordinary triggers must be enabled (`O`). Compare the
+For the current release, require successful versions 1–15, no owner membership
+or schema CREATE, no runtime DELETE/TRUNCATE, migration metadata INSERT/UPDATE
+denied, and UPDATE only on
+the mutable allowlist. All ordinary triggers must be enabled (`O`), including
+`research_runs_protected` and `jobs_run_fenced`. Compare the
 pre-upgrade job/receipt counts and final audit head again before starting writers.
 
 ## Install and activate
@@ -177,8 +185,8 @@ runtime TLS, session settings, ledger identity and compiled migration checksums.
 The initial default-deny service may omit `--runtime-config`. For stop-only mTLS,
 add `/srv/loop/private/runtime.json` with the chosen loopback mTLS port, private
 server key, trusted client CA and a nonempty registry containing the specifically
-registered Discovery actor and run. Omit `discovery` and every research executor
-section. `jobs` and `data` can be empty. Use three distinct service-owned private
+registered Discovery actor and run. Omit `runs`, `discovery` and every research
+executor section. `jobs` and `data` can be empty. Use three distinct service-owned private
 directories for development, protected and view stores. Keep the CLI client
 configuration and client private key root-owned and mode `0600`; the daemon
 does not need those files. Certificate identity and actor/run registration must
@@ -261,7 +269,10 @@ is the application rollback; the existing database can remain upgraded.
 
 Disable new execution by omitting the optional executor configuration while
 retaining owner identities and the same database in a migration-aware stop-only
-deployment. Do not reset dispatch states, budgets, retries or receipt keys. Do
-not restore an old dump over production after new writes: first preserve the
+deployment. Remove `runs` together with `discovery`: a run catalog requires its
+Discovery executor, so leaving `runs` configured would prevent startup. Retain
+registered Human identities for authorized run-status reads. Do not reset
+dispatch states, budgets, retries or receipt keys. Do not restore an old dump
+over production after new writes: first preserve the
 new evidence and design a separate verified recovery/import. The backup is a
 recovery source, not authorization to erase newer immutable history.
