@@ -1,6 +1,35 @@
-# Loop Engine
+<p align="center">
+  <picture>
+    <source media="(max-width: 620px) and (prefers-color-scheme: dark)" srcset="docs/brand/banner-dark-compact.svg">
+    <source media="(max-width: 620px)" srcset="docs/brand/banner-light-compact.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.svg">
+    <img src="docs/brand/banner-light.svg" alt="Loop Engine — Automated US equity factor research. Provider neutral. Evidence first." width="1280">
+  </picture>
+</p>
 
-面向美股横截面因子研究的可审计研究平台。
+<p align="center">面向美股横截面因子研究的可审计研究平台。</p>
+
+<p align="center">
+  <a href="rust-toolchain.toml"><img src="docs/brand/badge-rust.svg" alt="Rust 1.93.1" height="30"></a>
+  <a href="tsconfig.base.json"><img src="docs/brand/badge-typescript.svg" alt="TypeScript strict" height="30"></a>
+  <a href=".python-version"><img src="docs/brand/badge-python.svg" alt="Python 3.14.4" height="30"></a>
+  <a href="docs/development/postgresql.md"><img src="docs/brand/badge-postgresql.svg" alt="PostgreSQL 17" height="30"></a>
+  <br>
+  <a href="proto"><img src="docs/brand/badge-grpc.svg" alt="Protocol: gRPC" height="30"></a>
+  <a href="docs/development/source-snapshots.md"><img src="docs/brand/badge-parquet.svg" alt="Data: Parquet" height="30"></a>
+  <a href="#模型-provider"><img src="docs/brand/badge-providers.svg" alt="Pluggable Providers" height="30"></a>
+  <a href="https://github.com/hojiahao/loop_engine/actions/workflows/ci.yml"><img src="docs/brand/badge-ci.svg" alt="CI workflows — view actual check results" height="30"></a>
+</p>
+
+<p align="center">
+  <a href="#安装与检查">快速开始</a> ·
+  <a href="#数据接入">数据接入</a> ·
+  <a href="#研究与复核工作流">研究工作流</a> ·
+  <a href="#模型-provider">模型接入</a> ·
+  <a href="#服务运行与运维">部署运维</a>
+</p>
+
+---
 
 Loop Engine 将行情与基本面数据、因子表达式、组合回测、统计评测、独立复核和模型调用
 连接到可追溯的执行流程。研究结果绑定实际代码、环境、配置和数据快照；基础设施故障、
