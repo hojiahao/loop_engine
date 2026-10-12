@@ -52,41 +52,62 @@ impl DiscoveryExecutor {
         if authority.now()? >= deadline(&job)? {
             let mut control = command(authority, actor, &job, 0)?;
             control.lease_id = None;
-            let job = store
-                .control_model(actor, control, ModelControl::Expire)
-                .await?;
-            return self.current_view(store, actor, &job).await;
+            let job = Box::pin(store.control_model(actor, control, ModelControl::Expire)).await?;
+            return Box::pin(self.current_view(store, actor, &job)).await;
         }
-        crate::manifests::data::resolve(&self.data, &plan.data, specification, false).await?;
-        let step = if let Some(step) = history.last() {
-            if step.job.revision != expected_revision {
+        Box::pin(crate::manifests::data::resolve(
+            &self.data,
+            &plan.data,
+            specification,
+            false,
+        ))
+        .await?;
+        let step =
+            Box::pin(self.claim_step(store, authority, actor, &job, plan, history.last())).await?;
+        Box::pin(self.drive(store, authority, actor, step)).await
+    }
+
+    async fn claim_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        job: &v1::JobRecord,
+        plan: &super::plan::FrozenPlan,
+        previous: Option<&ModelStep>,
+    ) -> StoreResult<Box<ModelStep>> {
+        let step = if let Some(step) = previous {
+            if step.job.revision != job.revision {
                 return Err(StoreError::RevisionConflict);
             }
             // A second RPC cannot borrow another in-flight handler's lease.
             let mut takeover = command(authority, actor, &step.job, step.ordinal)?;
             takeover.lease_id = None;
-            store
-                .takeover_model(
-                    actor,
-                    takeover,
-                    prost_types::Duration {
-                        seconds: 120,
-                        nanos: 0,
-                    },
-                )
-                .await?
+            Box::pin(store.takeover_model(
+                actor,
+                takeover,
+                prost_types::Duration {
+                    seconds: 120,
+                    nanos: 0,
+                },
+            ))
+            .await?
         } else {
+            let job_id = job
+                .specification
+                .as_ref()
+                .and_then(|specification| specification.job_id.as_ref())
+                .ok_or(StoreError::Corrupt("discovery job ID"))?;
             let invocation = plan
                 .tool_invocation
                 .as_ref()
                 .unwrap_or(&plan.invocation)
                 .clone();
-            let request = request(authority, actor, job_id, invocation)?;
-            store
-                .reserve_model(actor, command(authority, actor, &job, 0)?, request)
+            let request = request(authority, actor, &job_id.value, invocation)?;
+            Box::pin(store.reserve_model(actor, command(authority, actor, job, 0)?, request))
                 .await?
         };
-        Box::pin(self.drive(store, authority, actor, step)).await
+        Ok(Box::new(step))
     }
 
     pub(crate) async fn resume(
@@ -125,7 +146,7 @@ impl DiscoveryExecutor {
         } else {
             None
         };
-        let claim = store.resume_model(actor, control, initial).await?;
+        let claim = Box::pin(store.resume_model(actor, control, initial)).await?;
         if !claim.execute {
             return self.current_view(store, actor, &claim.job).await;
         }
@@ -134,9 +155,11 @@ impl DiscoveryExecutor {
                 store,
                 authority,
                 actor,
-                claim
-                    .step
-                    .ok_or(StoreError::Corrupt("resumed model step"))?,
+                Box::new(
+                    claim
+                        .step
+                        .ok_or(StoreError::Corrupt("resumed model step"))?,
+                ),
             ),
         )
         .await
@@ -209,21 +232,30 @@ impl DiscoveryExecutor {
         store: &PgJobStore,
         authority: &RuntimeAuthority,
         actor: &v1::Actor,
-        mut step: ModelStep,
+        mut step: Box<ModelStep>,
     ) -> StoreResult<wire::DiscoveryStepView> {
-        let specification = step
-            .job
-            .specification
-            .clone()
-            .ok_or(StoreError::Corrupt("discovery specification"))?;
+        // Keep large wire values and child futures off the caller's stack.
+        // This frame retains the data guard through every durable completion;
+        // dropping the parent still cancels the currently awaited operation.
+        let specification = Box::new(
+            step.job
+                .specification
+                .clone()
+                .ok_or(StoreError::Corrupt("discovery specification"))?,
+        );
         let plan = self.plan(&specification)?;
-        let evidence = guarded(
+        let evidence = Box::pin(guarded(
             store,
             authority,
             actor,
             &step,
-            crate::manifests::data::resolve(&self.data, &plan.data, &specification, false),
-        )
+            Box::pin(crate::manifests::data::resolve(
+                &self.data,
+                &plan.data,
+                &specification,
+                false,
+            )),
+        ))
         .await?;
         let job_id = &specification
             .job_id
@@ -241,99 +273,137 @@ impl DiscoveryExecutor {
                         .response
                         .clone()
                         .ok_or(StoreError::Corrupt("model response"))?;
-                    return self
-                        .complete(store, authority, actor, &step, response)
-                        .await;
+                    return Box::pin(self.complete(store, authority, actor, &step, response)).await;
                 }
-                if step.tool_result.is_none() {
-                    let result =
-                        match Box::pin(self.tool_step(store, authority, actor, &mut step)).await? {
-                            Attempt::Ready(result) => result,
-                            Attempt::Failed(code) => {
-                                return self.fail(store, authority, actor, &step, code).await;
-                            }
-                        };
-                    step = store
-                        .record_tool(actor, command(authority, actor, &step.job, 0)?, result)
-                        .await?;
+                if let Attempt::Failed(code) =
+                    Box::pin(self.continue_step(store, authority, actor, plan, &mut step, job_id))
+                        .await?
+                {
+                    return Box::pin(self.fail(store, authority, actor, &step, code)).await;
                 }
-                let invocation = continuation(plan, &step)?;
-                let request = request(authority, actor, job_id, invocation)?;
-                step = store
-                    .reserve_model(actor, command(authority, actor, &step.job, 1)?, request)
-                    .await?;
             }
-            let send = if step.state == ModelStepState::Reserved {
-                let dispatch = store
-                    .dispatch_model(actor, command(authority, actor, &step.job, step.ordinal)?)
-                    .await?;
-                step = dispatch.step;
-                dispatch.send
-            } else {
-                false
-            };
-            let response = if send {
-                let result = guarded(
+            let response =
+                match Box::pin(self.response_step(store, authority, actor, &mut step)).await? {
+                    Attempt::Ready(response) => response,
+                    Attempt::Failed(code) => {
+                        return Box::pin(self.fail(store, authority, actor, &step, code)).await;
+                    }
+                };
+            if step.check_response(&response).is_err() {
+                return Box::pin(self.fail(
                     store,
                     authority,
                     actor,
                     &step,
-                    self.provider
-                        .invoke(step.request.clone(), remaining(authority, &step, true)?),
-                )
+                    "model_contract_invalid",
+                ))
                 .await;
-                match result {
-                    Ok(response) => Some(response),
-                    Err(StoreError::Unavailable(_)) => {
-                        step = store
-                            .uncertain_model(
-                                actor,
-                                command(authority, actor, &step.job, step.ordinal)?,
-                            )
-                            .await?;
-                        None
-                    }
-                    Err(StoreError::AdmissionDenied | StoreError::Corrupt(_)) => {
-                        return self
-                            .fail(store, authority, actor, &step, "model_contract_invalid")
-                            .await;
-                    }
-                    Err(error) => return Err(error),
-                }
-            } else {
-                None
-            };
-            let response = if let Some(response) = response {
-                response
-            } else {
-                match Box::pin(self.lookup_step(store, authority, actor, &mut step)).await? {
-                    Attempt::Ready(response) => response,
-                    Attempt::Failed(code) => {
-                        return self.fail(store, authority, actor, &step, code).await;
-                    }
-                }
-            };
-            if step.check_response(&response).is_err() {
-                return self
-                    .fail(store, authority, actor, &step, "model_contract_invalid")
-                    .await;
             }
             plan.check()?;
             evidence.check(&specification)?;
             let intermediate = plan.tool_invocation.is_some() && step.ordinal == 0;
             if intermediate && model_codec::response_call(&step.request, &response).is_ok() {
-                step = store
-                    .finish_call(
-                        actor,
-                        command(authority, actor, &step.job, step.ordinal)?,
-                        response,
-                    )
-                    .await?;
+                *step = Box::pin(store.finish_call(
+                    actor,
+                    command(authority, actor, &step.job, step.ordinal)?,
+                    response,
+                ))
+                .await?;
                 continue;
             }
-            return self
-                .complete(store, authority, actor, &step, response)
-                .await;
+            return Box::pin(self.complete(store, authority, actor, &step, response)).await;
+        }
+    }
+
+    async fn continue_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        plan: &super::plan::FrozenPlan,
+        step: &mut ModelStep,
+        job_id: &str,
+    ) -> StoreResult<Attempt<()>> {
+        if step.tool_result.is_none() {
+            let result = match Box::pin(self.tool_step(store, authority, actor, step)).await? {
+                Attempt::Ready(result) => result,
+                Attempt::Failed(code) => return Ok(Attempt::Failed(code)),
+            };
+            *step = Box::pin(store.record_tool(
+                actor,
+                command(authority, actor, &step.job, 0)?,
+                result,
+            ))
+            .await?;
+        }
+        let invocation = continuation(plan, step)?;
+        let request = request(authority, actor, job_id, invocation)?;
+        *step =
+            Box::pin(store.reserve_model(actor, command(authority, actor, &step.job, 1)?, request))
+                .await?;
+        Ok(Attempt::Ready(()))
+    }
+
+    async fn response_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &mut ModelStep,
+    ) -> StoreResult<Attempt<v1::ModelResponse>> {
+        match Box::pin(self.invoke_step(store, authority, actor, step)).await? {
+            Attempt::Ready(Some(response)) => Ok(Attempt::Ready(response)),
+            Attempt::Ready(None) => Box::pin(self.lookup_step(store, authority, actor, step)).await,
+            Attempt::Failed(code) => Ok(Attempt::Failed(code)),
+        }
+    }
+
+    async fn invoke_step(
+        &self,
+        store: &PgJobStore,
+        authority: &RuntimeAuthority,
+        actor: &v1::Actor,
+        step: &mut ModelStep,
+    ) -> StoreResult<Attempt<Option<v1::ModelResponse>>> {
+        let send = if step.state == ModelStepState::Reserved {
+            let dispatch = Box::pin(
+                store.dispatch_model(actor, command(authority, actor, &step.job, step.ordinal)?),
+            )
+            .await?;
+            *step = dispatch.step;
+            dispatch.send
+        } else {
+            false
+        };
+        if !send {
+            return Ok(Attempt::Ready(None));
+        }
+        let result = Box::pin(guarded(
+            store,
+            authority,
+            actor,
+            step,
+            Box::pin(
+                self.provider
+                    .invoke(step.request.clone(), remaining(authority, step, true)?),
+            ),
+        ))
+        .await;
+        match result {
+            Ok(response) => Ok(Attempt::Ready(Some(response))),
+            Err(StoreError::Unavailable(_)) => {
+                *step =
+                    Box::pin(store.uncertain_model(
+                        actor,
+                        command(authority, actor, &step.job, step.ordinal)?,
+                    ))
+                    .await?;
+                Ok(Attempt::Ready(None))
+            }
+            Err(StoreError::AdmissionDenied | StoreError::Corrupt(_)) => {
+                Ok(Attempt::Failed("model_contract_invalid"))
+            }
+            Err(error) => Err(error),
         }
     }
 
@@ -363,28 +433,27 @@ impl DiscoveryExecutor {
                 return Ok(Attempt::Failed("retry_exhausted"));
             }
             retry_wait(store, authority, actor, step).await?;
-            *step = store
-                .retry_model(
-                    actor,
-                    command(authority, actor, &step.job, step.ordinal)?,
-                    ModelRetry::Tool,
-                )
-                .await?;
+            *step = Box::pin(store.retry_model(
+                actor,
+                command(authority, actor, &step.job, step.ordinal)?,
+                ModelRetry::Tool,
+            ))
+            .await?;
             let result = tokio::time::timeout(
                 Duration::from_millis(lease_millis(authority, step)?.min(30_000) as u64),
-                guarded(
+                Box::pin(guarded(
                     store,
                     authority,
                     actor,
                     step,
-                    super::tools::describe(
+                    Box::pin(super::tools::describe(
                         &self.data,
                         &plan.data,
                         &specification,
                         &plan.registry,
                         &call,
-                    ),
-                ),
+                    )),
+                )),
             )
             .await
             .map_err(|_| StoreError::Unavailable("research tool deadline"))
@@ -422,24 +491,23 @@ impl DiscoveryExecutor {
                 return Ok(Attempt::Failed("retry_exhausted"));
             }
             retry_wait(store, authority, actor, step).await?;
-            *step = store
-                .retry_model(
-                    actor,
-                    command(authority, actor, &step.job, step.ordinal)?,
-                    ModelRetry::Lookup,
-                )
-                .await?;
-            let result = guarded(
+            *step = Box::pin(store.retry_model(
+                actor,
+                command(authority, actor, &step.job, step.ordinal)?,
+                ModelRetry::Lookup,
+            ))
+            .await?;
+            let result = Box::pin(guarded(
                 store,
                 authority,
                 actor,
                 step,
-                self.provider.lookup(
+                Box::pin(self.provider.lookup(
                     step,
                     context(authority, actor, &job_id)?,
                     remaining(authority, step, false)?,
-                ),
-            )
+                )),
+            ))
             .await;
             match result {
                 Ok(Some(response)) => return Ok(Attempt::Ready(response)),
@@ -482,17 +550,16 @@ impl DiscoveryExecutor {
                 failed_at: Some(timestamp(authority.now()?)),
             })
         };
-        store
-            .finish_model(
-                actor,
-                command(authority, actor, &step.job, step.ordinal)?,
-                response,
-                v1::JobOutcome {
-                    outcome: Some(outcome),
-                },
-            )
-            .await?;
-        self.current_view(store, actor, &step.job).await
+        Box::pin(store.finish_model(
+            actor,
+            command(authority, actor, &step.job, step.ordinal)?,
+            response,
+            v1::JobOutcome {
+                outcome: Some(outcome),
+            },
+        ))
+        .await?;
+        Box::pin(self.current_view(store, actor, &step.job)).await
     }
 
     async fn fail(
@@ -503,14 +570,13 @@ impl DiscoveryExecutor {
         step: &ModelStep,
         code: &'static str,
     ) -> StoreResult<wire::DiscoveryStepView> {
-        let job = store
-            .fail_model(
-                actor,
-                command(authority, actor, &step.job, step.ordinal)?,
-                code,
-            )
-            .await?;
-        self.current_view(store, actor, &job).await
+        let job = Box::pin(store.fail_model(
+            actor,
+            command(authority, actor, &step.job, step.ordinal)?,
+            code,
+        ))
+        .await?;
+        Box::pin(self.current_view(store, actor, &job)).await
     }
 
     async fn current_view(

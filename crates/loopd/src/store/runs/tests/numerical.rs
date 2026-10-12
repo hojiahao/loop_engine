@@ -12,18 +12,21 @@ use std::sync::atomic::AtomicUsize;
 
 struct CommitClock {
     reads: AtomicUsize,
+    stable_reads: usize,
     final_value: i64,
 }
 
 impl crate::store::Clock for CommitClock {
     fn now_millis(&self) -> StoreResult<i64> {
-        // Observe the ledger and pass the pre-write check, then change time
-        // only at the final check after all transactional writes and audit.
-        Ok(if self.reads.fetch_add(1, Ordering::SeqCst) < 2 {
-            fixture::NOW
-        } else {
-            self.final_value
-        })
+        // Keep the configured earlier clock/authority checks stable, then
+        // change time at the final boundary after transactional writes.
+        Ok(
+            if self.reads.fetch_add(1, Ordering::SeqCst) < self.stable_reads {
+                fixture::NOW
+            } else {
+                self.final_value
+            },
+        )
     }
 }
 
@@ -302,6 +305,7 @@ async fn commit_deadline() {
     let audit = store.audit_events(0, 100).await.unwrap();
     let changed = Arc::new(CommitClock {
         reads: AtomicUsize::new(0),
+        stable_reads: 2,
         final_value: fixture::NOW + 3_600_000,
     });
     let mut late = store.clone();
@@ -340,6 +344,7 @@ async fn commit_regression() {
     let audit = store.audit_events(0, 100).await.unwrap();
     let changed = Arc::new(CommitClock {
         reads: AtomicUsize::new(0),
+        stable_reads: 2,
         final_value: fixture::NOW - 1,
     });
     let mut regressed = store.clone();
@@ -359,6 +364,55 @@ async fn commit_regression() {
     );
     assert_eq!(store.audit_events(0, 100).await.unwrap(), audit);
     assert_eq!(store.replay_step(&owner(), &request).await.unwrap(), None);
+    store.close().await;
+}
+
+#[tokio::test]
+async fn commit_authority() {
+    let (_directory, store, _) = setup().await;
+    let before = cancelled_run(&store).await;
+    let audit = store.audit_events(0, 100).await.unwrap();
+    let changed = Arc::new(CommitClock {
+        reads: AtomicUsize::new(0),
+        // Ledger, initial owner authorization and both clock fences pass;
+        // the final owner authorization alone observes application expiry.
+        stable_reads: 4,
+        final_value: fixture::NOW + 1,
+    });
+    let actor = owner();
+    let authority = crate::runtime::RuntimeAuthority::new(
+        vec![crate::runtime::Identity {
+            actor_id: actor.actor_id.as_ref().unwrap().value.clone(),
+            subject: actor.authenticated_subject.clone(),
+            display_name: actor.display_name.clone(),
+            role: crate::runtime::Role::Operator,
+            certificate_sha256: vec![format!("sha256:{}", "01".repeat(32))],
+            not_before_ms: fixture::NOW - 1,
+            expires_at_ms: fixture::NOW + 1,
+            run_ids: vec!["run.managed".into()],
+        }],
+        vec![],
+        changed.clone(),
+    )
+    .unwrap();
+    let mut expiring = store.clone();
+    expiring.clock = changed.clone();
+    expiring.admission = Arc::new(authority);
+    let mut request = step(1);
+    request.workflow_version = 2;
+    assert!(matches!(
+        expiring
+            .advance_numerical(&actor, &request, &numerical_spec(), None)
+            .await,
+        Err(StoreError::AdmissionDenied)
+    ));
+    assert_eq!(changed.reads.load(Ordering::SeqCst), 5);
+    assert_eq!(
+        store.read_run(&actor, "run.managed").await.unwrap().view,
+        before
+    );
+    assert_eq!(store.audit_events(0, 100).await.unwrap(), audit);
+    assert_eq!(store.replay_step(&actor, &request).await.unwrap(), None);
     store.close().await;
 }
 

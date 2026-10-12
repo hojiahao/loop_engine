@@ -165,6 +165,8 @@ impl PgJobStore {
     /// again transactionally. No arbitrary child command or unverified rejection
     /// can bypass admission. Stale revisions and active children deny; retries
     /// return the original receipt and never execute or reserve another child.
+    /// Before commit, revalidate live owner/reader/child authority and time;
+    /// expiry or clock regression rolls back the entire pending transition.
     pub(crate) async fn advance_numerical(
         &self,
         principal: &Actor,
@@ -337,6 +339,39 @@ impl PgJobStore {
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_step_before").await;
         final_time(self, checked, final_deadline)?;
+        self.admission.authorize_run(principal, specification)?;
+        // Recheck the live reader identity for numerical observations, including
+        // a pre-screened candidate with no new child. Pure Discovery expiry
+        // needs only its owner; it neither reads nor authorizes numerical work.
+        for job in snapshot
+            .current_job
+            .specification
+            .iter()
+            .chain(binding.attempted_specification.iter())
+        {
+            if matches!(
+                job.input,
+                Some(
+                    job_specification::Input::FactorEvaluation(_)
+                        | job_specification::Input::Backtest(_)
+                )
+            ) {
+                self.admission.authorize_run_trial(
+                    specification
+                        .numerical
+                        .as_ref()
+                        .expect("v2 specification")
+                        .research_executor
+                        .as_ref()
+                        .expect("validated executor"),
+                    specification,
+                    job,
+                )?;
+            }
+        }
+        if let Some(child) = &next {
+            self.admission.validate_submission(&child.specification)?;
+        }
         transaction.commit().await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_step_after").await;

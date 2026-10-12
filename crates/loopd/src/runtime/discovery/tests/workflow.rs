@@ -1,10 +1,13 @@
 //! Installed CLI and real Python workers cross the scoped numerical workflow.
 
 use std::process::Output;
+use std::sync::Arc;
 
 use loop_protocol::wire::{jobs::v1 as jobs, runs::v1 as runs, v1};
 use prost::Message;
 use serde_json::Value;
+use tokio::sync::Barrier;
+use tokio::task::JoinSet;
 
 use super::fixture::{Case, operations::Operations, timed};
 use crate::store::JobRepository;
@@ -81,6 +84,119 @@ async fn status(operations: &Operations) -> Value {
         0,
         "status",
     )
+}
+
+async fn competing_steps(operations: &Arc<Operations>, writers: usize) -> Vec<Output> {
+    let barrier = Arc::new(Barrier::new(writers + 1));
+    let mut tasks = JoinSet::new();
+    for writer in 0..writers {
+        let operations = Arc::clone(operations);
+        let barrier = Arc::clone(&barrier);
+        tasks.spawn(async move {
+            let key = format!("numerical.race.{writer}");
+            barrier.wait().await;
+            // Each future launches an independent installed loopctl process.
+            // Distinct keys must compete on one revision, not replay a receipt.
+            operations
+                .run_cli(&[
+                    "--workflow-version",
+                    "2",
+                    "--timeout-seconds",
+                    "240",
+                    "step",
+                    "--run",
+                    "run.discovery",
+                    "--revision",
+                    "1",
+                    "--key",
+                    &key,
+                ])
+                .await
+        });
+    }
+    barrier.wait().await;
+    let mut outputs = Vec::with_capacity(writers);
+    while let Some(output) = tasks.join_next().await {
+        outputs.push(output.unwrap());
+    }
+    outputs
+}
+
+#[tokio::test]
+async fn numerical_writers() {
+    for writers in [2, 4, 8] {
+        let mut case = Case::open().await;
+        let mut operations = case.install_numerical(1, false).await;
+        case.deploy(&mut operations, false).await;
+        let discovery = start(&operations).await;
+        assert_eq!(discovery["revision"], "1");
+        let operations = Arc::new(operations);
+        let outputs = competing_steps(&operations, writers).await;
+        assert_eq!(outputs.len(), writers);
+        let mut successes = Vec::new();
+        for output in outputs {
+            if output.status.success() {
+                successes.push(document(output, 0, "concurrent discovery"));
+            } else {
+                assert!(matches!(output.status.code(), Some(4 | 6)));
+                assert!(output.stdout.is_empty());
+                let error: Value = serde_json::from_slice(&output.stderr).unwrap();
+                assert_eq!(error["schema"], "loop.run-cli/v2");
+                assert!(matches!(
+                    error["error"]["category"].as_str(),
+                    Some("conflict" | "transport" | "remote_cancelled")
+                ));
+            }
+        }
+        assert_eq!(successes.len(), 1, "{writers} competing writers");
+        let evaluation = successes.pop().unwrap();
+        assert_eq!(evaluation["revision"], "2");
+        assert_eq!(evaluation["status"], "active");
+        assert_eq!(evaluation["research"]["stage"], "evaluation");
+        assert_eq!(evaluation["research"]["round"], "1");
+        assert_eq!(evaluation["completed_rounds"], "0");
+        assert_eq!(evaluation["reserved_steps"], "2");
+        for field in [
+            "reserved_input_tokens",
+            "reserved_output_tokens",
+            "reserved_cost",
+        ] {
+            assert_eq!(evaluation[field], discovery[field], "{field}");
+        }
+        assert_eq!(status(&operations).await, evaluation);
+        assert_eq!(case.calls(), 1);
+        let child = case
+            .store
+            .get(
+                evaluation["research"]["current_child"]["job_id"]
+                    .as_str()
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(child.state, v1::JobState::Queued as i32);
+        assert_eq!(child.revision, 1);
+
+        let mut connection = case.numerical_db().await;
+        let counts: (i64, i64, i64, i64, i64, i64) = sqlx::query_as(
+            "SELECT (SELECT count(*) FROM jobs),
+                    (SELECT count(*) FROM model_steps),
+                    (SELECT count(*) FROM run_transitions),
+                    (SELECT count(*) FROM factor_trials),
+                    (SELECT count(*) FROM factor_evaluations),
+                    (SELECT count(*) FROM backtest_results)",
+        )
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+        assert_eq!(counts, (2, 1, 2, 0, 0, 0), "{writers} competing writers");
+        drop(connection);
+        let mut operations = Arc::try_unwrap(operations)
+            .unwrap_or_else(|_| panic!("all competing CLI processes must be joined"));
+        operations.stop(false).await;
+        case.close().await;
+    }
 }
 
 #[tokio::test]

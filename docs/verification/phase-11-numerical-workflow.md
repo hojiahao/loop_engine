@@ -96,7 +96,9 @@ actual command results, commit IDs and CI links during delivery:
 - Manifest code and fixtures have been formatted with the pinned Rust formatter;
   `git diff --check` passed for that work at integration time.
 - Full workspace Clippy, including all targets/features and `-D warnings`,
-  passes after the stage split, boxed transition records and deadline fixes.
+  passes after the nested model/numerical frame split, final authority checks
+  and installed writer fixtures. Behavioral/default-stack acceptance remains
+  separate and pending.
 - The administrator guide's generated Python constructors for the Research
   actor, `ResearchJobBudget`, exact USD and `NumericalWorkflow` were executed
   against the installed bindings and serialized successfully. This validates
@@ -122,10 +124,16 @@ actual command results, commit IDs and CI links during delivery:
   execution/preparation to bound each call frame, preserving protocol bytes.
   Default-stack regression and installed execution must pass before merge and
   completion; the draft PR retains this unresolved acceptance record.
+  A second installed run still overflowed with the outer advancement frame
+  reduced to 0x3d888 bytes. The bounded portfolio completion call chain adds
+  roughly 640 KiB of storage validation to the previous 1.46 MiB runtime chain;
+  Discovery also retained an approximately 784 KiB drive frame. The follow-up
+  splits shared model/numerical execution and legacy dispatch, without changing
+  thread-stack settings or adding detached tasks. Its execution gate is pending.
 - Targeted TypeScript and Python run-boundary suites each pass 58 cases. The
   complete Python protocol suite passes 384 cases after synchronizing the
   shared fixture's current descriptor hash. Ruff and mypy also pass.
-  The handwritten Python/Rust/Shell naming check passes 4,928 declarations at this
+  The handwritten Python/Rust/Shell naming check passes 4,944 declarations at this
   integration checkpoint; subsequent tests must also pass the final gate.
 - Fresh `loopd` and `loopctl` binaries build with all features, and the actual
   Provider host compiles. Rust protocol, installed CLI workflow,
@@ -138,11 +146,21 @@ an expired queued numerical child must use recovery rather than repeatedly fail
 lease acquisition, and a transaction must recheck its clock before writing and
 before commit. The latter rolls back all state/receipt/audit writes on clock
 regression or a newly crossed parent deadline. Their final execution is pending.
+The final writer also rechecks owner, numerical-reader and new-child authority;
+a real RuntimeAuthority expiry fixture verifies rollback at that boundary.
+
+The storage 2/4/8-process and kill/restart cases exercise terminal parent
+advancement and transactional history. A separate installed CLI test races
+2/4/8 independent processes at the actual Discovery-to-evaluation boundary and
+checks one model call, one child, one reservation and no fabricated trials.
+Neither fixture establishes multi-host execution. Both final gates are pending.
 
 The initial PR CI found stale current-descriptor metadata in
 `wire_fixtures.json` and a missing generator-produced trailing blank line in
 the TypeScript binding. These were corrected without changing the historical
 baseline or relaxing comparisons; replacement CI remains required.
+The complete local `scripts/proto-check.sh` now passes, including regenerated
+bindings, pinned wire producers, breaking-change checks and role boundaries.
 
 The delivery owner must record the tested Git revision, command outputs,
 failures and corrections, Chinese task commit, remote push and successful CI

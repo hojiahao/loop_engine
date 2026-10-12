@@ -143,11 +143,28 @@ impl wire::run_service_server::RunService for RuntimeService {
             run.plan_verified = true;
             return Ok(Response::new(wire::StepRunResponse { run: Some(run) }));
         }
-        let execution = RunExecution::new(snapshot, self.authority.now().map_err(status)?)?;
+        let mut run = Box::pin(self.advance_legacy(&principal.actor, input, snapshot))
+            .await
+            .map_err(status)?;
+        run.plan_verified = true;
+        Ok(Response::new(wire::StepRunResponse { run: Some(run) }))
+    }
+}
+
+impl RuntimeService {
+    // Keep the legacy execution future out of the numerical RPC's poll frame.
+    // This boundary retains its original authority and immutable replay rules.
+    async fn advance_legacy(
+        &self,
+        owner: &v1::Actor,
+        input: &wire::StepRunRequest,
+        snapshot: crate::store::RunSnapshot,
+    ) -> crate::store::StoreResult<wire::RunView> {
+        let execution = RunExecution::new(snapshot, self.authority.now()?)?;
         let discoverer = self
             .discoverer
             .as_ref()
-            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
+            .ok_or(StoreError::AdmissionDenied)?;
         if execution.active {
             discoverer
                 .execute(
@@ -157,22 +174,15 @@ impl wire::run_service_server::RunService for RuntimeService {
                     execution.job.clone(),
                     execution.job.revision,
                 )
-                .await
-                .map_err(status)?;
+                .await?;
         }
-        self.authority
-            .verify_run(&principal.actor, &execution.specification)
-            .map_err(status)?;
+        self.authority.verify_run(owner, &execution.specification)?;
         // The child lease fences model calls; the parent CAS fences advancement.
         // If this process dies here, the next request observes the committed child
         // and never replaces or redispatches it.
-        let mut run = self
-            .store
-            .advance_run(&principal.actor, input, &execution.specification)
+        self.store
+            .advance_run(owner, input, &execution.specification)
             .await
-            .map_err(status)?;
-        run.plan_verified = true;
-        Ok(Response::new(wire::StepRunResponse { run: Some(run) }))
     }
 }
 
@@ -215,32 +225,32 @@ struct RunExecution {
 }
 
 impl RunExecution {
-    fn new(snapshot: crate::store::RunSnapshot, now: i64) -> Result<Self, Status> {
+    fn new(snapshot: crate::store::RunSnapshot, now: i64) -> crate::store::StoreResult<Self> {
         let actor = snapshot
             .specification
             .executor
             .clone()
-            .ok_or_else(|| status(StoreError::Corrupt("run executor")))?;
+            .ok_or(StoreError::Corrupt("run executor"))?;
         let job_spec = snapshot
             .current_job
             .specification
             .as_ref()
-            .ok_or_else(|| status(StoreError::Corrupt("run child")))?;
+            .ok_or(StoreError::Corrupt("run child"))?;
         if job_spec.submitted_by.as_ref() != Some(&actor)
             || job_spec.run_id != snapshot.specification.run_id
         {
-            return Err(status(StoreError::Corrupt("run execution binding")));
+            return Err(StoreError::Corrupt("run execution binding"));
         }
         let deadline = snapshot
             .view
             .deadline
             .as_ref()
-            .ok_or_else(|| status(StoreError::Corrupt("run deadline")))?;
+            .ok_or(StoreError::Corrupt("run deadline"))?;
         let deadline = deadline
             .seconds
             .checked_mul(1_000)
             .and_then(|seconds| seconds.checked_add(i64::from(deadline.nanos) / 1_000_000))
-            .ok_or_else(|| status(StoreError::Corrupt("run deadline range")))?;
+            .ok_or(StoreError::Corrupt("run deadline range"))?;
         Ok(Self {
             specification: snapshot.specification,
             actor,
