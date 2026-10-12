@@ -270,12 +270,12 @@ pub async fn setup_with(
     policy: Policy,
     count: u32,
 ) -> (
-    tempfile::TempDir,
+    super::TestDirectory,
     PgJobStore,
     Arc<FixtureClock>,
     RequestHoldoutGrantRequest,
 ) {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = super::TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut config = options(&directory.path().join("state"), clock.clone());
     let aliased = policy.alias_subject;
@@ -286,7 +286,7 @@ pub async fn setup_with(
 }
 
 pub async fn setup() -> (
-    tempfile::TempDir,
+    super::TestDirectory,
     PgJobStore,
     Arc<FixtureClock>,
     RequestHoldoutGrantRequest,

@@ -230,7 +230,7 @@ async fn process_writers_fencing() {
             "factor",
             "factor-race",
         ] {
-            let directory = tempfile::tempdir().unwrap();
+            let directory = TestDirectory::new();
             let path = directory.path().join("state");
             if mode.starts_with("factor") {
                 let store = PgJobStore::open(library::options(

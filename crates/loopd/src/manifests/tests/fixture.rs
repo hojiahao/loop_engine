@@ -13,14 +13,13 @@ use loop_protocol::wire::v1::{
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use tempfile::TempDir;
 
 use super::super::{LocalArtifacts, ObjectRef, TrustedManifests, model};
 use super::support::{self, NOW, actor};
 use crate::store::{AdmissionPolicy, Clock, PgJobStore, StoreError, StoreResult, SubmitJob};
 
 pub(super) struct Fixture {
-    pub directory: TempDir,
+    pub directory: support::TestDirectory,
     pub root: PathBuf,
     pub registry: Arc<OperatorPolicyRegistry>,
     pub catalog: model::Catalog,
@@ -33,10 +32,12 @@ pub(super) struct Fixture {
 
 impl Fixture {
     pub fn new() -> Self {
-        let directory = tempfile::Builder::new()
-            .prefix("loop-manifests-")
-            .tempdir()
-            .unwrap();
+        let directory = support::TestDirectory::from_temp(
+            tempfile::Builder::new()
+                .prefix("loop-manifests-")
+                .tempdir()
+                .unwrap(),
+        );
         let root = directory.path().join("objects");
         std::fs::create_dir(&root).unwrap();
         let registry = Arc::new(registry(false));

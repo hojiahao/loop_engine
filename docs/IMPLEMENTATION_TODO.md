@@ -755,7 +755,11 @@ commit, push and remote gate before the next unit):
    old-entry-point bypass denial, 2/4/8 process races and kill/restart.
    Local acceptance passes 71 database/service cases, 76 CLI unit cases, five
    Rust run-contract cases, 165 TypeScript protocol cases, 362 Python protocol
-   cases and complete workspace checks. Publish as one task commit; its push and
+   cases and complete workspace checks. Published as `719e3f7`; its remote run
+   `37913044037` exposed accumulated test schemas and one bounded-call fixture
+   failure. The fixture correction passes 14 database cleanup cases, 36 selected
+   runtime/storage cases, five repeated concurrent executions and complete Rust
+   Clippy/format gates; no test schemas remain. The corrected commit's push and
    exact-commit remote checks remain the delivery gate before unit 2. See
    `docs/verification/phase-11-persistent-runs.md` and
    `docs/development/research-runs-cli.md`.

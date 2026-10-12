@@ -16,10 +16,9 @@ use loopd::store::{
 };
 use sqlx::Executor;
 use support::{perturbation as p, *};
-use tempfile::TempDir;
 
 struct Fixture {
-    directory: TempDir,
+    directory: TestDirectory,
     store: PgJobStore,
     clock: Arc<FixtureClock>,
     policy: Arc<p::Policy>,
@@ -31,7 +30,7 @@ impl Fixture {
     }
 
     async fn with_policy(policy: Arc<p::Policy>) -> Self {
-        let directory = tempfile::tempdir().unwrap();
+        let directory = TestDirectory::new();
         let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
         let store = PgJobStore::open(p::options(
             &directory.path().join("state"),
@@ -590,7 +589,7 @@ async fn deadline_expiring_compute() {
 #[tokio::test]
 // Scenario: holdout jobs cannot feed optimization.
 async fn holdout_jobs_optimization() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let mut config = options(
         &directory.path().join("state"),
         Arc::new(FixtureClock(AtomicI64::new(NOW))),

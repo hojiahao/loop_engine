@@ -13,8 +13,8 @@ use sha2::{Digest, Sha256};
 use sqlx::Connection;
 use support::*;
 
-async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<FixtureClock>) {
-    let directory = tempfile::tempdir().unwrap();
+async fn setup() -> (TestDirectory, PgJobStore, Arc<FixtureClock>) {
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut config = options(&directory.path().join("state"), clock.clone());
     config.holdout_policy = Arc::new(holdout::Policy);

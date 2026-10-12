@@ -246,7 +246,7 @@ async fn killed_writer_atomicity() {
         "factor_before_commit",
         "factor_after_commit",
     ] {
-        let directory = tempfile::tempdir().unwrap();
+        let directory = TestDirectory::new();
         let path = directory.path().join("state");
         let ready = directory.path().join("ready");
         let mut worker = Worker(

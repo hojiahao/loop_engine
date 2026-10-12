@@ -341,7 +341,7 @@ fn spawn(root: &Path, index: usize, mode: &str, fault: Option<&str>) -> Worker {
 }
 
 pub(super) struct LifecycleCase {
-    pub(super) directory: tempfile::TempDir,
+    pub(super) directory: fixture::TestDirectory,
     pub(super) store: PgJobStore,
     pub(super) clock: Arc<fixture::FixtureClock>,
     pub(super) job: JobRecord,

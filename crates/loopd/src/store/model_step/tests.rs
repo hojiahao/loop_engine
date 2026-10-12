@@ -94,10 +94,14 @@ fn options(path: &Path, clock: Arc<fixture::FixtureClock>) -> StoreOptions {
     options
 }
 
-async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<fixture::FixtureClock>) {
+async fn setup() -> (
+    fixture::TestDirectory,
+    PgJobStore,
+    Arc<fixture::FixtureClock>,
+) {
     let submission = submission();
     loop_protocol::job::validate_job_specification(&submission.specification).unwrap();
-    let directory = tempfile::tempdir().unwrap();
+    let directory = fixture::TestDirectory::new();
     let clock = Arc::new(fixture::FixtureClock(AtomicI64::new(fixture::NOW)));
     let store = PgJobStore::open(options(&directory.path().join("state"), clock.clone()))
         .await
@@ -174,7 +178,11 @@ fn tool_request() -> InvokeModelRequest {
     request
 }
 
-async fn tool_setup() -> (tempfile::TempDir, PgJobStore, Arc<fixture::FixtureClock>) {
+async fn tool_setup() -> (
+    fixture::TestDirectory,
+    PgJobStore,
+    Arc<fixture::FixtureClock>,
+) {
     let mut submission = submission();
     let Some(job_specification::Input::Discovery(input)) = submission.specification.input.as_mut()
     else {
@@ -195,7 +203,7 @@ async fn tool_setup() -> (tempfile::TempDir, PgJobStore, Arc<fixture::FixtureClo
         .unwrap()
         .value = "0.02".into();
     loop_protocol::job::validate_job_specification(&submission.specification).unwrap();
-    let directory = tempfile::tempdir().unwrap();
+    let directory = fixture::TestDirectory::new();
     let clock = Arc::new(fixture::FixtureClock(AtomicI64::new(fixture::NOW)));
     let store = PgJobStore::open(options(&directory.path().join("state"), clock.clone()))
         .await

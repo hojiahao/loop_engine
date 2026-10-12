@@ -165,8 +165,12 @@ fn options(path: &Path, clock: Arc<fixture::FixtureClock>) -> StoreOptions {
     options
 }
 
-async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<fixture::FixtureClock>) {
-    let directory = tempfile::tempdir().unwrap();
+async fn setup() -> (
+    fixture::TestDirectory,
+    PgJobStore,
+    Arc<fixture::FixtureClock>,
+) {
+    let directory = fixture::TestDirectory::new();
     let clock = Arc::new(fixture::FixtureClock(AtomicI64::new(fixture::NOW)));
     let store = PgJobStore::open(options(&directory.path().join("state"), clock.clone()))
         .await

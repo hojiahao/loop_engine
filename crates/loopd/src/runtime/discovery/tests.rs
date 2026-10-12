@@ -155,7 +155,7 @@ async fn execute_deadline_missing() {
 
 #[tokio::test]
 async fn concurrent_execution() {
-    let mut case = Case::open().await;
+    let mut case = Case::concurrent().await;
     let job = case.start().await;
     // Both authenticated commands carry the same observed job revision. Only
     // one may reserve/dispatch, including when the other reads a newer step.
@@ -165,7 +165,32 @@ async fn concurrent_execution() {
         other => panic!("expected one completion and one revision conflict: {other:?}"),
     };
     assert_eq!(conflict.code(), tonic::Code::Aborted);
-    assert_eq!(completed.state, wire::DiscoveryStepState::Completed as i32);
+    let step = case
+        .store
+        .model_step(&case.actor(), &job.job_id.as_ref().unwrap().value)
+        .await
+        .unwrap()
+        .unwrap();
+    let error_code = match step
+        .job
+        .outcome
+        .as_ref()
+        .and_then(|value| value.outcome.as_ref())
+    {
+        Some(v1::job_outcome::Outcome::InfrastructureFailure(failure)) => {
+            failure.error.as_ref().map(|error| error.code.as_str())
+        }
+        _ => None,
+    };
+    assert_eq!(
+        completed.state,
+        wire::DiscoveryStepState::Completed as i32,
+        "job_state={}, error_code={error_code:?}, lookup_attempts={}, calls={}, response={}",
+        step.job.state,
+        step.lookup_attempts,
+        case.calls(),
+        step.response.is_some()
+    );
     assert!(completed.candidate.is_some());
     assert_eq!(case.calls(), 1);
     assert_eq!(case.read(completed.job.as_ref().unwrap()).await, completed);

@@ -13,7 +13,6 @@ use loop_protocol::wire::{discovery::v1 as wire, provider::v1 as provider, v1};
 use prost::Message;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity};
 
@@ -39,7 +38,7 @@ impl Clock for OffsetClock {
 }
 
 pub(super) struct Case {
-    directory: TempDir,
+    directory: test_support::TestDirectory,
     tls: tls::Credentials,
     child: tokio::process::Child,
     port: u16,
@@ -56,26 +55,32 @@ pub(super) struct Case {
 
 impl Case {
     pub(super) async fn open() -> Self {
-        Self::open_for(false, false).await
+        Self::open_for(false, false, "normal").await
+    }
+
+    pub(super) async fn concurrent() -> Self {
+        Self::open_for(false, false, "concurrent").await
     }
 
     pub(super) async fn protected() -> Self {
-        Self::open_for(true, false).await
+        Self::open_for(true, false, "normal").await
     }
 
     pub(super) async fn controlled() -> Self {
-        Self::open_for(false, true).await
+        Self::open_for(false, true, "normal").await
     }
 
     pub(super) async fn controlled_protected() -> Self {
-        Self::open_for(true, true).await
+        Self::open_for(true, true, "normal").await
     }
 
-    async fn open_for(protected: bool, controlled: bool) -> Self {
-        let directory = tempfile::Builder::new()
-            .prefix("loop-discovery-e2e-")
-            .tempdir()
-            .unwrap();
+    async fn open_for(protected: bool, controlled: bool, worker_mode: &str) -> Self {
+        let directory = test_support::TestDirectory::from_temp(
+            tempfile::Builder::new()
+                .prefix("loop-discovery-e2e-")
+                .tempdir()
+                .unwrap(),
+        );
         let tls = tls::Credentials::new(directory.path());
         for name in ["ca.pem", "server.pem", "client.pem"] {
             fs::set_permissions(tls.path(name), fs::Permissions::from_mode(0o600)).unwrap();
@@ -116,7 +121,7 @@ impl Case {
                 .unwrap(),
             );
         }
-        let (child, ready) = worker(directory.path(), "normal").await;
+        let (child, ready) = worker(directory.path(), worker_mode).await;
         let port = ready["port"].as_u64().unwrap() as u16;
         let model = v1::ModelResolutionSnapshot::decode(
             STANDARD
@@ -178,7 +183,9 @@ impl Case {
             structured_output: Some(v1::StructuredOutputDefinition { name: "factor_candidate".into(),
                 json_schema: Some(schema), strict: Some(true), ..Default::default() }),
             budget: Some(v1::InvocationBudget { maximum_input_tokens: 4096, maximum_output_tokens: 128,
-                maximum_cost: Some(cost), maximum_wall_time: Some(prost_types::Duration { seconds: 5, nanos: 0 }) }),
+                maximum_cost: Some(cost), maximum_wall_time: Some(prost_types::Duration {
+                    seconds: if worker_mode == "concurrent" { 10 } else { 5 }, nanos: 0,
+                }) }),
             ..Default::default()
         };
         let tool_invocation = controlled.then(|| {

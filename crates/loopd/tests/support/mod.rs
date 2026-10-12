@@ -1,6 +1,9 @@
 #![allow(dead_code)]
 
+mod directory;
 pub(crate) mod tls;
+
+pub use directory::TestDirectory;
 
 pub mod approval;
 pub mod backtest;
@@ -28,7 +31,6 @@ use loopd::store::{
 use prost_types::{Duration, Timestamp};
 use sha2::{Digest, Sha256};
 use sqlx::{Connection, PgConnection, postgres::PgConnectOptions};
-use tempfile::TempDir;
 
 pub const NOW: i64 = 1_788_761_610_000;
 
@@ -120,8 +122,8 @@ pub fn base_options(path: &Path) -> StoreOptions {
     options
 }
 
-pub async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>) {
-    let directory = tempfile::tempdir().unwrap();
+pub async fn fixture() -> (TestDirectory, PgJobStore, Arc<FixtureClock>) {
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let store = PgJobStore::open(options(&directory.path().join("state"), clock.clone()))
         .await
@@ -129,7 +131,7 @@ pub async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>) {
     (directory, store, clock)
 }
 
-pub async fn connection(directory: &TempDir) -> PgConnection {
+pub async fn connection(directory: &TestDirectory) -> PgConnection {
     let search_path = schema(&directory.path().join("state"));
     PgConnection::connect_with(&PgConnectOptions::from_str(&test_url()).unwrap().options([
         ("search_path", search_path.as_str()),

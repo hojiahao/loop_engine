@@ -141,7 +141,9 @@ const configuration = saved
         input_tokens: 4096,
         output_tokens: 128,
         maximum_usd: "1",
-        wall_time_ms: 5000,
+        // The concurrent-success case verifies fencing, not a five-second SLO.
+        // Deadline/cancellation/recovery fixtures retain their original limit.
+        wall_time_ms: process.argv[3] === "concurrent" ? 10000 : 5000,
         concurrency: 1,
       },
       models: [

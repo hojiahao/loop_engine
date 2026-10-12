@@ -213,12 +213,12 @@ pub async fn setup_with(
     policy: Policy,
     clock: Arc<FixtureClock>,
 ) -> (
-    tempfile::TempDir,
+    super::TestDirectory,
     PgJobStore,
     GrantResult,
     ConsumeGrantAndEnqueueBacktestRequest,
 ) {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = super::TestDirectory::new();
     let mut config = options(&directory.path().join("state"), clock);
     config.holdout_policy = Arc::new(policy);
     config.admission = Arc::new(Admission);
@@ -228,7 +228,7 @@ pub async fn setup_with(
 }
 
 pub async fn setup() -> (
-    tempfile::TempDir,
+    super::TestDirectory,
     PgJobStore,
     Arc<FixtureClock>,
     GrantResult,

@@ -100,6 +100,55 @@ A passing fixture is not live supplier certification or licensed-market-data acc
 Production at `117.50.81.155` remains on migration 0014 and its earlier stop-only
 binary; no Phase 11 migration or research plan is deployed by local tests.
 
+## Remote regression correction
+
+Commit `719e3f7`, run `37913044037`, passed four jobs and exposed two fixture
+issues in the remaining three jobs. Workspace and container acceptance exhausted
+the disposable PostgreSQL 1 GiB tmpfs: temporary directories were removed, but
+their migrated schemas remained until the entire suite ended. The test-only
+`TestDirectory` owner now drops exactly its own path-derived `state` schema on
+normal return and assertion unwinding. Cleanup has bounded connection/SQL waits;
+failure fails an otherwise successful test. Subprocesses borrow paths and cannot
+drop their parent's namespace. Database/principal checks and the original tmpfs
+limit remain intact. Because SQLx may queue rollback/connection return on a
+current-thread runtime, cleanup also terminates residual client backends only
+when they belong to this test database and principal and hold a relation or
+namespace-object lock in this exact owned schema. It excludes its own connection
+and leaves unrelated schemas/connections intact. Normal, absent,
+initialization-failure, locked-transaction and independent-owner cleanup cases
+exercise the real PostgreSQL fixture, including a neighboring locked transaction
+that must remain usable.
+
+The Rust job also observed `Ambiguous` instead of `Completed` in the existing
+concurrent Discovery success case. Its revision-conflict assertion passed, and
+the other two jobs passed that same case. The approximately six-second duration
+is consistent with the five-second fixture call deadline plus bounded lookups;
+the original assertion did not retain enough outcome detail to prove the exact
+dependency failure. Only that success case now uses a ten-second model/Provider
+fixture budget inside the existing fifteen-second client limit. Existing
+five-second timeout/cancellation/recovery cases and all production limits remain
+unchanged. Strict completion, one supplier call and persisted-state assertions
+remain mandatory; diagnostics record only job state, static error code, lookup
+count and response presence. No uncertain call is retried as a new paid dispatch.
+
+This correction changes test ownership and fixtures only. Reverting it does not
+modify production schema or immutable research state. The corrected commit's
+remote checks remain required before advancing to unit 2.
+
+Correction validation: all 14 PostgreSQL configuration/cleanup cases passed
+against the real disposable database, including both held-lock cases. All 36
+selected runtime/storage cases passed, including real numerical execution,
+Discovery timeout/recovery, two-round runs, receipt corruption, 2/4/8-process
+contention and commit-boundary kill/restart. Two process-worker entry points are
+ignored by the ordinary runner and exercised by the corresponding process tests.
+The concurrent-success case then passed five additional consecutive executions.
+Workspace/all-target/all-feature Clippy with `-D warnings`, Rust formatting,
+the 4,711-declaration naming gate and the Provider fixture's Biome check passed.
+After these runs the test-schema count was zero and PostgreSQL used 158,260 KiB
+of its unchanged 1 GiB tmpfs (16%). The disposable container/network and the
+empty `var/tmp/phase11-ci` directory were removed, releasing about 155 MiB of
+synthetic database/WAL data. The corrected commit's remote gate remains pending.
+
 ## Rollback and cleanup
 
 Disable the optional `runs` execution configuration while retaining owner
