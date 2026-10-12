@@ -37,8 +37,8 @@ fn metadata() -> SubmissionMetadata {
     }
 }
 
-async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<TickClock>) {
-    let directory = tempfile::tempdir().unwrap();
+async fn setup() -> (TestDirectory, PgJobStore, Arc<TickClock>) {
+    let directory = TestDirectory::new();
     let clock = Arc::new(TickClock(AtomicI64::new(NOW)));
     let mut options = base_options(&directory.path().join("state"));
     options.clock = clock.clone();
@@ -455,7 +455,7 @@ async fn rejects_missing_inputs() {
 #[tokio::test]
 // Scenario: default policy denies submission.
 async fn default_policy_submission() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let mut options = base_options(&directory.path().join("state"));
     options.clock = Arc::new(TickClock(AtomicI64::new(NOW)));
     let denied = PgJobStore::open(options).await.unwrap();

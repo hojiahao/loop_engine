@@ -7,7 +7,7 @@ use loop_protocol::wire::v1::{
     ReconciliationJobInput, RunId, job_specification,
 };
 use prost::Message;
-use sqlx::Row;
+use sqlx::{Postgres, Row, Transaction};
 
 use super::lifecycle::{save_receipt, validate_context};
 use super::postgres::{
@@ -229,13 +229,45 @@ pub(super) async fn submit(
     command: RoleCommand,
     metadata: SubmissionMetadata,
 ) -> StoreResult<RoleSubmissionResult> {
+    // Preserve the existing cheap rejection boundary before acquiring a writer.
+    validate_context(command.context(), principal)?;
+    validate_id(&metadata.run_id.value)?;
+    command.input()?;
+    let mut transaction = store.pool.begin().await?;
+    let now = store.observe_clock(&mut transaction).await?;
+    let result = submit_in(
+        store,
+        &mut transaction,
+        principal,
+        command,
+        metadata,
+        now,
+        None,
+    )
+    .await?;
+    #[cfg(test)]
+    super::crash_tests::fault_point("role_before_commit").await;
+    transaction.commit().await?;
+    #[cfg(test)]
+    super::crash_tests::fault_point("role_after_commit").await;
+    Ok(result)
+}
+
+/// Shared atomic insertion, used by a run reservation's existing transaction.
+pub(super) async fn submit_in(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    command: RoleCommand,
+    metadata: SubmissionMetadata,
+    now: i64,
+    permit: Option<&super::runs::RunPermit>,
+) -> StoreResult<RoleSubmissionResult> {
     let context = validate_context(command.context(), principal)?;
     validate_id(&metadata.run_id.value)?;
     let (kind, input) = command.input()?;
     let normalized = command.normalized();
     let request_blob = normalized.encode()?;
-    let mut transaction = store.pool.begin().await?;
-    let now = store.observe_clock(&mut transaction).await?;
     if timestamp_millis(context.requested_at.as_ref().expect("validated time"), true)? > now {
         return Err(StoreError::Invalid("future command time"));
     }
@@ -244,7 +276,7 @@ pub(super) async fn submit(
         "SELECT * FROM command_receipts WHERE actor_id = $1 AND operation = $2 AND idempotency_key = $3",
     ).bind(&principal.actor_id.as_ref().expect("validated actor id").value)
         .bind(operation).bind(&context.idempotency_key.as_ref().expect("validated key").value)
-        .fetch_optional(&mut *transaction).await?;
+        .fetch_optional(&mut **transaction).await?;
     if let Some(receipt) = receipt {
         let original = verified_blob(&receipt, "request_blob", "request_sha256")?;
         if normalized.decode_like(&original)? != normalized {
@@ -285,7 +317,7 @@ pub(super) async fn submit(
                     .expect("validated job id")
                     .value,
             )
-            .fetch_one(&mut *transaction)
+            .fetch_one(&mut **transaction)
             .await?;
         if record_from_row(&row)?.specification != record.specification {
             return Err(StoreError::Corrupt("role job binding"));
@@ -294,13 +326,15 @@ pub(super) async fn submit(
         if kind == JobKind::Backtest {
             store.backtest_policy.validate_inputs(specification)?;
         }
-        transaction.commit().await?;
         return command.project(record, true);
     }
 
     let specification = JobSpecification {
         job_id: Some(JobId {
-            value: format!("job.{}", uuid::Uuid::new_v4().simple()),
+            value: permit.map_or_else(
+                || format!("job.{}", uuid::Uuid::new_v4().simple()),
+                |permit| permit.job_id().to_owned(),
+            ),
         }),
         run_id: Some(metadata.run_id),
         kind: kind as i32,
@@ -336,23 +370,20 @@ pub(super) async fn submit(
             .clone(),
         specification,
     };
-    let record = insert_job(&mut transaction, &submitted.specification, now).await?;
+    let record = if let Some(permit) = permit {
+        super::postgres::insert_scoped(transaction, &submitted.specification, now, permit).await?
+    } else {
+        insert_job(transaction, &submitted.specification, now).await?
+    };
     let job_id = &submitted
         .specification
         .job_id
         .as_ref()
         .expect("validated job id")
         .value;
-    audit::append_command(
-        &mut transaction,
-        &store.ledger_id,
-        &submitted,
-        operation,
-        now,
-    )
-    .await?;
+    audit::append_command(transaction, &store.ledger_id, &submitted, operation, now).await?;
     save_receipt(
-        &mut transaction,
+        transaction,
         context,
         operation,
         job_id,
@@ -361,10 +392,5 @@ pub(super) async fn submit(
         now,
     )
     .await?;
-    #[cfg(test)]
-    super::crash_tests::fault_point("role_before_commit").await;
-    transaction.commit().await?;
-    #[cfg(test)]
-    super::crash_tests::fault_point("role_after_commit").await;
     command.project(record, false)
 }

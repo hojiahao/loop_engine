@@ -8,11 +8,13 @@ Status values: `pending`, `in_progress`, `blocked`, `complete`.
 
 ## Delivery order
 
-The owner's 2026-09-22 instruction is to finish every Phase 9 delivery unit
-before the first merge to `main`. Continue task-sized Chinese commits and pushes
-on `refactor/us-equities-loop-runtime`; do not merge an intermediate Provider
-checkpoint. After Phase 9 acceptance, prepare the product-oriented README and
-reviewed pull request before merging. The README describes usable capabilities,
+The owner's instruction to finish Phase 9 before the first merge was fulfilled
+on 2026-09-28. All seven jobs passed in branch CI `35978805422` and PR CI
+`35979594702`; PR #1 merged as `d671cffd2d8aa348569fd4e03205ddd0b1de6422`.
+The product-oriented README was included before merging. Continue task-sized
+Chinese commits and pushes on `feature/run-harness`, created from that main
+commit; preserve the original refactor branch and published history.
+The README describes usable capabilities,
 installation, configuration and workflows; phase progress and acceptance history
 stay in the repository's maintenance documentation. Do not include that history
 in product screens or production runtime images. Development/test containers may
@@ -536,7 +538,7 @@ together; finish one before starting the next):
    passes all seven jobs; see
    `docs/verification/phase-08-statistical-binding.md`.
 
-## Phase 9 - Provider platform (`in_progress`)
+## Phase 9 - Provider platform (`complete`)
 
 Delivery units (each includes an executable workflow, negative-path contract
 tests, usage/recovery documentation, a Chinese commit, push and remote gates):
@@ -612,7 +614,7 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    `9d197c7` is pushed; all seven jobs in exact-commit CI `35958808670` passed.
    See ADR 0043 and
    `docs/verification/phase-09-compatible-routes.md`.
-7. Model catalog (`in_progress`): merge versioned built-ins, official discovery, verified remote
+7. Model catalog (`complete`): merge versioned built-ins, official discovery, verified remote
    catalogs and administrative overrides; atomically reload validated snapshots
    without changing a running model resolution. Track implemented/contract/live
    verification separately from unavailability, deprecation and retirement.
@@ -623,9 +625,10 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    protocol cases; `just check` and workspace build pass. Commit `f9f05f5` is
    pushed. CI `35965098459` passed six jobs; the DaoCloud container cancellation
    test failed; review reproduced a PID readiness race. The platform task fixes it;
-   corrected integrated CI remains required. See ADR 0044 and
+   corrected integrated CI `35978805422` and PR CI `35979594702` each passed
+   all seven jobs. See ADR 0044 and
    `docs/verification/phase-09-model-catalog.md`.
-8. Platform acceptance (`in_progress`): verify bounded rate limits/retries and cost accounting,
+8. Platform acceptance (`complete`): verify bounded rate limits/retries and cost accounting,
    actual provider process/data isolation, dependency boundaries and the combined
    protocol matrix. Live smoke tests require credentials and explicit budgets;
    absent credentials remain an honest verification limitation, never a fake pass.
@@ -635,21 +638,148 @@ tests, usage/recovery documentation, a Chinese commit, push and remote gates):
    are denied. Gates are wired into CI. Local acceptance passes 686 Provider and
    119 protocol cases, six Rust process cases, eight boundary/egress cases,
    both actual isolation containers, `just check` and TypeScript build. Product
-   README is ready for first-merge review. Publication and exact-commit CI remain
-   required. See ADR 0045 and
+   README was productized before merging. Task commit `de4f1b1` and documentation
+   follow-up `5bea7f7` are pushed. Branch CI `35978805422` and PR CI `35979594702`
+   both passed all seven jobs; PR #1 merged to main as `d671cffd2d8aa348569fd4e03205ddd0b1de6422`.
+   See ADR 0045 and
    `docs/verification/phase-09-platform.md`.
 
 - [x] Implement native OpenAI, Anthropic, Gemini, Bedrock, and Cohere codecs.
 - [x] Implement cloud deployment adapters and first-class vendor plugins.
 - [x] Implement compatible, self-hosted, and gateway transports.
-- [ ] Implement the hot-reload capability catalog and provider contract suite.
+- [x] Implement the hot-reload capability catalog and provider contract suite.
 
-## Phase 10 - Run Harness (`pending`)
+## Phase 10 - Run Harness (`complete`)
 
-- [ ] Implement typed context, tools, capability authorization, budgets,
+All five delivery units are implemented, committed and pushed. Correction
+`5a25008` passed all seven jobs in exact-commit CI `37733309351`, including the
+full unified workspace and clean DaoCloud container. This also closes unit 4's
+descendant-CI prerequisite. Production control-service deployment is verified;
+autonomous research execution remains Phase 11 and is not enabled on that host.
+
+Delivery units (complete implementation, negative-path tests, documentation,
+Chinese task commit and push before starting the next unit):
+
+1. Invocation recovery (`complete`): authenticated read-only Provider RPC
+   retrieves immutable invocation evidence after restart or expiry of the original
+   command. Bind actor, original key/request ID and exact command digest. Never
+   claim a key, use a model credential or resend a paid request. Distinguish absent,
+   ambiguous, completed, conflicting and corrupt evidence. Acceptance: real
+   mTLS/gRPC recovery without the old route/secret, no extra supplier calls,
+   bounded cancellation, isolation and cross-language compatibility. See ADR 0046.
+   Implemented the RPC and installed `--recover-only` process mode, which denies
+   new generation and never creates missing journal storage. Targeted transport,
+   CLI, filesystem-race and cancellation gates pass; full `just check` passes.
+   Final serial regression passes 753 Provider and 122 protocol cases; workspace
+   TypeScript build and actual-container invocation/recovery isolation pass.
+   Commit `ac2d730` is pushed on `feature/run-harness`; exact-commit CI
+   `36390979127` passes all seven jobs, including Rust, unified workspace and
+   the clean DaoCloud container.
+   See `docs/verification/phase-10-invocation-recovery.md`.
+2. Durable model step (`complete`; ADR 0047): execute one authorized, frozen discovery plan
+   through Rust orchestration. Persist request identity and step/token/USD
+   reservations before dispatch; bind model, prompt, schema, data and principal.
+   Fence writes by lease/revision, resolve recovery through unit 1 and return a
+   validated canonical AST candidate without admitting it. Acceptance: actual
+   PostgreSQL/Provider workflow, 2/4/8 process contention, budget ceilings and
+   kill/restart before dispatch and before/after result commit; no duplicate spend.
+   Implementation and local acceptance pass: 72 Rust cases, including 12 actual
+   Discovery/Provider workflows and independent-process contention/crash cuts;
+   full `just check` and cross-language digest/wire checks pass. Commit `a97e801`
+   is pushed; exact-commit CI `36527876755` passed all seven jobs. The reservation scope
+   is one job/one candidate; account-wide quotas, tools and lifecycle controls
+   are not inferred. See `docs/verification/phase-10-durable-model-step.md` and
+   `docs/development/durable-model-step.md`.
+3. Controlled tools and context (`complete`; ADR 0048): bounded typed conversation and
+   registered tool execution through existing research authorization. Persist
+   call/result identity and reject unknown tools, holdout access, oversized
+   context and conflicting replay. Acceptance: actual multi-turn tool workflow,
+   denied capabilities and deterministic resume from persisted evidence.
+   Initial v2 profile: two model turns around one verified, read-only
+   `research_describe` tool; preserve v1 plans, immutable ordinal evidence and
+   cumulative per-job reservations. No numerical execution or admission is
+   inferred from the descriptive tool result.
+   Local acceptance passes 132 Rust cases (one additional ignored child-process
+   entry point), including 20 actual Discovery/Provider workflows and independent
+   2/4/8-writer/crash tests; five Provider digest/schema cases and full `just check`
+   pass. Commit `b33f0f5` is pushed. CI `36549762127` passed four jobs but exhausted
+   the 1 GiB PostgreSQL fixture in Rust/workspace/container tests. The WAL
+   correction `8199a78` is pushed and exact-commit CI `36590096683` passed all
+   seven jobs, including the complete workspace and clean-container gates. See
+   `docs/verification/phase-10-controlled-context.md` and
+   `docs/development/controlled-context.md`.
+4. Run lifecycle (`complete`; ADR 0049): pause/cancel/resume, absolute deadlines and explicit
+   retry policy across model/tool steps. Infrastructure failures remain distinct
+   from rejected factors; ambiguous paid calls retain reservations. Acceptance:
+   process interruption and clock regression at each transition, stale-worker
+   denial, no automatic paid resend, bounded termination and redacted failures.
+   Implementation and local acceptance pass: 159 Rust cases, one intentionally
+   ignored process-worker entry point, 127 TypeScript protocol cases, 324 Python
+   protocol cases and complete workspace checks. Commit `12768ff` is pushed;
+   CI `36689533660` passed six jobs; the unified job exhausted its 75-minute
+   timeout after Rust/TypeScript passed and Python research reached 96%.
+   Unit 5 retains the full suite with a 120-minute budget; descendant commit
+   `5a25008` passed all seven jobs in CI `37733309351`, closing this gate.
+   See `docs/verification/phase-10-discovery-lifecycle.md`
+   and `docs/development/discovery-lifecycle.md`.
+5. Operational acceptance (`complete`; ADR 0050): expose usable CLI commands and typed
+   status/events for the preceding workflows; document setup, recovery and
+   rollback. Acceptance: installed CLI starts/observes/cancels/resumes a synthetic
+   discovery run through authenticated services with audit evidence, plus full
+   quality gates and remote CI. This does not implement the autonomous outer Loop
+   or waive licensed-data/independent-research admission gates.
+   Local acceptance passes 56 CLI unit cases, 15 database observation cases,
+   nine installed CLI workflows, two adjacent recovery regressions, 10 Rust
+   Discovery boundary cases, 129 TypeScript and 326 Python protocol cases.
+   Workspace checks pass. First deployment to the authorized production host
+   is running in stop-only mode with PostgreSQL TLS, mTLS and restart acceptance;
+   no Provider/research executor is configured. Commit `b692e30` is pushed;
+   CI `37724315501` passed six jobs. Unified workspace completed all language
+   tests but DaoCloud's Node-image TLS handshake failed during container setup.
+   The bounded exact-digest preparation correction `5a25008` is pushed and
+   passes actual local isolation and all seven jobs in CI `37733309351`. See
+   `docs/verification/phase-10-discovery-operations.md`.
+
+- [x] Implement typed context, tools, capability authorization, budgets,
       cancellation, retries, recovery, redaction, and structured outputs.
 
-## Phase 11 - Loop Runtime (`pending`)
+## Phase 11 - Loop Runtime (`in_progress`)
+
+Delivery units (complete implementation, tests, documentation, Chinese task
+commit, push and remote gate before the next unit):
+
+1. Persistent runs and cross-job budgets (`implemented`; ADR 0051): human-owned
+   frozen runs, atomic cumulative reservations and controlled Discovery child
+   creation, explicit CLI start/step/status, finite rounds and crash recovery.
+   Acceptance includes two real synthetic-supplier rounds, deterministic stop,
+   old-entry-point bypass denial, 2/4/8 process races and kill/restart.
+   Local acceptance passes 71 database/service cases, 76 CLI unit cases, five
+   Rust run-contract cases, 165 TypeScript protocol cases, 362 Python protocol
+   cases and complete workspace checks. Published as `719e3f7`; its remote run
+   `37913044037` exposed accumulated test schemas and one bounded-call fixture
+   failure. The fixture correction passes 14 database cleanup cases, 36 selected
+   runtime/storage cases, five repeated concurrent executions and complete Rust
+   Clippy/format gates; no test schemas remain. The corrected commit's push and
+   exact-commit remote checks remain the delivery gate before unit 2. See
+   `docs/verification/phase-11-persistent-runs.md` and
+   `docs/development/research-runs-cli.md`.
+2. Candidate-to-numerical workflow (`pending`): convert canonical candidates into
+   frozen factor specifications and authorized evaluation/portfolio jobs; reuse
+   trial, coverage and failure filtering without giving Discovery research or
+   holdout authority. Recover without duplicate children.
+3. Feedback and perturbation (`pending`): bounded verified-result feedback,
+   persistent Sharpe/random history, failure memory and deterministic stopping;
+   normal and perturbed candidates use the same numerical workflow.
+4. Maker/checker evidence (`pending`): execute the separate frozen semantic
+   checker request and register bound accept/reject/unknown evidence. Recover
+   uncertain invocations without paid resends.
+5. Economic criteria and admission (`pending`): freeze thresholds and missing-
+   statistic policy before search; bind whole-population statistics, independent
+   reconciliation and semantic evidence to the shared admission command.
+   Licensed-data eligibility remains independently required.
+6. Scheduling and escalation (`pending`): bounded background advancement,
+   run pause/cancel/resume/events, expiry and persistent human escalation; verify
+   installed multi-round recovery and the complete workspace/remote gates.
 
 - [ ] Implement persistent discovery, maker/checker validation, feedback,
       perturbation, failure memory, bounded termination, and human escalation.

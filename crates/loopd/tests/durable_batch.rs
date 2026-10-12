@@ -504,7 +504,7 @@ async fn database_protects_batch() {
 }
 
 async fn assert_rolled_back(
-    directory: &tempfile::TempDir,
+    directory: &TestDirectory,
     store: &PgJobStore,
     issued: &loopd::store::GrantResult,
 ) {

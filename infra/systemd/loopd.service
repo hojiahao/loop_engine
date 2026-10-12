@@ -1,0 +1,25 @@
+[Unit]
+Description=Loop Engine persistent orchestration
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=loopd
+Group=loopd
+WorkingDirectory=/srv/loop
+ExecStart=/srv/loop/current/bin/loopd --database-url-file /srv/loop/private/runtime-database-url --database-schema public --bind 127.0.0.1:18080 --runtime-config /srv/loop/private/runtime.json
+Environment=RUST_LOG=info
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/loop/data
+InaccessiblePaths=/srv/loop/operator
+
+[Install]
+WantedBy=multi-user.target

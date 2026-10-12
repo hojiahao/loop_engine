@@ -218,6 +218,16 @@ pub(super) async fn mutate(
     store
         .admission
         .authorize_job_command(operation, principal, &record)?;
+    // Harness dispatch evidence cannot be terminalized or replaced by the
+    // generic lifecycle. Its conservative reservation survives lease expiry.
+    let tracked: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM model_steps WHERE job_id=$1)")
+            .bind(job_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+    if tracked {
+        return Err(StoreError::AdmissionDenied);
+    }
     if let JobMutation::Complete(input) = &command {
         super::reconciliation::check_lease(store, &record, input)?;
         super::statistics::check_lease(store, &record, input)?;

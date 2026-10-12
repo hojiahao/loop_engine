@@ -3,13 +3,176 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use loop_protocol::wire::discovery::v1::{
-    DiscoveryJobHandle, DiscoveryJobStatus, StartDiscoveryResponse,
+    DiscoveryEvent, DiscoveryJobHandle, DiscoveryJobStatus, DiscoveryOperation, DiscoveryStepState,
+    DiscoveryStepView, ExecuteDiscoveryRequest, ExecuteDiscoveryResponse,
+    ListDiscoveryEventsResponse, PauseDiscoveryResponse, StartDiscoveryResponse,
 };
 use loop_protocol::wire::v1::JobId;
 use prost::Message;
 use prost_types::{FileDescriptorSet, Timestamp};
+use sha2::{Digest, Sha256};
 
 const DISCOVERY_FILE: &str = "loop/discovery/v1/service.proto";
+
+#[test]
+fn observation_roundtrip() {
+    // Shared three-language vector preserves uint64 values beyond JavaScript's
+    // exact Number range and the narrow typed event surface.
+    let bytes = [
+        10, 21, 8, 129, 128, 128, 128, 128, 128, 128, 16, 18, 8, 8, 128, 202, 214, 212, 6, 16, 123,
+        24, 13, 16, 129, 128, 128, 128, 128, 128, 128, 16, 24, 1,
+    ];
+    let page = ListDiscoveryEventsResponse::decode(bytes.as_slice()).unwrap();
+    assert_eq!(page.events.len(), 1);
+    assert_eq!(page.events[0].sequence, 9_007_199_254_740_993);
+    assert_eq!(page.events[0].operation(), DiscoveryOperation::Pause);
+    assert_eq!(page.events[0].occurred_at.unwrap().nanos, 123);
+    assert_eq!(page.next_after_sequence, page.events[0].sequence);
+    assert!(page.has_more);
+    assert_eq!(page.encode_to_vec(), bytes);
+}
+
+#[test]
+fn observation_unknown() {
+    let event = DiscoveryEvent::decode([24, 127].as_slice()).unwrap();
+    assert!(DiscoveryOperation::try_from(event.operation).is_err());
+    let metadata = DiscoveryStepView::decode([16, 1].as_slice()).unwrap();
+    assert!(!metadata.plan_verified);
+    assert!(metadata.candidate.is_none());
+}
+
+#[test]
+fn lifecycle_envelope() {
+    let descriptor = FileDescriptorSet::decode(loop_protocol::FILE_DESCRIPTOR_SET).unwrap();
+    let file = descriptor
+        .file
+        .iter()
+        .find(|file| file.name.as_deref() == Some(DISCOVERY_FILE))
+        .unwrap();
+    let service = file.service.first().unwrap();
+    for name in ["Pause", "Cancel", "Expire", "Resume", "Reconcile"] {
+        let method_name = format!("{name}Discovery");
+        let method = service
+            .method
+            .iter()
+            .find(|method| method.name.as_deref() == Some(&method_name))
+            .unwrap();
+        for (message_name, expected) in [
+            (
+                method.input_type.as_ref().unwrap(),
+                vec![("context", 1), ("job_id", 2), ("expected_revision", 3)],
+            ),
+            (
+                method.output_type.as_ref().unwrap(),
+                vec![(
+                    if matches!(name, "Resume" | "Reconcile") {
+                        "step"
+                    } else {
+                        "job"
+                    },
+                    1,
+                )],
+            ),
+        ] {
+            let message = file
+                .message_type
+                .iter()
+                .find(|message| message_name.ends_with(&format!(".{}", message.name())))
+                .unwrap();
+            let fields = message
+                .field
+                .iter()
+                .map(|field| (field.name(), field.number()))
+                .collect::<Vec<_>>();
+            assert_eq!(fields, expected);
+        }
+    }
+}
+
+#[test]
+fn paused_status() {
+    let bytes = [10, 2, 16, 9];
+    let response = PauseDiscoveryResponse::decode(bytes.as_slice()).unwrap();
+    assert_eq!(
+        response.job.as_ref().unwrap().status(),
+        DiscoveryJobStatus::Paused
+    );
+    assert_eq!(response.encode_to_vec(), bytes);
+}
+
+#[test]
+fn execute_request() {
+    let request = ExecuteDiscoveryRequest::decode(
+        include_bytes!("../../../fixtures/contracts/protocol/v1/discovery_execute_v1.binpb")
+            .as_slice(),
+    )
+    .expect("shared execute request fixture");
+    assert_eq!(request.job_id.as_ref().unwrap().value, "discovery.1");
+    assert_eq!(request.expected_revision, 3);
+    assert_eq!(
+        request
+            .context
+            .as_ref()
+            .unwrap()
+            .request_id
+            .as_ref()
+            .unwrap()
+            .value,
+        "execute.1"
+    );
+    assert_eq!(
+        ExecuteDiscoveryRequest::decode(request.encode_to_vec().as_slice()).unwrap(),
+        request
+    );
+}
+
+#[test]
+fn completed_candidate() {
+    let response = ExecuteDiscoveryResponse::decode(
+        include_bytes!("../../../fixtures/contracts/protocol/v1/discovery_completed_v1.binpb")
+            .as_slice(),
+    )
+    .expect("shared completed step fixture");
+    let step = response.step.as_ref().unwrap();
+    assert_eq!(step.state(), DiscoveryStepState::Completed);
+    assert_eq!(
+        step.job.as_ref().unwrap().status(),
+        DiscoveryJobStatus::Succeeded
+    );
+    assert_eq!(step.job.as_ref().unwrap().revision, 5);
+    assert_eq!(step.reserved_input_tokens, 4096);
+    assert_eq!(step.reserved_output_tokens, 1024);
+    assert!(step.plan_verified);
+    let reserve = step.reserved_cost.as_ref().unwrap();
+    assert_eq!(reserve.amount.as_ref().unwrap().value, "0.125");
+    assert_eq!(reserve.currency_code, "USD");
+    let candidate = step.candidate.as_ref().unwrap();
+    assert_eq!(candidate.canonicalization_profile, "loop.factor-ast/v1");
+    assert_eq!(
+        candidate.canonical_json,
+        br#"{"node":"field","field":"market.close"}"#
+    );
+    let mut identity = Sha256::new();
+    identity.update(b"loop.factor-ast/v1\0");
+    identity.update(&candidate.canonical_json);
+    assert_eq!(
+        candidate.expression_id.as_ref().unwrap().value,
+        format!("sha256:{:x}", identity.finalize())
+    );
+    assert_eq!(
+        ExecuteDiscoveryResponse::decode(response.encode_to_vec().as_slice()).unwrap(),
+        response
+    );
+}
+
+#[test]
+fn unknown_step() {
+    let step = DiscoveryStepView::decode([16, 127].as_slice()).unwrap();
+    assert_eq!(step.state, 127);
+    assert!(DiscoveryStepState::try_from(step.state).is_err());
+    assert!(step.candidate.is_none());
+    assert!(step.reserved_cost.is_none());
+}
 
 #[test]
 // Scenario: discovery response round trip exposes only the safe job projection.

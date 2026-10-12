@@ -46,6 +46,11 @@ class ProviderServiceStub:
                 request_serializer=loop_dot_provider_dot_v1_dot_service__pb2.StreamModelRequest.SerializeToString,
                 response_deserializer=loop_dot_provider_dot_v1_dot_service__pb2.StreamModelResponse.FromString,
                 _registered_method=True)
+        self.LookupInvocation = channel.unary_unary(
+                '/loop.provider.v1.ProviderService/LookupInvocation',
+                request_serializer=loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationRequest.SerializeToString,
+                response_deserializer=loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationResponse.FromString,
+                _registered_method=True)
 
 
 class ProviderServiceServicer:
@@ -65,6 +70,16 @@ class ProviderServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def LookupInvocation(self, request, context):
+        """Capability identity: provider.invocation-lookup.v1. Older servers return
+        UNIMPLEMENTED; this version does not negotiate a feature metadata header.
+        Read-only recovery for the authenticated actor's own journal; never invokes
+        a model or claims a key.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ProviderServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -77,6 +92,11 @@ def add_ProviderServiceServicer_to_server(servicer, server):
                     servicer.StreamModel,
                     request_deserializer=loop_dot_provider_dot_v1_dot_service__pb2.StreamModelRequest.FromString,
                     response_serializer=loop_dot_provider_dot_v1_dot_service__pb2.StreamModelResponse.SerializeToString,
+            ),
+            'LookupInvocation': grpc.unary_unary_rpc_method_handler(
+                    servicer.LookupInvocation,
+                    request_deserializer=loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationRequest.FromString,
+                    response_serializer=loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -135,6 +155,33 @@ class ProviderService:
             '/loop.provider.v1.ProviderService/StreamModel',
             loop_dot_provider_dot_v1_dot_service__pb2.StreamModelRequest.SerializeToString,
             loop_dot_provider_dot_v1_dot_service__pb2.StreamModelResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def LookupInvocation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/loop.provider.v1.ProviderService/LookupInvocation',
+            loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationRequest.SerializeToString,
+            loop_dot_provider_dot_v1_dot_service__pb2.LookupInvocationResponse.FromString,
             options,
             channel_credentials,
             insecure,

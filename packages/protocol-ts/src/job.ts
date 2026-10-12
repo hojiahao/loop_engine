@@ -1119,6 +1119,7 @@ export function validate_job_record(record: JobRecord): Readonly<ValidatedJobSha
   if (compare_timestamp(updatedAt, submittedAt) < 0) fail("invalid_envelope", "updated_at");
 
   const state = validate_state(record.state);
+  if (state === JobState.PAUSED && kind !== JobKind.DISCOVERY) fail("invalid_input", "state");
   const hasLease = record.activeLease !== undefined;
   const isActive = state === JobState.LEASED || state === JobState.RUNNING;
   const isTerminal = is_terminal_state(state);
@@ -1138,7 +1139,7 @@ export function validate_job_record(record: JobRecord): Readonly<ValidatedJobSha
   if (record.outcome !== undefined && outcomeCase === undefined) {
     fail("missing_field", "outcome.outcome");
   }
-  if (state === JobState.QUEUED || isActive) {
+  if (state === JobState.QUEUED || state === JobState.PAUSED || isActive) {
     if (outcomeCase !== undefined) fail("state_outcome_mismatch", "outcome");
   } else {
     const expectedOutcome: Partial<Record<JobState, string>> = {
@@ -1331,6 +1332,7 @@ function validate_state(state: JobState): JobState {
     case JobState.INFRASTRUCTURE_FAILED:
     case JobState.CANCELLED:
     case JobState.BUDGET_EXHAUSTED:
+    case JobState.PAUSED:
       return state;
     default:
       fail("unknown_enum", "state");

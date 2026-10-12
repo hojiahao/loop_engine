@@ -87,7 +87,9 @@ _TERMINAL_STATE_OUTCOME = {
     job_pb2.JOB_STATE_BUDGET_EXHAUSTED: "budget_exhaustion",
 }
 _ACTIVE_STATES = frozenset({job_pb2.JOB_STATE_LEASED, job_pb2.JOB_STATE_RUNNING})
-_KNOWN_STATES = frozenset({job_pb2.JOB_STATE_QUEUED, *_ACTIVE_STATES, *_TERMINAL_STATE_OUTCOME})
+_KNOWN_STATES = frozenset(
+    {job_pb2.JOB_STATE_QUEUED, job_pb2.JOB_STATE_PAUSED, *_ACTIVE_STATES, *_TERMINAL_STATE_OUTCOME}
+)
 _FACTOR_REJECTION_KINDS = frozenset(
     {
         job_pb2.JOB_KIND_FACTOR_EVALUATION,
@@ -1361,6 +1363,8 @@ def validate_job_record(record: job_pb2.JobRecord) -> ValidatedJobShape:
     state = record.state
     if state not in _KNOWN_STATES:
         _fail(JobValidationCode.UNKNOWN_ENUM, "state")
+    if state == job_pb2.JOB_STATE_PAUSED and kind != job_pb2.JOB_KIND_DISCOVERY:
+        _fail(JobValidationCode.INVALID_INPUT, "state")
     has_lease = record.HasField("active_lease")
     if has_lease != (state in _ACTIVE_STATES):
         _fail(JobValidationCode.STATE_LEASE_MISMATCH, "active_lease")
@@ -1370,6 +1374,7 @@ def validate_job_record(record: job_pb2.JobRecord) -> ValidatedJobShape:
     elif record.attempt == 0 and state not in (
         job_pb2.JOB_STATE_CANCELLED,
         job_pb2.JOB_STATE_BUDGET_EXHAUSTED,
+        job_pb2.JOB_STATE_PAUSED,
     ):
         _fail(JobValidationCode.INVALID_ATTEMPT, "attempt")
 
@@ -1378,7 +1383,7 @@ def validate_job_record(record: job_pb2.JobRecord) -> ValidatedJobShape:
         outcome_name = record.outcome.WhichOneof("outcome")
         if outcome_name is None:
             _fail(JobValidationCode.MISSING_FIELD, "outcome.outcome")
-    if state == job_pb2.JOB_STATE_QUEUED or state in _ACTIVE_STATES:
+    if state in (job_pb2.JOB_STATE_QUEUED, job_pb2.JOB_STATE_PAUSED) or state in _ACTIVE_STATES:
         if outcome_name is not None:
             _fail(JobValidationCode.STATE_OUTCOME_MISMATCH, "outcome")
     elif _TERMINAL_STATE_OUTCOME[state] != outcome_name:

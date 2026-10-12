@@ -27,13 +27,15 @@ from loop.v1 import model_pb2 as loop_dot_v1_dot_model__pb2
 from loop.v1 import stream_pb2 as loop_dot_v1_dot_stream__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eloop/provider/v1/service.proto\x12\x10loop.provider.v1\x1a\x14loop/v1/common.proto\x1a\x13loop/v1/model.proto\x1a\x14loop/v1/stream.proto\"l\n\x12InvokeModelRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12,\n\ninvocation\x18\x02 \x01(\x0b\x32\x18.loop.v1.ModelInvocation\"?\n\x13InvokeModelResponse\x12(\n\x08response\x18\x01 \x01(\x0b\x32\x16.loop.v1.ModelResponse\"l\n\x12StreamModelRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12,\n\ninvocation\x18\x02 \x01(\x0b\x32\x18.loop.v1.ModelInvocation\"?\n\x13StreamModelResponse\x12(\n\x05\x65vent\x18\x01 \x01(\x0b\x32\x19.loop.v1.ModelStreamEvent2\xcb\x01\n\x0fProviderService\x12Z\n\x0bInvokeModel\x12$.loop.provider.v1.InvokeModelRequest\x1a%.loop.provider.v1.InvokeModelResponse\x12\\\n\x0bStreamModel\x12$.loop.provider.v1.StreamModelRequest\x1a%.loop.provider.v1.StreamModelResponse0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1eloop/provider/v1/service.proto\x12\x10loop.provider.v1\x1a\x14loop/v1/common.proto\x1a\x13loop/v1/model.proto\x1a\x14loop/v1/stream.proto\"l\n\x12InvokeModelRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12,\n\ninvocation\x18\x02 \x01(\x0b\x32\x18.loop.v1.ModelInvocation\"?\n\x13InvokeModelResponse\x12(\n\x08response\x18\x01 \x01(\x0b\x32\x16.loop.v1.ModelResponse\"l\n\x12StreamModelRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12,\n\ninvocation\x18\x02 \x01(\x0b\x32\x18.loop.v1.ModelInvocation\"?\n\x13StreamModelResponse\x12(\n\x05\x65vent\x18\x01 \x01(\x0b\x32\x19.loop.v1.ModelStreamEvent\"\xde\x01\n\x17LookupInvocationRequest\x12(\n\x07\x63ontext\x18\x01 \x01(\x0b\x32\x17.loop.v1.CommandContext\x12/\n\x13original_request_id\x18\x02 \x01(\x0b\x32\x12.loop.v1.RequestId\x12\x39\n\x18original_idempotency_key\x18\x03 \x01(\x0b\x32\x17.loop.v1.IdempotencyKey\x12-\n\x0erequest_sha256\x18\x04 \x01(\x0b\x32\x15.loop.v1.Sha256Digest\"\x9d\x01\n\x18LookupInvocationResponse\x12\x30\n\x05state\x18\x01 \x01(\x0e\x32!.loop.provider.v1.InvocationState\x12(\n\x08response\x18\x02 \x01(\x0b\x32\x16.loop.v1.ModelResponse\x12%\n\rreserved_cost\x18\x03 \x01(\x0b\x32\x0e.loop.v1.Money*\x90\x01\n\x0fInvocationState\x12 \n\x1cINVOCATION_STATE_UNSPECIFIED\x10\x00\x12\x1b\n\x17INVOCATION_STATE_ABSENT\x10\x01\x12\x1e\n\x1aINVOCATION_STATE_AMBIGUOUS\x10\x02\x12\x1e\n\x1aINVOCATION_STATE_COMPLETED\x10\x03\x32\xb6\x02\n\x0fProviderService\x12Z\n\x0bInvokeModel\x12$.loop.provider.v1.InvokeModelRequest\x1a%.loop.provider.v1.InvokeModelResponse\x12\\\n\x0bStreamModel\x12$.loop.provider.v1.StreamModelRequest\x1a%.loop.provider.v1.StreamModelResponse0\x01\x12i\n\x10LookupInvocation\x12).loop.provider.v1.LookupInvocationRequest\x1a*.loop.provider.v1.LookupInvocationResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'loop.provider.v1.service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
+  _globals['_INVOCATIONSTATE']._serialized_start=853
+  _globals['_INVOCATIONSTATE']._serialized_end=997
   _globals['_INVOKEMODELREQUEST']._serialized_start=117
   _globals['_INVOKEMODELREQUEST']._serialized_end=225
   _globals['_INVOKEMODELRESPONSE']._serialized_start=227
@@ -42,6 +44,10 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_STREAMMODELREQUEST']._serialized_end=400
   _globals['_STREAMMODELRESPONSE']._serialized_start=402
   _globals['_STREAMMODELRESPONSE']._serialized_end=465
-  _globals['_PROVIDERSERVICE']._serialized_start=468
-  _globals['_PROVIDERSERVICE']._serialized_end=671
+  _globals['_LOOKUPINVOCATIONREQUEST']._serialized_start=468
+  _globals['_LOOKUPINVOCATIONREQUEST']._serialized_end=690
+  _globals['_LOOKUPINVOCATIONRESPONSE']._serialized_start=693
+  _globals['_LOOKUPINVOCATIONRESPONSE']._serialized_end=850
+  _globals['_PROVIDERSERVICE']._serialized_start=1000
+  _globals['_PROVIDERSERVICE']._serialized_end=1310
 # @@protoc_insertion_point(module_scope)

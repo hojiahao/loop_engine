@@ -436,6 +436,32 @@ fn validate_protocol_limits(limits: &ProtocolLimits) -> Result<(), JobValidation
     Ok(())
 }
 
+/// Validate the narrow Discovery input before transport without manufacturing a
+/// job or protocol selection. This checks inline shape and time bindings only;
+/// server-owned plan, dataset and actor authorization remain required.
+#[cfg(feature = "discovery-service")]
+pub fn validate_discovery_input(
+    input: &crate::wire::discovery::v1::DiscoveryJobInput,
+    submitted_at: &prost_types::Timestamp,
+) -> Result<(), JobValidationError> {
+    let submitted_at = require_timestamp(Some(submitted_at), "specification.submitted_at")?;
+    let input = crate::wire::v1::DiscoveryJobInput {
+        dataset: input.dataset.clone(),
+        research_policy: input.research_policy.clone(),
+        maker_model: input.maker_model.clone(),
+        checker_model: input.checker_model.clone(),
+        budget: input.budget.as_ref().map(|budget| JobBudget {
+            maximum_steps: budget.maximum_steps,
+            maximum_input_tokens: budget.maximum_input_tokens,
+            maximum_output_tokens: budget.maximum_output_tokens,
+            maximum_cost: budget.maximum_cost.clone(),
+            maximum_wall_time: budget.maximum_wall_time,
+        }),
+        maximum_candidates: input.maximum_candidates,
+    };
+    validate_job_input(&job_specification::Input::Discovery(input), submitted_at)
+}
+
 fn validate_job_input(
     input: &job_specification::Input,
     submitted_at: (i64, i32),
@@ -610,7 +636,7 @@ fn validate_development_dataset(
     Ok(())
 }
 
-fn validate_policy_reference(
+pub(crate) fn validate_policy_reference(
     policy: Option<&PolicyReference>,
     field: &'static str,
 ) -> Result<(), JobValidationError> {
@@ -1060,7 +1086,7 @@ fn validate_budget(
     Ok(())
 }
 
-fn validate_money(
+pub(crate) fn validate_money(
     money: Option<&crate::wire::v1::Money>,
     field: &'static str,
 ) -> Result<(), JobValidationError> {
@@ -1728,6 +1754,12 @@ pub fn validate_job_record(record: &JobRecord) -> Result<ValidatedJobShape, JobV
             "state",
         ));
     }
+    if state == JobState::Paused && kind != JobKind::Discovery {
+        return Err(JobValidationError::new(
+            JobValidationCode::InvalidInput,
+            "state",
+        ));
+    }
 
     let has_lease = record.active_lease.is_some();
     let is_active = matches!(state, JobState::Leased | JobState::Running);
@@ -1796,7 +1828,7 @@ fn validate_state_outcome(
 ) -> Result<(), JobValidationError> {
     if matches!(
         state,
-        JobState::Queued | JobState::Leased | JobState::Running
+        JobState::Queued | JobState::Leased | JobState::Running | JobState::Paused
     ) {
         if outcome.is_some() {
             return Err(JobValidationError::new(
@@ -2144,7 +2176,10 @@ fn validate_lease(
     Ok(())
 }
 
-fn validate_actor(actor: Option<&Actor>, field: &'static str) -> Result<(), JobValidationError> {
+pub(crate) fn validate_actor(
+    actor: Option<&Actor>,
+    field: &'static str,
+) -> Result<(), JobValidationError> {
     let actor =
         actor.ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, field))?;
     require_token_id(
@@ -2221,7 +2256,7 @@ fn require_sha256_id<'a>(
     Ok(value)
 }
 
-fn require_token_id<'a>(
+pub(crate) fn require_token_id<'a>(
     value: Option<&'a str>,
     field: &'static str,
 ) -> Result<&'a str, JobValidationError> {
@@ -2247,7 +2282,7 @@ fn require_token_id<'a>(
     Ok(value)
 }
 
-fn require_timestamp(
+pub(crate) fn require_timestamp(
     timestamp: Option<&prost_types::Timestamp>,
     field: &'static str,
 ) -> Result<(i64, i32), JobValidationError> {

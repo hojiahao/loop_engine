@@ -1,15 +1,18 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire("/opt/loop-engine/apps/providerd/package.json");
-const { create, fromJson } = require("@bufbuild/protobuf");
+const { create, fromJson, toBinary, toJson } = require("@bufbuild/protobuf");
 const { timestampNow } = require("@bufbuild/protobuf/wkt");
 const { createClient } = require("@connectrpc/connect");
 const { createGrpcTransport } = require("@connectrpc/connect-node");
 const {
   ActorKind,
+  InvocationState,
   InvokeModelRequestSchema,
+  LookupInvocationRequestSchema,
+  ModelResponseSchema,
   ModelRole,
   ModelResolutionSnapshotSchema,
   PolicyReferenceSchema,
@@ -61,4 +64,42 @@ if (
   response.usage.chargedCost !== undefined
 )
   throw new Error("invalid_isolated_reply");
+
+// Compute the documented request fingerprint independently of Host helpers.
+function canonical_json(value) {
+  if (Array.isArray(value)) return `[${value.map(canonical_json).join(",")}]`;
+  if (value !== null && typeof value === "object")
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonical_json(value[key])}`)
+      .join(",")}}`;
+  return JSON.stringify(value);
+}
+const recovered = await client.lookupInvocation(
+  create(LookupInvocationRequestSchema, {
+    context: {
+      ...command.context,
+      requestId: { $typeName: "loop.v1.RequestId", value: randomUUID() },
+      idempotencyKey: { $typeName: "loop.v1.IdempotencyKey", value: randomUUID() },
+      requestedAt: timestampNow(),
+    },
+    originalRequestId: command.context.requestId,
+    originalIdempotencyKey: command.context.idempotencyKey,
+    requestSha256: {
+      value: createHash("sha256")
+        .update("loop.provider-invocation/v1\0")
+        .update(canonical_json(toJson(InvokeModelRequestSchema, command)))
+        .digest(),
+    },
+  }),
+  { timeoutMs: 4500 },
+);
+if (
+  recovered.state !== InvocationState.COMPLETED ||
+  !recovered.response ||
+  !Buffer.from(toBinary(ModelResponseSchema, recovered.response)).equals(
+    toBinary(ModelResponseSchema, response),
+  )
+)
+  throw new Error("invalid_isolated_recovery");
 process.stdout.write("isolated invocation\n");

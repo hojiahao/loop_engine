@@ -4,13 +4,45 @@ import { createHash, randomUUID } from "node:crypto";
 import { chownSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { before, test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const compose = join(root, "infra/compose/provider.yaml");
 const node_image =
   "m.daocloud.io/docker.io/library/node:24.17.0-bookworm-slim@sha256:862263c612aa437e3037674b85419622a9d93bff80aa1eee5398dfe686375532";
+
+// Image acquisition is idempotent setup, outside the behavioral-test deadline.
+// Retry only this exact DaoCloud digest, never compose up or a model invocation.
+before(
+  async () => {
+    if (cached_image()) return;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = spawnSync("docker", ["pull", node_image], {
+        encoding: "utf8",
+        timeout: 60_000,
+        maxBuffer: 1_048_576,
+      });
+      if (result.status === 0) {
+        assert.ok(cached_image(), "pulled digest must be available locally");
+        return;
+      }
+      if (attempt === 2) assert.equal(result.status, 0, result.stderr || result.error?.message);
+      await delay(1000 * (attempt + 1));
+    }
+  },
+  { timeout: 195_000 },
+);
+
+function cached_image() {
+  return (
+    spawnSync("docker", ["image", "inspect", node_image], {
+      stdio: "ignore",
+      timeout: 5000,
+    }).status === 0
+  );
+}
 
 function private_file(path, value) {
   writeFileSync(path, value, { mode: 0o600 });
@@ -285,6 +317,7 @@ test("actual Provider serves approved TLS calls inside data and egress boundarie
   );
   for (const path of [config_dir, state_dir, supplier_dir, client_dir]) set_owner(path);
   const rendered = JSON.parse(docker(["config", "--format", "json"]));
+  assert.ok(Object.values(rendered.services).every((service) => service.image === node_image));
   assert.equal(rendered.networks.provider.internal, true);
   assert.deepEqual(Object.keys(rendered.services.provider.networks), ["provider"]);
   assert.equal(rendered.services.provider.read_only, true);
@@ -295,13 +328,17 @@ test("actual Provider serves approved TLS calls inside data and egress boundarie
       (volume) => ![root, protected_path].includes(volume.source),
     ),
   );
-  docker(["up", "--detach", "--wait", "--wait-timeout", "45"], 120_000);
+  docker(["up", "--pull", "never", "--detach", "--wait", "--wait-timeout", "45"], 120_000);
   const pins = JSON.parse(
     docker(["exec", "-T", "provider", "node", "dist/index.js", "--describe"]),
   );
   try {
     assert.equal(
-      docker(["run", "--rm", "--no-deps", "-T", "client"], 15_000, JSON.stringify(pins)).trim(),
+      docker(
+        ["run", "--pull", "never", "--rm", "--no-deps", "-T", "client"],
+        15_000,
+        JSON.stringify(pins),
+      ).trim(),
       "isolated invocation",
     );
   } catch (error) {

@@ -2,9 +2,9 @@
 // @generated from file loop/provider/v1/service.proto (package loop.provider.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { CommandContext } from "../../v1/common_pb.js";
+import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { CommandContext, IdempotencyKey, Money, RequestId, Sha256Digest } from "../../v1/common_pb.js";
 import { file_loop_v1_common } from "../../v1/common_pb.js";
 import type { ModelInvocation, ModelResponse } from "../../v1/model_pb.js";
 import { file_loop_v1_model } from "../../v1/model_pb.js";
@@ -16,7 +16,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/provider/v1/service.proto.
  */
 export const file_loop_provider_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch5sb29wL3Byb3ZpZGVyL3YxL3NlcnZpY2UucHJvdG8SEGxvb3AucHJvdmlkZXIudjEibAoSSW52b2tlTW9kZWxSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0EiwKCmludm9jYXRpb24YAiABKAsyGC5sb29wLnYxLk1vZGVsSW52b2NhdGlvbiI/ChNJbnZva2VNb2RlbFJlc3BvbnNlEigKCHJlc3BvbnNlGAEgASgLMhYubG9vcC52MS5Nb2RlbFJlc3BvbnNlImwKElN0cmVhbU1vZGVsUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIsCgppbnZvY2F0aW9uGAIgASgLMhgubG9vcC52MS5Nb2RlbEludm9jYXRpb24iPwoTU3RyZWFtTW9kZWxSZXNwb25zZRIoCgVldmVudBgBIAEoCzIZLmxvb3AudjEuTW9kZWxTdHJlYW1FdmVudDLLAQoPUHJvdmlkZXJTZXJ2aWNlEloKC0ludm9rZU1vZGVsEiQubG9vcC5wcm92aWRlci52MS5JbnZva2VNb2RlbFJlcXVlc3QaJS5sb29wLnByb3ZpZGVyLnYxLkludm9rZU1vZGVsUmVzcG9uc2USXAoLU3RyZWFtTW9kZWwSJC5sb29wLnByb3ZpZGVyLnYxLlN0cmVhbU1vZGVsUmVxdWVzdBolLmxvb3AucHJvdmlkZXIudjEuU3RyZWFtTW9kZWxSZXNwb25zZTABYgZwcm90bzM", [file_loop_v1_common, file_loop_v1_model, file_loop_v1_stream]);
+  fileDesc("Ch5sb29wL3Byb3ZpZGVyL3YxL3NlcnZpY2UucHJvdG8SEGxvb3AucHJvdmlkZXIudjEibAoSSW52b2tlTW9kZWxSZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0EiwKCmludm9jYXRpb24YAiABKAsyGC5sb29wLnYxLk1vZGVsSW52b2NhdGlvbiI/ChNJbnZva2VNb2RlbFJlc3BvbnNlEigKCHJlc3BvbnNlGAEgASgLMhYubG9vcC52MS5Nb2RlbFJlc3BvbnNlImwKElN0cmVhbU1vZGVsUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIsCgppbnZvY2F0aW9uGAIgASgLMhgubG9vcC52MS5Nb2RlbEludm9jYXRpb24iPwoTU3RyZWFtTW9kZWxSZXNwb25zZRIoCgVldmVudBgBIAEoCzIZLmxvb3AudjEuTW9kZWxTdHJlYW1FdmVudCLeAQoXTG9va3VwSW52b2NhdGlvblJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSLwoTb3JpZ2luYWxfcmVxdWVzdF9pZBgCIAEoCzISLmxvb3AudjEuUmVxdWVzdElkEjkKGG9yaWdpbmFsX2lkZW1wb3RlbmN5X2tleRgDIAEoCzIXLmxvb3AudjEuSWRlbXBvdGVuY3lLZXkSLQoOcmVxdWVzdF9zaGEyNTYYBCABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdCKdAQoYTG9va3VwSW52b2NhdGlvblJlc3BvbnNlEjAKBXN0YXRlGAEgASgOMiEubG9vcC5wcm92aWRlci52MS5JbnZvY2F0aW9uU3RhdGUSKAoIcmVzcG9uc2UYAiABKAsyFi5sb29wLnYxLk1vZGVsUmVzcG9uc2USJQoNcmVzZXJ2ZWRfY29zdBgDIAEoCzIOLmxvb3AudjEuTW9uZXkqkAEKD0ludm9jYXRpb25TdGF0ZRIgChxJTlZPQ0FUSU9OX1NUQVRFX1VOU1BFQ0lGSUVEEAASGwoXSU5WT0NBVElPTl9TVEFURV9BQlNFTlQQARIeChpJTlZPQ0FUSU9OX1NUQVRFX0FNQklHVU9VUxACEh4KGklOVk9DQVRJT05fU1RBVEVfQ09NUExFVEVEEAMytgIKD1Byb3ZpZGVyU2VydmljZRJaCgtJbnZva2VNb2RlbBIkLmxvb3AucHJvdmlkZXIudjEuSW52b2tlTW9kZWxSZXF1ZXN0GiUubG9vcC5wcm92aWRlci52MS5JbnZva2VNb2RlbFJlc3BvbnNlElwKC1N0cmVhbU1vZGVsEiQubG9vcC5wcm92aWRlci52MS5TdHJlYW1Nb2RlbFJlcXVlc3QaJS5sb29wLnByb3ZpZGVyLnYxLlN0cmVhbU1vZGVsUmVzcG9uc2UwARJpChBMb29rdXBJbnZvY2F0aW9uEikubG9vcC5wcm92aWRlci52MS5Mb29rdXBJbnZvY2F0aW9uUmVxdWVzdBoqLmxvb3AucHJvdmlkZXIudjEuTG9va3VwSW52b2NhdGlvblJlc3BvbnNlYgZwcm90bzM", [file_loop_v1_common, file_loop_v1_model, file_loop_v1_stream]);
 
 /**
  * @generated from message loop.provider.v1.InvokeModelRequest
@@ -100,6 +100,122 @@ export const StreamModelResponseSchema: GenMessage<StreamModelResponse> = /*@__P
   messageDesc(file_loop_provider_v1_service, 3);
 
 /**
+ * @generated from message loop.provider.v1.LookupInvocationRequest
+ */
+export type LookupInvocationRequest = Message<"loop.provider.v1.LookupInvocationRequest"> & {
+  /**
+   * A fresh lookup command, independently authenticated and time-validated.
+   * Its actor must match the transport principal. It cannot select another
+   * actor's journal, and its request ID differs from original_request_id.
+   *
+   * @generated from field: loop.v1.CommandContext context = 1;
+   */
+  context?: CommandContext | undefined;
+
+  /**
+   * @generated from field: loop.v1.RequestId original_request_id = 2;
+   */
+  originalRequestId?: RequestId | undefined;
+
+  /**
+   * @generated from field: loop.v1.IdempotencyKey original_idempotency_key = 3;
+   */
+  originalIdempotencyKey?: IdempotencyKey | undefined;
+
+  /**
+   * Exactly 32 bytes. The original InvokeModelRequest's existing
+   * loop.provider-invocation/v1 domain-separated canonical JSON digest.
+   * Streaming uses its equivalent InvokeModelRequest envelope. No original
+   * prompt, model resolution, supplier credential or artifact is accepted.
+   *
+   * @generated from field: loop.v1.Sha256Digest request_sha256 = 4;
+   */
+  requestSha256?: Sha256Digest | undefined;
+};
+
+/**
+ * Describes the message loop.provider.v1.LookupInvocationRequest.
+ * Use `create(LookupInvocationRequestSchema)` to create a new message.
+ */
+export const LookupInvocationRequestSchema: GenMessage<LookupInvocationRequest> = /*@__PURE__*/
+  messageDesc(file_loop_provider_v1_service, 4);
+
+/**
+ * @generated from message loop.provider.v1.LookupInvocationResponse
+ */
+export type LookupInvocationResponse = Message<"loop.provider.v1.LookupInvocationResponse"> & {
+  /**
+   * @generated from field: loop.provider.v1.InvocationState state = 1;
+   */
+  state: InvocationState;
+
+  /**
+   * Required only for COMPLETED; absent for ABSENT and AMBIGUOUS. Its
+   * request_id equals the requested original_request_id.
+   *
+   * @generated from field: loop.v1.ModelResponse response = 2;
+   */
+  response?: ModelResponse | undefined;
+
+  /**
+   * Present only when a complete claim records a validated USD reservation.
+   * This is the original upper bound, not an invoice or actual charged cost.
+   * ABSENT has no reservation; incomplete ambiguous claims omit this field.
+   *
+   * @generated from field: loop.v1.Money reserved_cost = 3;
+   */
+  reservedCost?: Money | undefined;
+};
+
+/**
+ * Describes the message loop.provider.v1.LookupInvocationResponse.
+ * Use `create(LookupInvocationResponseSchema)` to create a new message.
+ */
+export const LookupInvocationResponseSchema: GenMessage<LookupInvocationResponse> = /*@__PURE__*/
+  messageDesc(file_loop_provider_v1_service, 5);
+
+/**
+ * A point-in-time journal observation, not permission to repeat a paid call.
+ * Unknown or unspecified values fail closed. Corrupt journal evidence is a
+ * non-OK RPC with typed loop.v1.ServiceError details, never a successful state.
+ *
+ * @generated from enum loop.provider.v1.InvocationState
+ */
+export enum InvocationState {
+  /**
+   * @generated from enum value: INVOCATION_STATE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * No claim or completed result exists at observation time.
+   *
+   * @generated from enum value: INVOCATION_STATE_ABSENT = 1;
+   */
+  ABSENT = 1,
+
+  /**
+   * A claim exists without a completed result. Outbound execution is uncertain.
+   *
+   * @generated from enum value: INVOCATION_STATE_AMBIGUOUS = 2;
+   */
+  AMBIGUOUS = 2,
+
+  /**
+   * An immutable completed result matches the requested invocation identity.
+   *
+   * @generated from enum value: INVOCATION_STATE_COMPLETED = 3;
+   */
+  COMPLETED = 3,
+}
+
+/**
+ * Describes the enum loop.provider.v1.InvocationState.
+ */
+export const InvocationStateSchema: GenEnum<InvocationState> = /*@__PURE__*/
+  enumDesc(file_loop_provider_v1_service, 0);
+
+/**
  * ProviderService has no research-state or holdout imports. Provider plugins
  * translate this typed model contract into native wire protocols.
  *
@@ -121,6 +237,19 @@ export const ProviderService: GenService<{
     methodKind: "server_streaming";
     input: typeof StreamModelRequestSchema;
     output: typeof StreamModelResponseSchema;
+  },
+  /**
+   * Capability identity: provider.invocation-lookup.v1. Older servers return
+   * UNIMPLEMENTED; this version does not negotiate a feature metadata header.
+   * Read-only recovery for the authenticated actor's own journal; never invokes
+   * a model or claims a key.
+   *
+   * @generated from rpc loop.provider.v1.ProviderService.LookupInvocation
+   */
+  lookupInvocation: {
+    methodKind: "unary";
+    input: typeof LookupInvocationRequestSchema;
+    output: typeof LookupInvocationResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_loop_provider_v1_service, 0);

@@ -93,6 +93,8 @@ pub struct RuntimeAuthority {
     jobs: BTreeMap<String, [u8; 32]>,
     clock: Arc<dyn Clock>,
     last_observed: Mutex<i64>,
+    discovery: Option<Arc<super::DiscoveryExecutor>>,
+    runs: Option<Arc<super::RunCatalog>>,
 }
 
 /// Proof constructed only after tonic exposes a verified TLS peer certificate.
@@ -162,7 +164,88 @@ impl RuntimeAuthority {
             jobs: pinned,
             clock,
             last_observed: Mutex::new(0),
+            discovery: None,
+            runs: None,
         })
+    }
+
+    /// Attach frozen Discovery authority without widening generic job access.
+    /// Every plan must resolve to the exact configured Discovery actor and run.
+    /// Installation is startup-only; replacing it requires a process restart.
+    pub fn with_discovery(mut self, executor: Arc<super::DiscoveryExecutor>) -> StoreResult<Self> {
+        for (actor, run) in executor.identities() {
+            let identity = self.identity(actor)?;
+            if identity.role != Role::Discovery || !identity.run_ids.iter().any(|id| id == run) {
+                return Err(StoreError::AdmissionDenied);
+            }
+        }
+        self.discovery = Some(executor);
+        Ok(self)
+    }
+
+    /// Bind human-owned run plans to existing registered Discovery executors.
+    /// Configuration never permits caller-selected roles or cross-run access.
+    /// Missing, expired or mismatched identities deny startup. Replacing this
+    /// startup-only registry requires restart and does not mutate durable runs.
+    pub fn with_runs(mut self, catalog: Arc<super::RunCatalog>) -> StoreResult<Self> {
+        for specification in catalog.specifications() {
+            let owner = specification
+                .owner
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            self.authorize_run(owner, specification)?;
+            let executor = specification
+                .executor
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            let identity = self.identity(executor)?;
+            let run = specification
+                .run_id
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+                return Err(StoreError::AdmissionDenied);
+            }
+            self.discovery
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?
+                .verify_run(specification)?;
+        }
+        self.runs = Some(catalog);
+        Ok(self)
+    }
+
+    pub(super) fn verify_run(
+        &self,
+        actor: &Actor,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        self.authorize_run(actor, specification)?;
+        let executor = specification
+            .executor
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        let identity = self.identity(executor)?;
+        let run = specification
+            .run_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        self.runs
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?
+            .verify(specification)
+    }
+
+    pub(super) fn run_lookup(&self, actor: &Actor, run_id: &str) -> StoreResult<()> {
+        id(run_id)?;
+        let identity = self.identity(actor)?;
+        if identity.role != Role::Operator || !identity.run_ids.iter().any(|run| run == run_id) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(())
     }
 
     pub(super) fn now(&self) -> StoreResult<i64> {
@@ -231,7 +314,11 @@ impl RuntimeAuthority {
         operation: &str,
     ) -> StoreResult<()> {
         let identity = self.identity(&principal.actor)?;
-        if !self.jobs.contains_key(job_id)
+        id(job_id)?;
+        let discovered = identity.role == Role::Discovery
+            && (self.discovery.is_some() || control_operation(operation))
+            && role_operation(identity.role, operation);
+        if (!self.jobs.contains_key(job_id) && !discovered)
             || identity.run_ids.is_empty()
             || !role_operation(identity.role, operation)
         {
@@ -252,7 +339,40 @@ impl RuntimeAuthority {
 }
 
 impl AdmissionPolicy for RuntimeAuthority {
+    fn authorize_run(
+        &self,
+        actor: &Actor,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<()> {
+        let identity = self.identity(actor)?;
+        let run = specification
+            .run_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Operator
+            || specification.owner.as_ref() != Some(actor)
+            || !identity.run_ids.contains(&run.value)
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(())
+    }
+
     fn validate_submission(&self, job: &JobSpecification) -> StoreResult<()> {
+        if matches!(job.input, Some(job_specification::Input::Discovery(_)))
+            && let Some(discovery) = &self.discovery
+        {
+            let actor = job
+                .submitted_by
+                .as_ref()
+                .ok_or(StoreError::AdmissionDenied)?;
+            let identity = self.identity(actor)?;
+            let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
+            if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
+                return Err(StoreError::AdmissionDenied);
+            }
+            return discovery.authorize(job);
+        }
         let job_id = job.job_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
         let expected = self
             .jobs
@@ -304,6 +424,20 @@ impl AdmissionPolicy for RuntimeAuthority {
             .specification
             .as_ref()
             .ok_or(StoreError::AdmissionDenied)?;
+        if control_operation(operation) {
+            // Stopping or observing a stopped job can only shrink authority.
+            // Validate durable shape without rereading a missing or changed plan.
+            loop_protocol::job::validate_job_record(record)?;
+            let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
+            if identity.role == Role::Discovery
+                && matches!(job.input, Some(job_specification::Input::Discovery(_)))
+                && job.submitted_by.as_ref() == Some(actor)
+                && identity.run_ids.contains(&run.value)
+            {
+                return Ok(());
+            }
+            return Err(StoreError::AdmissionDenied);
+        }
         self.validate_submission(job)?;
         let run = job.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
         let protected = matches!(
@@ -324,7 +458,12 @@ impl AdmissionPolicy for RuntimeAuthority {
                 Role::Research => development,
                 Role::HoldoutWorker => protected,
                 Role::Scheduler => true,
-                Role::Discovery | Role::Provider => false,
+                Role::Discovery => {
+                    matches!(job.input, Some(job_specification::Input::Discovery(_)))
+                        && job.submitted_by.as_ref() == Some(actor)
+                        && self.discovery.is_some()
+                }
+                Role::Provider => false,
             };
         if !allowed || !identity.run_ids.contains(&run.value) {
             return Err(StoreError::AdmissionDenied);
@@ -370,8 +509,38 @@ fn role_operation(role: Role, operation: &str) -> bool {
                 | "loop.jobs.artifacts"
         ),
         Role::Scheduler => operation == "loop.jobs.recover",
-        Role::Discovery | Role::Provider => false,
+        Role::Discovery => matches!(
+            operation,
+            "loop.discovery.start"
+                | "loop.model.read"
+                | "loop.model.reserve"
+                | "loop.model.dispatch"
+                | "loop.model.uncertain"
+                | "loop.model.finish"
+                | "loop.model.takeover"
+                | "loop.model.call"
+                | "loop.tool.record"
+                | "loop.model.resume"
+                | "loop.model.retry"
+                | "loop.model.fail"
+                | "loop.model.reconcile"
+                | "loop.discovery.pause"
+                | "loop.discovery.cancel"
+                | "loop.discovery.expire"
+                | "loop.discovery.read_control"
+        ),
+        Role::Provider => false,
     }
+}
+
+fn control_operation(operation: &str) -> bool {
+    matches!(
+        operation,
+        "loop.discovery.pause"
+            | "loop.discovery.cancel"
+            | "loop.discovery.expire"
+            | "loop.discovery.read_control"
+    )
 }
 
 pub(super) fn digest(value: &str) -> StoreResult<[u8; 32]> {

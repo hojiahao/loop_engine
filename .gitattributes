@@ -1,2 +1,4 @@
 # Keep protoc-gen-es output byte-for-byte reproducible, including its final blank line.
 packages/protocol-ts/src/generated/** linguist-generated=true whitespace=-blank-at-eof
+# Protobuf fixtures are binary even when a short message contains no NUL byte.
+*.binpb binary

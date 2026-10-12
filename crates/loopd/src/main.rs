@@ -20,6 +20,9 @@ struct Args {
         default_value = "var/secrets/loopd-database-url"
     )]
     database_url_file: PathBuf,
+    /// Deployment-owned PostgreSQL namespace, shared by migration and runtime.
+    #[arg(long, env = "LOOPD_DATABASE_SCHEMA", default_value = "public")]
+    database_schema: String,
     /// Apply schema changes using an explicit deployment credential, then exit.
     #[arg(long)]
     migrate: bool,
@@ -53,6 +56,7 @@ async fn main() -> anyhow::Result<()> {
     (&mut file).take(16_385).read_to_string(&mut url)?;
     anyhow::ensure!(url.len() <= 16_384, "database connection file is too large");
     let mut options = StoreOptions::new(url.trim())?;
+    options.schema = args.database_schema;
     options.apply_migrations = args.migrate;
     let runtime = args
         .runtime_config
@@ -104,6 +108,12 @@ async fn main() -> anyhow::Result<()> {
         if let Some(executor) = runtime.statistics {
             service = service.with_statistician(executor);
         }
+        if let Some(executor) = runtime.discovery {
+            service = service.with_discoverer(executor);
+        }
+        if let Some(catalog) = runtime.runs {
+            service = service.with_runs(catalog);
+        }
         let rpc = async {
             let listener = tokio::net::TcpListener::bind(address)
                 .await
@@ -122,7 +132,22 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn shutdown_signal() {
-    if let Err(error) = tokio::signal::ctrl_c().await {
-        tracing::error!(%error, "failed to install shutdown signal");
+    #[cfg(unix)]
+    {
+        let terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate());
+        let Ok(mut terminate) = terminate else {
+            tracing::error!("failed to install termination signal");
+            return;
+        };
+        tokio::select! {
+            signal = tokio::signal::ctrl_c() => {
+                if signal.is_err() { tracing::error!("failed to install interrupt signal"); }
+            }
+            _ = terminate.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    if tokio::signal::ctrl_c().await.is_err() {
+        tracing::error!("failed to install interrupt signal");
     }
 }

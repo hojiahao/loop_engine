@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "loop.research-description/v1"
+    },
+    "dataset_id": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71
+    },
+    "registry_id": {
+      "type": "string",
+      "minLength": 71,
+      "maxLength": 71
+    },
+    "snapshot_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    },
+    "sample": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["operator_warmup", "in_sample", "development_validation"]
+        },
+        "start": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10
+        },
+        "end": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10
+        }
+      },
+      "required": ["end", "role", "start"],
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "properties": {
+          "snapshot_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967295
+              },
+              "sha256": {
+                "type": "string",
+                "minLength": 71,
+                "maxLength": 71
+              }
+            },
+            "required": ["name", "sha256", "version"],
+            "additionalProperties": false
+          },
+          "media_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 268435456
+          }
+        },
+        "required": ["byte_size", "media_type", "schema", "snapshot_id"],
+        "additionalProperties": false
+      }
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "value_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": ["name", "value_type"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "artifacts",
+    "dataset_id",
+    "fields",
+    "registry_id",
+    "sample",
+    "schema",
+    "snapshot_ids"
+  ],
+  "additionalProperties": false
+}

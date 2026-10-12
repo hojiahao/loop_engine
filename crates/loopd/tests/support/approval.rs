@@ -158,8 +158,8 @@ fn goldens() -> serde_json::Value {
     .unwrap()
 }
 
-pub async fn setup() -> (tempfile::TempDir, PgJobStore, Arc<FixtureClock>) {
-    let directory = tempfile::tempdir().unwrap();
+pub async fn setup() -> (super::TestDirectory, PgJobStore, Arc<FixtureClock>) {
+    let directory = super::TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut config = options(&directory.path().join("state"), clock.clone());
     config.holdout_policy = Arc::new(Policy::default());

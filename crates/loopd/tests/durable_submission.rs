@@ -31,7 +31,7 @@ async fn migration_durable_storage() {
 #[tokio::test]
 // Scenario: concurrent startup serializes migrations.
 async fn concurrent_startup_migrations() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let path = directory.path().join("state");
     let (first, second) = tokio::join!(
@@ -49,7 +49,7 @@ async fn concurrent_startup_migrations() {
 #[tokio::test]
 // Scenario: default policy denies submission without creating state.
 async fn default_policy_submission() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let store = PgJobStore::open(base_options(&directory.path().join("state")))
         .await
         .unwrap();
@@ -282,7 +282,7 @@ async fn audit_ledger_identity() {
 // Scenario: migration lock wait is bounded and cancellable.
 async fn migration_lock_wait() {
     use std::time::Duration;
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let path = directory.path().join("state");
     let mut lock = connection(&directory).await;
     sqlx::query("SELECT pg_advisory_lock(hashtextextended($1, 0))")

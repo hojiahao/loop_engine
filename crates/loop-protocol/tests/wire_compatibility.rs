@@ -12,6 +12,7 @@ const SUPPORTED_PACKAGES: &[&str] = &[
     "loop.protocol.v1",
     "loop.provider.v1",
     "loop.research.v1",
+    "loop.runs.v1",
     "loop.v1",
 ];
 const FEATURES: &[&str] = &["artifacts.by-reference.v1", "factors.canonical-json.v1"];

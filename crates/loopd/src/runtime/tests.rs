@@ -1,6 +1,8 @@
 use std::sync::{Arc, atomic::AtomicI64};
 
-use loop_protocol::wire::v1::{JobLease, JobRecord, JobState, LeaseId, job_specification};
+use loop_protocol::wire::v1::{
+    Actor, ActorId, ActorKind, JobLease, JobRecord, JobState, LeaseId, job_specification,
+};
 use tonic::{Request, metadata::MetadataValue};
 
 use super::authority::{CAPABILITY_HEADER, Principal};
@@ -211,4 +213,144 @@ fn operational_errors_typed() {
     let error = validate_operational_failure(rich.code, &[], &details).unwrap();
     assert_eq!(error.code, "evidence_unavailable");
     assert!(!format!("{status:?}").contains("private path or secret"));
+}
+
+fn discovery_control() -> (RuntimeAuthority, Principal, JobRecord) {
+    let mut identity = identity();
+    identity.role = Role::Discovery;
+    identity.run_ids = vec!["run.fixture".to_owned()];
+    let actor = Actor {
+        actor_id: Some(ActorId {
+            value: identity.actor_id.clone(),
+        }),
+        kind: ActorKind::Agent as i32,
+        display_name: identity.display_name.clone(),
+        authenticated_subject: identity.subject.clone(),
+    };
+    let authority = registry(vec![identity.clone()]).unwrap();
+    let mut specification = support::command(1).specification;
+    let (kind, input) = support::research::inputs().remove(0);
+    specification.kind = kind as i32;
+    specification.input = Some(input);
+    specification.submitted_by = Some(actor.clone());
+    let record = JobRecord {
+        specification: Some(specification),
+        state: JobState::Queued as i32,
+        revision: 1,
+        updated_at: Some(timestamp(NOW)),
+        ..Default::default()
+    };
+    loop_protocol::job::validate_job_record(&record).unwrap();
+    (authority, Principal { identity, actor }, record)
+}
+
+#[test]
+fn control_without_executor() {
+    let (authority, principal, record) = discovery_control();
+    for operation in [
+        "loop.discovery.pause",
+        "loop.discovery.cancel",
+        "loop.discovery.expire",
+        "loop.discovery.read_control",
+    ] {
+        authority.authorize(&principal, operation, &record).unwrap();
+        authority
+            .authorize_lookup(&principal, "job.1", operation)
+            .unwrap();
+    }
+}
+
+#[test]
+fn control_owner_denied() {
+    let (authority, principal, mut record) = discovery_control();
+    record.specification.as_mut().unwrap().submitted_by = Some(actor());
+    assert!(matches!(
+        authority.authorize(&principal, "loop.discovery.cancel", &record),
+        Err(StoreError::AdmissionDenied)
+    ));
+}
+
+#[test]
+fn control_scope_denied() {
+    let (authority, principal, mut record) = discovery_control();
+    record
+        .specification
+        .as_mut()
+        .unwrap()
+        .run_id
+        .as_mut()
+        .unwrap()
+        .value = "run.other".to_owned();
+    assert!(matches!(
+        authority.authorize(&principal, "loop.discovery.pause", &record),
+        Err(StoreError::AdmissionDenied)
+    ));
+}
+
+#[test]
+fn control_kind_denied() {
+    let (authority, principal, mut record) = discovery_control();
+    let mut specification = support::command(1).specification;
+    specification.submitted_by = Some(principal.actor.clone());
+    record.specification = Some(specification);
+    assert!(matches!(
+        authority.authorize(&principal, "loop.discovery.expire", &record),
+        Err(StoreError::AdmissionDenied)
+    ));
+}
+
+#[test]
+fn control_role_denied() {
+    for role in [
+        Role::Operator,
+        Role::Research,
+        Role::HoldoutWorker,
+        Role::Provider,
+        Role::Scheduler,
+    ] {
+        let (_, mut principal, mut record) = discovery_control();
+        principal.identity.role = role;
+        principal.actor.kind = match role {
+            Role::Operator => ActorKind::Human,
+            Role::Scheduler => ActorKind::Scheduler,
+            _ => ActorKind::Service,
+        } as i32;
+        record.specification.as_mut().unwrap().submitted_by = Some(principal.actor.clone());
+        let authority = registry(vec![principal.identity.clone()]).unwrap();
+        assert!(matches!(
+            authority.authorize(&principal, "loop.discovery.cancel", &record),
+            Err(StoreError::AdmissionDenied)
+        ));
+    }
+}
+
+#[test]
+fn control_corruption_denied() {
+    let (authority, principal, mut record) = discovery_control();
+    record.revision = 0;
+    assert!(
+        authority
+            .authorize(&principal, "loop.discovery.cancel", &record)
+            .is_err()
+    );
+}
+
+#[test]
+fn execution_requires_plan() {
+    let (authority, principal, record) = discovery_control();
+    for operation in [
+        "loop.model.resume",
+        "loop.model.retry",
+        "loop.model.fail",
+        "loop.model.reconcile",
+    ] {
+        assert!(matches!(
+            authority.authorize(&principal, operation, &record),
+            Err(StoreError::AdmissionDenied)
+        ));
+        assert!(matches!(
+            authority.authorize_lookup(&principal, "job.1", operation),
+            Err(StoreError::AdmissionDenied)
+        ));
+    }
 }

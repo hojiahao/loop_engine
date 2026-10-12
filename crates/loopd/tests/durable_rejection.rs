@@ -14,10 +14,9 @@ use loopd::store::{
 };
 use sqlx::Executor;
 use support::*;
-use tempfile::TempDir;
 
-async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>) {
-    let directory = tempfile::tempdir().unwrap();
+async fn fixture() -> (TestDirectory, PgJobStore, Arc<FixtureClock>) {
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let store = PgJobStore::open(backtest::options(
         &directory.path().join("state"),
@@ -29,7 +28,7 @@ async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>) {
     (directory, store, clock)
 }
 
-async fn counts(directory: &TempDir) -> (i64, i64, i64, i64) {
+async fn counts(directory: &TestDirectory) -> (i64, i64, i64, i64) {
     sqlx::query_as(
         "SELECT (SELECT count(*) FROM jobs), (SELECT count(*) FROM backtest_rejections),
         (SELECT count(*) FROM command_receipts), (SELECT count(*) FROM audit_events)",

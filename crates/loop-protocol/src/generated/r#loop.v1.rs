@@ -2235,6 +2235,7 @@ pub enum JobState {
     InfrastructureFailed = 6,
     Cancelled = 7,
     BudgetExhausted = 8,
+    Paused = 9,
 }
 impl JobState {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2252,6 +2253,7 @@ impl JobState {
             Self::InfrastructureFailed => "JOB_STATE_INFRASTRUCTURE_FAILED",
             Self::Cancelled => "JOB_STATE_CANCELLED",
             Self::BudgetExhausted => "JOB_STATE_BUDGET_EXHAUSTED",
+            Self::Paused => "JOB_STATE_PAUSED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2266,6 +2268,7 @@ impl JobState {
             "JOB_STATE_INFRASTRUCTURE_FAILED" => Some(Self::InfrastructureFailed),
             "JOB_STATE_CANCELLED" => Some(Self::Cancelled),
             "JOB_STATE_BUDGET_EXHAUSTED" => Some(Self::BudgetExhausted),
+            "JOB_STATE_PAUSED" => Some(Self::Paused),
             _ => None,
         }
     }

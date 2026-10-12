@@ -11,4 +11,5 @@ exec docker-entrypoint.sh postgres \
   -c ssl=on \
   -c ssl_cert_file=/run/loop-test-tls/server.crt \
   -c ssl_key_file=/run/loop-test-tls/server.key \
-  -c shared_buffers=32MB -c work_mem=1MB -c max_connections=100
+  -c shared_buffers=32MB -c work_mem=1MB -c max_connections=100 \
+  -c max_wal_size=128MB -c min_wal_size=32MB -c wal_compression=pglz

@@ -1,7 +1,9 @@
 # ADR 0045: Provider platform limits and process isolation
 
-Status: implementation, local regression, quality/build and actual-container
-gates passed. Task publication and exact-commit CI remain required.
+Status: accepted. Task commit `de4f1b1` and product-documentation follow-up
+`5bea7f7` are pushed. Branch CI `35978805422` and PR CI `35979594702` each passed
+all seven jobs. PR #1 merged to main as
+`d671cffd2d8aa348569fd4e03205ddd0b1de6422` on 2026-09-28.
 Phase 9 delivery unit 8.
 
 ## Requirement and scope

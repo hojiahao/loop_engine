@@ -509,7 +509,41 @@ pub(super) async fn insert_job(
     specification: &JobSpecification,
     now: i64,
 ) -> StoreResult<JobRecord> {
+    insert_guarded(transaction, specification, now, None).await
+}
+
+pub(super) async fn insert_scoped(
+    transaction: &mut Transaction<'_, Postgres>,
+    specification: &JobSpecification,
+    now: i64,
+    permit: &super::runs::RunPermit,
+) -> StoreResult<JobRecord> {
+    insert_guarded(transaction, specification, now, Some(permit)).await
+}
+
+async fn insert_guarded(
+    transaction: &mut Transaction<'_, Postgres>,
+    specification: &JobSpecification,
+    now: i64,
+    permit: Option<&super::runs::RunPermit>,
+) -> StoreResult<JobRecord> {
     validate_job_specification(specification)?;
+    let run_id = &specification.run_id.as_ref().expect("validated run").value;
+    let managed: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM research_runs WHERE run_id = $1)")
+            .bind(run_id)
+            .fetch_one(&mut **transaction)
+            .await?;
+    if managed {
+        let permit = permit.ok_or(StoreError::AdmissionDenied)?;
+        permit.verify(specification)?;
+        sqlx::query("SELECT set_config('loop.run_child', $1, true)")
+            .bind(permit.job_id())
+            .execute(&mut **transaction)
+            .await?;
+    } else if permit.is_some() {
+        return Err(StoreError::AdmissionDenied);
+    }
     let job_id = &specification
         .job_id
         .as_ref()
@@ -567,6 +601,11 @@ pub(super) async fn insert_job(
     .execute(&mut **transaction)
     .await?;
     super::library::trials::register(transaction, specification).await?;
+    if managed {
+        sqlx::query("SELECT set_config('loop.run_child', '', true)")
+            .execute(&mut **transaction)
+            .await?;
+    }
     Ok(record)
 }
 

@@ -13,10 +13,14 @@ use std::sync::{
     atomic::{AtomicI64, Ordering},
 };
 use support::*;
-use tempfile::TempDir;
 
-async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>, Arc<library::Policy>) {
-    let directory = tempfile::tempdir().unwrap();
+async fn fixture() -> (
+    TestDirectory,
+    PgJobStore,
+    Arc<FixtureClock>,
+    Arc<library::Policy>,
+) {
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let policy = Arc::new(library::Policy::default());
     let store = PgJobStore::open(library::options(
@@ -30,7 +34,7 @@ async fn fixture() -> (TempDir, PgJobStore, Arc<FixtureClock>, Arc<library::Poli
     (directory, store, clock, policy)
 }
 
-async fn counts(dir: &TempDir) -> (i64, i64, i64, i64) {
+async fn counts(dir: &TestDirectory) -> (i64, i64, i64, i64) {
     sqlx::query_as("SELECT (SELECT count(*) FROM factor_trials), (SELECT count(*) FROM factor_states), (SELECT count(*) FROM command_receipts), (SELECT count(*) FROM audit_events)")
         .fetch_one(&mut connection(dir).await).await.unwrap()
 }
@@ -711,7 +715,7 @@ async fn migration_refuses_unindexed() {
 #[tokio::test]
 // Scenario: protected jobs are not admission trials.
 async fn protected_jobs_admission() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let mut config = options(
         &directory.path().join("state"),
         Arc::new(FixtureClock(AtomicI64::new(NOW))),

@@ -14,6 +14,8 @@ export {
   CorrelationIdSchema,
   type ExactDecimal,
   ExactDecimalSchema,
+  type FactorExpressionId,
+  FactorExpressionIdSchema,
   type IdempotencyKey,
   IdempotencyKeySchema,
   type JobId,

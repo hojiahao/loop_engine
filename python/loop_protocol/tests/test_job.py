@@ -244,7 +244,7 @@ def test_holdout_grant(
 @pytest.mark.parametrize("vector", SHARED_VECTORS, ids=[v["name"] for v in SHARED_VECTORS])
 # Scenario: shared job record matrix fails closed.
 def test_shared_job(vector: dict[str, str]) -> None:
-    assert len(SHARED_VECTORS) == 114
+    assert len(SHARED_VECTORS) == 120
     record = _record(vector)
     expected = vector["expected"]
     if expected == "accept":
@@ -797,4 +797,5 @@ def _state(value: str) -> int:
         "infrastructure_failed": job_pb2.JOB_STATE_INFRASTRUCTURE_FAILED,
         "cancelled": job_pb2.JOB_STATE_CANCELLED,
         "budget_exhausted": job_pb2.JOB_STATE_BUDGET_EXHAUSTED,
+        "paused": job_pb2.JOB_STATE_PAUSED,
     }[value]

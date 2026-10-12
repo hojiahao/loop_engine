@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package loop.runs.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import "loop/discovery/v1/service.proto";
+import "loop/v1/common.proto";
+
+// RunService is owned by the authenticated Human operator. The server resolves
+// the frozen plan and Agent executor; callers cannot supply child job inputs,
+// replacement models, budgets, datasets, or protected research capabilities.
+service RunService {
+  rpc StartRun(StartRunRequest) returns (StartRunResponse);
+  // Executes the current child and advances at most one durable round. The
+  // original command key never authorizes a second advancement on replay.
+  rpc StepRun(StepRunRequest) returns (StepRunResponse);
+  // Owner-scoped observation is available without a live execution plan.
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+}
+
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_ACTIVE = 1;
+  RUN_STATUS_COMPLETED = 2;
+  RUN_STATUS_BUDGET_EXHAUSTED = 3;
+  RUN_STATUS_INFRASTRUCTURE_FAILED = 4;
+  RUN_STATUS_DEADLINE_EXCEEDED = 5;
+}
+
+// Cumulative reservation ceilings over all children of one run. Steps, tokens
+// and exact USD are positive; integers fit signed int64, USD uses at most nine
+// fractional digits and is below 1,000,000. Wall time has millisecond precision
+// and is at most 30 days. These values are not actual supplier bills.
+message RunBudget {
+  uint64 maximum_steps = 1;
+  uint64 maximum_input_tokens = 2;
+  uint64 maximum_output_tokens = 3;
+  loop.v1.Money maximum_cost = 4;
+  google.protobuf.Duration maximum_wall_time = 5;
+}
+
+// Internal persistence identity resolved by loopd, not accepted or returned by
+// any RPC. It binds the Human owner and independent Agent executor to the exact
+// frozen Discovery input and protocol contract.
+message RunSpecification {
+  loop.v1.PolicyReference plan = 1;
+  loop.v1.RunId run_id = 2;
+  loop.v1.Actor owner = 3;
+  loop.v1.Actor executor = 4;
+  loop.discovery.v1.DiscoveryJobInput discovery = 5;
+  loop.v1.ProtocolSelectionSnapshot protocol_selection = 6;
+  RunBudget budget = 7;
+  uint32 maximum_rounds = 8;
+}
+
+// Safe persisted projection. Reservations charge each child's full frozen
+// allowance once; completed or ambiguous calls do not release them. The current
+// child handle contains no input, lease, model response, or candidate AST.
+message RunView {
+  loop.v1.RunId run_id = 1;
+  RunStatus status = 2;
+  uint64 revision = 3;
+  uint32 maximum_rounds = 4;
+  uint32 completed_rounds = 5;
+  loop.discovery.v1.DiscoveryJobHandle current_job = 6;
+  RunBudget budget = 7;
+  uint64 reserved_steps = 8;
+  uint64 reserved_input_tokens = 9;
+  uint64 reserved_output_tokens = 10;
+  loop.v1.Money reserved_cost = 11;
+  google.protobuf.Timestamp submitted_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp deadline = 14;
+  // False for stop-only observation when live plans have not been validated.
+  bool plan_verified = 15;
+}
+
+message StartRunRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.PolicyReference plan = 2;
+}
+
+message StartRunResponse {
+  RunView run = 1;
+}
+
+message StepRunRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.RunId run_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message StepRunResponse {
+  RunView run = 1;
+}
+
+message GetRunRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.RunId run_id = 2;
+}
+
+message GetRunResponse {
+  RunView run = 1;
+}

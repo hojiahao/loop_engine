@@ -11,15 +11,14 @@ use loop_protocol::wire::v1::*;
 use loopd::store::{BacktestRepository, JobMutation, JobRepository, PgJobStore, StoreError};
 use sqlx::Executor;
 use support::{backtest, *};
-use tempfile::TempDir;
 
 async fn fixture() -> (
-    TempDir,
+    TestDirectory,
     PgJobStore,
     Arc<FixtureClock>,
     Arc<backtest::Policy>,
 ) {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let policy = Arc::new(backtest::Policy::default());
     let store = PgJobStore::open(backtest::options(
@@ -32,7 +31,7 @@ async fn fixture() -> (
     (directory, store, clock, policy)
 }
 
-async fn counts(directory: &TempDir) -> (i64, i64, i64) {
+async fn counts(directory: &TestDirectory) -> (i64, i64, i64) {
     sqlx::query_as(
         "SELECT (SELECT count(*) FROM backtest_results),
         (SELECT count(*) FROM command_receipts), (SELECT count(*) FROM audit_events)",

@@ -16,7 +16,6 @@ use loopd::store::{
 };
 use sqlx::Executor;
 use support::{backtest, *};
-use tempfile::TempDir;
 
 #[derive(Default)]
 struct Permissions(Mutex<Option<&'static str>>);
@@ -47,7 +46,7 @@ impl AdmissionPolicy for Permissions {
 }
 
 struct Fixture {
-    directory: TempDir,
+    directory: TestDirectory,
     store: PgJobStore,
     clock: Arc<FixtureClock>,
     policy: Arc<backtest::Policy>,
@@ -56,7 +55,7 @@ struct Fixture {
 
 impl Fixture {
     async fn new() -> Self {
-        let directory = tempfile::tempdir().unwrap();
+        let directory = TestDirectory::new();
         let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
         let policy = Arc::new(backtest::Policy::default());
         let permissions = Arc::new(Permissions::default());
@@ -242,7 +241,7 @@ async fn unavailable_manifest_resolver() {
 #[tokio::test]
 // Scenario: protected jobs keep the holdout gate.
 async fn protected_jobs_holdout() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let clock = Arc::new(FixtureClock(AtomicI64::new(NOW)));
     let mut config = options(&directory.path().join("state"), clock.clone());
     config.holdout_policy = Arc::new(batch::Policy::default());

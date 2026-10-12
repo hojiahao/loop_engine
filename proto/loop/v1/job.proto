@@ -34,6 +34,8 @@ enum JobState {
   JOB_STATE_INFRASTRUCTURE_FAILED = 6;
   JOB_STATE_CANCELLED = 7;
   JOB_STATE_BUDGET_EXHAUSTED = 8;
+  // Only Discovery jobs may pause; no active lease or terminal outcome remains.
+  JOB_STATE_PAUSED = 9;
 }
 
 enum FactorRejectionCode {

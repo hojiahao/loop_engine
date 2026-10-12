@@ -12,6 +12,8 @@ cleanup() {
 report_and_cleanup() {
   docker compose --project-name "${loop_gate_project}" exec -T postgres \
     df -k /var/lib/postgresql/data || true
+  docker compose --project-name "${loop_gate_project}" exec -T postgres \
+    du -sk /var/lib/postgresql/data/base /var/lib/postgresql/data/pg_wal || true
   cleanup
 }
 trap report_and_cleanup EXIT

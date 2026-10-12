@@ -1,5 +1,11 @@
 name	expected	kind	input	state	lease	outcome	attempt	mutation
 queued_discovery	accept	discovery	discovery	queued	absent	absent	0	none
+paused_discovery	accept	discovery	discovery	paused	absent	absent	1	none
+paused_before_lease	accept	discovery	discovery	paused	absent	absent	0	none
+paused_with_lease	state_lease_mismatch	discovery	discovery	paused	present	absent	1	none
+paused_with_outcome	state_outcome_mismatch	discovery	discovery	paused	absent	success	1	none
+paused_backtest	invalid_input	backtest	backtest	paused	absent	absent	1	none
+paused_holdout	invalid_input	holdout_backtest	holdout_backtest	paused	absent	absent	1	none
 queued_factor_evaluation	accept	factor_evaluation	factor_evaluation	queued	absent	absent	0	none
 queued_backtest	accept	backtest	backtest	queued	absent	absent	0	none
 queued_reconciliation	accept	independent_reconciliation	reconciliation	queued	absent	absent	0	none

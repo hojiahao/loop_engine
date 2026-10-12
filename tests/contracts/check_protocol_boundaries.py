@@ -19,6 +19,7 @@ from loop.v1.common_pb2 import ERROR_CATEGORY_DEPENDENCY, ErrorCategory, Service
 
 PROVIDER_FILE = "loop/provider/v1/service.proto"
 DISCOVERY_FILE = "loop/discovery/v1/service.proto"
+RUN_FILE = "loop/runs/v1/service.proto"
 RESEARCH_FILE = "loop/research/v1/service.proto"
 ARTIFACT_FILE = "loop/v1/artifact.proto"
 COMMON_FILE = "loop/v1/common.proto"
@@ -118,11 +119,16 @@ def main() -> None:
                 ".loop.provider.v1.StreamModelRequest",
                 ".loop.provider.v1.StreamModelResponse",
             ),
+            "LookupInvocation": (
+                ".loop.provider.v1.LookupInvocationRequest",
+                ".loop.provider.v1.LookupInvocationResponse",
+            ),
         },
     )
     assert dependency_closure(files, PROVIDER_FILE) == PROVIDER_FILE_ALLOWLIST
     assert_provider_graph(descriptor, provider)
     assert_provider_exports()
+    assert_lookup_surface(provider)
     provider_response = next(
         message for message in provider.message_type if message.name == "InvokeModelResponse"
     )
@@ -146,13 +152,48 @@ def main() -> None:
             "StartDiscovery": (
                 ".loop.discovery.v1.StartDiscoveryRequest",
                 ".loop.discovery.v1.StartDiscoveryResponse",
-            )
+            ),
+            "ExecuteDiscovery": (
+                ".loop.discovery.v1.ExecuteDiscoveryRequest",
+                ".loop.discovery.v1.ExecuteDiscoveryResponse",
+            ),
+            "GetDiscovery": (
+                ".loop.discovery.v1.GetDiscoveryRequest",
+                ".loop.discovery.v1.GetDiscoveryResponse",
+            ),
+            "ListDiscoveryEvents": (
+                ".loop.discovery.v1.ListDiscoveryEventsRequest",
+                ".loop.discovery.v1.ListDiscoveryEventsResponse",
+            ),
+            "PauseDiscovery": (
+                ".loop.discovery.v1.PauseDiscoveryRequest",
+                ".loop.discovery.v1.PauseDiscoveryResponse",
+            ),
+            "CancelDiscovery": (
+                ".loop.discovery.v1.CancelDiscoveryRequest",
+                ".loop.discovery.v1.CancelDiscoveryResponse",
+            ),
+            "ExpireDiscovery": (
+                ".loop.discovery.v1.ExpireDiscoveryRequest",
+                ".loop.discovery.v1.ExpireDiscoveryResponse",
+            ),
+            "ResumeDiscovery": (
+                ".loop.discovery.v1.ResumeDiscoveryRequest",
+                ".loop.discovery.v1.ResumeDiscoveryResponse",
+            ),
+            "ReconcileDiscovery": (
+                ".loop.discovery.v1.ReconcileDiscoveryRequest",
+                ".loop.discovery.v1.ReconcileDiscoveryResponse",
+            ),
         },
     )
     assert dependency_closure(files, DISCOVERY_FILE) == DISCOVERY_FILE_ALLOWLIST
     assert "loop/v1/data.proto" not in dependency_closure(files, DISCOVERY_FILE)
     assert_discovery_graph(descriptor, discovery)
     assert_discovery_exports()
+    assert_lifecycle_surface(descriptor, discovery)
+    assert_observation_surface(descriptor, discovery)
+    assert_run_surface(descriptor, files)
 
     research = require_file(files, RESEARCH_FILE)
     assert set(research.dependency) == {
@@ -232,6 +273,192 @@ def require_file(files: dict[str, FileDescriptorProto], name: str) -> FileDescri
         raise AssertionError(f"missing descriptor file: {name}") from error
 
 
+def assert_lookup_surface(provider: FileDescriptorProto) -> None:
+    messages = {message.name: message for message in provider.message_type}
+    request = messages["LookupInvocationRequest"]
+    assert [(field.name, field.number, field.type_name) for field in request.field] == [
+        ("context", 1, ".loop.v1.CommandContext"),
+        ("original_request_id", 2, ".loop.v1.RequestId"),
+        ("original_idempotency_key", 3, ".loop.v1.IdempotencyKey"),
+        ("request_sha256", 4, ".loop.v1.Sha256Digest"),
+    ]
+    response = messages["LookupInvocationResponse"]
+    assert [(field.name, field.number, field.type_name) for field in response.field] == [
+        ("state", 1, ".loop.provider.v1.InvocationState"),
+        ("response", 2, ".loop.v1.ModelResponse"),
+        ("reserved_cost", 3, ".loop.v1.Money"),
+    ]
+    state = next(enum for enum in provider.enum_type if enum.name == "InvocationState")
+    assert [(value.name, value.number) for value in state.value] == [
+        ("INVOCATION_STATE_UNSPECIFIED", 0),
+        ("INVOCATION_STATE_ABSENT", 1),
+        ("INVOCATION_STATE_AMBIGUOUS", 2),
+        ("INVOCATION_STATE_COMPLETED", 3),
+    ]
+
+
+def assert_run_surface(
+    descriptor: FileDescriptorSet, files: dict[str, FileDescriptorProto]
+) -> None:
+    run_file = require_file(files, RUN_FILE)
+    assert dependency_closure(files, RUN_FILE) == DISCOVERY_FILE_ALLOWLIST | {RUN_FILE}
+    assert_service(
+        run_file,
+        "RunService",
+        {
+            f"{operation}Run": (
+                f".loop.runs.v1.{operation}RunRequest",
+                f".loop.runs.v1.{operation}RunResponse",
+            )
+            for operation in ("Start", "Step", "Get")
+        },
+    )
+    for operation, fields in {
+        "Start": {
+            "context": (1, ".loop.v1.CommandContext"),
+            "plan": (2, ".loop.v1.PolicyReference"),
+        },
+        "Step": {
+            "context": (1, ".loop.v1.CommandContext"),
+            "run_id": (2, ".loop.v1.RunId"),
+            "expected_revision": (3, ""),
+        },
+        "Get": {"context": (1, ".loop.v1.CommandContext"), "run_id": (2, ".loop.v1.RunId")},
+    }.items():
+        assert_message_fields(require_message(run_file, f"{operation}RunRequest"), fields)
+        assert_message_fields(
+            require_message(run_file, f"{operation}RunResponse"),
+            {"run": (1, ".loop.runs.v1.RunView")},
+        )
+    methods = run_file.service[0].method
+    messages = descriptor_messages(descriptor)
+    inputs = reachable_message_types(messages, [method.input_type for method in methods])
+    outputs = reachable_message_types(messages, [method.output_type for method in methods])
+    for name in inputs | outputs:
+        assert not any(token in name.lower() for token in DISCOVERY_FORBIDDEN_TYPE_TOKENS)
+    assert ".loop.runs.v1.RunBudget" not in inputs
+    assert ".loop.discovery.v1.DiscoveryJobHandle" in outputs
+    forbidden = {
+        ".loop.runs.v1.RunSpecification",
+        ".loop.discovery.v1.DiscoveryJobInput",
+        ".loop.discovery.v1.DiscoveryCandidate",
+        ".loop.v1.ModelResolutionSnapshot",
+        ".loop.v1.DevelopmentDatasetReference",
+        ".loop.v1.ProtocolSelectionSnapshot",
+    }
+    assert forbidden.isdisjoint(inputs | outputs)
+    specification = require_message(run_file, "RunSpecification")
+    assert_message_fields(
+        specification,
+        {
+            "plan": (1, ".loop.v1.PolicyReference"),
+            "run_id": (2, ".loop.v1.RunId"),
+            "owner": (3, ".loop.v1.Actor"),
+            "executor": (4, ".loop.v1.Actor"),
+            "discovery": (5, ".loop.discovery.v1.DiscoveryJobInput"),
+            "protocol_selection": (6, ".loop.v1.ProtocolSelectionSnapshot"),
+            "budget": (7, ".loop.runs.v1.RunBudget"),
+            "maximum_rounds": (8, ""),
+        },
+    )
+
+
+def assert_lifecycle_surface(descriptor: FileDescriptorSet, discovery: FileDescriptorProto) -> None:
+    messages = descriptor_messages(descriptor)
+    service = next(service for service in discovery.service if service.name == "DiscoveryService")
+    for name in ("Pause", "Cancel", "Expire", "Resume", "Reconcile"):
+        method = next(method for method in service.method if method.name == f"{name}Discovery")
+        assert not method.client_streaming and not method.server_streaming
+        request = require_message(discovery, f"{name}DiscoveryRequest")
+        assert_message_fields(
+            request,
+            {
+                "context": (1, ".loop.v1.CommandContext"),
+                "job_id": (2, ".loop.v1.JobId"),
+                "expected_revision": (3, ""),
+            },
+        )
+        assert all(field.label == FieldDescriptorProto.LABEL_OPTIONAL for field in request.field)
+        revision = next(field for field in request.field if field.name == "expected_revision")
+        assert revision.type == FieldDescriptorProto.TYPE_UINT64
+        assert reachable_message_types(messages, [method.input_type]) == {
+            f".loop.discovery.v1.{name}DiscoveryRequest",
+            ".loop.v1.CommandContext",
+            ".loop.v1.RequestId",
+            ".loop.v1.CorrelationId",
+            ".loop.v1.CausationId",
+            ".loop.v1.IdempotencyKey",
+            ".loop.v1.Actor",
+            ".loop.v1.ActorId",
+            ".loop.v1.ActorKind",
+            ".loop.v1.JobId",
+            ".google.protobuf.Timestamp",
+        }
+        response = require_message(discovery, f"{name}DiscoveryResponse")
+        if name in ("Resume", "Reconcile"):
+            assert_message_fields(response, {"step": (1, ".loop.discovery.v1.DiscoveryStepView")})
+        else:
+            assert_message_fields(response, {"job": (1, ".loop.discovery.v1.DiscoveryJobHandle")})
+            assert reachable_message_types(messages, [method.output_type]) == {
+                f".loop.discovery.v1.{name}DiscoveryResponse",
+                ".loop.discovery.v1.DiscoveryJobHandle",
+                ".loop.discovery.v1.DiscoveryJobStatus",
+                ".loop.v1.JobId",
+                ".google.protobuf.Timestamp",
+            }
+
+
+def assert_observation_surface(
+    descriptor: FileDescriptorSet, discovery: FileDescriptorProto
+) -> None:
+    messages = descriptor_messages(descriptor)
+    request = require_message(discovery, "ListDiscoveryEventsRequest")
+    assert_message_fields(
+        request,
+        {
+            "context": (1, ".loop.v1.CommandContext"),
+            "job_id": (2, ".loop.v1.JobId"),
+            "after_sequence": (3, ""),
+            "limit": (4, ""),
+        },
+    )
+    assert request.field[2].type == FieldDescriptorProto.TYPE_UINT64
+    assert request.field[3].type == FieldDescriptorProto.TYPE_UINT32
+    response = require_message(discovery, "ListDiscoveryEventsResponse")
+    assert_message_fields(
+        response,
+        {
+            "events": (1, ".loop.discovery.v1.DiscoveryEvent"),
+            "next_after_sequence": (2, ""),
+            "has_more": (3, ""),
+        },
+    )
+    assert response.field[0].label == FieldDescriptorProto.LABEL_REPEATED
+    assert response.field[1].type == FieldDescriptorProto.TYPE_UINT64
+    assert response.field[2].type == FieldDescriptorProto.TYPE_BOOL
+    event = require_message(discovery, "DiscoveryEvent")
+    assert_message_fields(
+        event,
+        {
+            "sequence": (1, ""),
+            "occurred_at": (2, ".google.protobuf.Timestamp"),
+            "operation": (3, ".loop.discovery.v1.DiscoveryOperation"),
+        },
+    )
+    assert event.field[0].type == FieldDescriptorProto.TYPE_UINT64
+    assert reachable_message_types(
+        messages, [".loop.discovery.v1.ListDiscoveryEventsResponse"]
+    ) == {
+        ".loop.discovery.v1.ListDiscoveryEventsResponse",
+        ".loop.discovery.v1.DiscoveryEvent",
+        ".loop.discovery.v1.DiscoveryOperation",
+        ".google.protobuf.Timestamp",
+    }
+    view = require_message(discovery, "DiscoveryStepView")
+    verified = next(field for field in view.field if field.name == "plan_verified")
+    assert verified.number == 7 and verified.type == FieldDescriptorProto.TYPE_BOOL
+
+
 def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     service = require_file(files, JOB_SERVICE_FILE)
     messages = {message.name: message for message in service.message_type}
@@ -254,9 +481,7 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
     artifacts = next(field for field in response.field if field.name == "artifacts")
     assert artifacts.type_name == ".loop.v1.ArtifactRef"
     assert artifacts.label == FieldDescriptorProto.LABEL_REPEATED
-    assert all(
-        field.type != FieldDescriptorProto.TYPE_BYTES for field in response.field
-    )
+    assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in response.field)
     method = next(
         method
         for definition in service.service
@@ -269,21 +494,28 @@ def assert_artifact_delivery(files: dict[str, FileDescriptorProto]) -> None:
 
     evaluate = messages["EvaluateFactorRequest"]
     assert {field.name for field in evaluate.field} == {
-        "context", "job_id", "lease_id", "expected_revision"
+        "context",
+        "job_id",
+        "lease_id",
+        "expected_revision",
     }
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in evaluate.field)
     assert {field.name for field in messages["EvaluateFactorResponse"].field} == {"job"}
 
     reconcile = messages["ExecuteReconciliationRequest"]
     assert {field.name for field in reconcile.field} == {
-        "context", "job_id", "lease_id", "expected_revision"
+        "context",
+        "job_id",
+        "lease_id",
+        "expected_revision",
     }
     assert all(field.type != FieldDescriptorProto.TYPE_BYTES for field in reconcile.field)
     assert {field.name for field in messages["ExecuteReconciliationResponse"].field} == {"job"}
     assert {field.name for field in messages["ReadReconciliationRequest"].field} == {"job_id"}
     response = messages["ReadReconciliationResponse"]
     assert {field.name for field in response.field} == {"job", "report"}
-    assert next(field for field in response.field if field.name == "report").type_name == ".loop.v1.ArtifactRef"
+    report = next(field for field in response.field if field.name == "report")
+    assert report.type_name == ".loop.v1.ArtifactRef"
 
 
 def assert_service(
@@ -318,10 +550,7 @@ def assert_dataset_leaf(files: dict[str, FileDescriptorProto]) -> None:
     assert not leaf.extension
     assert [message.name for message in leaf.message_type] == ["DevelopmentDatasetReference"]
     reference = leaf.message_type[0]
-    assert {
-        field.name: (field.number, field.type_name)
-        for field in reference.field
-    } == {
+    assert {field.name: (field.number, field.type_name) for field in reference.field} == {
         "snapshot_ids": (1, ".loop.v1.SnapshotId"),
         "manifest_sha256": (2, ".loop.v1.Sha256Digest"),
     }
@@ -363,6 +592,9 @@ def assert_discovery_graph(
     assert ".loop.discovery.v1.DiscoveryJobInput" in visited
     assert ".loop.discovery.v1.DiscoveryJobBudget" in visited
     assert ".loop.discovery.v1.DiscoveryJobHandle" in visited
+    assert ".loop.discovery.v1.DiscoveryStepView" in visited
+    assert ".loop.discovery.v1.DiscoveryCandidate" in visited
+    assert ".loop.v1.FactorExpressionId" in visited
     assert ".loop.v1.JobId" in visited
     assert ".loop.v1.JobRecord" not in visited
     assert ".loop.v1.JobSpecification" not in visited
@@ -533,11 +765,15 @@ def assert_research_exports() -> None:
         assert forbidden_export not in typescript_source
 
     generated_typescript = (
-        repository / "packages/protocol-ts/src/generated/loop/research/v1/service_pb.ts"
-    ).read_text(encoding="utf-8").lower()
+        (repository / "packages/protocol-ts/src/generated/loop/research/v1/service_pb.ts")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     generated_python = (
-        repository / "python/loop_protocol/src/loop/research/v1/service_pb2.py"
-    ).read_text(encoding="utf-8").lower()
+        (repository / "python/loop_protocol/src/loop/research/v1/service_pb2.py")
+        .read_text(encoding="utf-8")
+        .lower()
+    )
     for forbidden_dependency in (
         'from "../../v1/backtest_pb.js"',
         'from "../../v1/data_pb.js"',

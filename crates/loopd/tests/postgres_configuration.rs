@@ -67,7 +67,7 @@ fn configuration_errors_secrets() {
 #[tokio::test]
 // Scenario: runtime does not create missing schema.
 async fn runtime_create_missing() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let mut config = base_options(&directory.path().join("state"));
     let namespace = config.schema.clone();
     config.apply_migrations = false;
@@ -130,7 +130,7 @@ async fn schema_names_sql() {
 #[tokio::test]
 // Scenario: independent schema has its own migration lock.
 async fn independent_schema_own() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let mut other_migrator = connection(&directory).await;
     other_migrator.lock().await.unwrap();
     let store = PgJobStore::open(base_options(&directory.path().join("state")))
@@ -144,7 +144,7 @@ async fn independent_schema_own() {
 #[tokio::test]
 // Scenario: migration resolves schema after lock wait.
 async fn migration_resolves_schema() {
-    let directory = tempfile::tempdir().unwrap();
+    let directory = TestDirectory::new();
     let config = base_options(&directory.path().join("state"));
     let namespace = config.schema.clone();
     let lock_key = format!("loop.migrations.{namespace}");
@@ -208,4 +208,138 @@ async fn migration_resolves_schema() {
     store.verify_configuration().await.unwrap();
     blocker.close().await.unwrap();
     store.close().await;
+}
+
+#[tokio::test]
+async fn schema_cleanup() {
+    let (directory, store, _) = fixture().await;
+    let namespace = schema(&directory.path().join("state"));
+    let mut database = connection(&directory).await;
+    store.close().await;
+    drop(directory);
+    assert!(!schema_exists(&mut database, &namespace).await);
+    database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn absent_cleanup() {
+    // Failed initialization may never create its namespace. The guard must
+    // still finish without touching any other schema.
+    let directory = TestDirectory::new();
+    let namespace = schema(&directory.path().join("state"));
+    let mut database = connection(&directory).await;
+    drop(directory);
+    assert!(!schema_exists(&mut database, &namespace).await);
+    database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn unwind_cleanup() {
+    let directory = TestDirectory::new();
+    let namespace = schema(&directory.path().join("state"));
+    let mut database = connection(&directory).await;
+    sqlx::query(&format!("CREATE SCHEMA \"{namespace}\""))
+        .execute(&mut database)
+        .await
+        .unwrap();
+    // A panic while constructing a fixture must reclaim partially installed
+    // objects even though no PgJobStore was returned to the test body.
+    let failure = std::panic::catch_unwind(move || {
+        let _directory = directory;
+        panic!("synthetic fixture initialization failure");
+    });
+    assert!(failure.is_err());
+    assert!(!schema_exists(&mut database, &namespace).await);
+    database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn isolated_cleanup() {
+    let ((first, first_store, _), (second, second_store, _)) = tokio::join!(fixture(), fixture());
+    let first_schema = schema(&first.path().join("state"));
+    let second_schema = schema(&second.path().join("state"));
+    let mut database = connection(&second).await;
+    first_store.close().await;
+    drop(first);
+    assert!(!schema_exists(&mut database, &first_schema).await);
+    assert!(schema_exists(&mut database, &second_schema).await);
+    second_store.verify_configuration().await.unwrap();
+    second_store.close().await;
+    drop(second);
+    assert!(!schema_exists(&mut database, &second_schema).await);
+    database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn locked_cleanup() {
+    let (directory, store, _) = fixture().await;
+    let namespace = schema(&directory.path().join("state"));
+    let mut database = connection(&directory).await;
+    let mut blocker = connection(&directory).await;
+    let mut transaction = blocker.begin().await.unwrap();
+    sqlx::query("SELECT job_id FROM jobs")
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    store.close().await;
+    // Keep the transaction alive on this current-thread runtime. Teardown must
+    // reclaim its owned schema without waiting for this runtime to send rollback.
+    drop(directory);
+    assert!(!schema_exists(&mut database, &namespace).await);
+    assert!(
+        sqlx::query("SELECT 1")
+            .execute(&mut *transaction)
+            .await
+            .is_err()
+    );
+    drop(transaction);
+    let _ = blocker.close().await;
+    database.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn locked_isolation() {
+    let ((first, first_store, _), (second, second_store, _)) = tokio::join!(fixture(), fixture());
+    let first_schema = schema(&first.path().join("state"));
+    let second_schema = schema(&second.path().join("state"));
+    let mut database = connection(&second).await;
+    let mut first_client = connection(&first).await;
+    let mut second_client = connection(&second).await;
+    let mut first_lock = first_client.begin().await.unwrap();
+    let mut second_lock = second_client.begin().await.unwrap();
+    sqlx::query("SELECT job_id FROM jobs")
+        .execute(&mut *first_lock)
+        .await
+        .unwrap();
+    sqlx::query("SELECT job_id FROM jobs")
+        .execute(&mut *second_lock)
+        .await
+        .unwrap();
+    first_store.close().await;
+    drop(first);
+    assert!(!schema_exists(&mut database, &first_schema).await);
+    assert!(schema_exists(&mut database, &second_schema).await);
+    // Both backends use the same database, user and application name. Only the
+    // owner namespace's backend may be terminated; its neighbor stays usable.
+    sqlx::query("SELECT job_id FROM jobs")
+        .execute(&mut *second_lock)
+        .await
+        .unwrap();
+    second_lock.rollback().await.unwrap();
+    drop(first_lock);
+    let _ = first_client.close().await;
+    second_client.close().await.unwrap();
+    second_store.verify_configuration().await.unwrap();
+    second_store.close().await;
+    drop(second);
+    assert!(!schema_exists(&mut database, &second_schema).await);
+    database.close().await.unwrap();
+}
+
+async fn schema_exists(database: &mut sqlx::PgConnection, namespace: &str) -> bool {
+    sqlx::query_scalar("SELECT EXISTS(SELECT FROM pg_namespace WHERE nspname = $1)")
+        .bind(namespace)
+        .fetch_one(database)
+        .await
+        .unwrap()
 }

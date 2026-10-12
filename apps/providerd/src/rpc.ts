@@ -15,6 +15,7 @@ import {
   ErrorCategory,
   type InvokeModelRequest,
   InvokeModelRequestSchema,
+  type LookupInvocationRequest,
   ProviderService,
   type StreamModelRequest,
 } from "@loop-engine/protocol/provider";
@@ -106,9 +107,24 @@ export async function create_provider_rpc(host: ProviderHost, shutdown: AbortSig
       throw rpc_error(error);
     }
   }
+  async function lookup_invocation(request: LookupInvocationRequest, context: HandlerContext) {
+    try {
+      const principal = context.values.get(principal_key);
+      if (!principal)
+        throw new ProviderError(
+          "provider_identity_denied",
+          Code.Unauthenticated,
+          ErrorCategory.AUTHENTICATION,
+        );
+      return await host.lookup(request, principal, context.signal);
+    } catch (error) {
+      throw rpc_error(error);
+    }
+  }
   function routes(router: ConnectRouter) {
     router.rpc(ProviderService.method.invokeModel, invoke_model);
     router.rpc(ProviderService.method.streamModel, stream_model);
+    router.rpc(ProviderService.method.lookupInvocation, lookup_invocation);
   }
   const adapter = connectNodeAdapter({
     routes,

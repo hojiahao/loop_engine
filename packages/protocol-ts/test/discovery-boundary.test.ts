@@ -1,10 +1,167 @@
-import { create } from "@bufbuild/protobuf";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { create, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 
 import * as developmentData from "../src/generated/loop/v1/development_data_pb.js";
 import * as discovery from "../src/wire/discovery.js";
 
+function fixture(name: string): Uint8Array {
+  return new Uint8Array(
+    readFileSync(new URL(`../../../fixtures/contracts/protocol/v1/${name}`, import.meta.url)),
+  );
+}
+
 describe("discovery public wire boundary", () => {
+  it("preserves exact sequence identities through the narrow event projection", () => {
+    const bytes = Uint8Array.of(
+      10,
+      21,
+      8,
+      129,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      16,
+      18,
+      8,
+      8,
+      128,
+      202,
+      214,
+      212,
+      6,
+      16,
+      123,
+      24,
+      13,
+      16,
+      129,
+      128,
+      128,
+      128,
+      128,
+      128,
+      128,
+      16,
+      24,
+      1,
+    );
+    const page = fromBinary(discovery.ListDiscoveryEventsResponseSchema, bytes);
+    expect(page.events).toHaveLength(1);
+    expect(page.events[0]?.sequence).toBe(9_007_199_254_740_993n);
+    expect(page.events[0]?.operation).toBe(discovery.DiscoveryOperation.PAUSE);
+    expect(page.events[0]?.occurredAt?.nanos).toBe(123);
+    expect(page.nextAfterSequence).toBe(page.events[0]?.sequence);
+    expect(page.hasMore).toBe(true);
+    expect(toBinary(discovery.ListDiscoveryEventsResponseSchema, page)).toEqual(bytes);
+  });
+
+  it("preserves unknown operations and defaults metadata verification to false", () => {
+    const event = fromBinary(discovery.DiscoveryEventSchema, Uint8Array.of(24, 127));
+    expect(event.operation).toBe(127);
+    expect(discovery.DiscoveryOperationSchema.values.map((value) => value.number)).not.toContain(
+      127,
+    );
+    const metadata = fromBinary(discovery.DiscoveryStepViewSchema, Uint8Array.of(16, 1));
+    expect(metadata.planVerified).toBe(false);
+    expect(metadata.candidate).toBeUndefined();
+  });
+
+  it("limits lifecycle controls to authenticated job revision envelopes", () => {
+    for (const name of [
+      "pauseDiscovery",
+      "cancelDiscovery",
+      "expireDiscovery",
+      "resumeDiscovery",
+      "reconcileDiscovery",
+    ] as const) {
+      const method = discovery.DiscoveryService.method[name];
+      expect(method.input.fields.map((field) => [field.name, field.number])).toEqual([
+        ["context", 1],
+        ["job_id", 2],
+        ["expected_revision", 3],
+      ]);
+      expect(method.output.fields.map((field) => field.name)).toEqual([
+        name === "resumeDiscovery" || name === "reconcileDiscovery" ? "step" : "job",
+      ]);
+    }
+  });
+
+  it("preserves the appended paused status without changing existing enum values", () => {
+    const bytes = Uint8Array.of(10, 2, 16, 9);
+    const response = fromBinary(discovery.PauseDiscoveryResponseSchema, bytes);
+    expect(response.job?.status).toBe(discovery.DiscoveryJobStatus.PAUSED);
+    expect(toBinary(discovery.PauseDiscoveryResponseSchema, response)).toEqual(bytes);
+  });
+
+  it("binds execution to a job revision without caller model or prompt overrides", () => {
+    const request = fromBinary(
+      discovery.ExecuteDiscoveryRequestSchema,
+      fixture("discovery_execute_v1.binpb"),
+    );
+    expect(request.jobId?.value).toBe("discovery.1");
+    expect(request.expectedRevision).toBe(3n);
+    expect(request.context?.requestId?.value).toBe("execute.1");
+    expect(
+      fromBinary(
+        discovery.ExecuteDiscoveryRequestSchema,
+        toBinary(discovery.ExecuteDiscoveryRequestSchema, request),
+      ),
+    ).toEqual(request);
+    expect(discovery.DiscoveryService.method.executeDiscovery.input).toBe(
+      discovery.ExecuteDiscoveryRequestSchema,
+    );
+    expect(discovery.DiscoveryService.method.getDiscovery.input).toBe(
+      discovery.GetDiscoveryRequestSchema,
+    );
+  });
+
+  it("preserves canonical candidate identity and conservative reservations", () => {
+    const response = fromBinary(
+      discovery.ExecuteDiscoveryResponseSchema,
+      fixture("discovery_completed_v1.binpb"),
+    );
+    const step = response.step;
+    expect(step?.state).toBe(discovery.DiscoveryStepState.COMPLETED);
+    expect(step?.job?.status).toBe(discovery.DiscoveryJobStatus.SUCCEEDED);
+    expect(step?.job?.revision).toBe(5n);
+    expect(step?.reservedInputTokens).toBe(4096n);
+    expect(step?.reservedOutputTokens).toBe(1024n);
+    expect(step?.planVerified).toBe(true);
+    expect(step?.reservedCost?.amount?.value).toBe("0.125");
+    expect(step?.reservedCost?.currencyCode).toBe("USD");
+    const candidate = step?.candidate;
+    expect(candidate?.canonicalizationProfile).toBe("loop.factor-ast/v1");
+    expect(new TextDecoder().decode(candidate?.canonicalJson)).toBe(
+      '{"node":"field","field":"market.close"}',
+    );
+    const expected = createHash("sha256")
+      .update("loop.factor-ast/v1\0")
+      .update(candidate?.canonicalJson ?? new Uint8Array())
+      .digest("hex");
+    expect(candidate?.expressionId?.value).toBe(`sha256:${expected}`);
+    expect(
+      fromBinary(
+        discovery.ExecuteDiscoveryResponseSchema,
+        toBinary(discovery.ExecuteDiscoveryResponseSchema, response),
+      ),
+    ).toEqual(response);
+  });
+
+  it("does not coerce an unknown step state to completion", () => {
+    const step = fromBinary(discovery.DiscoveryStepViewSchema, Uint8Array.of(16, 127));
+    expect(step.state).toBe(127);
+    expect(
+      Object.values(discovery.DiscoveryStepStateSchema.values).map((state) => state.number),
+    ).not.toContain(step.state);
+    expect(step.candidate).toBeUndefined();
+    expect(step.reservedCost).toBeUndefined();
+  });
+
   it("depends on a leaf module that cannot expose locked data types", () => {
     expect(Object.keys(developmentData).sort()).toEqual(
       ["DevelopmentDatasetReferenceSchema", "file_loop_v1_development_data"].sort(),

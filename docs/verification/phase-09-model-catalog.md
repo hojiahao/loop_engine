@@ -4,8 +4,9 @@ Status: implementation, full TypeScript regression, `just check` and workspace
 build passed on 2026-09-24. Commit `f9f05f5` is pushed; exact-commit CI
 `35965098459` passed six jobs. The DaoCloud container failed the existing
 `cancelled_descendant_dies` test, whose PID readiness race is addressed by the
-platform acceptance task. Its corrected integrated gate remains required.
-Phase 9 is not yet complete; no `main` merge is claimed.
+platform acceptance task. Corrected branch CI `35978805422` and PR CI
+`35979594702` each passed all seven jobs. Phase 9 completed and PR #1 merged to
+main as `d671cffd2d8aa348569fd4e03205ddd0b1de6422` on 2026-09-28.
 
 ## Requirement and design
 

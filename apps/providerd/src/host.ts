@@ -3,9 +3,13 @@ import { timestampDate, timestampNow } from "@bufbuild/protobuf/wkt";
 import { Code } from "@connectrpc/connect";
 import {
   ActorKind,
+  type CommandContext,
   ErrorCategory,
+  InvocationState,
   type InvokeModelRequest,
   InvokeModelRequestSchema,
+  type LookupInvocationRequest,
+  LookupInvocationResponseSchema,
   ModelResolutionSnapshotSchema,
   type ModelResponse,
   ModelResponseSchema,
@@ -33,7 +37,7 @@ import {
 import { ProviderContent } from "./content.js";
 import { ProviderError } from "./errors.js";
 import { digest_json, hex_digest } from "./identity.js";
-import { claim_invocation, finish_invocation, JournalError } from "./journal.js";
+import { claim_invocation, finish_invocation, JournalError, read_invocation } from "./journal.js";
 import { type NativePlugin, type NativeReply, response_finish, response_usage } from "./native.js";
 import { anthropic_plugin } from "./native-anthropic.js";
 import { bedrock_plugin } from "./native-bedrock.js";
@@ -43,6 +47,7 @@ import { google_plugin } from "./native-google.js";
 import { openai_plugin } from "./native-openai.js";
 import { vendor_plugin } from "./native-vendor.js";
 import { decimal_units, extra_cost, reserve_cost, usage_cost } from "./pricing.js";
+import { receipt_response } from "./recovery.js";
 import { RequestLimits } from "./request-limits.js";
 import { StreamEvidence, stream_invalid } from "./stream.js";
 import { vendor_id } from "./vendor-registry.js";
@@ -116,19 +121,155 @@ export class ProviderHost {
   private readonly limits: RequestLimits;
   readonly policy;
 
+  /** Authenticate a fresh command, independently of original invocation time. */
+  private command_identity(context: CommandContext | undefined, principal: Principal) {
+    const now = Date.now();
+    if (now < this.last_time)
+      throw new ProviderError("provider_clock_regressed", Code.Unavailable, ErrorCategory.INTERNAL);
+    this.last_time = now;
+    const actor_kind = principal.actor_kind === "service" ? ActorKind.SERVICE : ActorKind.AGENT;
+    if (
+      !this.config.principals.includes(principal) ||
+      !context?.actor ||
+      context.actor.actorId?.value !== principal.actor_id ||
+      context.actor.kind !== actor_kind
+    )
+      throw new ProviderError(
+        "provider_actor_denied",
+        Code.PermissionDenied,
+        ErrorCategory.AUTHORIZATION,
+      );
+    const key = validate_id(context.idempotencyKey?.value);
+    const id = validate_id(context.requestId?.value);
+    validate_id(context.correlationId?.value);
+    if (context.causationId) validate_id(context.causationId.value);
+    if (
+      !context.requestedAt ||
+      context.requestedAt.seconds < 0n ||
+      context.requestedAt.seconds > 253_402_300_799n ||
+      context.requestedAt.nanos < 0 ||
+      context.requestedAt.nanos >= 1_000_000_000 ||
+      Math.abs(timestampDate(context.requestedAt).getTime() - now) > 300_000
+    )
+      throw new ProviderError("invalid_request_context");
+    return { key, id, now };
+  }
+
+  /** Recover only this authenticated actor's receipt; never dispatch or claim.
+   * Read traffic is deadline/concurrency bounded but consumes no generation
+   * allowance. Missing or ambiguous evidence never grants permission to resend.
+   */
+  async lookup(command: LookupInvocationRequest, principal: Principal, signal: AbortSignal) {
+    const query = this.command_identity(command.context, principal);
+    const key = validate_id(command.originalIdempotencyKey?.value);
+    const id = validate_id(command.originalRequestId?.value);
+    if (query.id === id || query.key === key) throw new ProviderError("invalid_request_context");
+    if (command.requestSha256?.value.length !== 32)
+      throw new ProviderError("invalid_request_digest");
+    if (signal.aborted)
+      throw new ProviderError("provider_cancelled", Code.Canceled, ErrorCategory.CANCELLED);
+    if (this.active >= this.config.policy.concurrency)
+      throw new ProviderError(
+        "provider_capacity",
+        Code.ResourceExhausted,
+        ErrorCategory.RATE_LIMIT,
+      );
+    this.active++;
+    const deadline = AbortSignal.timeout(Math.min(this.config.policy.wall_time_ms, 5000));
+    const combined = AbortSignal.any([signal, deadline]);
+    const pending = read_invocation(
+      this.config.journal,
+      key,
+      principal.actor_id,
+      hex_digest(command.requestSha256.value),
+    ).finally(() => {
+      this.active--;
+    });
+    // A timed-out OS read retains its concurrency slot until it actually ends.
+    // No cancelled lookup can perform a write or launch a supplier request.
+    let abort: (() => void) | undefined;
+    try {
+      const record = await Promise.race([
+        pending,
+        new Promise<never>((_resolve, reject) => {
+          abort = () =>
+            reject(
+              new ProviderError(
+                signal.aborted ? "provider_cancelled" : "provider_deadline",
+                signal.aborted ? Code.Canceled : Code.DeadlineExceeded,
+                signal.aborted ? ErrorCategory.CANCELLED : ErrorCategory.TIMEOUT,
+              ),
+            );
+          combined.addEventListener("abort", abort, { once: true });
+          if (combined.aborted) abort();
+        }),
+      ]);
+      if (combined.aborted)
+        throw new ProviderError(
+          signal.aborted ? "provider_cancelled" : "provider_deadline",
+          signal.aborted ? Code.Canceled : Code.DeadlineExceeded,
+          signal.aborted ? ErrorCategory.CANCELLED : ErrorCategory.TIMEOUT,
+        );
+      let response: ModelResponse | undefined;
+      if (record.state === "completed") {
+        response = receipt_response(record.bytes);
+        if (response.requestId?.value !== id)
+          throw new ProviderError(
+            "invocation_conflict",
+            Code.FailedPrecondition,
+            ErrorCategory.CONFLICT,
+          );
+      }
+      const reserved = record.state === "absent" ? undefined : record.reserved;
+      const amount =
+        reserved === undefined
+          ? undefined
+          : `${reserved / 1_000_000_000n}.${(reserved % 1_000_000_000n).toString().padStart(9, "0")}`.replace(
+              /\.?0+$/,
+              "",
+            );
+      return create(LookupInvocationResponseSchema, {
+        state:
+          record.state === "absent"
+            ? InvocationState.ABSENT
+            : record.state === "ambiguous"
+              ? InvocationState.AMBIGUOUS
+              : InvocationState.COMPLETED,
+        response,
+        reservedCost:
+          amount === undefined ? undefined : { currencyCode: "USD", amount: { value: amount } },
+      });
+    } catch (error) {
+      if (error instanceof JournalError)
+        throw new ProviderError(
+          error.code,
+          error.code === "provider_receipt_corrupt"
+            ? Code.DataLoss
+            : error.code === "journal_unavailable"
+              ? Code.Unavailable
+              : Code.FailedPrecondition,
+          error.code === "invocation_conflict" ? ErrorCategory.CONFLICT : ErrorCategory.INTERNAL,
+        );
+      throw error;
+    } finally {
+      if (abort) combined.removeEventListener("abort", abort);
+    }
+  }
+
   constructor(
     readonly config: Deployment,
     private readonly implementation: Uint8Array,
     private readonly secrets: Readonly<Record<string, string | undefined>>,
     private readonly fetcher: typeof fetch = fetch,
     private readonly identity: CloudIdentity = {},
+    readonly recovery_only = false,
   ) {
     this.content = new ProviderContent(config);
     this.limits = new RequestLimits(
       config.policy.rate,
       decimal_units(config.policy.rate.maximum_usd),
     );
-    const models = (config.catalog ? [] : config.models).map((model) => ({
+    const models = (config.catalog || recovery_only ? [] : config.models).map((model) => ({
       route: model,
       snapshot: model_snapshot(config, model, implementation),
     }));
@@ -247,39 +388,16 @@ export class ProviderHost {
     signal: AbortSignal,
     streaming: boolean,
   ): AsyncGenerator<ModelStreamEvent> {
-    const now = Date.now();
-    if (now < this.last_time)
-      throw new ProviderError("provider_clock_regressed", Code.Unavailable, ErrorCategory.INTERNAL);
-    this.last_time = now;
-    const context = command.context;
-    const invocation = command.invocation;
-    const actor_kind = principal.actor_kind === "service" ? ActorKind.SERVICE : ActorKind.AGENT;
-    if (
-      !this.config.principals.includes(principal) ||
-      !context?.actor ||
-      context.actor.actorId?.value !== principal.actor_id ||
-      context.actor.kind !== actor_kind
-    ) {
+    const { key, id, now } = this.command_identity(command.context, principal);
+    if (this.recovery_only)
       throw new ProviderError(
-        "provider_actor_denied",
-        Code.PermissionDenied,
+        "provider_recovery_only",
+        Code.FailedPrecondition,
         ErrorCategory.AUTHORIZATION,
       );
-    }
-    const key = validate_id(context.idempotencyKey?.value);
-    const id = validate_id(context.requestId?.value);
-    validate_id(context.correlationId?.value);
-    if (context.causationId) validate_id(context.causationId.value);
-    if (
-      !context.requestedAt ||
-      context.requestedAt.seconds < 0n ||
-      context.requestedAt.seconds > 253_402_300_799n ||
-      context.requestedAt.nanos < 0 ||
-      context.requestedAt.nanos >= 1_000_000_000 ||
-      Math.abs(timestampDate(context.requestedAt).getTime() - now) > 300_000 ||
-      !invocation ||
-      invocation.requestId?.value !== id
-    ) {
+    const context = command.context;
+    const invocation = command.invocation;
+    if (!context?.requestedAt || !invocation || invocation.requestId?.value !== id) {
       throw new ProviderError("invalid_request_context");
     }
     const routes = this.routes;

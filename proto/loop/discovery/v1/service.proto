@@ -12,6 +12,21 @@ import "loop/v1/model.proto";
 // dataset input. Its runtime principal is never issued a holdout capability.
 service DiscoveryService {
   rpc StartDiscovery(StartDiscoveryRequest) returns (StartDiscoveryResponse);
+  // Executes or reconciles the bounded steps authorized by the server-owned
+  // frozen plan. Callers cannot replace its model, prompt, schema, or budget.
+  rpc ExecuteDiscovery(ExecuteDiscoveryRequest) returns (ExecuteDiscoveryResponse);
+  // Reads a narrow projection without invoking a model or acquiring a lease.
+  rpc GetDiscovery(GetDiscoveryRequest) returns (GetDiscoveryResponse);
+  // Owner-scoped, bounded audit projection; never raw payloads or global proof.
+  rpc ListDiscoveryEvents(ListDiscoveryEventsRequest) returns (ListDiscoveryEventsResponse);
+  // Owner-only controls shrink authority without resolving live plan files.
+  rpc PauseDiscovery(PauseDiscoveryRequest) returns (PauseDiscoveryResponse);
+  rpc CancelDiscovery(CancelDiscoveryRequest) returns (CancelDiscoveryResponse);
+  rpc ExpireDiscovery(ExpireDiscoveryRequest) returns (ExpireDiscoveryResponse);
+  // Resume requires the frozen plan and never replenishes the original budget.
+  rpc ResumeDiscovery(ResumeDiscoveryRequest) returns (ResumeDiscoveryResponse);
+  // Lookup-only evidence recovery cannot authorize another paid invocation.
+  rpc ReconcileDiscovery(ReconcileDiscoveryRequest) returns (ReconcileDiscoveryResponse);
 }
 
 // DiscoveryJobStatus is a non-sensitive projection of durable orchestration
@@ -26,6 +41,7 @@ enum DiscoveryJobStatus {
   DISCOVERY_JOB_STATUS_INFRASTRUCTURE_FAILED = 6;
   DISCOVERY_JOB_STATUS_CANCELLED = 7;
   DISCOVERY_JOB_STATUS_BUDGET_EXHAUSTED = 8;
+  DISCOVERY_JOB_STATUS_PAUSED = 9;
 }
 
 // DiscoveryJobBudget is bounded and enforced by loopd. Monetary values are
@@ -70,4 +86,151 @@ message DiscoveryJobHandle {
 
 message StartDiscoveryResponse {
   DiscoveryJobHandle job = 1;
+}
+
+// DiscoveryStepState describes durable dispatch evidence, not factor admission.
+// UNSPECIFIED is allowed only when the queued job has no reserved model step.
+enum DiscoveryStepState {
+  DISCOVERY_STEP_STATE_UNSPECIFIED = 0;
+  DISCOVERY_STEP_STATE_RESERVED = 1;
+  DISCOVERY_STEP_STATE_DISPATCHED = 2;
+  DISCOVERY_STEP_STATE_COMPLETED = 3;
+  DISCOVERY_STEP_STATE_AMBIGUOUS = 4;
+}
+
+// DiscoveryCandidate is a validated canonical AST, never source code, a dataset,
+// or a frozen/admitted factor. canonical_json is bounded to 256 KiB, 4,096 nodes,
+// and depth 64; expression_id must match its versioned canonical identity.
+message DiscoveryCandidate {
+  loop.v1.FactorExpressionId expression_id = 1;
+  string canonicalization_profile = 2;
+  bytes canonical_json = 3;
+}
+
+// DiscoveryStepView omits model prompts/results, leases, generic job inputs,
+// holdout authority, and raw datasets. A candidate is present only for a
+// successful terminal job. State describes the latest model step; COMPLETED
+// with a RUNNING job can await a tool or the next frozen model turn.
+// Reservations sum all model steps in this job, including ambiguous calls.
+// They are conservative ceilings, not supplier bills;
+// AMBIGUOUS does not release them or authorize another paid invocation.
+message DiscoveryStepView {
+  DiscoveryJobHandle job = 1;
+  DiscoveryStepState state = 2;
+  DiscoveryCandidate candidate = 3;
+  loop.v1.Money reserved_cost = 4;
+  uint64 reserved_input_tokens = 5;
+  uint64 reserved_output_tokens = 6;
+  // False only for stop-only metadata reads; a candidate then cannot be present.
+  bool plan_verified = 7;
+}
+
+// Supported durable operations, without caller-controlled audit text.
+enum DiscoveryOperation {
+  DISCOVERY_OPERATION_UNSPECIFIED = 0;
+  DISCOVERY_OPERATION_START = 1;
+  DISCOVERY_OPERATION_RESERVE = 2;
+  DISCOVERY_OPERATION_DISPATCH = 3;
+  DISCOVERY_OPERATION_UNCERTAIN = 4;
+  DISCOVERY_OPERATION_FINISH = 5;
+  DISCOVERY_OPERATION_CALL = 6;
+  DISCOVERY_OPERATION_TOOL_RECORD = 7;
+  DISCOVERY_OPERATION_TAKEOVER = 8;
+  DISCOVERY_OPERATION_RESUME = 9;
+  DISCOVERY_OPERATION_RETRY = 10;
+  DISCOVERY_OPERATION_FAIL = 11;
+  DISCOVERY_OPERATION_RECONCILE = 12;
+  DISCOVERY_OPERATION_PAUSE = 13;
+  DISCOVERY_OPERATION_CANCEL = 14;
+  DISCOVERY_OPERATION_EXPIRE = 15;
+}
+
+message DiscoveryEvent {
+  uint64 sequence = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  DiscoveryOperation operation = 3;
+}
+
+message ListDiscoveryEventsRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  // Zero begins the job history; other cursors must belong to this job.
+  uint64 after_sequence = 3;
+  // Required, from 1 through 100 inclusive.
+  uint32 limit = 4;
+}
+
+message ListDiscoveryEventsResponse {
+  repeated DiscoveryEvent events = 1;
+  uint64 next_after_sequence = 2;
+  bool has_more = 3;
+}
+
+message ExecuteDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ExecuteDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message GetDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+}
+
+message GetDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message PauseDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message PauseDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message CancelDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message CancelDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message ExpireDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ExpireDiscoveryResponse {
+  DiscoveryJobHandle job = 1;
+}
+
+message ResumeDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ResumeDiscoveryResponse {
+  DiscoveryStepView step = 1;
+}
+
+message ReconcileDiscoveryRequest {
+  loop.v1.CommandContext context = 1;
+  loop.v1.JobId job_id = 2;
+  uint64 expected_revision = 3;
+}
+
+message ReconcileDiscoveryResponse {
+  DiscoveryStepView step = 1;
 }
