@@ -31,6 +31,14 @@ just doctor
 
 ## Delivery discipline
 
+- Deliver changes through a pull request from a feature, phase, or delivery-point
+  branch based on `main`. Create the branch first and open its PR early; use a
+  draft while implementation is incomplete. Reuse that branch and PR for related
+  task commits and review fixes; do not create a branch for every commit.
+- Do not push development or documentation changes directly to `main`. Merge
+  after the agreed scope and checks pass, then delete the corresponding remote
+  and local branches after verifying their commits are preserved in `main`.
+  Keep `main` as the only permanent branch; never delete unmerged work.
 - Use the agreed phase task as the delivery/commit unit: implementation, tests,
   documentation and acceptance evidence belong together. Complete and push one
   task before beginning the next. Do not create extra task commits for individual

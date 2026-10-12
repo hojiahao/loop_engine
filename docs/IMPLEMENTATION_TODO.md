@@ -21,6 +21,11 @@ After the owner's branch-cleanup instruction, both merged development branches
 were removed locally and from `origin`; `main` is the only permanent branch.
 Remove future task branches after verifying their merge, without discarding
 unmerged work or rewriting published commits.
+All subsequent development and documentation changes use a PR. Select a branch
+boundary by feature, phase or delivery point; reuse its PR across related task
+commits and review fixes. Create the branch from `main`, open a draft PR early
+when needed, pass the agreed checks, merge, then remove both branch copies.
+Do not create one branch per commit or push changes directly to `main`.
 The README describes usable capabilities,
 installation, configuration and workflows; phase progress and acceptance history
 stay in the repository's maintenance documentation. Do not include that history
