@@ -1,3 +1,4 @@
+mod numerical;
 mod processes;
 
 use super::*;
@@ -141,6 +142,7 @@ fn specification() -> RunSpecification {
                 nanos: 0,
             }),
         }),
+        numerical: None,
     }
 }
 
@@ -148,6 +150,7 @@ fn start() -> StartRunRequest {
     StartRunRequest {
         context: Some(context("run.start", owner())),
         plan: specification().plan,
+        workflow_version: 0,
     }
 }
 
@@ -156,6 +159,7 @@ fn step(revision: u64) -> StepRunRequest {
         context: Some(context(&format!("run.step.{revision}"), owner())),
         run_id: specification().run_id,
         expected_revision: revision,
+        workflow_version: 0,
     }
 }
 

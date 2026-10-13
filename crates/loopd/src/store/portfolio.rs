@@ -29,7 +29,7 @@ impl PgJobStore {
         job: &JobRecord,
         lineage: &PortfolioLineage,
     ) -> StoreResult<()> {
-        let mut transaction = self.pool.begin().await?;
+        let mut transaction = super::research_ledger::begin_snapshot(self).await?;
         validate(self, &mut transaction, principal, job, None, lineage).await?;
         transaction.commit().await?;
         Ok(())
@@ -99,9 +99,14 @@ async fn validate_lineage(
         .await?
         .ok_or(StoreError::AdmissionDenied)?;
     let source = super::postgres::record_from_row(&row)?;
-    store
-        .admission
-        .authorize_job_command("loop.factors.read_trials", principal, &source)?;
+    super::runs::authorize_trial(
+        store,
+        transaction,
+        principal,
+        &source,
+        &mut super::runs::TrialCache::default(),
+    )
+    .await?;
     let trial = super::library::trials::verify(transaction, &source).await?;
     let evaluation = trial.evaluation.ok_or(StoreError::AdmissionDenied)?;
     if evaluation.disposition != "ready_for_backtest" {

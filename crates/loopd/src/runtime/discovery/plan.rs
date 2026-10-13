@@ -33,6 +33,7 @@ const OPERATIONS_DESCRIPTOR: [u8; 32] = [
     0x15, 0x60, 0xea, 0x74, 0x46, 0x17, 0xc0, 0x7d, 0x3f, 0x74, 0x90, 0x73, 0x17, 0x0d, 0xb0, 0xf7,
     0x7c, 0x50, 0x00, 0x0e, 0xa6, 0xe2, 0xaa, 0x38, 0xcb, 0x20, 0xbf, 0xb3, 0xe2, 0x9d, 0xb4, 0x8f,
 ];
+use crate::runtime::authority::RUNS_DESCRIPTOR;
 const FEATURES: [&str; 5] = [
     "discovery.model-step.v1",
     "jobs.envelope.v1",
@@ -411,6 +412,7 @@ fn validate_protocol(
                     && digest.value.as_slice() != CONTEXT_DESCRIPTOR
                     && digest.value.as_slice() != LIFECYCLE_DESCRIPTOR
                     && digest.value.as_slice() != OPERATIONS_DESCRIPTOR
+                    && digest.value.as_slice() != RUNS_DESCRIPTOR
             })
         || protocol.selection_sha256.as_ref().is_none_or(|digest| {
             protocol_selection_sha256(protocol).map_or(true, |expected| digest.value != expected)

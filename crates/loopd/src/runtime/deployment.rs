@@ -168,8 +168,12 @@ impl RuntimeDeployment {
                 {
                     return Err(StoreError::Invalid("run plans overlap research storage"));
                 }
-                super::RunCatalog::open(runs, discovery.clone().ok_or(StoreError::AdmissionDenied)?)
-                    .map(Arc::new)
+                super::RunCatalog::open(
+                    runs,
+                    discovery.clone().ok_or(StoreError::AdmissionDenied)?,
+                    &config.development_store,
+                )
+                .map(Arc::new)
             })
             .transpose()?;
         let mut authority =

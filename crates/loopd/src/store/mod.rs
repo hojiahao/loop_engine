@@ -199,6 +199,18 @@ pub trait AdmissionPolicy: Send + Sync {
         Err(StoreError::AdmissionDenied)
     }
 
+    /// Authorize historical trial metadata after the store verifies an immutable
+    /// numerical run and the exact child specification. This grants no execution,
+    /// artifact or holdout access. Unknown identities and runs deny by default.
+    fn authorize_run_trial(
+        &self,
+        _actor: &Actor,
+        _run: &loop_protocol::wire::runs::v1::RunSpecification,
+        _job: &JobSpecification,
+    ) -> StoreResult<()> {
+        Err(StoreError::AdmissionDenied)
+    }
+
     /// Authorize a transport-authenticated principal for this operation and job.
     /// The default denies all lifecycle commands, including recovery.
     fn authorize_job_command(

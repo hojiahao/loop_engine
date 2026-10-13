@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Output, Stdio};
@@ -21,9 +22,10 @@ pub(in crate::runtime::discovery::tests) struct Operations {
     loopd: PathBuf,
     runtime: PathBuf,
     database: PathBuf,
+    log: PathBuf,
     server: Option<Child>,
-    run_deployment: Option<serde_json::Value>,
-    run_config: PathBuf,
+    pub(super) run_deployment: Option<serde_json::Value>,
+    pub(super) run_config: PathBuf,
     run_reference: PathBuf,
 }
 
@@ -81,6 +83,7 @@ impl Case {
             loopd: bin.join("loopd"),
             runtime: directory.path().join("runtime.json"),
             database: directory.path().join("database-url"),
+            log: directory.path().join("runtime.log"),
             server: None,
             run_deployment: None,
             run_config: directory.path().join("operator.json"),
@@ -106,8 +109,19 @@ impl Case {
                 .as_array_mut()
                 .unwrap()
                 .push(run["identity"].clone());
+            if let Some(identity) = run.get("research_identity") {
+                deployment["identities"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(identity.clone());
+            }
             if !stop_only {
                 deployment["runs"] = run["runs"].clone();
+                for section in ["evaluation", "portfolio"] {
+                    if let Some(configuration) = run.get(section) {
+                        deployment[section] = configuration.clone();
+                    }
+                }
             }
         }
         if stop_only {
@@ -118,6 +132,7 @@ impl Case {
             &serde_json::to_vec(&deployment).unwrap(),
         );
         private_file(&operations.database, test_support::test_url().as_bytes());
+        private_file(&operations.log, b"");
         let schema = test_support::schema(&self.directory.path().join("state"));
         let server = Command::new(&operations.loopd)
             .current_dir(operations._directory.path())
@@ -130,7 +145,8 @@ impl Case {
             .arg("--runtime-config")
             .arg(&operations.runtime)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .env("RUST_LOG", "warn")
+            .stdout(fs::File::create(&operations.log).unwrap())
             .stderr(Stdio::inherit())
             .kill_on_drop(true)
             .spawn()
@@ -156,6 +172,16 @@ impl Case {
 }
 
 impl Operations {
+    pub(in crate::runtime::discovery::tests) fn runtime_log(&self) -> String {
+        let mut bytes = String::new();
+        fs::File::open(&self.log)
+            .unwrap()
+            .take(16_384)
+            .read_to_string(&mut bytes)
+            .unwrap();
+        bytes
+    }
+
     pub(super) fn directory(&self) -> &std::path::Path {
         self._directory.path()
     }
@@ -177,9 +203,10 @@ impl Operations {
             .current_dir(self._directory.path())
             .arg("run")
             .arg("--config")
-            .arg(&self.run_config)
-            .arg("--timeout-seconds")
-            .arg("30");
+            .arg(&self.run_config);
+        if !args.contains(&"--timeout-seconds") {
+            command.arg("--timeout-seconds").arg("30");
+        }
         for argument in args {
             if *argument == "PLAN" {
                 command.arg(&self.run_reference);
@@ -194,7 +221,12 @@ impl Operations {
             .kill_on_drop(true)
             .spawn()
             .unwrap();
-        tokio::time::timeout(Duration::from_secs(35), child.wait_with_output())
+        let timeout = if args.contains(&"--timeout-seconds") {
+            245
+        } else {
+            35
+        };
+        tokio::time::timeout(Duration::from_secs(timeout), child.wait_with_output())
             .await
             .unwrap()
             .unwrap()

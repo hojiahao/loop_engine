@@ -63,9 +63,10 @@ fn process_worker() {
         .build()
         .unwrap()
         .block_on(async {
+            let now = fixture::NOW + if mode == "numerical" { 3_600_000 } else { 0 };
             let store = PgJobStore::open(options(
                 &root.join("state"),
-                Arc::new(fixture::FixtureClock(AtomicI64::new(fixture::NOW))),
+                Arc::new(fixture::FixtureClock(AtomicI64::new(now))),
             ))
             .await
             .unwrap();
@@ -96,9 +97,16 @@ fn process_worker() {
                         .value
                         .push_str(&format!(".{index}"));
                 }
-                store
-                    .advance_run(&owner(), &request, &specification())
-                    .await
+                if mode == "numerical" {
+                    request.workflow_version = 2;
+                    store
+                        .advance_numerical(&owner(), &request, &numerical::numerical_spec(), None)
+                        .await
+                } else {
+                    store
+                        .advance_run(&owner(), &request, &specification())
+                        .await
+                }
             };
             let result = match result {
                 Ok(_) => "accepted",
@@ -108,6 +116,109 @@ fn process_worker() {
             std::fs::write(root.join(format!("result.{index}")), result).unwrap();
             store.close().await;
         });
+}
+
+#[tokio::test]
+async fn numerical_writers() {
+    for count in [2, 4, 8] {
+        let (directory, store, _) = setup().await;
+        numerical::seed(&store).await;
+        let mut workers: Vec<_> = (0..count)
+            .map(|index| spawn(directory.path(), index, "numerical", None))
+            .collect();
+        for index in 0..count {
+            wait_file(&directory.path().join(format!("ready.{index}"))).await;
+        }
+        std::fs::write(directory.path().join("start"), b"start").unwrap();
+        for worker in &mut workers {
+            join(worker).await;
+        }
+        assert_eq!(
+            (0..count)
+                .filter(
+                    |index| std::fs::read(directory.path().join(format!("result.{index}")))
+                        .unwrap()
+                        == b"accepted"
+                )
+                .count(),
+            1
+        );
+        let snapshot = store.read_run(&owner(), "run.managed").await.unwrap();
+        assert_eq!(snapshot.view.revision, 2);
+        assert_eq!(snapshot.view.status, RunStatus::DeadlineExceeded as i32);
+        assert_eq!(snapshot.view.reserved_steps, 1);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM run_transitions")
+                .fetch_one(&store.pool)
+                .await
+                .unwrap(),
+            2
+        );
+        store.close().await;
+    }
+}
+
+#[tokio::test]
+async fn numerical_crashes() {
+    for timing in ["before", "after"] {
+        let (directory, store, _) = setup().await;
+        numerical::seed(&store).await;
+        std::fs::write(directory.path().join("start"), b"start").unwrap();
+        let point = format!("run_step_{timing}");
+        let mut worker = spawn(directory.path(), 0, "numerical", Some(&point));
+        wait_file(&directory.path().join("fault")).await;
+        worker.0.kill().unwrap();
+        worker.0.wait().unwrap();
+        assert_eq!(
+            store
+                .read_run(&owner(), "run.managed")
+                .await
+                .unwrap()
+                .view
+                .revision,
+            if timing == "before" { 1 } else { 2 }
+        );
+        store.close().await;
+        let reopened = PgJobStore::open(options(
+            &directory.path().join("state"),
+            Arc::new(fixture::FixtureClock(AtomicI64::new(
+                fixture::NOW + 3_600_000,
+            ))),
+        ))
+        .await
+        .unwrap();
+        let mut request = step(1);
+        request.workflow_version = 2;
+        request
+            .context
+            .as_mut()
+            .unwrap()
+            .idempotency_key
+            .as_mut()
+            .unwrap()
+            .value
+            .push_str(".0");
+        let replay = reopened
+            .advance_numerical(&owner(), &request, &numerical::numerical_spec(), None)
+            .await
+            .unwrap();
+        assert_eq!(replay.revision, 2);
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM jobs")
+                .fetch_one(&reopened.pool)
+                .await
+                .unwrap(),
+            1
+        );
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM run_transitions")
+                .fetch_one(&reopened.pool)
+                .await
+                .unwrap(),
+            2
+        );
+        reopened.close().await;
+    }
 }
 
 #[tokio::test]

@@ -18,16 +18,16 @@ use super::super::{LocalArtifacts, ObjectRef, TrustedManifests, model};
 use super::support::{self, NOW, actor};
 use crate::store::{AdmissionPolicy, Clock, PgJobStore, StoreError, StoreResult, SubmitJob};
 
-pub(super) struct Fixture {
+pub(crate) struct Fixture {
     pub directory: support::TestDirectory,
     pub root: PathBuf,
     pub registry: Arc<OperatorPolicyRegistry>,
-    pub catalog: model::Catalog,
+    pub(in crate::manifests) catalog: model::Catalog,
     pub context: model::Context,
-    pub result: model::ResultManifest,
+    pub(in crate::manifests) result: model::ResultManifest,
     pub result_artifact: model::Artifact,
     pub job: SubmitJob,
-    pub review: model::Review,
+    pub(in crate::manifests) review: model::Review,
 }
 
 impl Fixture {
@@ -299,6 +299,25 @@ impl Fixture {
     }
     pub fn json<T: Serialize>(&self, value: &T) -> ObjectRef {
         put_json(&self.root, value)
+    }
+
+    pub(crate) fn numerical_data(
+        &self,
+    ) -> (
+        loop_protocol::wire::v1::DevelopmentDatasetReference,
+        ObjectRef,
+    ) {
+        let dataset: model::Dataset =
+            serde_json::from_slice(&std::fs::read(self.path(&self.context.data)).unwrap()).unwrap();
+        let tape = dataset
+            .snapshots
+            .iter()
+            .flat_map(|snapshot| &snapshot.artifacts)
+            .find(|artifact| artifact.schema.name == "loop.execution_tape")
+            .unwrap()
+            .object
+            .clone();
+        (dataset.reference(&self.context.data).unwrap(), tape)
     }
     pub fn context_id(&self) -> String {
         self.catalog.contexts[0].context_id.clone()

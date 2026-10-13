@@ -1,6 +1,6 @@
 use crate::test_support as support;
 
-mod fixture;
+pub(super) mod fixture;
 mod process;
 mod runtime;
 
@@ -15,6 +15,11 @@ use fixture::{Fixture, put};
 use loop_protocol::wire::jobs::v1::{AcquireJobLeaseRequest, CompleteJobRequest};
 use loop_protocol::wire::v1::{JobId, JobOutcome, JobState, job_outcome};
 use support::{NOW, actor, context};
+
+/// Actual installed numerical inputs for the run/CLI fixture, without jobs.
+pub(crate) async fn run_fixture() -> Fixture {
+    runtime::evaluation::run_fixture().await
+}
 
 #[tokio::test]
 // Scenario: bytes are checked before resolution.

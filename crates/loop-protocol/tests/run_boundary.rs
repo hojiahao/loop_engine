@@ -2,17 +2,29 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use loop_protocol::runs::validate_view;
+use loop_protocol::runs::{validate_view, validate_workflow};
 use loop_protocol::wire::discovery::v1::DiscoveryJobStatus;
-use loop_protocol::wire::runs::v1::{RunStatus, RunView};
+use loop_protocol::wire::research::v1::ResearchJobStatus;
+use loop_protocol::wire::runs::v1::{
+    RoundDisposition, RunStage, RunStatus, RunView, research_run_view::CurrentChild,
+};
 use prost::Message;
 use prost_types::FileDescriptorSet;
 
 fn golden() -> (RunView, Vec<u8>) {
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+    decode(include_str!(
         "../../../fixtures/contracts/protocol/v1/run_view_v1.json"
     ))
-    .unwrap();
+}
+
+fn numerical() -> (RunView, Vec<u8>) {
+    decode(include_str!(
+        "../../../fixtures/contracts/protocol/v1/run_view_v2.json"
+    ))
+}
+
+fn decode(source: &str) -> (RunView, Vec<u8>) {
+    let fixture: serde_json::Value = serde_json::from_str(source).unwrap();
     let wire = fixture["wire_hex"]
         .as_str()
         .unwrap()
@@ -21,6 +33,115 @@ fn golden() -> (RunView, Vec<u8>) {
         .map(|bytes| u8::from_str_radix(std::str::from_utf8(bytes).unwrap(), 16).unwrap())
         .collect::<Vec<_>>();
     (RunView::decode(wire.as_slice()).unwrap(), wire)
+}
+
+#[test]
+fn numerical_projection() {
+    let (view, wire) = numerical();
+    validate_view(&view).unwrap();
+    assert_eq!(
+        view.research.as_ref().unwrap().stage,
+        RunStage::Evaluation as i32
+    );
+    assert_eq!(view.encode_to_vec(), wire);
+    validate_workflow(0).unwrap();
+    validate_workflow(2).unwrap();
+    assert!(validate_workflow(1).is_err());
+    assert!(validate_workflow(u32::MAX).is_err());
+}
+
+#[test]
+fn numerical_failures() {
+    let changes: &[fn(&mut RunView)] = &[
+        |view| view.current_job = golden().0.current_job,
+        |view| view.revision = 8,
+        |view| view.research.as_mut().unwrap().round = 0,
+        |view| view.research.as_mut().unwrap().round = 1,
+        |view| view.research.as_mut().unwrap().stage = 127,
+        |view| view.research.as_mut().unwrap().stage = 0,
+        |view| view.research.as_mut().unwrap().stage = RunStage::Discovery as i32,
+        |view| view.research.as_mut().unwrap().binding_sha256 = None,
+        |view| {
+            view.research
+                .as_mut()
+                .unwrap()
+                .binding_sha256
+                .as_mut()
+                .unwrap()
+                .value
+                .pop();
+        },
+        |view| view.research.as_mut().unwrap().current_child = None,
+        |view| view.research.as_mut().unwrap().evaluation_job_id = None,
+        |view| view.research.as_mut().unwrap().discovery_job_id = None,
+        |view| view.research.as_mut().unwrap().expression_id = None,
+        |view| {
+            view.research
+                .as_mut()
+                .unwrap()
+                .factor_spec_id
+                .as_mut()
+                .unwrap()
+                .value
+                .push('\n')
+        },
+        |view| view.research.as_mut().unwrap().disposition = 127,
+        |view| view.research.as_mut().unwrap().disposition = RoundDisposition::Evaluated as i32,
+        |view| {
+            view.research.as_mut().unwrap().disposition =
+                RoundDisposition::InsufficientCoverage as i32
+        },
+        |view| {
+            let research = view.research.as_mut().unwrap();
+            research.discovery_job_id = research.evaluation_job_id.clone();
+        },
+    ];
+    for (index, mutate) in changes.iter().enumerate() {
+        let (mut view, _) = numerical();
+        mutate(&mut view);
+        assert!(validate_view(&view).is_err(), "accepted v2 case {index}");
+    }
+}
+
+#[test]
+fn numerical_terminals() {
+    let (mut view, _) = numerical();
+    view.status = RunStatus::Completed as i32;
+    view.completed_rounds = view.maximum_rounds;
+    let research = view.research.as_mut().unwrap();
+    research.disposition = RoundDisposition::InsufficientCoverage as i32;
+    let Some(CurrentChild::Research(child)) = research.current_child.as_mut() else {
+        panic!("fixture research handle");
+    };
+    child.status = ResearchJobStatus::Succeeded as i32;
+    validate_view(&view).unwrap();
+    let research = view.research.as_mut().unwrap();
+    research.stage = RunStage::Portfolio as i32;
+    research.disposition = RoundDisposition::Evaluated as i32;
+    let Some(CurrentChild::Research(child)) = research.current_child.as_mut() else {
+        panic!("fixture research handle");
+    };
+    child.job_id.as_mut().unwrap().value = "job.portfolio.2".into();
+    validate_view(&view).unwrap();
+    view.research.as_mut().unwrap().disposition = 0;
+    assert!(validate_view(&view).is_err());
+}
+
+#[test]
+fn discovery_filter() {
+    let (mut view, _) = numerical();
+    view.status = RunStatus::Completed as i32;
+    view.completed_rounds = view.maximum_rounds;
+    let mut child = golden().0.current_job.unwrap();
+    child.status = DiscoveryJobStatus::Succeeded as i32;
+    let research = view.research.as_mut().unwrap();
+    research.stage = RunStage::Discovery as i32;
+    research.current_child = Some(CurrentChild::Discovery(child));
+    research.evaluation_job_id = None;
+    research.disposition = RoundDisposition::Duplicate as i32;
+    validate_view(&view).unwrap();
+    view.research.as_mut().unwrap().disposition = RoundDisposition::PreviouslyRejected as i32;
+    validate_view(&view).unwrap();
 }
 
 #[test]

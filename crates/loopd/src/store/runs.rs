@@ -1,5 +1,9 @@
 //! Human-owned run reservations. Execution remains in the existing Agent Harness.
+mod numerical;
 mod storage;
+mod transitions;
+pub(crate) use transitions::RunBinding;
+pub(super) use transitions::{TrialCache, authorize_trial};
 #[cfg(test)]
 mod tests;
 
@@ -30,6 +34,9 @@ pub struct RunSnapshot {
     pub view: RunView,
     /// Current child's verified durable record; never returned as a Run RPC DTO.
     pub current_job: JobRecord,
+    /// Verified internal v2 transition; absent for unchanged discovery-only runs.
+    /// Heap storage keeps its full historical records out of async return frames.
+    pub(crate) binding: Option<Box<RunBinding>>,
 }
 
 /// Constructible only while reserving one exact run child in this module.
@@ -66,6 +73,9 @@ impl PgJobStore {
         request: &StartRunRequest,
         specification: &RunSpecification,
     ) -> StoreResult<RunView> {
+        if request.workflow_version != 0 || specification.numerical.is_some() {
+            return Err(StoreError::AdmissionDenied);
+        }
         let context = validate_context(request.context.as_ref(), principal)?;
         let mut transaction = self.pool.begin().await?;
         let now = self.observe_clock(&mut transaction).await?;
@@ -182,7 +192,7 @@ impl PgJobStore {
         if snapshot.specification.owner.as_ref() != Some(principal) {
             return Err(StoreError::AdmissionDenied);
         }
-        snapshot.view.current_job = Some(child_handle(&snapshot.current_job)?);
+        refresh(&mut snapshot.view, &snapshot.current_job)?;
         transaction.commit().await?;
         Ok(snapshot)
     }
@@ -207,6 +217,7 @@ impl PgJobStore {
         if snapshot.specification.owner.as_ref() != Some(principal) {
             return Err(StoreError::AdmissionDenied);
         }
+        check_version(request.workflow_version, &snapshot.specification)?;
         let result = receipt(
             &mut transaction,
             context,
@@ -236,6 +247,9 @@ impl PgJobStore {
         request: &StepRunRequest,
         specification: &RunSpecification,
     ) -> StoreResult<RunView> {
+        if request.workflow_version != 0 || specification.numerical.is_some() {
+            return Err(StoreError::AdmissionDenied);
+        }
         let context = validate_context(request.context.as_ref(), principal)?;
         let run_id = step_id(request)?;
         let mut transaction = self.pool.begin().await?;
@@ -345,6 +359,41 @@ impl PgJobStore {
         super::crash_tests::fault_point("run_step_after").await;
         Ok(view)
     }
+}
+
+fn check_version(version: u32, specification: &RunSpecification) -> StoreResult<()> {
+    if version
+        == if specification.numerical.is_some() {
+            2
+        } else {
+            0
+        }
+    {
+        Ok(())
+    } else {
+        Err(StoreError::AdmissionDenied)
+    }
+}
+
+fn refresh(view: &mut RunView, record: &JobRecord) -> StoreResult<()> {
+    use loop_protocol::wire::runs::v1::{RunStage, research_run_view::CurrentChild};
+    if let Some(research) = &mut view.research {
+        research.current_child = Some(if research.stage == RunStage::Discovery as i32 {
+            CurrentChild::Discovery(child_handle(record)?)
+        } else {
+            let handle = child_handle(record)?;
+            CurrentChild::Research(loop_protocol::wire::research::v1::ResearchJobHandle {
+                job_id: handle.job_id,
+                status: handle.status,
+                revision: handle.revision,
+                submitted_at: handle.submitted_at,
+                updated_at: handle.updated_at,
+            })
+        });
+    } else {
+        view.current_job = Some(child_handle(record)?);
+    }
+    Ok(())
 }
 
 fn check_time(context: &CommandContext, now: i64) -> StoreResult<()> {

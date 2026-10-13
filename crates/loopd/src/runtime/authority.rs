@@ -14,6 +14,12 @@ use crate::store::{AdmissionPolicy, Clock, StoreError, StoreResult};
 
 pub(super) const CAPABILITY_HEADER: &str = "loop-holdout-capability-bin";
 
+// Append-only RunService v2 leaves the published job envelope semantics intact.
+pub(super) const RUNS_DESCRIPTOR: [u8; 32] = [
+    0x54, 0x5a, 0x74, 0xf7, 0x21, 0xc0, 0xd1, 0x33, 0x73, 0x19, 0x7f, 0x60, 0x28, 0x4e, 0x4c, 0x71,
+    0x41, 0x7d, 0xcf, 0xa3, 0xc0, 0xac, 0xc0, 0xe1, 0x0b, 0x73, 0x0e, 0x6c, 0xa2, 0xcf, 0x35, 0xc2,
+];
+
 /// Exactly one trust zone per independently provisioned runtime identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -210,6 +216,9 @@ impl RuntimeAuthority {
                 .as_ref()
                 .ok_or(StoreError::AdmissionDenied)?
                 .verify_run(specification)?;
+            if specification.numerical.is_some() {
+                self.research_actor(specification)?;
+            }
         }
         self.runs = Some(catalog);
         Ok(self)
@@ -233,10 +242,61 @@ impl RuntimeAuthority {
         if identity.role != Role::Discovery || !identity.run_ids.contains(&run.value) {
             return Err(StoreError::AdmissionDenied);
         }
+        if specification.numerical.is_some() {
+            self.research_actor(specification)?;
+        }
         self.runs
             .as_ref()
             .ok_or(StoreError::AdmissionDenied)?
             .verify(specification)
+    }
+
+    pub(super) fn research_actor(
+        &self,
+        specification: &loop_protocol::wire::runs::v1::RunSpecification,
+    ) -> StoreResult<Actor> {
+        let actor = specification
+            .numerical
+            .as_ref()
+            .and_then(|workflow| workflow.research_executor.as_ref())
+            .ok_or(StoreError::AdmissionDenied)?;
+        let identity = self.identity(actor)?;
+        let run = specification
+            .run_id
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Research || !identity.run_ids.contains(&run.value) {
+            return Err(StoreError::AdmissionDenied);
+        }
+        let selection = specification
+            .numerical
+            .as_ref()
+            .and_then(|workflow| workflow.protocol_selection.as_ref())
+            .ok_or(StoreError::AdmissionDenied)?;
+        let features = [
+            "jobs.envelope.v1",
+            "jobs.kind-input.v1",
+            "jobs.prelease-terminal.v1",
+        ];
+        if selection.selected_package != "loop.v1"
+            || selection.enabled_features.len() != features.len()
+            || features.iter().any(|feature| {
+                !selection
+                    .enabled_features
+                    .iter()
+                    .any(|value| value == feature)
+            })
+            || selection
+                .schema_descriptor_sha256
+                .as_ref()
+                .is_none_or(|digest| {
+                    digest.value != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
+                        && digest.value.as_slice() != RUNS_DESCRIPTOR
+                })
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        Ok(actor.clone())
     }
 
     pub(super) fn run_lookup(&self, actor: &Actor, run_id: &str) -> StoreResult<()> {
@@ -249,11 +309,13 @@ impl RuntimeAuthority {
     }
 
     pub(super) fn now(&self) -> StoreResult<i64> {
-        let now = self.clock.now_millis()?;
         let mut previous = self
             .last_observed
             .lock()
             .map_err(|_| StoreError::Unavailable("runtime clock"))?;
+        // Serialize sampling as well as publication: an earlier sample must not
+        // arrive after another caller has already published a later time.
+        let now = self.clock.now_millis()?;
         if now < *previous {
             return Err(StoreError::ClockRegression);
         }
@@ -339,6 +401,36 @@ impl RuntimeAuthority {
 }
 
 impl AdmissionPolicy for RuntimeAuthority {
+    fn authorize_run_trial(
+        &self,
+        actor: &Actor,
+        run: &loop_protocol::wire::runs::v1::RunSpecification,
+        job: &JobSpecification,
+    ) -> StoreResult<()> {
+        let identity = self.identity(actor)?;
+        let run_id = run.run_id.as_ref().ok_or(StoreError::AdmissionDenied)?;
+        if identity.role != Role::Research
+            || !identity.run_ids.contains(&run_id.value)
+            || job.run_id.as_ref() != Some(run_id)
+            || job.submitted_by.as_ref()
+                != run
+                    .numerical
+                    .as_ref()
+                    .and_then(|workflow| workflow.research_executor.as_ref())
+            || !matches!(
+                job.input,
+                Some(
+                    job_specification::Input::FactorEvaluation(_)
+                        | job_specification::Input::Backtest(_)
+                )
+            )
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        loop_protocol::job::validate_job_specification(job)?;
+        Ok(())
+    }
+
     fn authorize_run(
         &self,
         actor: &Actor,
@@ -395,7 +487,8 @@ impl AdmissionPolicy for RuntimeAuthority {
             "jobs.prelease-terminal.v1",
         ];
         if selection.selected_package != "loop.v1"
-            || descriptor.value != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
+            || (descriptor.value != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
+                && descriptor.value.as_slice() != RUNS_DESCRIPTOR)
             || selection
                 .enabled_features
                 .iter()
@@ -552,3 +645,6 @@ pub(super) fn digest(value: &str) -> StoreResult<[u8; 32]> {
 fn id(value: &str) -> StoreResult<()> {
     crate::store::validate_id(value)
 }
+
+#[cfg(test)]
+mod tests;

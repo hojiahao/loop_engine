@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod discovery;
+mod numerical;
 mod reconciliation;
 mod runs;
 mod statistics;
@@ -11,9 +12,7 @@ use loop_protocol::wire::jobs::v1::{
     self,
     job_service_server::{JobService, JobServiceServer},
 };
-use loop_protocol::wire::v1::{
-    JobOutcome, JobRecord, JobState, JobSuccess, job_outcome, job_specification,
-};
+use loop_protocol::wire::v1::{JobOutcome, JobRecord, JobState, job_outcome, job_specification};
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{
@@ -360,130 +359,21 @@ impl JobService for RuntimeService {
         request: Request<v1::ExecuteBacktestRequest>,
     ) -> Result<Response<v1::ExecuteBacktestResponse>, Status> {
         let command = request.get_ref();
-        let id = command.job_id.as_ref().map(|id| id.value.as_str());
         let (principal, job) = self
-            .job(&request, id, "loop.jobs.backtest", false)
+            .job(
+                &request,
+                command.job_id.as_ref().map(|id| id.value.as_str()),
+                "loop.jobs.backtest",
+                false,
+            )
             .await
             .map_err(status)?;
-        crate::store::validate_runtime_context(command.context.as_ref(), &principal.actor)
-            .map_err(status)?;
-        let executor = self
-            .portfolio
-            .as_ref()
-            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
-        let specification = job
-            .specification
-            .as_ref()
-            .ok_or_else(|| status(StoreError::Corrupt("portfolio job")))?;
-        let lease = command
-            .lease_id
-            .as_ref()
-            .ok_or_else(|| status(StoreError::Invalid("portfolio lease")))?;
-        // Fence cancelled/expired work before any expensive input reads.
-        if job.state != JobState::Succeeded as i32 {
-            if job.revision != command.expected_revision {
-                return Err(status(StoreError::RevisionConflict));
-            }
-            crate::store::live_lease(
-                &job,
-                &principal.actor,
-                &lease.value,
-                self.authority.now().map_err(status)?,
-            )
-            .map_err(status)?;
-        }
-        let inputs = executor.inputs(specification).await.map_err(status)?;
-        let prepared = if job.state == JobState::Succeeded as i32 {
-            let Some(job_outcome::Outcome::Success(success)) = job
-                .outcome
-                .as_ref()
-                .and_then(|outcome| outcome.outcome.as_ref())
-            else {
-                return Err(status(StoreError::Corrupt("portfolio replay outcome")));
-            };
-            executor
-                .replay(inputs, specification, success)
-                .await
-                .map_err(status)?
-        } else {
-            let trials = self
-                .store
-                .trial_ledger(&principal.actor)
-                .await
-                .map_err(status)?;
-            self.store
-                .portfolio_source(&principal.actor, &job, &inputs.lineage(trials.clone()))
-                .await
-                .map_err(status)?;
-            let prepared = self
-                .artifacts
-                .prepare(
-                    &self.store,
-                    &principal.actor,
-                    &v1::PrepareJobArtifactsRequest {
-                        context: command.context.clone(),
-                        job_id: command.job_id.clone(),
-                        lease_id: command.lease_id.clone(),
-                        expected_revision: command.expected_revision,
-                    },
-                    &job,
-                )
-                .await
-                .map_err(status)?;
-            let view = self
-                .artifacts
-                .evaluation_view(&prepared)
-                .await
-                .map_err(status)?;
-            let (_, current) = self
-                .job(&request, id, "loop.jobs.backtest", false)
-                .await
-                .map_err(status)?;
-            if current.revision != command.expected_revision {
-                return Err(status(StoreError::RevisionConflict));
-            }
-            let now = self.authority.now().map_err(status)?;
-            let expires = crate::store::live_lease(&current, &principal.actor, &lease.value, now)
-                .map_err(status)?;
-            let remaining = Duration::from_millis(
-                u64::try_from(expires - now).map_err(|_| status(StoreError::LeaseFenced))?,
-            )
-            .min(Duration::from_secs(180));
-            let work = inputs.work(&lease.value, trials, None);
-            executor
-                .execute(inputs, &work, &view, remaining)
-                .await
-                .map_err(status)?
-        };
-        if prepared.lease_id.as_deref() != Some(lease.value.as_str()) {
-            return Err(status(StoreError::LeaseFenced));
-        }
-        let success = prepared
-            .success
-            .clone()
-            .ok_or_else(|| status(StoreError::Corrupt("portfolio output set")))?;
-        self.job(&request, id, "loop.jobs.backtest", false)
-            .await
-            .map_err(status)?;
-        let completed = self
-            .store
-            .with_backtest_policy(Arc::new(prepared))
-            .mutate(
-                &principal.actor,
-                JobMutation::Complete(v1::CompleteJobRequest {
-                    context: command.context.clone(),
-                    job_id: command.job_id.clone(),
-                    lease_id: command.lease_id.clone(),
-                    expected_revision: command.expected_revision,
-                    outcome: Some(JobOutcome {
-                        outcome: Some(job_outcome::Outcome::Success(success)),
-                    }),
-                }),
-            )
+        let (job, _) = self
+            .run_portfolio(&self.store, &principal.actor, command, job, None)
             .await
             .map_err(status)?;
         Ok(Response::new(v1::ExecuteBacktestResponse {
-            job: Some(completed.job),
+            job: Some(job),
         }))
     }
 
@@ -491,170 +381,21 @@ impl JobService for RuntimeService {
         &self,
         request: Request<v1::EvaluateFactorRequest>,
     ) -> Result<Response<v1::EvaluateFactorResponse>, Status> {
+        let command = request.get_ref();
         let (principal, job) = self
             .job(
                 &request,
-                request
-                    .get_ref()
-                    .job_id
-                    .as_ref()
-                    .map(|id| id.value.as_str()),
+                command.job_id.as_ref().map(|id| id.value.as_str()),
                 "loop.jobs.evaluate",
                 false,
             )
             .await
             .map_err(status)?;
-        let executor = self
-            .evaluator
-            .as_ref()
-            .ok_or_else(|| status(StoreError::AdmissionDenied))?;
-        let _permit = executor
-            .permits
-            .try_acquire()
-            .map_err(|_| status(StoreError::Unavailable("factor execution capacity")))?;
-        let command = request.get_ref();
-        crate::store::validate_runtime_context(command.context.as_ref(), &principal.actor)
-            .map_err(status)?;
-        let specification = job
-            .specification
-            .as_ref()
-            .ok_or_else(|| status(StoreError::Corrupt("evaluation job")))?;
-        let lease = command
-            .lease_id
-            .as_ref()
-            .ok_or_else(|| status(StoreError::Invalid("evaluation lease")))?;
-        if job.state != JobState::Succeeded as i32 {
-            if job.revision != command.expected_revision {
-                return Err(status(StoreError::RevisionConflict));
-            }
-            crate::store::live_lease(
-                &job,
-                &principal.actor,
-                &lease.value,
-                self.authority.now().map_err(status)?,
-            )
-            .map_err(status)?;
-        }
-        let inputs = executor
-            .resolver
-            .prepare(specification, lease)
+        let job = self
+            .run_evaluation(&self.store, &principal.actor, command, job, None)
             .await
             .map_err(status)?;
-        let result;
-        let success = if job.state == JobState::Succeeded as i32 {
-            executor
-                .run(&inputs.work, None, Duration::from_secs(30))
-                .await
-                .map_err(status)?;
-            result = None;
-            match job
-                .outcome
-                .as_ref()
-                .and_then(|outcome| outcome.outcome.as_ref())
-            {
-                Some(job_outcome::Outcome::Success(success)) => success.clone(),
-                _ => return Err(status(StoreError::Corrupt("evaluation replay outcome"))),
-            }
-        } else {
-            let preparation = v1::PrepareJobArtifactsRequest {
-                context: command.context.clone(),
-                job_id: command.job_id.clone(),
-                lease_id: command.lease_id.clone(),
-                expected_revision: command.expected_revision,
-            };
-            let prepared = self
-                .artifacts
-                .prepare(&self.store, &principal.actor, &preparation, &job)
-                .await
-                .map_err(status)?;
-            let view = self
-                .artifacts
-                .evaluation_view(&prepared)
-                .await
-                .map_err(status)?;
-            // Preparation consumes the original lease and job budget. Recheck
-            // current state immediately before spawn; never grant a fresh
-            // wall-clock budget merely because artifact verification finished.
-            let (_, current) = self
-                .job(
-                    &request,
-                    command.job_id.as_ref().map(|id| id.value.as_str()),
-                    "loop.jobs.evaluate",
-                    false,
-                )
-                .await
-                .map_err(status)?;
-            if current.revision != command.expected_revision {
-                return Err(status(StoreError::RevisionConflict));
-            }
-            let now = self.authority.now().map_err(status)?;
-            let expires = crate::store::live_lease(&current, &principal.actor, &lease.value, now)
-                .map_err(status)?;
-            let remaining = Duration::from_millis(
-                u64::try_from(expires - now).map_err(|_| status(StoreError::LeaseFenced))?,
-            )
-            .min(Duration::from_secs(60));
-            let response = executor
-                .run(&inputs.work, Some(&view), remaining)
-                .await
-                .map_err(status)?
-                .ok_or_else(|| status(StoreError::Corrupt("missing evaluation result")))?;
-            let success = JobSuccess {
-                outputs: vec![
-                    response
-                        .values
-                        .clone()
-                        .ok_or_else(|| status(StoreError::Corrupt("missing factor values")))?,
-                    response
-                        .manifest
-                        .clone()
-                        .ok_or_else(|| status(StoreError::Corrupt("missing factor manifest")))?,
-                ],
-            };
-            result = Some(response);
-            success
-        };
-        let evidence = inputs
-            .resolve(&executor.outputs, &success)
-            .await
-            .map_err(status)?;
-        if result
-            .as_ref()
-            .is_some_and(|result| result != &evidence.result)
-        {
-            return Err(status(StoreError::Corrupt(
-                "worker/manifest result mismatch",
-            )));
-        }
-        self.job(
-            &request,
-            command.job_id.as_ref().map(|id| id.value.as_str()),
-            "loop.jobs.evaluate",
-            false,
-        )
-        .await
-        .map_err(status)?;
-        executor.check_output().map_err(status)?;
-        let completed = self
-            .store
-            .with_evaluation_evidence(evidence)
-            .mutate(
-                &principal.actor,
-                JobMutation::Complete(v1::CompleteJobRequest {
-                    context: command.context.clone(),
-                    job_id: command.job_id.clone(),
-                    lease_id: command.lease_id.clone(),
-                    expected_revision: command.expected_revision,
-                    outcome: Some(JobOutcome {
-                        outcome: Some(job_outcome::Outcome::Success(success)),
-                    }),
-                }),
-            )
-            .await
-            .map_err(status)?;
-        Ok(Response::new(v1::EvaluateFactorResponse {
-            job: Some(completed.job),
-        }))
+        Ok(Response::new(v1::EvaluateFactorResponse { job: Some(job) }))
     }
 
     async fn get_job(

@@ -1056,7 +1056,7 @@ fn validate_model_resolution(
     Ok(())
 }
 
-fn validate_budget(
+pub(crate) fn validate_budget(
     budget: Option<&JobBudget>,
     field: &'static str,
 ) -> Result<(), JobValidationError> {

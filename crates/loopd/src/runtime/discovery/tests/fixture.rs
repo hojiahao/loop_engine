@@ -28,6 +28,7 @@ use crate::test_support;
 
 pub(super) mod operations;
 mod run_operations;
+mod workflow_operations;
 
 pub(super) struct OffsetClock(pub(super) AtomicI64);
 

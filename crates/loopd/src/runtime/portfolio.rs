@@ -21,7 +21,7 @@ use crate::store::{BacktestPolicy, BacktestPreparation, StoreError, StoreResult}
 /// Deployment-selected portfolio worker. No caller executable, network/provider
 /// environment or protected namespace is exposed to its numerical process.
 pub struct PortfolioExecutor {
-    resolver: PortfolioResolver,
+    pub(super) resolver: PortfolioResolver,
     pub(super) outputs: LocalArtifacts,
     pub(super) python: PathBuf,
     pub(super) evidence: PathBuf,
@@ -187,6 +187,16 @@ impl PortfolioExecutor {
         job: &JobSpecification,
         success: &JobSuccess,
     ) -> StoreResult<PreparedPortfolio> {
+        self.replay_pin(inputs, job, success, None).await
+    }
+
+    pub(super) async fn replay_pin(
+        &self,
+        inputs: PortfolioInputs,
+        job: &JobSpecification,
+        success: &JobSuccess,
+        pin: Option<&super::DataPin>,
+    ) -> StoreResult<PreparedPortfolio> {
         let artifact = manifest_artifact(success)?;
         let file = self
             .outputs
@@ -198,7 +208,14 @@ impl PortfolioExecutor {
             document.trials,
             Some(artifact.object.clone()),
         );
-        let view = self.broker.portfolio_view(job, &document.lease_id).await?;
+        let view = match pin {
+            Some(pin) => {
+                self.broker
+                    .portfolio_pin(job, &document.lease_id, pin)
+                    .await?
+            }
+            None => self.broker.portfolio_view(job, &document.lease_id).await?,
+        };
         let prepared = self
             .execute(inputs, &work, &view, Duration::from_secs(180))
             .await?;

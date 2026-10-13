@@ -144,7 +144,7 @@ impl PgJobStore {
         ledger: &TrialLedger,
     ) -> StoreResult<()> {
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
-            let mut transaction = self.pool.begin().await?;
+            let mut transaction = super::research_ledger::begin_snapshot(self).await?;
             verify_source(
                 self,
                 &mut transaction,

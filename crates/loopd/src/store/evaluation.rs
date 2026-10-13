@@ -27,6 +27,51 @@ pub struct EvaluationTrial {
     pub disposition: String,
 }
 
+impl PgJobStore {
+    /// Read one registered evaluation after exact-record and historical run
+    /// authorization. This is metadata evidence only: no lease, execution or
+    /// artifact access is granted. Stale source observations and corrupt trials
+    /// deny; cancellation and retries perform no writes.
+    pub(crate) async fn workflow_trial(
+        &self,
+        principal: &loop_protocol::wire::v1::Actor,
+        record: &JobRecord,
+    ) -> StoreResult<EvaluationTrial> {
+        let id = record
+            .specification
+            .as_ref()
+            .and_then(|job| job.job_id.as_ref())
+            .ok_or(StoreError::Invalid("workflow evaluation ID"))?;
+        super::validate_id(&id.value)?;
+        let mut transaction = self.pool.begin().await?;
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+            .execute(&mut *transaction)
+            .await?;
+        let row = sqlx::query("SELECT * FROM jobs WHERE job_id=$1")
+            .bind(&id.value)
+            .fetch_optional(&mut *transaction)
+            .await?
+            .ok_or(StoreError::NotFound)?;
+        let current = record_from_row(&row)?;
+        if &current != record {
+            return Err(StoreError::RevisionConflict);
+        }
+        super::runs::authorize_trial(
+            self,
+            &mut transaction,
+            principal,
+            &current,
+            &mut super::runs::TrialCache::default(),
+        )
+        .await?;
+        let trial = read(&mut transaction, &current)
+            .await?
+            .ok_or(StoreError::AdmissionDenied)?;
+        transaction.commit().await?;
+        Ok(trial)
+    }
+}
+
 pub(crate) fn coverage_passes(eligible: u64, valid: u64, minimum: u32) -> bool {
     eligible > 0
         && valid <= eligible
@@ -50,7 +95,7 @@ fn digest(value: Option<&Sha256Digest>) -> StoreResult<&[u8]> {
         .ok_or(StoreError::Invalid("evaluation context digest"))
 }
 
-fn context_key(job: &JobSpecification) -> StoreResult<Option<[u8; 32]>> {
+pub(super) fn context_key(job: &JobSpecification) -> StoreResult<Option<[u8; 32]>> {
     let Some(job_specification::Input::FactorEvaluation(input)) = &job.input else {
         return Ok(None);
     };
@@ -247,8 +292,29 @@ pub(super) async fn check_previous(
     transaction: &mut Transaction<'_, Postgres>,
     job: &JobSpecification,
 ) -> StoreResult<()> {
+    if let Some(previous) = find_previous(transaction, job).await? {
+        return Err(if previous.trial.disposition == "insufficient_coverage" {
+            StoreError::PreviouslyRejected
+        } else {
+            StoreError::AlreadyEvaluated
+        });
+    }
+    Ok(())
+}
+
+/// Verified historical observation, never fresh-file access or new trial evidence.
+pub(super) struct PreviousEvaluation {
+    pub record: JobRecord,
+    pub trial: EvaluationTrial,
+    pub context_sha256: [u8; 32],
+}
+
+pub(super) async fn find_previous(
+    transaction: &mut Transaction<'_, Postgres>,
+    job: &JobSpecification,
+) -> StoreResult<Option<PreviousEvaluation>> {
     let Some(key) = context_key(job)? else {
-        return Ok(());
+        return Ok(None);
     };
     let row = sqlx::query(
         "SELECT j.*, e.job_revision, e.record_sha256 AS evaluation_record_sha256,
@@ -262,13 +328,13 @@ pub(super) async fn check_previous(
     if let Some(row) = row {
         let prior = record_from_row(&row)?;
         let trial = verify(&row, &prior)?.ok_or(StoreError::Corrupt("legacy evaluation lookup"))?;
-        return Err(if trial.disposition == "insufficient_coverage" {
-            StoreError::PreviouslyRejected
-        } else {
-            StoreError::AlreadyEvaluated
-        });
+        return Ok(Some(PreviousEvaluation {
+            record: prior,
+            trial,
+            context_sha256: key,
+        }));
     }
-    Ok(())
+    Ok(None)
 }
 
 pub(super) async fn check_admission(

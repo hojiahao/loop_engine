@@ -301,7 +301,9 @@ def assert_run_surface(
     descriptor: FileDescriptorSet, files: dict[str, FileDescriptorProto]
 ) -> None:
     run_file = require_file(files, RUN_FILE)
-    assert dependency_closure(files, RUN_FILE) == DISCOVERY_FILE_ALLOWLIST | {RUN_FILE}
+    assert dependency_closure(
+        files, RUN_FILE
+    ) == DISCOVERY_FILE_ALLOWLIST | RESEARCH_FILE_ALLOWLIST | {RUN_FILE}
     assert_service(
         run_file,
         "RunService",
@@ -317,13 +319,19 @@ def assert_run_surface(
         "Start": {
             "context": (1, ".loop.v1.CommandContext"),
             "plan": (2, ".loop.v1.PolicyReference"),
+            "workflow_version": (3, ""),
         },
         "Step": {
             "context": (1, ".loop.v1.CommandContext"),
             "run_id": (2, ".loop.v1.RunId"),
             "expected_revision": (3, ""),
+            "workflow_version": (4, ""),
         },
-        "Get": {"context": (1, ".loop.v1.CommandContext"), "run_id": (2, ".loop.v1.RunId")},
+        "Get": {
+            "context": (1, ".loop.v1.CommandContext"),
+            "run_id": (2, ".loop.v1.RunId"),
+            "workflow_version": (3, ""),
+        },
     }.items():
         assert_message_fields(require_message(run_file, f"{operation}RunRequest"), fields)
         assert_message_fields(
@@ -338,8 +346,11 @@ def assert_run_surface(
         assert not any(token in name.lower() for token in DISCOVERY_FORBIDDEN_TYPE_TOKENS)
     assert ".loop.runs.v1.RunBudget" not in inputs
     assert ".loop.discovery.v1.DiscoveryJobHandle" in outputs
+    assert ".loop.research.v1.ResearchJobHandle" in outputs
     forbidden = {
         ".loop.runs.v1.RunSpecification",
+        ".loop.runs.v1.NumericalWorkflow",
+        ".loop.research.v1.ResearchJobBudget",
         ".loop.discovery.v1.DiscoveryJobInput",
         ".loop.discovery.v1.DiscoveryCandidate",
         ".loop.v1.ModelResolutionSnapshot",
@@ -359,6 +370,7 @@ def assert_run_surface(
             "protocol_selection": (6, ".loop.v1.ProtocolSelectionSnapshot"),
             "budget": (7, ".loop.runs.v1.RunBudget"),
             "maximum_rounds": (8, ""),
+            "numerical": (9, ".loop.runs.v1.NumericalWorkflow"),
         },
     )
 

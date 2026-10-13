@@ -8,6 +8,34 @@ use std::process::Command;
 use super::operations::Operations;
 use super::{Case, Clock, private_dir, private_file, put};
 
+#[tokio::test]
+async fn numerical_cache() {
+    let mut case = Case::open().await;
+    let operations = case.install_numerical(1, false).await;
+    let config =
+        serde_json::from_value(operations.run_deployment.as_ref().unwrap()["runs"].clone())
+            .unwrap();
+    let root = case.directory.path().join("data");
+    let catalog = crate::runtime::RunCatalog::open(config, case.executor.clone(), &root).unwrap();
+    let specification = catalog.specifications().next().unwrap();
+    let (first, first_proof) = catalog.numerical(specification, &root).await.unwrap();
+    let (second, second_proof) = catalog.numerical(specification, &root).await.unwrap();
+    assert!(std::sync::Arc::ptr_eq(&first, &second));
+    assert!(!std::sync::Arc::ptr_eq(&first_proof, &second_proof));
+    first_proof.check().unwrap();
+    second_proof.check().unwrap();
+    // A warm resolver remains bound to its deployment namespace. An existing
+    // directory cannot become an alternate source through service composition.
+    assert!(matches!(
+        catalog
+            .numerical(specification, &case.directory.path().join("protected"))
+            .await,
+        Err(crate::store::StoreError::AdmissionDenied)
+    ));
+    assert_eq!(case.calls(), 0);
+    case.close().await;
+}
+
 impl Case {
     pub(in crate::runtime::discovery::tests) async fn agent_run(
         &self,
@@ -47,6 +75,7 @@ impl Case {
             discovery: Some(self.input.clone()),
             protocol_selection: Some(metadata.protocol_selection),
             maximum_rounds: rounds,
+            numerical: None,
             budget: Some(wire::RunBudget {
                 maximum_steps: u64::from(budget.maximum_steps) * allowance,
                 maximum_input_tokens: budget.maximum_input_tokens * allowance,

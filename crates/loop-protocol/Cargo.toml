@@ -25,7 +25,7 @@ jobs-service = []
 protocol-service = []
 provider-service = []
 research-service = []
-runs-service = ["discovery-service"]
+runs-service = ["discovery-service", "research-service"]
 
 [dependencies]
 loop-core = { path = "../loop-core" }

@@ -1,13 +1,31 @@
 // Public operator surface deliberately omits the internal RunSpecification.
-export { validate_view } from "../runs.js";
+
+export {
+  type DiscoveryJobHandle,
+  DiscoveryJobHandleSchema,
+  DiscoveryJobStatus,
+  DiscoveryJobStatusSchema,
+} from "../generated/loop/discovery/v1/service_pb.js";
+export {
+  type ResearchJobHandle,
+  ResearchJobHandleSchema,
+  ResearchJobStatus,
+  ResearchJobStatusSchema,
+} from "../generated/loop/research/v1/service_pb.js";
 export {
   type GetRunRequest,
   GetRunRequestSchema,
   type GetRunResponse,
   GetRunResponseSchema,
+  type ResearchRunView,
+  ResearchRunViewSchema,
+  RoundDisposition,
+  RoundDispositionSchema,
   type RunBudget,
   RunBudgetSchema,
   RunService,
+  RunStage,
+  RunStageSchema,
   RunStatus,
   RunStatusSchema,
   type RunView,
@@ -21,12 +39,6 @@ export {
   type StepRunResponse,
   StepRunResponseSchema,
 } from "../generated/loop/runs/v1/service_pb.js";
-export {
-  type DiscoveryJobHandle,
-  DiscoveryJobHandleSchema,
-  DiscoveryJobStatus,
-  DiscoveryJobStatusSchema,
-} from "../generated/loop/discovery/v1/service_pb.js";
 export {
   type Actor,
   type ActorId,
@@ -58,3 +70,4 @@ export {
   type Sha256Digest,
   Sha256DigestSchema,
 } from "../generated/loop/v1/common_pb.js";
+export { validate_view, validate_workflow } from "../runs.js";

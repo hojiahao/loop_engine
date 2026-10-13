@@ -117,7 +117,7 @@ impl RoleCommand {
         decoded.map_err(|_| StoreError::Corrupt("role command receipt"))
     }
 
-    fn input(&self) -> StoreResult<(JobKind, job_specification::Input)> {
+    pub(super) fn input(&self) -> StoreResult<(JobKind, job_specification::Input)> {
         let missing = StoreError::Invalid("role input");
         Ok(match self {
             Self::Discovery(request) => {
@@ -329,23 +329,7 @@ pub(super) async fn submit_in(
         return command.project(record, true);
     }
 
-    let specification = JobSpecification {
-        job_id: Some(JobId {
-            value: permit.map_or_else(
-                || format!("job.{}", uuid::Uuid::new_v4().simple()),
-                |permit| permit.job_id().to_owned(),
-            ),
-        }),
-        run_id: Some(metadata.run_id),
-        kind: kind as i32,
-        input: Some(input),
-        submitted_at: Some(timestamp(now)),
-        submitted_by: Some(principal.clone()),
-        idempotency_key: context.idempotency_key.clone(),
-        correlation_id: context.correlation_id.clone(),
-        causation_id: context.causation_id.clone(),
-        protocol_selection: Some(metadata.protocol_selection),
-    };
+    let specification = build_job(&command, principal, metadata, now, permit)?;
     validate_job_specification(&specification)?;
     store.admission.validate_submission(&specification)?;
     if kind == JobKind::Backtest {
@@ -393,4 +377,32 @@ pub(super) async fn submit_in(
     )
     .await?;
     command.project(record, false)
+}
+
+pub(super) fn build_job(
+    command: &RoleCommand,
+    principal: &Actor,
+    metadata: SubmissionMetadata,
+    now: i64,
+    permit: Option<&super::runs::RunPermit>,
+) -> StoreResult<JobSpecification> {
+    let context = validate_context(command.context(), principal)?;
+    let (kind, input) = command.input()?;
+    Ok(JobSpecification {
+        job_id: Some(JobId {
+            value: permit.map_or_else(
+                || format!("job.{}", uuid::Uuid::new_v4().simple()),
+                |permit| permit.job_id().to_owned(),
+            ),
+        }),
+        run_id: Some(metadata.run_id),
+        kind: kind as i32,
+        input: Some(input),
+        submitted_at: Some(timestamp(now)),
+        submitted_by: Some(principal.clone()),
+        idempotency_key: context.idempotency_key.clone(),
+        correlation_id: context.correlation_id.clone(),
+        causation_id: context.causation_id.clone(),
+        protocol_selection: Some(metadata.protocol_selection),
+    })
 }

@@ -6,10 +6,15 @@ use crate::runtime::PortfolioExecutor;
 use crate::store::FactorRepository;
 
 mod fixture;
+mod numerical;
 mod processes;
 mod reconciliation;
 mod statistics;
 use fixture::PortfolioCase;
+
+pub(super) fn configure_run(fixture: &mut Fixture) {
+    self::fixture::configure(fixture, false);
+}
 
 #[tokio::test]
 async fn protected_portfolio_denied() {

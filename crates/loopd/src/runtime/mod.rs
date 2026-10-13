@@ -16,6 +16,7 @@ mod service;
 mod statistics;
 #[cfg(test)]
 mod tests;
+pub(crate) mod workflow;
 
 pub(crate) use artifacts::view_id;
 pub use artifacts::{ArtifactBroker, DataPin};

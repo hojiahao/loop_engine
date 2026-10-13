@@ -52,7 +52,7 @@ impl PgJobStore {
     /// Report registration must recapture it under the writer lock.
     pub(crate) async fn trial_snapshot(&self, principal: &Actor) -> StoreResult<TrialSnapshot> {
         tokio::time::timeout(std::time::Duration::from_secs(30), async {
-            let mut transaction = self.pool.begin().await?;
+            let mut transaction = begin_snapshot(self).await?;
             let snapshot = capture_records(self, &mut transaction, principal).await?;
             transaction.commit().await?;
             Ok(snapshot)
@@ -66,15 +66,18 @@ impl PgJobStore {
     /// Cancellation rolls back the read; the completion transaction must check
     /// this snapshot again because new work can be registered during execution.
     pub async fn trial_ledger(&self, principal: &Actor) -> StoreResult<TrialLedger> {
-        tokio::time::timeout(std::time::Duration::from_secs(30), async {
-            let mut transaction = self.pool.begin().await?;
-            let ledger = capture(self, &mut transaction, principal).await?;
-            transaction.commit().await?;
-            Ok(ledger)
-        })
-        .await
-        .map_err(|_| StoreError::Unavailable("trial ledger deadline"))?
+        Ok(self.trial_snapshot(principal).await?.ledger)
     }
+}
+
+pub(super) async fn begin_snapshot(store: &PgJobStore) -> StoreResult<Transaction<'_, Postgres>> {
+    let mut transaction = store.pool.begin().await?;
+    // Trial rows and their run/transition authorization must describe one MVCC
+    // snapshot even while another connection advances a numerical child.
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *transaction)
+        .await?;
+    Ok(transaction)
 }
 
 pub(super) async fn capture(
@@ -109,11 +112,11 @@ pub(super) async fn capture_records(
     let mut entries = Vec::with_capacity(rows.len());
     let mut records = Vec::with_capacity(rows.len());
     let mut attempts = 0_u64;
+    let mut run_cache = super::runs::TrialCache::default();
     for row in rows {
         let record: JobRecord = record_from_row(&row)?;
-        store
-            .admission
-            .authorize_job_command("loop.factors.read_trials", principal, &record)?;
+        super::runs::authorize_trial(store, transaction, principal, &record, &mut run_cache)
+            .await?;
         let job = record
             .specification
             .as_ref()

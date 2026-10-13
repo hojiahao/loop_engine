@@ -6,6 +6,7 @@ pub(crate) mod evaluation;
 pub(crate) mod files;
 mod loading;
 pub(crate) mod model;
+pub(crate) mod numerical;
 mod policy;
 pub(crate) mod portfolio;
 pub(crate) mod reconciliation;
@@ -18,4 +19,4 @@ pub use policy::TrustedManifests;
 pub use portfolio::PortfolioPin;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
