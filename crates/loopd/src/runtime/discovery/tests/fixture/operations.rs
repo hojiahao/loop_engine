@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{ExitStatus, Output, Stdio};
@@ -21,6 +22,7 @@ pub(in crate::runtime::discovery::tests) struct Operations {
     loopd: PathBuf,
     runtime: PathBuf,
     database: PathBuf,
+    log: PathBuf,
     server: Option<Child>,
     pub(super) run_deployment: Option<serde_json::Value>,
     pub(super) run_config: PathBuf,
@@ -81,6 +83,7 @@ impl Case {
             loopd: bin.join("loopd"),
             runtime: directory.path().join("runtime.json"),
             database: directory.path().join("database-url"),
+            log: directory.path().join("runtime.log"),
             server: None,
             run_deployment: None,
             run_config: directory.path().join("operator.json"),
@@ -129,6 +132,7 @@ impl Case {
             &serde_json::to_vec(&deployment).unwrap(),
         );
         private_file(&operations.database, test_support::test_url().as_bytes());
+        private_file(&operations.log, b"");
         let schema = test_support::schema(&self.directory.path().join("state"));
         let server = Command::new(&operations.loopd)
             .current_dir(operations._directory.path())
@@ -141,7 +145,8 @@ impl Case {
             .arg("--runtime-config")
             .arg(&operations.runtime)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .env("RUST_LOG", "warn")
+            .stdout(fs::File::create(&operations.log).unwrap())
             .stderr(Stdio::inherit())
             .kill_on_drop(true)
             .spawn()
@@ -167,6 +172,16 @@ impl Case {
 }
 
 impl Operations {
+    pub(in crate::runtime::discovery::tests) fn runtime_log(&self) -> String {
+        let mut bytes = String::new();
+        fs::File::open(&self.log)
+            .unwrap()
+            .take(16_384)
+            .read_to_string(&mut bytes)
+            .unwrap();
+        bytes
+    }
+
     pub(super) fn directory(&self) -> &std::path::Path {
         self._directory.path()
     }

@@ -518,7 +518,7 @@ small binary reference is the `--plan` file in the following commands.
 
 ```bash
 loopctl run --config /srv/loop/operator/run-client.json --workflow-version 2 start \
-  --plan /srv/loop/operator/numerical-plan.binpb --key start.numerical.001
+  --timeout-seconds 120 --plan /srv/loop/operator/numerical-plan.binpb --key start.numerical.001
 
 loopctl run --config /srv/loop/operator/run-client.json --workflow-version 2 step \
   --timeout-seconds 240 --run run.numerical.001 --revision 1 --key step.numerical.001

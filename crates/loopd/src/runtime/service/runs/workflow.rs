@@ -18,7 +18,7 @@ mod preparation;
 /// The frozen recipe and derived evidence remain live through the final commit.
 struct StageContext<'a> {
     specification: &'a runs::RunSpecification,
-    resolver: NumericalResolver,
+    resolver: Arc<NumericalResolver>,
     frozen: Arc<FrozenNumerical>,
     actor: v1::Actor,
     store: PgJobStore,
@@ -30,7 +30,7 @@ impl RuntimeService {
     pub(in crate::runtime::service) async fn frozen_numerical(
         &self,
         specification: &runs::RunSpecification,
-    ) -> StoreResult<(NumericalResolver, Arc<FrozenNumerical>)> {
+    ) -> StoreResult<(Arc<NumericalResolver>, Arc<FrozenNumerical>)> {
         // Both installed workers must exist before a v2 run consumes any budget.
         self.evaluator.as_ref().ok_or(StoreError::AdmissionDenied)?;
         let portfolio = self.portfolio.as_ref().ok_or(StoreError::AdmissionDenied)?;

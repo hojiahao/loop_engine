@@ -59,14 +59,16 @@ export CARGO_PROFILE_DEV_DEBUG=0
 export CARGO_PROFILE_TEST_DEBUG=0
 ./scripts/pnpm.sh --filter @loop-engine/providerd build
 ./scripts/cargo.sh build --locked --offline --workspace --all-features --bins
-./scripts/cargo.sh test --locked --offline -p loop-protocol --test run_boundary
+./scripts/cargo.sh test --locked --offline -p loop-protocol --all-features --test run_boundary
 ./scripts/pnpm.sh --filter @loop-engine/protocol exec vitest run test/run-boundary.test.ts
 ./scripts/uv-protocol.sh run --locked --offline --no-sync pytest tests/test_run_boundary.py
 
 bash scripts/postgres-test.sh start
-./scripts/cargo.sh test --locked --offline -p loopd --lib -- \
+./scripts/cargo.sh test --locked --offline -p loopd --all-features --lib -- \
   manifests::numerical::tests \
   manifests::tests::runtime::evaluation::portfolio::numerical \
+  runtime::authority::tests runtime::workflow::tests \
+  runtime::discovery::tests::fixture::run_operations::numerical_cache \
   store::runs::tests runtime::discovery::tests::workflow \
   --test-threads=1
 ./scripts/cargo.sh test --locked --offline -p loopctl
@@ -109,7 +111,7 @@ actual command results, commit IDs and CI links during delivery:
   fourteen passed in the first targeted Rust execution.
 - The new `store::runs::tests::numerical::snapshot_consistency` test uses two
   real PostgreSQL connections to check snapshot stability across a concurrent
-  commit. Its execution result is **pending**; it does not replace the separate
+  commit. It passed at `bf02ea0`; it does not replace the separate
   independent-process concurrency and crash/restart gates.
 - A real PostgreSQL/Python fixture covers derivation from a registered successful
   evaluation, repeated exact binding, dynamic-pin denial for ordinary lookup,
@@ -129,7 +131,9 @@ actual command results, commit IDs and CI links during delivery:
   roughly 640 KiB of storage validation to the previous 1.46 MiB runtime chain;
   Discovery also retained an approximately 784 KiB drive frame. The follow-up
   splits shared model/numerical execution and legacy dispatch, without changing
-  thread-stack settings or adding detached tasks. Its execution gate is pending.
+  thread-stack settings or adding detached tasks. The `bf02ea0` targeted run
+  completed without stack overflow, but its installed workflow failed at the
+  first numerical child reservation. Full-round acceptance remains required.
 - Targeted TypeScript and Python run-boundary suites each pass 58 cases. The
   complete Python protocol suite passes 384 cases after synchronizing the
   shared fixture's current descriptor hash. Ruff and mypy also pass.
@@ -145,15 +149,93 @@ Review also identified two deadline cases now covered by regression fixtures:
 an expired queued numerical child must use recovery rather than repeatedly fail
 lease acquisition, and a transaction must recheck its clock before writing and
 before commit. The latter rolls back all state/receipt/audit writes on clock
-regression or a newly crossed parent deadline. Their final execution is pending.
+regression or a newly crossed parent deadline. These cases passed at `bf02ea0`.
 The final writer also rechecks owner, numerical-reader and new-child authority;
-a real RuntimeAuthority expiry fixture verifies rollback at that boundary.
+a real RuntimeAuthority expiry fixture passed at that boundary.
 
 The storage 2/4/8-process and kill/restart cases exercise terminal parent
 advancement and transactional history. A separate installed CLI test races
 2/4/8 independent processes at the actual Discovery-to-evaluation boundary and
-checks one model call, one child, one reservation and no fabricated trials.
-Neither fixture establishes multi-host execution. Both final gates are pending.
+checks one model call, one child, one reservation, one registered queued trial
+and no numerical results.
+Neither fixture establishes multi-host execution. The storage process/crash
+matrix passed at `bf02ea0`; the installed CLI race still requires the corrected
+numerical reservation path below.
+
+The targeted `bf02ea0` run passed 57 cases, failed four installed workflows and
+skipped one explicitly invoked subprocess helper. PR CI `38272618414` passed
+TypeScript, Python protocol, Python research and legacy regression. The Rust,
+unified-workspace and DaoCloud gates failed on the same four workflows plus one
+historical-reader test. Inspection identified two independent causes:
+
+- Generic numerical child reservation reused the model-call duration validator,
+  incorrectly rejecting a valid 180-second numerical job at its 120-second
+  ceiling. Numerical reservation now validates the general JobBudget duration
+  and rounds up fractional milliseconds. Discovery retains its original model
+  ceiling. New tests cover exact remaining time, overflow, invalid duration,
+  unchanged reservations on denial and the unchanged Discovery ceiling.
+- The historical-reader fixture authorized `run.1` while its job belonged to
+  `run.fixture`. The fixture must explicitly grant that run and retain a
+  negative ungranted-scope case; production authorization remains unchanged.
+
+Fresh installed binaries, the corrected tests and replacement remote gates are
+required before completion. These failed runs are not acceptance evidence for
+the full numerical workflow.
+
+After the numerical reservation correction, the installed CLI roundtrip passed
+on the default thread stack in 206.13 seconds. It completed actual candidate
+generation, Python evaluation/portfolio execution, process restart, receipt
+replay and duplicate filtering. This focused pass precedes the final guard
+changes and does not replace their regression or the complete remote gate.
+
+The final start and advance writers also recheck their retained file guards
+after database writes and immediately before commit. Start now repeats deadline
+and live owner/child checks at that boundary. `start_guard_rollback` resolves a
+real numerical recipe, replaces its file during the final clock check and
+requires all job/run/transition/receipt/audit inserts to roll back. Restoring the
+bytes does not revive the stale proof; fresh resolution must allow the same
+unconsumed run ID and request key to start. The final targeted execution passed
+this case, both installed scope/coverage fixtures, the installed roundtrip and
+the historical-reader fixture. It passed 45 tests, failed the installed writer
+fixture and skipped its explicitly invoked process helper.
+
+The writer fixture expected zero trial rows after creating a queued evaluation
+job. That contradicts the existing submission invariant: the real attempt is
+registered in the same transaction as its job, before numerical execution, so
+failed or cancelled attempts cannot disappear. The fixture now requires exactly
+one trial bound to the queued child, factor and run, and still requires zero
+evaluation/backtest results. No production behavior changes for this correction.
+Its next run passed the two-process case but found no successful advancement
+with four writers. A diagnostic rerun passed two and four writers, then all
+eight clients reported transport failure. These are failed acceptance runs,
+not evidence of a delivered concurrency claim.
+
+Inspection found that every numerical step constructed a cold resolver and
+rehashed the complete installed environment under the same bounded verification
+deadline. The deployment now retains one root-bound NumericalResolver and
+reuses its existing bounded FileVersion cache. Every operation still verifies
+the plan, derives a fresh proof and checks current files and live authority;
+no deadline or permission was relaxed. Tests cover shared resolver identity,
+distinct proofs, wrong-root denial, same-length content changes, atomic leaf
+replacement/deletion and root replacement/permissions. Installed fixture
+failures now include a bounded warning log and the supplier-call count.
+Final behavioral, lint and remote gates for this correction remain pending.
+
+Independent review also found a real clock-ordering race in RuntimeAuthority:
+it sampled before locking the watermark. A preempted caller could publish its
+earlier sample after another caller and incorrectly report clock regression.
+Sampling now occurs under the same lock as comparison/publication. A controlled
+clock asserts that lock ownership precedes every sample, then exercises eight
+threads; a separate regression case retains actual clock-rollback denial and
+recovery. These tests require no timing sleeps and fail under the old ordering.
+This source-level defect is not claimed as the sole cause of the earlier
+installed transport errors; the corrected installed matrix must pass.
+
+The combined correction builds fresh all-feature workspace binaries and passes
+the complete all-target/all-feature Clippy gate with `-D warnings`, Rust format
+checks, nine Rust run-boundary tests and all 4,965 naming declarations. The
+updated local installed/concurrency/recovery execution and replacement remote
+CI are pending at publication; the PR remains a draft until those gates pass.
 
 The initial PR CI found stale current-descriptor metadata in
 `wire_fixtures.json` and a missing generator-produced trailing blank line in

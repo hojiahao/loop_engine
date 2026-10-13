@@ -309,11 +309,13 @@ impl RuntimeAuthority {
     }
 
     pub(super) fn now(&self) -> StoreResult<i64> {
-        let now = self.clock.now_millis()?;
         let mut previous = self
             .last_observed
             .lock()
             .map_err(|_| StoreError::Unavailable("runtime clock"))?;
+        // Serialize sampling as well as publication: an earlier sample must not
+        // arrive after another caller has already published a later time.
+        let now = self.clock.now_millis()?;
         if now < *previous {
             return Err(StoreError::ClockRegression);
         }
@@ -643,3 +645,6 @@ pub(super) fn digest(value: &str) -> StoreResult<[u8; 32]> {
 fn id(value: &str) -> StoreResult<()> {
     crate::store::validate_id(value)
 }
+
+#[cfg(test)]
+mod tests;

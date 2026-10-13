@@ -12,6 +12,9 @@ use crate::store::{BacktestPolicy, EvaluationTrial, StoreError, StoreResult};
 mod authority;
 pub(crate) use authority::WorkflowAuthority;
 
+#[cfg(test)]
+mod tests;
+
 /// Frozen recipe/data references copied into each immutable parent transition.
 /// Optional pins describe a particular numerical child, not reusable authority.
 #[derive(Clone, Serialize, Deserialize)]

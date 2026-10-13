@@ -56,7 +56,7 @@ pub(super) fn numerical_spec() -> RunSpecification {
         maximum_output_tokens: 0,
         maximum_cost: Some(storage::money(0)),
         maximum_wall_time: Some(prost_types::Duration {
-            seconds: 120,
+            seconds: 180,
             nanos: 0,
         }),
     };
@@ -271,6 +271,108 @@ async fn zero_reservation() {
         prior
     );
     store.close().await;
+}
+
+#[test]
+fn numerical_deadline() {
+    let specification = numerical_spec();
+    let child = JobBudget::decode(
+        specification
+            .numerical
+            .as_ref()
+            .unwrap()
+            .evaluation_budget
+            .as_ref()
+            .unwrap()
+            .encode_to_vec()
+            .as_slice(),
+    )
+    .unwrap();
+    let original = RunView {
+        deadline: Some(timestamp(fixture::NOW + 180_000)),
+        reserved_cost: Some(storage::money(0)),
+        ..Default::default()
+    };
+    let mut exact = original.clone();
+    assert!(storage::reserve_budget(&mut exact, &specification, &child, fixture::NOW).unwrap());
+    assert_eq!(exact.reserved_steps, 1);
+
+    // Exceeding the parent's remaining time does not consume any reservation.
+    let mut late = original.clone();
+    assert!(!storage::reserve_budget(&mut late, &specification, &child, fixture::NOW + 1).unwrap());
+    assert_eq!(late, original);
+    assert!(!storage::reserve_budget(&mut late, &specification, &child, i64::MAX).unwrap());
+    assert_eq!(late, original);
+}
+
+#[test]
+fn duration_limits() {
+    let mut specification = numerical_spec();
+    specification
+        .budget
+        .as_mut()
+        .unwrap()
+        .maximum_wall_time
+        .as_mut()
+        .unwrap()
+        .seconds = 604_800;
+    let original = RunView {
+        deadline: Some(timestamp(fixture::NOW + 604_800_000)),
+        reserved_cost: Some(storage::money(0)),
+        ..Default::default()
+    };
+    for (seconds, nanos, valid) in [
+        (0, 1, true),
+        (604_800, 0, true),
+        (0, 0, false),
+        (-1, 0, false),
+        (1, -1, false),
+        (1, 1_000_000_000, false),
+        (604_800, 1, false),
+        (i64::MAX, 0, false),
+    ] {
+        let child = JobBudget {
+            maximum_steps: 1,
+            maximum_cost: Some(storage::money(0)),
+            maximum_wall_time: Some(prost_types::Duration { seconds, nanos }),
+            ..Default::default()
+        };
+        let mut view = original.clone();
+        let result = storage::reserve_budget(&mut view, &specification, &child, fixture::NOW);
+        if valid {
+            assert!(result.unwrap(), "{seconds}s {nanos}ns");
+        } else {
+            assert!(matches!(result, Err(StoreError::Invalid(_))));
+            assert_eq!(view, original);
+        }
+    }
+}
+
+#[test]
+fn discovery_ceiling() {
+    let mut specification = numerical_spec();
+    specification
+        .discovery
+        .as_mut()
+        .unwrap()
+        .budget
+        .as_mut()
+        .unwrap()
+        .maximum_wall_time
+        .as_mut()
+        .unwrap()
+        .seconds = 180;
+    let original = RunView {
+        deadline: Some(timestamp(fixture::NOW + 3_600_000)),
+        reserved_cost: Some(storage::money(0)),
+        ..Default::default()
+    };
+    let mut view = original.clone();
+    assert!(matches!(
+        storage::reserve(&mut view, &specification, fixture::NOW),
+        Err(StoreError::Invalid("model wall time range"))
+    ));
+    assert_eq!(view, original);
 }
 
 #[tokio::test]

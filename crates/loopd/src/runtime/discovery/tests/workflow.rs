@@ -134,6 +134,7 @@ async fn numerical_writers() {
         let outputs = competing_steps(&operations, writers).await;
         assert_eq!(outputs.len(), writers);
         let mut successes = Vec::new();
+        let mut failures = Vec::new();
         for output in outputs {
             if output.status.success() {
                 successes.push(document(output, 0, "concurrent discovery"));
@@ -146,9 +147,16 @@ async fn numerical_writers() {
                     error["error"]["category"].as_str(),
                     Some("conflict" | "transport" | "remote_cancelled")
                 ));
+                failures.push(error);
             }
         }
-        assert_eq!(successes.len(), 1, "{writers} competing writers");
+        assert_eq!(
+            successes.len(),
+            1,
+            "{writers} competing writers; supplier calls={}; errors={failures:?}; runtime={}",
+            case.calls(),
+            operations.runtime_log()
+        );
         let evaluation = successes.pop().unwrap();
         assert_eq!(evaluation["revision"], "2");
         assert_eq!(evaluation["status"], "active");
@@ -190,7 +198,18 @@ async fn numerical_writers() {
         .fetch_one(&mut connection)
         .await
         .unwrap();
-        assert_eq!(counts, (2, 1, 2, 0, 0, 0), "{writers} competing writers");
+        // A real evaluation submission registers its attempt before execution,
+        // so failures and cancellations cannot disappear from trial accounting.
+        // It must be the one queued child, with no numerical result yet.
+        assert_eq!(counts, (2, 1, 2, 1, 0, 0), "{writers} competing writers");
+        let (trial_job, trial_factor, trial_run): (String, String, String) =
+            sqlx::query_as("SELECT job_id, factor_spec_id, run_id FROM factor_trials")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(trial_job, evaluation["research"]["current_child"]["job_id"]);
+        assert_eq!(trial_factor, evaluation["research"]["factor_spec_id"]);
+        assert_eq!(trial_run, "run.discovery");
         drop(connection);
         let mut operations = Arc::try_unwrap(operations)
             .unwrap_or_else(|_| panic!("all competing CLI processes must be joined"));

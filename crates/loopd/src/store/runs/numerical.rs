@@ -47,6 +47,7 @@ impl PgJobStore {
     /// Start an explicitly opted-in v2 run from a server-verified frozen recipe.
     /// Owner authorization, first reservation, real child and evidence commit
     /// atomically. Replays are observational; cancellation rolls back all writes.
+    /// File guards, live authority and the deadline are rechecked before commit.
     pub(crate) async fn start_numerical(
         &self,
         principal: &Actor,
@@ -119,7 +120,7 @@ impl PgJobStore {
             ..Default::default()
         };
         project_child(&mut view, &child, RunStage::Discovery, now)?;
-        if !reserve_budget(&mut view, specification, budget(&child.specification)?, now)? {
+        if !super::storage::reserve(&mut view, specification, now)? {
             return Err(StoreError::Invalid("initial run reservation"));
         }
         let mut binding = Box::new(RunBinding {
@@ -130,6 +131,7 @@ impl PgJobStore {
         });
         let bytes = transitions::seal(specification, &mut view, &mut binding)?;
         prepared.check_for(specification)?;
+        let checked = final_time(self, now, Some(deadline))?;
         persist(
             &mut transaction,
             specification,
@@ -154,6 +156,10 @@ impl PgJobStore {
         .await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_start_before").await;
+        final_time(self, checked, Some(deadline))?;
+        self.admission.authorize_run(principal, specification)?;
+        self.admission.validate_submission(&child.specification)?;
+        prepared.check_for(specification)?;
         transaction.commit().await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_start_after").await;
@@ -372,6 +378,9 @@ impl PgJobStore {
         if let Some(child) = &next {
             self.admission.validate_submission(&child.specification)?;
         }
+        if let Some(prepared) = prepared {
+            prepared.check_for(specification)?;
+        }
         transaction.commit().await?;
         #[cfg(test)]
         super::super::crash_tests::fault_point("run_step_after").await;
@@ -532,12 +541,17 @@ fn reserve_child(
     stage: RunStage,
     now: i64,
 ) -> StoreResult<Option<Child>> {
-    if !reserve_budget(
-        view,
-        &snapshot.specification,
-        budget(&child.specification)?,
-        now,
-    )? {
+    let reserved = if stage == RunStage::Discovery {
+        super::storage::reserve(view, &snapshot.specification, now)?
+    } else {
+        reserve_budget(
+            view,
+            &snapshot.specification,
+            budget(&child.specification)?,
+            now,
+        )?
+    };
+    if !reserved {
         view.status = RunStatus::BudgetExhausted as i32;
         return Ok(None);
     }

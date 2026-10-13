@@ -54,6 +54,9 @@ pub(super) fn reserve(
         .as_ref()
         .and_then(|input| input.budget.as_ref())
         .ok_or(StoreError::Corrupt("run child budget"))?;
+    // Discovery retains the Harness's model-call ceiling. Numerical children
+    // use the broader job budget below and never pass through this check.
+    model_duration(child.maximum_wall_time.as_ref())?;
     reserve_budget(
         view,
         specification,
@@ -96,9 +99,7 @@ pub(super) fn reserve_budget(
             .ok_or(StoreError::Corrupt("run deadline"))?,
         true,
     )?;
-    // Keep the existing Harness's conservative sub-millisecond rounding; only
-    // the new parent wall duration requires exact millisecond precision.
-    let child_deadline = now.checked_add(model_duration(child.maximum_wall_time.as_ref())?);
+    let child_deadline = now.checked_add(child_millis(child.maximum_wall_time.as_ref())?);
     if steps.is_none_or(|value| value > parent.maximum_steps || value > i64::MAX as u64)
         || input.is_none_or(|value| value > parent.maximum_input_tokens || value > i64::MAX as u64)
         || output
@@ -113,6 +114,24 @@ pub(super) fn reserve_budget(
     view.reserved_output_tokens = output.expect("checked output");
     view.reserved_cost = Some(money(cost.expect("checked cost")));
     Ok(true)
+}
+
+fn child_millis(value: Option<&prost_types::Duration>) -> StoreResult<i64> {
+    let value = value.ok_or(StoreError::Invalid("child wall time"))?;
+    // Match the JobBudget contract's seven-day ceiling, including its exact
+    // endpoint. Round up so a fractional millisecond cannot escape reservation.
+    if !(0..=604_800).contains(&value.seconds)
+        || !(0..1_000_000_000).contains(&value.nanos)
+        || (value.seconds == 604_800 && value.nanos != 0)
+    {
+        return Err(StoreError::Invalid("child wall time range"));
+    }
+    value
+        .seconds
+        .checked_mul(1000)
+        .and_then(|seconds| seconds.checked_add((i64::from(value.nanos) + 999_999) / 1_000_000))
+        .filter(|millis| *millis > 0)
+        .ok_or(StoreError::Invalid("child wall time range"))
 }
 
 pub(super) fn child_handle(record: &JobRecord) -> StoreResult<DiscoveryJobHandle> {

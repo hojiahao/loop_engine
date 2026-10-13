@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use super::{DiscoveryExecutor, deployment::read_file};
 use crate::manifests::ObjectRef;
+use crate::manifests::numerical::{FrozenNumerical, NumericalResolver};
 use crate::store::{Clock, StoreError, StoreResult, SystemClock, validate_id};
 
 /// Administrator-owned immutable run documents. Missing configuration disables
@@ -45,7 +46,7 @@ struct FrozenRun {
 pub struct RunCatalog {
     plans: Vec<FrozenRun>,
     discovery: Arc<DiscoveryExecutor>,
-    plan_store: PathBuf,
+    numerical: Option<(PathBuf, Arc<NumericalResolver>)>,
 }
 
 impl RunCatalog {
@@ -53,8 +54,14 @@ impl RunCatalog {
     /// A template must omit its own policy reference to avoid circular hashing;
     /// the enclosing document's digest becomes that immutable reference.
     /// Missing files, duplicate run IDs, unknown fields or executor drift deny
-    /// startup. Loading performs no network call or database mutation.
-    pub fn open(config: RunConfig, discovery: Arc<DiscoveryExecutor>) -> StoreResult<Self> {
+    /// startup. Numerical plans share a bounded file cache pinned to the trusted
+    /// deployment root; each operation still resolves and verifies fresh proofs.
+    /// Loading performs no network call or database mutation.
+    pub fn open(
+        config: RunConfig,
+        discovery: Arc<DiscoveryExecutor>,
+        artifact_root: &Path,
+    ) -> StoreResult<Self> {
         if !(1..=64).contains(&config.plans.len()) {
             return Err(StoreError::Invalid("run catalog bounds"));
         }
@@ -131,10 +138,18 @@ impl RunCatalog {
                 numerical_recipe: document.numerical_recipe,
             });
         }
+        let numerical = plans
+            .iter()
+            .any(|plan| plan.numerical_recipe.is_some())
+            .then(|| {
+                NumericalResolver::open(&config.plan_store, artifact_root)
+                    .map(|resolver| (artifact_root.to_owned(), Arc::new(resolver)))
+            })
+            .transpose()?;
         Ok(Self {
             plans,
             discovery,
-            plan_store: config.plan_store,
+            numerical,
         })
     }
 
@@ -181,11 +196,12 @@ impl RunCatalog {
         &self,
         specification: &wire::RunSpecification,
         artifact_root: &Path,
-    ) -> StoreResult<(
-        crate::manifests::numerical::NumericalResolver,
-        Arc<crate::manifests::numerical::FrozenNumerical>,
-    )> {
+    ) -> StoreResult<(Arc<NumericalResolver>, Arc<FrozenNumerical>)> {
         self.verify(specification)?;
+        let (root, resolver) = self.numerical.as_ref().ok_or(StoreError::AdmissionDenied)?;
+        if root != artifact_root {
+            return Err(StoreError::AdmissionDenied);
+        }
         let plan = self
             .plans
             .iter()
@@ -200,8 +216,6 @@ impl RunCatalog {
             .as_ref()
             .and_then(|input| input.dataset.as_ref())
             .ok_or(StoreError::AdmissionDenied)?;
-        let resolver =
-            crate::manifests::numerical::NumericalResolver::open(&self.plan_store, artifact_root)?;
         let frozen = resolver
             .prepare(
                 workflow
@@ -214,7 +228,7 @@ impl RunCatalog {
                 dataset,
             )
             .await?;
-        Ok((resolver, Arc::new(frozen)))
+        Ok((resolver.clone(), Arc::new(frozen)))
     }
 }
 

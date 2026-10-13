@@ -33,6 +33,16 @@ in product screens or production runtime images. Development/test containers may
 still need source documentation for their verification commands. The final
 release-documentation gate remains part of Phase 14.
 
+The owner's 2026-10-13 instruction defers Phase 5's remaining subscribed market
+data onboarding until the software development work is ready. Continue Phase
+11, Phase 12, offline migration tooling and release preparation using synthetic
+fixtures and already authorized development data. Do not purchase subscriptions,
+install a broker gateway or claim licensed-data acceptance as part of that work.
+After data authorization is available, complete the deferred Phase 5/13.2 gate,
+then the dependent real-data research and production-release acceptance. Their
+pending status does not block independent software delivery or authorize a
+lower data-quality standard.
+
 ## Product documentation delivery
 
 The owner requires a product README that documents implemented behavior only.

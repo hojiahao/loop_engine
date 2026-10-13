@@ -1,6 +1,7 @@
 use super::*;
 use crate::manifests::tests::fixture::Fixture;
 use sha2::{Digest, Sha256};
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 
 struct Case {
@@ -260,7 +261,10 @@ async fn source_guards() {
     let case = Case::new();
     let frozen = case.prepare().await.unwrap();
     let source: model::FileSet = read(&case.fixture, &case.fixture.context.source);
-    std::fs::write(case.fixture.path(&source.files[0].object), b"changed").unwrap();
+    let path = case.fixture.path(&source.files[0].object);
+    let mut bytes = std::fs::read(&path).unwrap();
+    bytes[0] ^= 1;
+    std::fs::write(path, bytes).unwrap();
     assert!(frozen.check().is_err());
     assert!(
         frozen
@@ -268,6 +272,74 @@ async fn source_guards() {
             .is_err()
     );
     assert!(case.prepare().await.is_err());
+}
+
+#[tokio::test]
+async fn replaced_source() {
+    let case = Case::new();
+    let frozen = case.prepare().await.unwrap();
+    let source: model::FileSet = read(&case.fixture, &case.fixture.context.source);
+    let path = case.fixture.path(&source.files[0].object);
+    let original = std::fs::read(&path).unwrap();
+    let mut changed = original.clone();
+    changed[0] ^= 1;
+    let mut replacement = tempfile::NamedTempFile::new_in(&case.fixture.root).unwrap();
+    replacement.write_all(&changed).unwrap();
+    replacement.persist(&path).unwrap();
+    assert!(frozen.check().is_err());
+    assert!(case.prepare().await.is_err());
+
+    // Restoring the content permits a fresh proof, never revival of the old
+    // descriptor retained across a request's final commit boundary.
+    std::fs::write(path, original).unwrap();
+    assert!(frozen.check().is_err());
+    assert!(case.prepare().await.is_ok());
+}
+
+#[tokio::test]
+async fn missing_source() {
+    let case = Case::new();
+    let frozen = case.prepare().await.unwrap();
+    let source: model::FileSet = read(&case.fixture, &case.fixture.context.source);
+    std::fs::remove_file(case.fixture.path(&source.files[0].object)).unwrap();
+    assert!(frozen.check().is_err());
+    assert!(case.prepare().await.is_err());
+}
+
+#[tokio::test]
+async fn root_replacement() {
+    let case = Case::new();
+    let (policy, object) = case.pin();
+    case.resolver
+        .prepare(&policy, &object, &case.dataset)
+        .await
+        .unwrap();
+    std::fs::rename(
+        &case.fixture.root,
+        case.fixture.directory.path().join("old-objects"),
+    )
+    .unwrap();
+    std::fs::create_dir(&case.fixture.root).unwrap();
+    std::fs::set_permissions(&case.fixture.root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(matches!(
+        case.resolver.prepare(&policy, &object, &case.dataset).await,
+        Err(StoreError::Corrupt("numerical publication root changed"))
+    ));
+}
+
+#[tokio::test]
+async fn root_permissions() {
+    let case = Case::new();
+    let (policy, object) = case.pin();
+    case.resolver
+        .prepare(&policy, &object, &case.dataset)
+        .await
+        .unwrap();
+    std::fs::set_permissions(&case.fixture.root, std::fs::Permissions::from_mode(0o720)).unwrap();
+    assert!(matches!(
+        case.resolver.prepare(&policy, &object, &case.dataset).await,
+        Err(StoreError::Corrupt("numerical publication root changed"))
+    ));
 }
 
 #[tokio::test]

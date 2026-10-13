@@ -616,12 +616,13 @@ fn check_progress(
             let budget = loop_protocol::wire::v1::JobBudget::decode(bytes.as_slice())
                 .map_err(|_| StoreError::Corrupt("run child budget"))?;
             let mut attempt = previous.clone();
-            if storage::reserve_budget(
-                &mut attempt,
-                specification,
-                &budget,
-                timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?,
-            )? {
+            let now = timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?;
+            let reserved = if completed {
+                storage::reserve(&mut attempt, specification, now)?
+            } else {
+                storage::reserve_budget(&mut attempt, specification, &budget, now)?
+            };
+            if reserved {
                 return Err(StoreError::Corrupt("run false exhaustion"));
             }
         }

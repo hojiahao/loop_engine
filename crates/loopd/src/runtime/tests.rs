@@ -116,8 +116,11 @@ fn published_descriptor() {
 #[test]
 fn historical_executor_rotation() {
     use loop_protocol::wire::{runs::v1 as runs, v1};
+    let mut job = support::command(1).specification;
     let mut reader = identity();
     reader.role = Role::Research;
+    // Rotation changes the executor, never the reader's explicit run scope.
+    reader.run_ids = vec![job.run_id.as_ref().unwrap().value.clone()];
     let actor = Actor {
         actor_id: Some(ActorId {
             value: reader.actor_id.clone(),
@@ -131,8 +134,7 @@ fn historical_executor_rotation() {
         value: "retired.worker".to_owned(),
     });
     historical.authenticated_subject = "service:retired".to_owned();
-    let authority = registry(vec![reader]).unwrap();
-    let mut job = support::command(1).specification;
+    let authority = registry(vec![reader.clone()]).unwrap();
     let (kind, input) = support::research::inputs().remove(1);
     job.kind = kind as i32;
     job.input = Some(input);
@@ -147,6 +149,13 @@ fn historical_executor_rotation() {
     };
     authority.authorize_run_trial(&actor, &run, &job).unwrap();
     assert!(authority.validate_submission(&job).is_err());
+    reader.run_ids.clear();
+    assert!(
+        registry(vec![reader])
+            .unwrap()
+            .authorize_run_trial(&actor, &run, &job)
+            .is_err()
+    );
     let mut other = run;
     other.run_id = Some(v1::RunId {
         value: "run.other".to_owned(),
