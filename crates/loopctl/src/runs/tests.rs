@@ -78,6 +78,7 @@ fn view() -> wire::RunView {
         deadline: Some(time(60)),
         plan_verified: true,
         research: None,
+        adaptive: None,
     }
 }
 
@@ -164,7 +165,7 @@ fn selects_numerical_workflow() {
     };
     assert_eq!(arguments.workflow_version, 0);
     assert_eq!(arguments.schema(), SCHEMA);
-    for value in ["1", "3", "02", "-1"] {
+    for value in ["1", "4", "02", "03", "-1"] {
         assert!(
             cli(&[
                 "--workflow-version",
@@ -175,6 +176,66 @@ fn selects_numerical_workflow() {
             ])
             .is_err()
         );
+    }
+}
+
+#[test]
+fn adaptive_selection() {
+    let crate::Command::Run(arguments) = cli(&[
+        "--workflow-version",
+        "3",
+        "--timeout-seconds",
+        "240",
+        "step",
+        "--run",
+        "run.fixture",
+        "--revision",
+        "1",
+        "--key",
+        "adaptive.step",
+    ])
+    .unwrap()
+    .command
+    else {
+        panic!("run arguments")
+    };
+    assert_eq!(arguments.schema(), ADAPTIVE_SCHEMA);
+    assert_eq!(arguments.timeout(), Ok(Duration::from_secs(240)));
+}
+
+#[test]
+fn adaptive_projection() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../fixtures/contracts/protocol/v1/adaptive_workflow_v3.json"
+    ))
+    .unwrap();
+    let bytes = fixture["view_wire_hex"]
+        .as_str()
+        .unwrap()
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|value| u8::from_str_radix(std::str::from_utf8(value).unwrap(), 16).unwrap())
+        .collect::<Vec<_>>();
+    let view = wire::RunView::decode(bytes.as_slice()).unwrap();
+    let (document, code) = render("status", Some(view)).unwrap();
+    assert_eq!(code, 0);
+    assert_eq!(document["schema"], ADAPTIVE_SCHEMA);
+    assert_eq!(document["run"]["research"]["stage"], "perturbation");
+    assert_eq!(
+        document["run"]["research"]["perturbation_job_id"],
+        "job.perturbation.2"
+    );
+    assert!(document["run"]["research"]["discovery_job_id"].is_null());
+    assert_eq!(document["run"]["adaptive"]["source_count"], "1");
+    assert_eq!(document["run"]["adaptive"]["random_draws"], "1");
+    for secret in [
+        "work",
+        "random_seed",
+        "messages",
+        "feedback_text",
+        "sources",
+    ] {
+        assert!(document["run"]["adaptive"].get(secret).is_none());
     }
 }
 

@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 
 impl NumericalResolver {
-    pub(super) fn check_root(&self) -> StoreResult<()> {
+    pub(in crate::manifests) fn check_root(&self) -> StoreResult<()> {
         let metadata = std::fs::symlink_metadata(&self.root)?;
         if !metadata.is_dir()
             || metadata.mode() & 0o022 != 0
@@ -15,7 +15,7 @@ impl NumericalResolver {
         Ok(())
     }
 
-    pub(super) async fn json<T: Serialize>(
+    pub(in crate::manifests) async fn json<T: Serialize>(
         &self,
         value: &T,
         replay: bool,
@@ -26,7 +26,7 @@ impl NumericalResolver {
         self.publish(&bytes, replay, files).await
     }
 
-    pub(super) async fn publish(
+    pub(in crate::manifests) async fn publish(
         &self,
         bytes: &[u8],
         replay: bool,

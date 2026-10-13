@@ -57,8 +57,8 @@ documentation tasks are in
       link/anchor checks, CLI help and desktop/mobile verification pass; evidence
       is in the design document. Publication uses this documentation task's
       Chinese commit, push and attached remote checks, not a phase-completion claim.
-- [ ] With unit 11.2, add the actually delivered candidate-to-evaluation usage;
-      with units 11.3–11.6, update each corresponding capability and command.
+- [x] With unit 11.2, add the delivered candidate-to-evaluation usage (PR #4).
+- [ ] With units 11.3–11.6, update each corresponding capability and command.
 - [ ] With Phase 12, publish an implementation-backed architecture diagram and
       screenshots only after each real interface passes its acceptance gate.
 - [ ] With Phase 13, publish reproducible report examples with verified data,
@@ -794,7 +794,8 @@ units, acceptance and recovery paths are in
 [`docs/development/execution-plan.md`](development/execution-plan.md).
 Use 11.2, 11.3a–c, 11.4, 11.5 and 11.6a–c as nine remaining task/commit units;
 do not treat the additional plan as implemented behavior or restart completed
-phases. Unit 11.1's remote and PR merge gates have passed; unit 11.2 is next.
+phases. Units 11.1 and 11.2 have passed their remote and PR merge gates;
+unit 11.3a is the current delivery.
 
 Delivery units (complete implementation, tests, documentation, Chinese task
 commit, push and remote gate before the next unit):
@@ -816,14 +817,20 @@ commit, push and remote gate before the next unit):
    PR #2 merged as `6be2471`. This closes unit 1, not the whole phase. See
    `docs/verification/phase-11-persistent-runs.md` and
    `docs/development/research-runs-cli.md`.
-2. Candidate-to-numerical workflow (`in_progress`; ADR 0053): convert canonical candidates into
+2. Candidate-to-numerical workflow (`complete`; ADR 0053): convert canonical candidates into
    frozen factor specifications and authorized evaluation/portfolio jobs; reuse
    trial, coverage and failure filtering without giving Discovery research or
    holdout authority. Bind a testable hypothesis and proposal evidence; reserve
    all child work and recover without duplicate children. Preserve frozen v1
    discovery-only plans through an explicitly versioned numerical workflow.
-3. Feedback and perturbation (`pending`; three sequential delivery units):
-   - 11.3a: bounded verified IS-result feedback, persistent Sharpe/random history,
+   Implementation and corrections through `58d6245` passed all seven jobs in
+   branch CI `38350905840` and PR CI `38350909358`. Local targeted acceptance
+   passed 67 tests with one explicitly invoked process helper excluded from the
+   ordinary harness; nine Rust run-boundary tests and strict workspace checks
+   passed. PR #4 merged as `9dcc2b9`; both feature-branch copies were removed
+   after verifying ancestry. Numerical registration does not grant admission.
+3. Feedback and perturbation (`in_progress`; three sequential delivery units):
+   - 11.3a (`in_progress`): bounded verified IS-result feedback, persistent Sharpe/random history,
      failure memory and deterministic stopping; ordinary and perturbed candidates
      use the same numerical workflow.
    - 11.3b: separate operational and research lessons; source-bound immutable

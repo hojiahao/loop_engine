@@ -11,6 +11,7 @@ use crate::manifests::numerical::{FrozenNumerical, NumericalResolver};
 use crate::runtime::workflow::{WorkflowAuthority, WorkflowEvidence};
 use crate::store::{PgJobStore, RunSnapshot, StoreError, StoreResult};
 
+mod adaptive;
 mod execution;
 mod preparation;
 
@@ -24,6 +25,7 @@ struct StageContext<'a> {
     store: PgJobStore,
     evidence: WorkflowEvidence,
     stage: runs::RunStage,
+    adaptive: Option<adaptive::AdaptiveContext>,
 }
 
 impl RuntimeService {
@@ -99,9 +101,12 @@ impl RuntimeService {
                 .advance_numerical(owner, request, specification, None)
                 .await;
         }
-        let execution::CompletedChild { job, portfolio } =
-            Box::pin(self.execute_child(&mut context, Box::new(snapshot.current_job.clone())))
-                .await?;
+        let execution::CompletedChild {
+            job,
+            portfolio,
+            perturbation,
+        } = Box::pin(self.execute_child(&mut context, Box::new(snapshot.current_job.clone())))
+            .await?;
         self.authority.verify_run(owner, specification)?;
         if job.state != v1::JobState::Succeeded as i32 {
             return context
@@ -120,7 +125,16 @@ impl RuntimeService {
             runs::RunStage::Portfolio => {
                 Box::pin(self.prepare_portfolio(&mut context, &job, portfolio)).await?
             }
+            runs::RunStage::Perturbation => {
+                Box::pin(self.prepare_perturbation(&mut context, &job, &next_id, perturbation))
+                    .await?
+            }
             _ => return Err(StoreError::Corrupt("run stage")),
+        };
+        let prepared = if context.adaptive.is_some() {
+            Box::pin(self.prepare_feedback(&mut context, snapshot, prepared)).await?
+        } else {
+            prepared
         };
         let scope = WorkflowAuthority::new(
             self.authority.clone(),
@@ -167,7 +181,7 @@ impl RuntimeService {
                 .stage,
         )
         .map_err(|_| StoreError::Corrupt("run stage"))?;
-        Ok(Box::new(StageContext {
+        let mut context = Box::new(StageContext {
             specification,
             resolver,
             frozen,
@@ -175,7 +189,10 @@ impl RuntimeService {
             store: self.store.with_workflow_authority(Arc::new(scope)),
             evidence,
             stage,
-        }))
+            adaptive: None,
+        });
+        context.adaptive = Box::pin(self.load_feedback(&context, snapshot)).await?;
+        Ok(context)
     }
 }
 

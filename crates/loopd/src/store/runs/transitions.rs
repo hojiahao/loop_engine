@@ -1,4 +1,4 @@
-//! Immutable v2 evidence and bounded reconstruction; jobs remain authoritative.
+//! Immutable numerical evidence and bounded reconstruction; jobs remain authoritative.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -17,6 +17,7 @@ use super::super::postgres::{
 };
 use super::super::{EvaluationTrial, PgJobStore, StoreError, StoreResult, evaluation, model_money};
 use super::{RunSnapshot, storage};
+use crate::runtime::workflow::adaptive::AdaptiveBinding;
 
 /// Internal evidence, never returned by the role RPC projection. The projection
 /// omits its own binding digest, avoiding a recursive content identity.
@@ -64,6 +65,464 @@ pub(crate) struct RunBinding {
     /// Actual registered portfolio result; completion alone is insufficient.
     #[prost(message, optional, tag = "14")]
     pub source_backtest: Option<BacktestResult>,
+    /// v3-only feedback and deterministic proposal state; absent preserves v2 bytes.
+    #[prost(message, optional, tag = "15")]
+    pub adaptive: Option<AdaptiveBinding>,
+}
+
+fn transition_schema(specification: &RunSpecification) -> &'static str {
+    if specification.feedback_policy.is_some() {
+        "loop.run-transition/v2"
+    } else {
+        "loop.run-transition/v1"
+    }
+}
+
+fn check_artifact(
+    artifact: Option<&loop_protocol::wire::v1::ArtifactRef>,
+    schema: &str,
+    bytes: &[u8],
+) -> StoreResult<()> {
+    let artifact = artifact.ok_or(StoreError::Corrupt("adaptive result artifact"))?;
+    loop_protocol::artifact::validate_artifact_ref(artifact)
+        .map_err(|_| StoreError::Corrupt("adaptive artifact contract"))?;
+    if artifact.byte_size != bytes.len() as u64
+        || artifact.sha256.as_ref().map(|value| value.value.as_slice())
+            != Some(Sha256::digest(bytes).as_slice())
+        || artifact
+            .schema
+            .as_ref()
+            .is_none_or(|value| value.name != schema || value.version != 1)
+        || artifact.media_type != "application/x-protobuf"
+    {
+        return Err(StoreError::Corrupt("adaptive artifact identity"));
+    }
+    Ok(())
+}
+
+/// Validate one v3 delta against its exact committed predecessor and actual
+/// source observation. This grants no file or execution authority; writers call
+/// it after sealing, while readers replay it over the bounded transition chain.
+pub(super) fn check_adaptive(
+    specification: &RunSpecification,
+    previous: Option<&RunBinding>,
+    view: &RunView,
+    binding: &RunBinding,
+) -> StoreResult<()> {
+    let Some(policy) = &specification.feedback_policy else {
+        if binding.adaptive.is_some() || view.adaptive.is_some() {
+            return Err(StoreError::Corrupt("unexpected adaptive state"));
+        }
+        return Ok(());
+    };
+    let current = binding
+        .adaptive
+        .as_ref()
+        .ok_or(StoreError::Corrupt("missing adaptive state"))?;
+    if current.policy.as_ref() != Some(policy)
+        || view.adaptive.as_ref() != Some(&current.project()?)
+    {
+        return Err(StoreError::Corrupt("adaptive policy binding"));
+    }
+    let Some(previous) = previous else {
+        if current.context_round != 1
+            || !current.sources.is_empty()
+            || current.family_ast.is_some()
+            || current.state.is_some()
+            || current.work.is_some()
+            || current.step.is_some()
+            || !current.failed_factor_ids.is_empty()
+            || !current.completed_perturbations.is_empty()
+        {
+            return Err(StoreError::Corrupt("adaptive initial state"));
+        }
+        return Ok(());
+    };
+    let before = previous
+        .adaptive
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive ancestry"))?;
+    let prior_view = previous
+        .projection
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive prior projection"))?;
+    let prior = prior_view
+        .research
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive prior stage"))?;
+    let source = binding
+        .source_record
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive source"))?;
+    let expired = timestamp_millis(
+        view.updated_at
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive update"))?,
+        true,
+    )? >= timestamp_millis(
+        view.deadline
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive deadline"))?,
+        true,
+    )?;
+    if source.state != JobState::Succeeded as i32 || expired {
+        if current != before {
+            return Err(StoreError::Corrupt("adaptive failed advancement"));
+        }
+        return Ok(());
+    }
+    check_feedback(before, current, previous, binding)?;
+    check_completions(before, current, prior.stage, prior.round, source)?;
+    check_family(before, current, prior.stage, binding)?;
+    if prior.stage == RunStage::Perturbation as i32 {
+        check_selection(before, current, source)?;
+    } else if before.state.is_some() && current.state != before.state {
+        return Err(StoreError::Corrupt("unexplained adaptive random state"));
+    } else if current.step != before.step {
+        return Err(StoreError::Corrupt("unexplained adaptive selection"));
+    }
+    let planned_round = view.completed_rounds > prior_view.completed_rounds
+        && view.completed_rounds < view.maximum_rounds
+        && view.status != RunStatus::SearchExhausted as i32;
+    let context_round = if planned_round {
+        prior.round + 1
+    } else {
+        before.context_round
+    };
+    if current.context_round != context_round {
+        return Err(StoreError::Corrupt("adaptive context round"));
+    }
+    if !planned_round
+        && (current.feedback_reference != before.feedback_reference
+            || current.feedback_text != before.feedback_text
+            || current.invocation != before.invocation
+            || current.tool_invocation != before.tool_invocation
+            || current.work != before.work)
+    {
+        return Err(StoreError::Corrupt("adaptive context changed within round"));
+    }
+    if planned_round && let Some(work) = &current.work {
+        check_work(current, work)?;
+    }
+    Ok(())
+}
+
+fn check_completions(
+    before: &AdaptiveBinding,
+    current: &AdaptiveBinding,
+    stage: i32,
+    round: u32,
+    source: &JobRecord,
+) -> StoreResult<()> {
+    if current.completed_perturbations.len() > 63
+        || !current
+            .completed_perturbations
+            .starts_with(&before.completed_perturbations)
+    {
+        return Err(StoreError::Corrupt("adaptive completion history"));
+    }
+    let appended = &current.completed_perturbations[before.completed_perturbations.len()..];
+    if stage == RunStage::Perturbation as i32 {
+        if source.state != JobState::Succeeded as i32
+            || appended.len() != 1
+            || appended[0].round != round
+            || appended[0].record.as_ref() != Some(source)
+            || before
+                .completed_perturbations
+                .last()
+                .is_some_and(|last| last.round >= round)
+        {
+            return Err(StoreError::Corrupt("adaptive completion append"));
+        }
+    } else if !appended.is_empty() {
+        return Err(StoreError::Corrupt("adaptive completion without proposal"));
+    }
+    Ok(())
+}
+
+fn check_feedback(
+    before: &AdaptiveBinding,
+    current: &AdaptiveBinding,
+    previous: &RunBinding,
+    binding: &RunBinding,
+) -> StoreResult<()> {
+    if !current.sources.starts_with(&before.sources) || current.sources.len() > 64 {
+        return Err(StoreError::Corrupt("adaptive source history"));
+    }
+    let appended = &current.sources[before.sources.len()..];
+    if let Some(result) = &binding.source_backtest {
+        let source = binding
+            .source_record
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive source record"))?;
+        let round = previous
+            .projection
+            .as_ref()
+            .and_then(|view| view.research.as_ref())
+            .ok_or(StoreError::Corrupt("adaptive source round"))?
+            .round;
+        if appended.len() != 1
+            || appended[0].round != round
+            || appended[0].record.as_ref() != Some(source)
+            || appended[0].result.as_ref() != Some(result)
+            || appended[0].evidence != previous.evidence
+            || before
+                .sources
+                .last()
+                .is_some_and(|last| last.round >= round)
+        {
+            return Err(StoreError::Corrupt("adaptive source append"));
+        }
+    } else if !appended.is_empty() {
+        return Err(StoreError::Corrupt("adaptive source without portfolio"));
+    }
+    let mut failed = before.failed_factor_ids.clone();
+    if binding
+        .source_trial
+        .as_ref()
+        .is_some_and(|trial| trial.disposition == "insufficient_coverage")
+    {
+        let Some(job_specification::Input::FactorEvaluation(input)) = binding
+            .source_record
+            .as_ref()
+            .and_then(|record| record.specification.as_ref())
+            .and_then(|job| job.input.as_ref())
+        else {
+            return Err(StoreError::Corrupt("adaptive rejection source"));
+        };
+        let factor = input
+            .factor
+            .as_ref()
+            .and_then(|factor| factor.factor_spec_id.as_ref())
+            .ok_or(StoreError::Corrupt("adaptive rejected factor"))?;
+        if !failed.contains(factor) {
+            failed.push(factor.clone());
+        }
+    }
+    if current.failed_factor_ids != failed || failed.len() > 64 {
+        return Err(StoreError::Corrupt("adaptive failure history"));
+    }
+    Ok(())
+}
+
+fn check_family(
+    before: &AdaptiveBinding,
+    current: &AdaptiveBinding,
+    stage: i32,
+    binding: &RunBinding,
+) -> StoreResult<()> {
+    if before.family_ast.is_some() {
+        if current.family_ast != before.family_ast || current.family_sha256 != before.family_sha256
+        {
+            return Err(StoreError::Corrupt("adaptive family changed"));
+        }
+    } else if let Some(ast) = &current.family_ast {
+        let candidate = binding
+            .attempted_specification
+            .as_ref()
+            .or(binding.current_specification.as_ref());
+        let Some(job_specification::Input::FactorEvaluation(input)) =
+            candidate.and_then(|job| job.input.as_ref())
+        else {
+            return Err(StoreError::Corrupt("adaptive family candidate"));
+        };
+        let state = current
+            .state
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive family state"))?;
+        if stage != RunStage::Discovery as i32
+            || input
+                .factor
+                .as_ref()
+                .and_then(|factor| factor.expression.as_ref())
+                != Some(ast)
+            || state.version != 1
+            || state
+                .random_seed
+                .as_ref()
+                .is_none_or(|seed| seed.value.len() != 32)
+            || state.random_draws != 0
+            || !state.history.is_empty()
+            || !state.proposed_factor_ids.is_empty()
+            || state.momentum != 0.0
+            || state.second_moment != 0.0
+        {
+            return Err(StoreError::Corrupt("adaptive family initialization"));
+        }
+    }
+    Ok(())
+}
+
+fn check_work(
+    current: &AdaptiveBinding,
+    work: &loop_protocol::wire::v1::PerturbationWork,
+) -> StoreResult<()> {
+    if work.state != current.state || work.candidates.len() < 2 || work.candidates.len() > 64 {
+        return Err(StoreError::Corrupt("adaptive work state"));
+    }
+    let state = work
+        .state
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive work state"))?;
+    if (work.observation.is_none() && state.history.is_empty())
+        || work.observation.as_ref().is_some_and(|observation| {
+            state
+                .history
+                .iter()
+                .any(|prior| prior.source_job_id == observation.source_job_id)
+        })
+    {
+        return Err(StoreError::Corrupt("adaptive work observation history"));
+    }
+    let space = loop_protocol::wire::v1::PerturbationSpace {
+        random_seed: state.random_seed.clone(),
+        candidates: work.candidates.clone(),
+        ..Default::default()
+    };
+    super::super::validate_perturbation_state(state, &space)?;
+    let mut ids = BTreeSet::new();
+    let mut previous = 0;
+    for candidate in &work.candidates {
+        let id = candidate
+            .factor_spec_id
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive candidate ID"))?;
+        loop_core::factor::FactorSpecId::parse(&id.value)
+            .map_err(|_| StoreError::Corrupt("adaptive candidate ID"))?;
+        if candidate.window <= previous || candidate.window > 4096 || !ids.insert(&id.value) {
+            return Err(StoreError::Corrupt("adaptive candidate order"));
+        }
+        previous = candidate.window;
+    }
+    if !work
+        .candidates
+        .iter()
+        .any(|candidate| candidate.window == work.current_window)
+    {
+        return Err(StoreError::Corrupt("adaptive current window"));
+    }
+    let expected = current
+        .failed_factor_ids
+        .iter()
+        .filter(|id| {
+            work.candidates
+                .iter()
+                .any(|candidate| candidate.factor_spec_id.as_ref() == Some(*id))
+        })
+        .map(|id| id.value.as_str())
+        .collect::<BTreeSet<_>>();
+    let actual = work
+        .failed_factor_ids
+        .iter()
+        .map(|id| id.value.as_str())
+        .collect::<BTreeSet<_>>();
+    if expected != actual || actual.len() != work.failed_factor_ids.len() {
+        return Err(StoreError::Corrupt("adaptive work failure memory"));
+    }
+    for observation in work
+        .state
+        .iter()
+        .flat_map(|state| &state.history)
+        .chain(work.observation.iter())
+    {
+        let source = current.sources.iter().find(|source| source.record.as_ref()
+            .and_then(|record| record.specification.as_ref()).is_some_and(|job|
+                job.job_id == observation.source_job_id && matches!(&job.input,
+                    Some(job_specification::Input::Backtest(input))
+                        if input.factor_spec_id == observation.candidate.as_ref().and_then(|candidate| candidate.factor_spec_id.clone()))));
+        let source = source.ok_or(StoreError::Corrupt("adaptive work observation source"))?;
+        let metrics = source
+            .result
+            .as_ref()
+            .ok_or(StoreError::Corrupt("adaptive observation result"))?
+            .metrics
+            .iter()
+            .filter(|metric| metric.name == "sharpe_annualized")
+            .collect::<Vec<_>>();
+        if !observation.net_sharpe.is_finite()
+            || observation.net_sharpe.abs() > 1_000_000.0
+            || observation
+                .candidate
+                .as_ref()
+                .is_none_or(|candidate| !work.candidates.contains(candidate))
+            || metrics.len() != 1
+            || metrics[0].unit != "ratio"
+            || metrics[0].estimator != "daily-statistics.1"
+            || metrics[0]
+                .value
+                .as_ref()
+                .and_then(|value| value.value.parse::<f64>().ok())
+                != Some(observation.net_sharpe)
+        {
+            return Err(StoreError::Corrupt("adaptive work observation value"));
+        }
+    }
+    Ok(())
+}
+
+fn check_selection(
+    before: &AdaptiveBinding,
+    current: &AdaptiveBinding,
+    source: &JobRecord,
+) -> StoreResult<()> {
+    use loop_protocol::wire::v1::{PerturbationSpace, job_outcome};
+    let work = before
+        .work
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive consumed work"))?;
+    let step = current
+        .step
+        .as_ref()
+        .ok_or(StoreError::Corrupt("adaptive selected result"))?;
+    if work.state != before.state || step.state != current.state {
+        return Err(StoreError::Corrupt("adaptive selected state"));
+    }
+    check_work(before, work)?;
+    let space = PerturbationSpace {
+        random_seed: before
+            .state
+            .as_ref()
+            .and_then(|state| state.random_seed.clone()),
+        candidates: work.candidates.clone(),
+        ..Default::default()
+    };
+    super::super::validate_perturbation(work, &space, step)?;
+    let Some(job_specification::Input::Perturbation(input)) = source
+        .specification
+        .as_ref()
+        .and_then(|job| job.input.as_ref())
+    else {
+        return Err(StoreError::Corrupt("adaptive selection job"));
+    };
+    check_artifact(
+        input.work.as_ref(),
+        "loop.perturbation_work",
+        &work.encode_to_vec(),
+    )?;
+    let Some(job_outcome::Outcome::Success(success)) = source
+        .outcome
+        .as_ref()
+        .and_then(|outcome| outcome.outcome.as_ref())
+    else {
+        return Err(StoreError::Corrupt("adaptive selection completion"));
+    };
+    let outputs = success
+        .outputs
+        .iter()
+        .filter(|artifact| {
+            artifact.schema.as_ref().is_some_and(|schema| {
+                schema.name == "loop.perturbation_step" && schema.version == 1
+            })
+        })
+        .collect::<Vec<_>>();
+    if outputs.len() != 1 {
+        return Err(StoreError::Corrupt("adaptive selection output"));
+    }
+    check_artifact(
+        outputs.first().copied(),
+        "loop.perturbation_step",
+        &step.encode_to_vec(),
+    )
 }
 
 pub(super) fn seal(
@@ -71,7 +530,15 @@ pub(super) fn seal(
     view: &mut RunView,
     binding: &mut RunBinding,
 ) -> StoreResult<Vec<u8>> {
-    binding.schema = "loop.run-transition/v1".into();
+    binding.schema = transition_schema(specification).into();
+    if specification.feedback_policy.is_some() != binding.adaptive.is_some() {
+        return Err(StoreError::Corrupt("adaptive binding presence"));
+    }
+    view.adaptive = binding
+        .adaptive
+        .as_ref()
+        .map(AdaptiveBinding::project)
+        .transpose()?;
     binding.specification_sha256 = Sha256::digest(specification.encode_to_vec()).to_vec();
     let mut projection = view.clone();
     projection.plan_verified = false;
@@ -134,7 +601,7 @@ fn decode(
         .as_mut()
         .ok_or(StoreError::Corrupt("run transition workflow"))?;
     if binding.encode_to_vec() != bytes
-        || binding.schema != "loop.run-transition/v1"
+        || binding.schema != transition_schema(specification)
         || binding.specification_sha256 != Sha256::digest(specification.encode_to_vec()).as_slice()
         || research.binding_sha256.is_some()
         || view.plan_verified
@@ -153,6 +620,16 @@ fn decode(
     });
     loop_protocol::runs::validate_view(&view)
         .map_err(|_| StoreError::Corrupt("transition contract"))?;
+    if specification.feedback_policy.is_some() != binding.adaptive.is_some()
+        || view.adaptive
+            != binding
+                .adaptive
+                .as_ref()
+                .map(AdaptiveBinding::project)
+                .transpose()?
+    {
+        return Err(StoreError::Corrupt("adaptive transition projection"));
+    }
     if view.run_id != specification.run_id
         || view.budget != specification.budget
         || view.maximum_rounds != specification.maximum_rounds
@@ -204,7 +681,7 @@ pub(super) async fn load(
         .collect::<StoreResult<BTreeMap<_, _>>>()?;
     let mut created = BTreeSet::new();
     let mut previous: Option<RunView> = None;
-    let mut last_binding = None;
+    let mut last_binding: Option<Box<RunBinding>> = None;
     let mut totals = [0_u64; 4];
     for (index, row) in rows.iter().enumerate() {
         let (binding, projection) = decode(row, &specification)?;
@@ -220,6 +697,12 @@ pub(super) async fn load(
             return Err(StoreError::Corrupt("transition child specification"));
         }
         check_chain(&specification, previous.as_ref(), &projection, &binding)?;
+        check_adaptive(
+            &specification,
+            last_binding.as_deref(),
+            &projection,
+            &binding,
+        )?;
         check_source(transaction, &binding).await?;
         check_observation(&projection, record)?;
         if binding.created_child {
@@ -230,7 +713,7 @@ pub(super) async fn load(
                 .specification
                 .as_ref()
                 .expect("verified specification");
-            check_child(&specification, &projection, job)?;
+            check_child(&specification, &projection, job, &binding)?;
             let allowance = budget(job)?;
             let amounts = [
                 u64::from(allowance.maximum_steps),
@@ -316,10 +799,15 @@ fn check_chain(
         }
         if binding.created_child {
             let next_stage = current.round == prior.round
-                && current.stage == prior.stage + 1
+                && (current.stage == prior.stage + 1
+                    || (specification.feedback_policy.is_some()
+                        && prior.stage == RunStage::Perturbation as i32
+                        && current.stage == RunStage::Evaluation as i32))
                 && view.completed_rounds == previous.completed_rounds;
             let next_round = current.round == prior.round + 1
-                && current.stage == RunStage::Discovery as i32
+                && (current.stage == RunStage::Discovery as i32
+                    || (specification.feedback_policy.is_some()
+                        && current.stage == RunStage::Perturbation as i32))
                 && view.completed_rounds == previous.completed_rounds + 1;
             if view.status != RunStatus::Active as i32 || (!next_stage && !next_round) {
                 return Err(StoreError::Corrupt("run stage progression"));
@@ -413,11 +901,42 @@ async fn check_source(
         let previous = binding
             .previous_record
             .as_ref()
-            .and_then(|record| record.specification.as_ref())
-            .ok_or(StoreError::Corrupt("run previous specification"))?;
+            .and_then(|record| record.specification.as_ref());
+        if previous.is_none() {
+            let view = binding
+                .projection
+                .as_ref()
+                .ok_or(StoreError::Corrupt("attempted run projection"))?;
+            let stage = view
+                .research
+                .as_ref()
+                .ok_or(StoreError::Corrupt("attempted run stage"))?
+                .stage;
+            if binding.adaptive.is_none()
+                || view.status != RunStatus::BudgetExhausted as i32
+                || binding.created_child
+                || binding
+                    .source_record
+                    .as_ref()
+                    .is_none_or(|source| source.state != JobState::Succeeded as i32)
+                || !matches!(
+                    RunStage::try_from(stage),
+                    Ok(RunStage::Discovery | RunStage::Perturbation)
+                )
+                || !matches!(
+                    attempted.input,
+                    Some(job_specification::Input::FactorEvaluation(_))
+                )
+                || binding.previous_trial.is_some()
+                || !binding.previous_context.is_empty()
+            {
+                return Err(StoreError::Corrupt("unexplained attempted candidate"));
+            }
+            return Ok(());
+        }
         let expected = evaluation::context_key(attempted)?
             .ok_or(StoreError::Corrupt("run attempted context"))?;
-        if evaluation::context_key(previous)? != Some(expected)
+        if evaluation::context_key(previous.expect("checked historical match"))? != Some(expected)
             || binding.previous_trial.is_none()
             || binding.previous_context != expected
         {
@@ -488,7 +1007,7 @@ fn check_progress(
     let disposition = match RunStage::try_from(prior.stage)
         .map_err(|_| StoreError::Corrupt("run source stage"))?
     {
-        RunStage::Discovery if binding.previous_trial.is_some() => {
+        RunStage::Discovery | RunStage::Perturbation if binding.previous_trial.is_some() => {
             if binding
                 .previous_trial
                 .as_ref()
@@ -510,16 +1029,68 @@ fn check_progress(
             RoundDisposition::InsufficientCoverage
         }
         RunStage::Portfolio if binding.source_backtest.is_some() => RoundDisposition::Evaluated,
+        RunStage::Perturbation
+            if binding
+                .adaptive
+                .as_ref()
+                .and_then(|adaptive| adaptive.step.as_ref())
+                .is_some_and(|step| {
+                    step.candidate.is_none()
+                        && step.reason
+                            == loop_protocol::wire::v1::PerturbationReason::Exhausted as i32
+                }) =>
+        {
+            RoundDisposition::Exhausted
+        }
         _ => RoundDisposition::Unspecified,
     };
     let expired = timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?
         >= timestamp_millis(view.deadline.as_ref().expect("validated deadline"), true)?;
     let completed = succeeded && !expired && disposition != RoundDisposition::Unspecified;
+    if specification.feedback_policy.is_some() && succeeded && !expired {
+        if let Some(attempted) = &binding.attempted_specification {
+            check_attempt(specification, view, attempted)?;
+        }
+        if prior.stage == RunStage::Perturbation as i32 {
+            let selected = binding
+                .adaptive
+                .as_ref()
+                .and_then(|adaptive| adaptive.step.as_ref())
+                .ok_or(StoreError::Corrupt("run selected proposal"))?;
+            if let Some(candidate) = &selected.candidate {
+                let attempted = binding
+                    .attempted_specification
+                    .as_ref()
+                    .or(binding.current_specification.as_ref());
+                let Some(job_specification::Input::FactorEvaluation(input)) =
+                    attempted.and_then(|job| job.input.as_ref())
+                else {
+                    return Err(StoreError::Corrupt("run selected evaluation"));
+                };
+                if input
+                    .factor
+                    .as_ref()
+                    .and_then(|factor| factor.factor_spec_id.as_ref())
+                    != candidate.factor_spec_id.as_ref()
+                {
+                    return Err(StoreError::Corrupt("run selected identity"));
+                }
+            } else if binding.created_child
+                || binding.previous_trial.is_some()
+                || binding.attempted_specification.is_some()
+                || view.status != RunStatus::SearchExhausted as i32
+            {
+                return Err(StoreError::Corrupt("run exhausted proposal"));
+            }
+        }
+    }
     if view.completed_rounds != previous.completed_rounds + u32::from(completed)
         || (!binding.created_child
             && current.disposition != if completed { disposition as i32 } else { 0 })
         || (binding.created_child && (!succeeded || expired || current.disposition != 0))
-        || (binding.previous_trial.is_some() && prior.stage != RunStage::Discovery as i32)
+        || (binding.previous_trial.is_some()
+            && prior.stage != RunStage::Discovery as i32
+            && prior.stage != RunStage::Perturbation as i32)
         || (binding.source_trial.is_some() && prior.stage != RunStage::Evaluation as i32)
         || (binding.source_backtest.is_some() && prior.stage != RunStage::Portfolio as i32)
     {
@@ -527,7 +1098,10 @@ fn check_progress(
     }
     if binding.created_child {
         if completed {
-            if current.stage != RunStage::Discovery as i32 {
+            if current.stage != RunStage::Discovery as i32
+                && !(specification.feedback_policy.is_some()
+                    && current.stage == RunStage::Perturbation as i32)
+            {
                 return Err(StoreError::Corrupt("run round boundary"));
             }
         } else if prior.stage == RunStage::Evaluation as i32 {
@@ -538,22 +1112,31 @@ fn check_progress(
                 || current.expression_id != prior.expression_id
                 || current.factor_spec_id != prior.factor_spec_id
                 || current.discovery_job_id != prior.discovery_job_id
+                || current.perturbation_job_id != prior.perturbation_job_id
                 || current.evaluation_job_id != prior.evaluation_job_id
             {
                 return Err(StoreError::Corrupt("run portfolio lineage"));
             }
-        } else if prior.stage != RunStage::Discovery as i32
+        } else if (prior.stage != RunStage::Discovery as i32
+            && prior.stage != RunStage::Perturbation as i32)
             || current.discovery_job_id != prior.discovery_job_id
+            || current.perturbation_job_id != prior.perturbation_job_id
         {
             return Err(StoreError::Corrupt("run evaluation lineage"));
         }
     } else {
         if current.discovery_job_id != prior.discovery_job_id
+            || current.perturbation_job_id != prior.perturbation_job_id
             || current.evaluation_job_id != prior.evaluation_job_id
         {
             return Err(StoreError::Corrupt("terminal run sources"));
         }
-        if prior.stage == RunStage::Discovery as i32 && completed {
+        if matches!(
+            RunStage::try_from(prior.stage),
+            Ok(RunStage::Discovery | RunStage::Perturbation)
+        ) && completed
+            && disposition != RoundDisposition::Exhausted
+        {
             let Some(job_specification::Input::FactorEvaluation(attempt)) = binding
                 .attempted_specification
                 .as_ref()
@@ -581,6 +1164,8 @@ fn check_progress(
             RunStatus::BudgetExhausted
         } else if !succeeded {
             RunStatus::InfrastructureFailed
+        } else if disposition == RoundDisposition::Exhausted {
+            RunStatus::SearchExhausted
         } else if view.completed_rounds == specification.maximum_rounds {
             RunStatus::Completed
         } else {
@@ -591,7 +1176,18 @@ fn check_progress(
         }
         if expected == RunStatus::BudgetExhausted && succeeded {
             let numerical = specification.numerical.as_ref().expect("v2 specification");
-            let bytes = if completed {
+            let planned_perturbation = completed
+                && binding
+                    .adaptive
+                    .as_ref()
+                    .is_some_and(|adaptive| adaptive.work.is_some());
+            let bytes = if planned_perturbation {
+                numerical
+                    .perturbation_budget
+                    .as_ref()
+                    .ok_or(StoreError::Corrupt("perturbation allowance"))?
+                    .encode_to_vec()
+            } else if completed {
                 specification
                     .discovery
                     .as_ref()
@@ -600,7 +1196,10 @@ fn check_progress(
                     .as_ref()
                     .expect("validated budget")
                     .encode_to_vec()
-            } else if prior.stage == RunStage::Discovery as i32 {
+            } else if matches!(
+                RunStage::try_from(prior.stage),
+                Ok(RunStage::Discovery | RunStage::Perturbation)
+            ) {
                 numerical
                     .evaluation_budget
                     .as_ref()
@@ -617,7 +1216,7 @@ fn check_progress(
                 .map_err(|_| StoreError::Corrupt("run child budget"))?;
             let mut attempt = previous.clone();
             let now = timestamp_millis(view.updated_at.as_ref().expect("validated update"), true)?;
-            let reserved = if completed {
+            let reserved = if completed && !planned_perturbation {
                 storage::reserve(&mut attempt, specification, now)?
             } else {
                 storage::reserve_budget(&mut attempt, specification, &budget, now)?
@@ -630,10 +1229,44 @@ fn check_progress(
     Ok(())
 }
 
+fn check_attempt(
+    specification: &RunSpecification,
+    view: &RunView,
+    job: &JobSpecification,
+) -> StoreResult<()> {
+    let numerical = specification
+        .numerical
+        .as_ref()
+        .ok_or(StoreError::Corrupt("attempted workflow"))?;
+    let discovery = specification
+        .discovery
+        .as_ref()
+        .ok_or(StoreError::Corrupt("attempted dataset"))?;
+    let Some(job_specification::Input::FactorEvaluation(input)) = &job.input else {
+        return Err(StoreError::Corrupt("attempted candidate input"));
+    };
+    if job.run_id != specification.run_id
+        || job.submitted_by != numerical.research_executor
+        || job.protocol_selection != numerical.protocol_selection
+        || job.submitted_at != view.updated_at
+        || input.dataset != discovery.dataset
+        || budget(job)?.encode_to_vec()
+            != numerical
+                .evaluation_budget
+                .as_ref()
+                .ok_or(StoreError::Corrupt("attempted budget"))?
+                .encode_to_vec()
+    {
+        return Err(StoreError::Corrupt("attempted candidate binding"));
+    }
+    Ok(())
+}
+
 fn check_child(
     specification: &RunSpecification,
     view: &RunView,
     job: &JobSpecification,
+    binding: &RunBinding,
 ) -> StoreResult<()> {
     let research = view.research.as_ref().expect("validated research");
     let numerical = specification
@@ -726,6 +1359,41 @@ fn check_child(
                 .expect("validated budget")
                 .encode_to_vec()
         }
+        Some(job_specification::Input::Perturbation(input))
+            if research.stage == RunStage::Perturbation as i32 =>
+        {
+            let adaptive = binding
+                .adaptive
+                .as_ref()
+                .ok_or(StoreError::Corrupt("perturbation context"))?;
+            let work = adaptive
+                .work
+                .as_ref()
+                .ok_or(StoreError::Corrupt("perturbation work"))?;
+            if job.submitted_by != numerical.research_executor
+                || job.protocol_selection != numerical.protocol_selection
+                || input.dataset != discovery.dataset
+                || input.feedback_policy != specification.feedback_policy
+                || input.family_sha256 != adaptive.family_sha256
+                || input
+                    .parent_binding_sha256
+                    .as_ref()
+                    .map(|digest| &digest.value)
+                    != Some(&binding.previous_sha256)
+            {
+                return Err(StoreError::Corrupt("run perturbation binding"));
+            }
+            check_artifact(
+                input.work.as_ref(),
+                "loop.perturbation_work",
+                &work.encode_to_vec(),
+            )?;
+            numerical
+                .perturbation_budget
+                .as_ref()
+                .ok_or(StoreError::Corrupt("perturbation allowance"))?
+                .encode_to_vec()
+        }
         _ => return Err(StoreError::Corrupt("run stage input")),
     };
     if budget(job)?.encode_to_vec() != expected_budget {
@@ -802,7 +1470,7 @@ pub(in crate::store) async fn authorize_trial(
         .value;
     if !cache.contains_key(run_id) {
         let managed: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM research_runs WHERE run_id=$1 AND workflow_version=2)",
+            "SELECT EXISTS(SELECT 1 FROM research_runs WHERE run_id=$1 AND workflow_version IN (2,3))",
         )
         .bind(run_id)
         .fetch_one(&mut **transaction)
@@ -839,4 +1507,183 @@ pub(in crate::store) async fn authorize_trial(
         return Err(StoreError::Corrupt("run trial identity binding"));
     }
     store.admission.authorize_run_trial(principal, run, job)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::workflow::adaptive::{FeedbackSource, SelectionSource};
+    use crate::test_support as fixture;
+    use loop_protocol::wire::v1::{
+        BacktestJobInput, BacktestMetric, ExactDecimal, JobId, PerturbationState, PerturbationWork,
+        WindowObservation,
+    };
+
+    // These fixtures exercise immutable reconstruction only; installed source
+    // verification and real worker execution have separate acceptance tests.
+    fn work_fixture() -> (AdaptiveBinding, PerturbationWork) {
+        let candidates = [5, 10].map(fixture::perturbation::candidate).to_vec();
+        let source_id = Some(JobId {
+            value: "job.feedback.source".into(),
+        });
+        let source = FeedbackSource {
+            round: 1,
+            record: Some(JobRecord {
+                specification: Some(JobSpecification {
+                    job_id: source_id.clone(),
+                    input: Some(job_specification::Input::Backtest(BacktestJobInput {
+                        factor_spec_id: candidates[0].factor_spec_id.clone(),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            result: Some(BacktestResult {
+                metrics: vec![BacktestMetric {
+                    name: "sharpe_annualized".into(),
+                    value: Some(ExactDecimal {
+                        value: "1.5".into(),
+                    }),
+                    unit: "ratio".into(),
+                    estimator: "daily-statistics.1".into(),
+                }],
+                ..Default::default()
+            }),
+            evidence: b"source manifest".to_vec(),
+        };
+        let state = PerturbationState {
+            version: 1,
+            random_seed: Some(fixture::digest(0)),
+            ..Default::default()
+        };
+        let work = PerturbationWork {
+            state: Some(state.clone()),
+            observation: Some(WindowObservation {
+                source_job_id: source_id,
+                candidate: Some(candidates[0].clone()),
+                net_sharpe: 1.5,
+            }),
+            candidates,
+            current_window: 5,
+            ..Default::default()
+        };
+        (
+            AdaptiveBinding {
+                state: Some(state),
+                sources: vec![source],
+                ..Default::default()
+            },
+            work,
+        )
+    }
+
+    #[test]
+    fn sharpe_binding() {
+        let (current, mut work) = work_fixture();
+        check_work(&current, &work).unwrap();
+        work.observation.as_mut().unwrap().net_sharpe = 2.5;
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation value"))
+        ));
+    }
+
+    #[test]
+    fn consumed_observation() {
+        let (mut current, mut work) = work_fixture();
+        let observation = work.observation.clone().unwrap();
+        work.state.as_mut().unwrap().history.push(observation);
+        current.state = work.state.clone();
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation history"))
+        ));
+        work.observation = None;
+        check_work(&current, &work).unwrap();
+    }
+
+    #[test]
+    fn empty_observation() {
+        let (current, mut work) = work_fixture();
+        work.observation = None;
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation history"))
+        ));
+    }
+
+    #[test]
+    fn failure_binding() {
+        let (mut current, mut work) = work_fixture();
+        let factor = work.candidates[1].factor_spec_id.clone().unwrap();
+        current.failed_factor_ids.push(factor.clone());
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work failure memory"))
+        ));
+        work.failed_factor_ids.push(factor);
+        check_work(&current, &work).unwrap();
+    }
+
+    #[test]
+    fn source_evidence() {
+        let (current, _) = work_fixture();
+        let source = current.sources[0].clone();
+        let previous = RunBinding {
+            projection: Some(RunView {
+                research: Some(loop_protocol::wire::runs::v1::ResearchRunView {
+                    round: 1,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            evidence: source.evidence.clone(),
+            ..Default::default()
+        };
+        let mut binding = RunBinding {
+            source_record: source.record,
+            source_backtest: source.result,
+            ..Default::default()
+        };
+        check_feedback(&AdaptiveBinding::default(), &current, &previous, &binding).unwrap();
+        binding.source_backtest.as_mut().unwrap().metrics[0]
+            .value
+            .as_mut()
+            .unwrap()
+            .value = "2.5".into();
+        assert!(matches!(
+            check_feedback(&AdaptiveBinding::default(), &current, &previous, &binding),
+            Err(StoreError::Corrupt("adaptive source append"))
+        ));
+    }
+
+    #[test]
+    fn receipt_history() {
+        let before = AdaptiveBinding::default();
+        let record = JobRecord {
+            state: JobState::Succeeded as i32,
+            revision: 3,
+            ..Default::default()
+        };
+        let mut current = before.clone();
+        current.completed_perturbations.push(SelectionSource {
+            round: 2,
+            record: Some(record.clone()),
+        });
+        check_completions(&before, &current, RunStage::Perturbation as i32, 2, &record).unwrap();
+        assert!(matches!(
+            check_completions(&before, &current, RunStage::Evaluation as i32, 2, &record),
+            Err(StoreError::Corrupt("adaptive completion without proposal"))
+        ));
+        current.completed_perturbations[0]
+            .record
+            .as_mut()
+            .unwrap()
+            .revision = 4;
+        assert!(matches!(
+            check_completions(&before, &current, RunStage::Perturbation as i32, 2, &record),
+            Err(StoreError::Corrupt("adaptive completion append"))
+        ));
+    }
 }

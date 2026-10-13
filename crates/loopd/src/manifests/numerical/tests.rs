@@ -4,15 +4,15 @@ use sha2::{Digest, Sha256};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 
-struct Case {
-    fixture: Fixture,
+pub(crate) struct Case {
+    pub(crate) fixture: Fixture,
     recipe: Recipe,
     dataset: wire::DevelopmentDatasetReference,
-    resolver: NumericalResolver,
+    pub(crate) resolver: NumericalResolver,
 }
 
 impl Case {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let mut fixture = Fixture::new();
         std::fs::set_permissions(&fixture.root, std::fs::Permissions::from_mode(0o700)).unwrap();
         fixture.registry = Arc::new(factor::us_equities::registry().unwrap());
@@ -84,7 +84,7 @@ impl Case {
         (policy, object)
     }
 
-    async fn prepare(&self) -> StoreResult<FrozenNumerical> {
+    pub(crate) async fn prepare(&self) -> StoreResult<FrozenNumerical> {
         let (policy, object) = self.pin();
         self.resolver.prepare(&policy, &object, &self.dataset).await
     }

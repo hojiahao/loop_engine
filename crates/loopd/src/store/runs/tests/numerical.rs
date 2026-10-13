@@ -85,6 +85,7 @@ pub(super) fn numerical_spec() -> RunSpecification {
         evaluation_budget: Some(numerical.clone()),
         portfolio_budget: Some(numerical),
         protocol_selection: Some(protocol),
+        perturbation_budget: None,
     });
     specification
 }

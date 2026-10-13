@@ -356,6 +356,8 @@ def assert_run_surface(
         ".loop.v1.ModelResolutionSnapshot",
         ".loop.v1.DevelopmentDatasetReference",
         ".loop.v1.ProtocolSelectionSnapshot",
+        ".loop.v1.PerturbationJobInput",
+        ".loop.v1.PerturbationWork",
     }
     assert forbidden.isdisjoint(inputs | outputs)
     specification = require_message(run_file, "RunSpecification")
@@ -371,6 +373,23 @@ def assert_run_surface(
             "budget": (7, ".loop.runs.v1.RunBudget"),
             "maximum_rounds": (8, ""),
             "numerical": (9, ".loop.runs.v1.NumericalWorkflow"),
+            "feedback_policy": (10, ".loop.v1.PolicyReference"),
+        },
+    )
+    job = require_file(files, JOB_FILE)
+    perturbation = require_message(job, "PerturbationJobInput")
+    assert_message_fields(
+        perturbation,
+        {
+            "dataset": (1, ".loop.v1.DevelopmentDatasetReference"),
+            "feedback_policy": (2, ".loop.v1.PolicyReference"),
+            "parent_binding_sha256": (3, ".loop.v1.Sha256Digest"),
+            "family_sha256": (4, ".loop.v1.Sha256Digest"),
+            "work": (5, ".loop.v1.ArtifactRef"),
+            "source_code_sha256": (6, ".loop.v1.Sha256Digest"),
+            "environment_sha256": (7, ".loop.v1.Sha256Digest"),
+            "budget": (8, ".loop.v1.JobBudget"),
+            "algorithm": (9, ""),
         },
     )
 

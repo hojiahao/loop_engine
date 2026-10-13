@@ -11,6 +11,7 @@ use crate::store::{BacktestPolicy, EvaluationTrial, StoreError, StoreResult};
 
 mod authority;
 pub(crate) use authority::WorkflowAuthority;
+pub(crate) mod adaptive;
 
 #[cfg(test)]
 mod tests;
@@ -64,6 +65,7 @@ impl WorkflowEvidence {
 pub(crate) struct PreparedRun {
     frozen: Arc<FrozenNumerical>,
     evidence: Vec<u8>,
+    adaptive: Option<adaptive::AdaptiveProof>,
 }
 
 impl PreparedRun {
@@ -79,7 +81,24 @@ impl PreparedRun {
             proposal: None,
         }
         .encode()?;
-        Ok(Self { frozen, evidence })
+        Ok(Self {
+            frozen,
+            evidence,
+            adaptive: None,
+        })
+    }
+
+    pub(super) fn with_adaptive(mut self, proof: adaptive::AdaptiveProof) -> StoreResult<Self> {
+        proof.check()?;
+        if proof.before().is_some() {
+            return Err(StoreError::AdmissionDenied);
+        }
+        self.adaptive = Some(proof);
+        Ok(self)
+    }
+
+    pub(crate) fn adaptive(&self) -> Option<&adaptive::AdaptiveProof> {
+        self.adaptive.as_ref()
     }
 
     pub(crate) fn binding(&self) -> &[u8] {
@@ -90,7 +109,8 @@ impl PreparedRun {
         &self,
         spec: &loop_protocol::wire::runs::v1::RunSpecification,
     ) -> StoreResult<()> {
-        check_recipe(&self.frozen, spec)
+        check_recipe(&self.frozen, spec)?;
+        check_adaptive(self.adaptive.as_ref(), spec)
     }
 }
 
@@ -106,6 +126,7 @@ pub(crate) struct PreparedStage {
     child_id: Option<String>,
     source_evaluation: Option<crate::manifests::evaluation::EvaluationEvidence>,
     source_portfolio: Option<Arc<crate::manifests::portfolio::PreparedPortfolio>>,
+    adaptive: Option<adaptive::AdaptiveProof>,
 }
 
 impl PreparedStage {
@@ -132,6 +153,7 @@ impl PreparedStage {
             child_id,
             source_evaluation: None,
             source_portfolio: None,
+            adaptive: None,
         };
         prepared.check()?;
         Ok(prepared)
@@ -176,7 +198,26 @@ impl PreparedStage {
             };
             portfolio.resolve_result(job, success)?;
         }
+        if let Some(adaptive) = &self.adaptive {
+            adaptive.check()?;
+        }
         Ok(())
+    }
+
+    pub(super) fn with_adaptive(mut self, proof: adaptive::AdaptiveProof) -> StoreResult<Self> {
+        self.adaptive = Some(proof);
+        self.check()?;
+        Ok(self)
+    }
+
+    pub(crate) fn adaptive(&self) -> Option<&adaptive::AdaptiveProof> {
+        self.adaptive.as_ref()
+    }
+
+    pub(super) fn portfolio_proof(
+        &self,
+    ) -> Option<&Arc<crate::manifests::portfolio::PreparedPortfolio>> {
+        self.source_portfolio.as_ref()
     }
 
     pub(super) fn with_evaluation(
@@ -214,10 +255,28 @@ impl PreparedStage {
                 Some(job_specification::Input::Backtest(_)) if self.source_portfolio.is_some() => {}
                 Some(job_specification::Input::Discovery(_))
                     if WorkflowEvidence::decode(&self.evidence)?.proposal.is_some() => {}
+                Some(job_specification::Input::Perturbation(_))
+                    if self
+                        .adaptive
+                        .as_ref()
+                        .and_then(|proof| proof.completion())
+                        .is_some() => {}
                 _ => return Err(StoreError::AdmissionDenied),
             }
         }
-        check_recipe(&self.frozen, spec)
+        check_recipe(&self.frozen, spec)?;
+        check_adaptive(self.adaptive.as_ref(), spec)
+    }
+}
+
+fn check_adaptive(
+    proof: Option<&adaptive::AdaptiveProof>,
+    spec: &loop_protocol::wire::runs::v1::RunSpecification,
+) -> StoreResult<()> {
+    match (proof, &spec.feedback_policy) {
+        (None, None) => Ok(()),
+        (Some(proof), Some(_)) => proof.check_for(spec),
+        _ => Err(StoreError::AdmissionDenied),
     }
 }
 

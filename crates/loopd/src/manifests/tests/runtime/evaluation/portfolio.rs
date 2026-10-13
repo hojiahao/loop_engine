@@ -16,6 +16,11 @@ pub(super) fn configure_run(fixture: &mut Fixture) {
     self::fixture::configure(fixture, false);
 }
 
+pub(super) fn configure_history(fixture: &mut Fixture) {
+    reconciliation::extend_panel(fixture);
+    self::fixture::configure(fixture, true);
+}
+
 #[tokio::test]
 async fn protected_portfolio_denied() {
     for role in [Role::Research, Role::HoldoutWorker] {

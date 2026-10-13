@@ -231,6 +231,7 @@ pub(super) async fn mutate(
     if let JobMutation::Complete(input) = &command {
         super::reconciliation::check_lease(store, &record, input)?;
         super::statistics::check_lease(store, &record, input)?;
+        super::perturbation_job::check_lease(store, &record, input)?;
     }
     if let JobMutation::Complete(input) = &command
         && matches!(
@@ -300,8 +301,15 @@ pub(super) async fn mutate(
         super::evaluation::read(&mut transaction, &job).await?;
         super::reconciliation::verify(store, &mut transaction, principal, &job).await?;
         super::statistics::verify(store, &mut transaction, principal, &job).await?;
+        super::perturbation_job::verify(store, &mut transaction, principal, &job).await?;
         if let Some(evidence) = &store.evaluation_evidence {
             evidence.check(&job)?;
+        }
+        if let Some(proof) = &store.perturbation_proof {
+            store
+                .admission
+                .authorize_job_command(operation, principal, &job)?;
+            proof.check_record(&job)?;
         }
         transaction.commit().await?;
         return Ok(CommandResult {
@@ -331,6 +339,11 @@ pub(super) async fn mutate(
         .await?;
     }
     let previous_state = state_name(record.state)?;
+    let perturbation_lease = if store.perturbation_proof.is_some() {
+        Some(record.clone())
+    } else {
+        None
+    };
     let validation_lease =
         if store.validation_evidence.is_some() || store.statistics_evidence.is_some() {
             Some(record.clone())
@@ -350,6 +363,7 @@ pub(super) async fn mutate(
     super::evaluation::record_completion(store, &mut transaction, &record).await?;
     super::reconciliation::verify(store, &mut transaction, principal, &record).await?;
     super::statistics::verify(store, &mut transaction, principal, &record).await?;
+    super::perturbation_job::verify(store, &mut transaction, principal, &record).await?;
     audit::append(
         &mut transaction,
         &store.ledger_id,
@@ -401,6 +415,10 @@ pub(super) async fn mutate(
     if rejection::is_rejected_backtest(&record) {
         super::crash_tests::fault_point("rejection_before_commit").await;
     }
+    #[cfg(test)]
+    if store.perturbation_proof.is_some() {
+        super::crash_tests::fault_point("perturbation_before_commit").await;
+    }
     if let Some(original) = &validation_lease {
         let lease = if let Some(proof) = &store.validation_evidence {
             proof.check_record(&record)?;
@@ -417,7 +435,25 @@ pub(super) async fn mutate(
             .admission
             .authorize_job_command(operation, principal, &record)?;
     }
+    if let Some(original) = &perturbation_lease {
+        let proof = store
+            .perturbation_proof
+            .as_ref()
+            .ok_or(StoreError::AdmissionDenied)?;
+        proof.check_record(&record)?;
+        let committed = store.observe_clock(&mut transaction).await?;
+        super::live_lease(original, principal, proof.lease_id(), committed)?;
+        store
+            .admission
+            .authorize_job_command(operation, principal, &record)?;
+        // Last file check follows all awaited writes and the live lease check.
+        proof.check_record(&record)?;
+    }
     transaction.commit().await?;
+    #[cfg(test)]
+    if store.perturbation_proof.is_some() {
+        super::crash_tests::fault_point("perturbation_after_commit").await;
+    }
     #[cfg(test)]
     if super::reconciliation::completed(&record) {
         super::crash_tests::fault_point("validation_after_commit").await;

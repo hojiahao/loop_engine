@@ -13,6 +13,8 @@ export {
   ResearchJobStatusSchema,
 } from "../generated/loop/research/v1/service_pb.js";
 export {
+  type AdaptiveRunView,
+  AdaptiveRunViewSchema,
   type GetRunRequest,
   GetRunRequestSchema,
   type GetRunResponse,

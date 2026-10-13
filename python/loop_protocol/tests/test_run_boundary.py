@@ -30,7 +30,8 @@ def test_numerical_golden() -> None:
     assert view.SerializeToString(deterministic=True) == _NUMERICAL
     validate_workflow(0)
     validate_workflow(2)
-    for version in (1, 3, -1, True):
+    validate_workflow(3)
+    for version in (1, 4, -1, True):
         with pytest.raises(ValueError):
             validate_workflow(version)
 
@@ -219,6 +220,8 @@ def test_operator_surface() -> None:
             "RunSpecification",
             "DiscoveryJobInput",
             "DiscoveryCandidate",
+            "PerturbationJobInput",
+            "PerturbationWork",
             "Holdout",
             "Grant",
         )

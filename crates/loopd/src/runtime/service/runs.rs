@@ -30,8 +30,16 @@ impl wire::run_service_server::RunService for RuntimeService {
             .verify_run(&principal.actor, specification)
             .map_err(status)?;
         let mut run = if specification.numerical.is_some() {
-            let (_, frozen) = self.frozen_numerical(specification).await.map_err(status)?;
-            let prepared = crate::runtime::workflow::PreparedRun::new(frozen).map_err(status)?;
+            let (resolver, frozen) = self.frozen_numerical(specification).await.map_err(status)?;
+            let mut prepared =
+                crate::runtime::workflow::PreparedRun::new(frozen).map_err(status)?;
+            if let Some(proof) = self
+                .initial_feedback(specification, &resolver)
+                .await
+                .map_err(status)?
+            {
+                prepared = prepared.with_adaptive(proof).map_err(status)?;
+            }
             self.store
                 .start_numerical(
                     &principal.actor,
@@ -92,7 +100,7 @@ impl wire::run_service_server::RunService for RuntimeService {
         request: Request<wire::StepRunRequest>,
     ) -> Result<Response<wire::StepRunResponse>, Status> {
         let input = request.get_ref();
-        let principal = if input.workflow_version == 2 {
+        let principal = if matches!(input.workflow_version, 2 | 3) {
             check_deadline(&request, 240_000_000_000)?;
             self.owner_context(&request, input.context.as_ref())?
         } else {
@@ -272,7 +280,9 @@ fn check_version(
     specification: &wire::RunSpecification,
 ) -> crate::store::StoreResult<()> {
     loop_protocol::runs::validate_workflow(version)?;
-    if (version == 2) != specification.numerical.is_some() {
+    if matches!(version, 2 | 3) != specification.numerical.is_some()
+        || (version == 3) != specification.feedback_policy.is_some()
+    {
         return Err(StoreError::Invalid("run workflow version mismatch"));
     }
     Ok(())

@@ -30,10 +30,24 @@ impl RuntimeService {
             .as_ref()
             .ok_or(StoreError::AdmissionDenied)?;
         let history = stage.store.model_history(actor, &job_id(job)?).await?;
-        self.discoverer
+        let discoverer = self
+            .discoverer
             .as_ref()
-            .ok_or(StoreError::AdmissionDenied)?
-            .view(job, &history)?;
+            .ok_or(StoreError::AdmissionDenied)?;
+        let scoped = stage
+            .adaptive
+            .as_ref()
+            .map(|adaptive| {
+                discoverer.scope_existing(
+                    job.specification
+                        .as_ref()
+                        .ok_or(StoreError::Corrupt("adaptive source job"))?,
+                    &adaptive.binding,
+                    adaptive.feedback.clone(),
+                )
+            })
+            .transpose()?;
+        scoped.as_ref().unwrap_or(discoverer).view(job, &history)?;
         let step = history
             .last()
             .ok_or(StoreError::Corrupt("run candidate receipt"))?;

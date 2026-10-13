@@ -30,6 +30,60 @@ pub(in crate::runtime::discovery::tests) struct Operations {
 }
 
 impl Case {
+    pub(in crate::runtime::discovery::tests) async fn deploy_fault(
+        &mut self,
+        operations: &mut Operations,
+        point: &str,
+    ) {
+        assert!(self.task.is_finished());
+        assert!(operations.runtime.is_file());
+        operations.stop(true).await;
+        let server = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "runtime::discovery::tests::adaptive::fault_server",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env("LOOP_ADAPTIVE_RUNTIME", &operations.runtime)
+            .env("LOOP_ADAPTIVE_DATABASE", &operations.database)
+            .env(
+                "LOOP_ADAPTIVE_SCHEMA",
+                test_support::schema(&self.directory.path().join("state")),
+            )
+            .env("LOOP_TEST_FAULT_POINT", point)
+            .env("LOOP_TEST_FAULT_READY", operations.fault_marker())
+            .env("TMPDIR", operations.directory())
+            .stdin(Stdio::null())
+            .stdout(fs::File::create(&operations.log).unwrap())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        operations.server = Some(server);
+        let ready = async {
+            loop {
+                assert!(
+                    operations
+                        .server
+                        .as_mut()
+                        .unwrap()
+                        .try_wait()
+                        .unwrap()
+                        .is_none(),
+                    "fault runtime exited before opening its authenticated endpoint"
+                );
+                if tokio::net::TcpStream::connect(self.address).await.is_ok() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        };
+        tokio::time::timeout(Duration::from_secs(30), ready)
+            .await
+            .expect("fault runtime startup deadline");
+    }
+
     pub(in crate::runtime::discovery::tests) fn stall_supplier(&self) {
         private_file(&self.directory.path().join("supplier-delay"), b"30000");
     }
@@ -198,6 +252,23 @@ impl Operations {
     }
 
     pub(in crate::runtime::discovery::tests) async fn run_cli(&self, args: &[&str]) -> Output {
+        let child = self.spawn_run(args);
+        let timeout = if args.contains(&"--timeout-seconds") {
+            245
+        } else {
+            35
+        };
+        tokio::time::timeout(Duration::from_secs(timeout), child.wait_with_output())
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    pub(in crate::runtime::discovery::tests) fn fault_marker(&self) -> PathBuf {
+        self.directory().join("runtime-fault")
+    }
+
+    pub(in crate::runtime::discovery::tests) fn spawn_run(&self, args: &[&str]) -> Child {
         let mut command = Command::new(&self.loopctl);
         command
             .current_dir(self._directory.path())
@@ -214,21 +285,12 @@ impl Operations {
                 command.arg(argument);
             }
         }
-        let child = command
+        command
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
-            .unwrap();
-        let timeout = if args.contains(&"--timeout-seconds") {
-            245
-        } else {
-            35
-        };
-        tokio::time::timeout(Duration::from_secs(timeout), child.wait_with_output())
-            .await
-            .unwrap()
             .unwrap()
     }
 

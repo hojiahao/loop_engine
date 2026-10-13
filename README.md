@@ -51,7 +51,8 @@ Loop Engine 是面向美股横截面因子研究的可审计研究平台。研�
 - **可插拔模型接入** — 原生协议、云部署、自托管与网关共用调用边界，支持工具消息、
   结构化输出和流式响应，每次调用固定模型、能力与价格快照。
 - **可恢复模型执行** — 持久化任务状态、工具上下文和幂等回执；在固定计划和跨任务
-  预算下，人工逐轮推进候选生成，重启后继续读取和操作原任务。
+  预算下逐阶段推进研究，将已登记的 IS 结果送入后续模型上下文，或执行固定规则的
+  窗口扰动；重启后继续读取和操作原任务。
 
 ## 开始使用
 
@@ -163,6 +164,21 @@ loopctl run --config /absolute/private/operator.json step \
 每次 `step` 最多执行一个子任务；评测使用冻结的 IS 数据、因子方向、随机种子和政策，
 由独立 Research 服务身份执行。重复或已拒绝候选、覆盖率不足会留下相应记录；
 组合结果登记不代表正式准入。准备方法见[数值研究配置](docs/development/research-runs-cli.md#numerical-workflow-opt-in)。
+
+反馈研究计划使用 `--workflow-version 3`，由预先固定的顺序选择模型生成或数值扰动。
+后续模型请求只读取已核验的本运行 IS 结果；扰动沿用相同的评测和组合路径，保存随机状态。
+它占用一个任务步骤，不调用 LLM；执行记录和计算资源仍受预算、租约与期限约束。
+
+```bash
+loopctl run --config /absolute/private/operator.json --workflow-version 3 start \
+  --plan /absolute/private/adaptive-plan.binpb --key start.adaptive.001
+loopctl run --config /absolute/private/operator.json --workflow-version 3 step \
+  --timeout-seconds 240 --run RUN_ID --revision REVISION --key step.adaptive.001
+loopctl run --config /absolute/private/operator.json --workflow-version 3 status --run RUN_ID
+```
+
+该入口需要管理员登记反馈政策和独立 Research 身份。预算、反馈来源、故障恢复和
+回退配置见[反馈与扰动指南](docs/development/research-runs-cli.md#adaptive-workflow-opt-in)。
 
 单个 Discovery 任务通过独立客户端身份查看和控制：
 

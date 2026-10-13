@@ -47,3 +47,20 @@ job record, raw model output, lease or protected-data authority. The capability
 identity `discovery.model-step.v1` is additive and is not advertised by the
 older generic ProtocolInfo fixture. A completed candidate is not an admitted
 factor or a claim that model charges equal the reserved ceiling.
+
+The `adaptive_workflow_v3.json` golden adds a real internal Perturbation job and
+a safe v3 projection. All three consumers enforce the source, family, build,
+budget and immutable work bindings. The new `jobs.perturbation.v1` capability
+does not expose an enqueue RPC or arbitrary work through RunService. A separate
+search-exhausted terminal status retains the actual completed-round count.
+Existing v1/v2 run goldens remain byte-for-byte unchanged. Reproduce the v3
+golden with:
+
+```bash
+./scripts/uv-protocol.sh run --locked --offline python ../../tests/contracts/protocol/generate_adaptive_fixtures.py
+```
+
+Job input tag 16 is now the defined Perturbation input. The unknown-oneof
+negative fixture therefore uses tag 17; the original tag-16 bytes also remain
+explicit negative cases because they name a Report with an empty Perturbation
+input. Recognizing an additive field does not grant execution authority.

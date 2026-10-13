@@ -22,6 +22,7 @@ enum JobKind {
   JOB_KIND_REPORT = 5;
   JOB_KIND_PROSPECTIVE_OBSERVATION = 6;
   JOB_KIND_HOLDOUT_BACKTEST = 7;
+  JOB_KIND_PERTURBATION = 8;
 }
 
 enum JobState {
@@ -132,6 +133,23 @@ message ArtifactJobInput {
   JobBudget budget = 3;
 }
 
+// Internal v3 run child; no public enqueue RPC accepts this input. The parent
+// binding fixes the run revision and round, while submitted_by identifies the
+// separately authenticated Research Service. Artifact references grant no access.
+message PerturbationJobInput {
+  DevelopmentDatasetReference dataset = 1;
+  PolicyReference feedback_policy = 2;
+  Sha256Digest parent_binding_sha256 = 3;
+  Sha256Digest family_sha256 = 4;
+  // Exact PerturbationWork bytes, schema loop.perturbation_work version 1.
+  ArtifactRef work = 5;
+  Sha256Digest source_code_sha256 = 6;
+  Sha256Digest environment_sha256 = 7;
+  // Exactly one step, zero model tokens/cost and at most 20 seconds.
+  JobBudget budget = 8;
+  string algorithm = 9;
+}
+
 message JobSpecification {
   JobId job_id = 1;
   RunId run_id = 2;
@@ -143,6 +161,7 @@ message JobSpecification {
     ReconciliationJobInput reconciliation = 7;
     HoldoutBacktestJobInput holdout_backtest = 8;
     ArtifactJobInput artifact = 9;
+    PerturbationJobInput perturbation = 16;
   }
   google.protobuf.Timestamp submitted_at = 10;
   Actor submitted_by = 11;

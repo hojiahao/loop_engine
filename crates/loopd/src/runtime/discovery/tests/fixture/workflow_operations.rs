@@ -38,9 +38,21 @@ impl Case {
         rounds: u32,
         missing: bool,
     ) -> Operations {
+        self.install_workflow(rounds, missing, false).await
+    }
+
+    pub(super) async fn install_history(&mut self, rounds: u32) -> Operations {
+        self.install_workflow(rounds, false, true).await
+    }
+
+    async fn install_workflow(&mut self, rounds: u32, missing: bool, history: bool) -> Operations {
         // The helper runs the installed Python producer and freezes its actual
         // source/environment manifests, but never submits a predecessor job.
-        let mut fixture = crate::manifests::tests::run_fixture().await;
+        let mut fixture = if history {
+            crate::manifests::tests::run_history().await
+        } else {
+            crate::manifests::tests::run_fixture().await
+        };
         if missing {
             fixture.context.data = missing_panel(&fixture.root, &fixture.context.data);
         }
@@ -154,6 +166,7 @@ impl Case {
             evaluation_budget: Some(numerical_budget()),
             portfolio_budget: Some(numerical_budget()),
             protocol_selection: Some(protocol),
+            perturbation_budget: None,
         });
         let budget = specification.budget.as_mut().unwrap();
         budget.maximum_steps += u64::from(rounds) * 2;

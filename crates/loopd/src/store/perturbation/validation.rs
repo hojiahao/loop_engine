@@ -37,7 +37,9 @@ pub(super) fn space(space: &PerturbationSpace, input: &BacktestJobInput) -> Stor
     Ok(())
 }
 
-pub(super) fn state(state: &PerturbationState, space: &PerturbationSpace) -> StoreResult<()> {
+/// Verify bounded random, proposal and observation state against one frozen family.
+/// This pure check grants no source authority and performs no mutation or replay.
+pub(crate) fn state(state: &PerturbationState, space: &PerturbationSpace) -> StoreResult<()> {
     if state.version != 1
         || state.random_seed != space.random_seed
         || state.random_draws > 1_000_000_000
@@ -82,7 +84,10 @@ pub(super) fn state(state: &PerturbationState, space: &PerturbationSpace) -> Sto
     Ok(())
 }
 
-pub(super) fn transition(
+/// Verify one deterministic worker transition without accepting source authority.
+/// Rejects changed observations, invalid candidates and unbounded random advance.
+/// No state is persisted; the caller must bind the exact input and result receipt.
+pub(crate) fn transition(
     work: &PerturbationWork,
     space: &PerturbationSpace,
     step: &PerturbationStep,

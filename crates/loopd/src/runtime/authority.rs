@@ -20,6 +20,12 @@ pub(super) const RUNS_DESCRIPTOR: [u8; 32] = [
     0x41, 0x7d, 0xcf, 0xa3, 0xc0, 0xac, 0xc0, 0xe1, 0x0b, 0x73, 0x0e, 0x6c, 0xa2, 0xcf, 0x35, 0xc2,
 ];
 
+// Published numerical-run v2 remains readable after the additive v3 contract.
+pub(super) const NUMERICAL_DESCRIPTOR: [u8; 32] = [
+    0xa5, 0x9a, 0x85, 0x77, 0x8d, 0xc0, 0x0e, 0xda, 0x48, 0xce, 0xb2, 0x30, 0x28, 0x20, 0x3e, 0x5b,
+    0xf3, 0xaf, 0xfb, 0x2c, 0xd9, 0xa4, 0x82, 0x9d, 0x7c, 0x59, 0x85, 0x38, 0x12, 0x99, 0x9d, 0x90,
+];
+
 /// Exactly one trust zone per independently provisioned runtime identity.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -273,11 +279,14 @@ impl RuntimeAuthority {
             .as_ref()
             .and_then(|workflow| workflow.protocol_selection.as_ref())
             .ok_or(StoreError::AdmissionDenied)?;
-        let features = [
+        let mut features = vec![
             "jobs.envelope.v1",
             "jobs.kind-input.v1",
             "jobs.prelease-terminal.v1",
         ];
+        if specification.feedback_policy.is_some() {
+            features.push("jobs.perturbation.v1");
+        }
         if selection.selected_package != "loop.v1"
             || selection.enabled_features.len() != features.len()
             || features.iter().any(|feature| {
@@ -291,7 +300,9 @@ impl RuntimeAuthority {
                 .as_ref()
                 .is_none_or(|digest| {
                     digest.value != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
-                        && digest.value.as_slice() != RUNS_DESCRIPTOR
+                        && (specification.feedback_policy.is_some()
+                            || (digest.value.as_slice() != RUNS_DESCRIPTOR
+                                && digest.value.as_slice() != NUMERICAL_DESCRIPTOR))
                 })
         {
             return Err(StoreError::AdmissionDenied);
@@ -488,7 +499,8 @@ impl AdmissionPolicy for RuntimeAuthority {
         ];
         if selection.selected_package != "loop.v1"
             || (descriptor.value != Sha256::digest(loop_protocol::FILE_DESCRIPTOR_SET).as_slice()
-                && descriptor.value.as_slice() != RUNS_DESCRIPTOR)
+                && descriptor.value.as_slice() != RUNS_DESCRIPTOR
+                && descriptor.value.as_slice() != NUMERICAL_DESCRIPTOR)
             || selection
                 .enabled_features
                 .iter()

@@ -1143,6 +1143,7 @@ fn specification_budget(specification: &JobSpecification) -> Option<&JobBudget> 
         job_specification::Input::Reconciliation(value) => value.budget.as_ref(),
         job_specification::Input::HoldoutBacktest(value) => value.budget.as_ref(),
         job_specification::Input::Artifact(value) => value.budget.as_ref(),
+        job_specification::Input::Perturbation(value) => value.budget.as_ref(),
     }
 }
 

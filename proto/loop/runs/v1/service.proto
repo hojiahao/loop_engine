@@ -27,6 +27,8 @@ enum RunStatus {
   RUN_STATUS_BUDGET_EXHAUSTED = 3;
   RUN_STATUS_INFRASTRUCTURE_FAILED = 4;
   RUN_STATUS_DEADLINE_EXCEEDED = 5;
+  // v3 search exhaustion retains the actual completed-round count.
+  RUN_STATUS_SEARCH_EXHAUSTED = 6;
 }
 
 // Cumulative reservation ceilings over all children of one run. Steps, tokens
@@ -53,8 +55,10 @@ message RunSpecification {
   loop.v1.ProtocolSelectionSnapshot protocol_selection = 6;
   RunBudget budget = 7;
   uint32 maximum_rounds = 8;
-  // Presence opts into the v2 numerical workflow; absent preserves v1 bytes.
+  // Presence opts into numerical workflows; absent preserves v1 bytes.
   NumericalWorkflow numerical = 9;
+  // Present only for v3; resolved from the installed immutable plan.
+  loop.v1.PolicyReference feedback_policy = 10;
 }
 
 // Immutable research delegation. This actor must have a separately registered
@@ -65,6 +69,8 @@ message NumericalWorkflow {
   loop.research.v1.ResearchJobBudget evaluation_budget = 3;
   loop.research.v1.ResearchJobBudget portfolio_budget = 4;
   loop.v1.ProtocolSelectionSnapshot protocol_selection = 5;
+  // v3 only. Uses the safe research budget contract, never a generic job input.
+  loop.research.v1.ResearchJobBudget perturbation_budget = 6;
 }
 
 enum RunStage {
@@ -72,6 +78,7 @@ enum RunStage {
   RUN_STAGE_DISCOVERY = 1;
   RUN_STAGE_EVALUATION = 2;
   RUN_STAGE_PORTFOLIO = 3;
+  RUN_STAGE_PERTURBATION = 4;
 }
 
 enum RoundDisposition {
@@ -82,6 +89,8 @@ enum RoundDisposition {
   ROUND_DISPOSITION_DUPLICATE = 2;
   ROUND_DISPOSITION_PREVIOUSLY_REJECTED = 3;
   ROUND_DISPOSITION_INSUFFICIENT_COVERAGE = 4;
+  // A successful selector with no remaining candidate; never factor rejection.
+  ROUND_DISPOSITION_EXHAUSTED = 5;
 }
 
 // Safe v2 projection, without inputs, data references, leases or candidate AST.
@@ -99,6 +108,21 @@ message ResearchRunView {
   loop.v1.FactorSpecId factor_spec_id = 8;
   loop.v1.Sha256Digest binding_sha256 = 9;
   RoundDisposition disposition = 10;
+  // v3 only; exactly one of this and discovery_job_id names the real proposer.
+  loop.v1.JobId perturbation_job_id = 11;
+}
+
+// Safe v3 projection. Digests identify frozen evidence but confer no authority.
+// No raw feedback, work, random seed, model request or data reference is exposed.
+message AdaptiveRunView {
+  loop.v1.PolicyReference feedback_policy = 1;
+  uint32 source_count = 2;
+  loop.v1.Sha256Digest feedback_sha256 = 3;
+  loop.v1.Sha256Digest model_context_sha256 = 4;
+  // Both family and state are absent until a verified family is established.
+  loop.v1.Sha256Digest family_sha256 = 5;
+  uint64 random_draws = 6;
+  loop.v1.Sha256Digest state_sha256 = 7;
 }
 
 // Safe persisted projection. Reservations charge each child's full frozen
@@ -121,14 +145,16 @@ message RunView {
   google.protobuf.Timestamp deadline = 14;
   // False for stop-only observation when live plans have not been validated.
   bool plan_verified = 15;
-  // v2 only; mutually exclusive with the v1 current_job field.
+  // v2/v3 only; mutually exclusive with the v1 current_job field.
   ResearchRunView research = 16;
+  // v3 only; requires a research projection.
+  AdaptiveRunView adaptive = 17;
 }
 
 message StartRunRequest {
   loop.v1.CommandContext context = 1;
   loop.v1.PolicyReference plan = 2;
-  // 0 preserves v1; 2 explicitly selects numerical workflow semantics.
+  // 0 preserves v1; 2 selects numerical, 3 selects adaptive numerical semantics.
   uint32 workflow_version = 3;
 }
 

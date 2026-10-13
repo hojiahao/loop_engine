@@ -27,6 +27,7 @@ import {
   type JobRecord,
   type JobSpecification,
   JobState,
+  type PerturbationJobInput,
 } from "./generated/loop/v1/job_pb.js";
 import { ModelProtocolFamily, type ModelResolutionSnapshot } from "./generated/loop/v1/model_pb.js";
 import {
@@ -132,6 +133,7 @@ export function validate_job_shape(
     [JobKind.REPORT]: "artifact",
     [JobKind.PROSPECTIVE_OBSERVATION]: "artifact",
     [JobKind.HOLDOUT_BACKTEST]: "holdoutBacktest",
+    [JobKind.PERTURBATION]: "perturbation",
   };
   if (expectedInput[kind] !== inputCase) fail("kind_input_mismatch", "specification.input");
   return Object.freeze({ kind });
@@ -151,6 +153,13 @@ export function validate_job_specification(
   const shape = validate_job_shape(specification);
   const submittedAt = validate_job_envelope(specification);
   validate_job_input(specification, submittedAt);
+  if (
+    shape.kind === JobKind.PERTURBATION &&
+    (specification.submittedBy?.kind !== ActorKind.SERVICE ||
+      specification.protocolSelection?.selectedPackage !== "loop.v1" ||
+      !specification.protocolSelection.enabledFeatures.includes("jobs.perturbation.v1"))
+  )
+    fail("invalid_input", "specification.perturbation_authority");
   return shape;
 }
 
@@ -378,6 +387,9 @@ function validate_job_input(specification: JobSpecification, submittedAt: Timest
     case "holdoutBacktest":
       validate_holdout_input(input.value, submittedAt);
       return;
+    case "perturbation":
+      validate_perturbation(input.value, submittedAt);
+      return;
     case "artifact":
       if (input.value.input === undefined) {
         fail("missing_field", "specification.input.artifact.input");
@@ -393,6 +405,53 @@ function validate_job_input(specification: JobSpecification, submittedAt: Timest
     case undefined:
       fail("missing_field", "specification.input");
   }
+}
+
+function validate_perturbation(input: PerturbationJobInput, submitted: Timestamp): void {
+  const field = "specification.input.perturbation";
+  validate_development_dataset(input.dataset);
+  validate_policy(input.feedbackPolicy, field);
+  for (const digest of [
+    input.parentBindingSha256,
+    input.familySha256,
+    input.sourceCodeSha256,
+    input.environmentSha256,
+  ])
+    require_digest(digest, field);
+  const work = input.work;
+  if (work === undefined) fail("missing_field", field);
+  try {
+    validate_artifact_ref(work);
+  } catch {
+    fail("invalid_input", field);
+  }
+  if (
+    work.schema?.name !== "loop.perturbation_work" ||
+    work.schema.version !== 1 ||
+    work.mediaType !== "application/x-protobuf" ||
+    work.byteSize < 1n ||
+    work.byteSize > 1_048_576n ||
+    work.rowCount !== undefined ||
+    compare_timestamp(require_timestamp(work.createdAt, field), submitted) > 0 ||
+    input.algorithm !== "window.ema-gradient-pcg64.v1"
+  )
+    fail("invalid_input", field);
+  validate_budget(input.budget, field);
+  const budget = input.budget;
+  if (budget === undefined) fail("missing_field", field);
+  const wall = budget.maximumWallTime;
+  if (
+    budget.maximumSteps !== 1 ||
+    budget.maximumInputTokens !== 0n ||
+    budget.maximumOutputTokens !== 0n ||
+    budget.maximumCost?.currencyCode !== "USD" ||
+    budget.maximumCost.amount?.value !== "0" ||
+    wall === undefined ||
+    wall.seconds > 20n ||
+    (wall.seconds === 20n && wall.nanos !== 0) ||
+    wall.nanos % 1_000_000 !== 0
+  )
+    fail("invalid_budget", "specification.input.perturbation.budget");
 }
 
 function validate_development_dataset(dataset: DevelopmentDatasetReference | undefined): void {
@@ -415,8 +474,9 @@ function validate_policy(policy: PolicyReference | undefined, field: string): Po
   if (policy === undefined) fail("missing_field", field);
   const policyId = policy.policyId?.value;
   if (policyId === undefined) fail("missing_field", field);
-  if (!/^[a-z][a-z0-9_.-]{0,127}$/.test(policyId)) fail("invalid_input", field);
-  if (!/^[1-9][0-9]{0,19}$/.test(policy.revision)) fail("invalid_input", field);
+  if (/^[a-z][a-z0-9_.-]{0,127}$/.exec(policyId)?.[0] !== policyId) fail("invalid_input", field);
+  if (/^[1-9][0-9]{0,19}$/.exec(policy.revision)?.[0] !== policy.revision)
+    fail("invalid_input", field);
   try {
     if (BigInt(policy.revision) > 18_446_744_073_709_551_615n) fail("invalid_input", field);
   } catch {
@@ -1316,6 +1376,7 @@ function validate_kind(kind: JobKind): JobKind {
     case JobKind.REPORT:
     case JobKind.PROSPECTIVE_OBSERVATION:
     case JobKind.HOLDOUT_BACKTEST:
+    case JobKind.PERTURBATION:
       return kind;
     default:
       fail("unknown_enum", "specification.kind");

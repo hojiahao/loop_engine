@@ -15,7 +15,7 @@ pub(crate) struct WorkflowAuthority {
     base: Arc<RuntimeAuthority>,
     run: RunSpecification,
     current: JobSpecification,
-    next: Option<(String, job_specification::Input)>,
+    next: Vec<(String, job_specification::Input)>,
 }
 
 impl WorkflowAuthority {
@@ -43,6 +43,17 @@ impl WorkflowAuthority {
             })
             .transpose()?
             .flatten();
+        let mut next: Vec<_> = next.into_iter().collect();
+        if let Some(proposal) = prepared
+            .and_then(PreparedStage::adaptive)
+            .and_then(|proof| proof.next())
+            && let Some(perturbation) = &proposal.perturbation
+        {
+            next.push((
+                proposal.job_id.clone(),
+                job_specification::Input::Perturbation(perturbation.input().clone()),
+            ));
+        }
         Ok(Self {
             base,
             run: run.clone(),
@@ -59,15 +70,15 @@ impl WorkflowAuthority {
         if job == &self.current {
             return Ok(());
         }
-        let (id, input) = self.next.as_ref().ok_or(StoreError::AdmissionDenied)?;
-        if job.job_id.as_ref().map(|value| value.value.as_str()) != Some(id.as_str())
-            || job.input.as_ref() != Some(input)
-            || job.protocol_selection
-                != self
-                    .run
-                    .numerical
-                    .as_ref()
-                    .and_then(|workflow| workflow.protocol_selection.clone())
+        if !self.next.iter().any(|(id, input)| {
+            job.job_id.as_ref().map(|value| value.value.as_str()) == Some(id.as_str())
+                && job.input.as_ref() == Some(input)
+        }) || job.protocol_selection
+            != self
+                .run
+                .numerical
+                .as_ref()
+                .and_then(|workflow| workflow.protocol_selection.clone())
         {
             return Err(StoreError::AdmissionDenied);
         }
@@ -129,6 +140,7 @@ impl AdmissionPolicy for WorkflowAuthority {
                 Some(
                     job_specification::Input::FactorEvaluation(_)
                         | job_specification::Input::Backtest(_)
+                        | job_specification::Input::Perturbation(_)
                 )
             )
         {

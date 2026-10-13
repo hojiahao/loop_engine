@@ -15,7 +15,7 @@ const MAX_WALL = 2_592_000n;
 
 /** Version selection is explicit and must be checked before any side effect. */
 export function validate_workflow(version: number): void {
-  if (version !== 0 && version !== 2) invalid();
+  if (version !== 0 && version !== 2 && version !== 3) invalid();
 }
 
 /** Shape checks only: transport authority and historical spend are server gates. */
@@ -28,6 +28,7 @@ export function validate_view(view: RunView): void {
       RunStatus.BUDGET_EXHAUSTED,
       RunStatus.INFRASTRUCTURE_FAILED,
       RunStatus.DEADLINE_EXCEEDED,
+      RunStatus.SEARCH_EXHAUSTED,
     ].includes(view.status)
   )
     invalid();
@@ -86,6 +87,8 @@ export function validate_view(view: RunView): void {
     timestamp(view.deadline) - submitted !== wall.seconds * 1_000_000_000n + BigInt(wall.nanos)
   )
     invalid();
+  if (view.adaptive !== undefined) validate_adaptive(view);
+  else if (view.status === RunStatus.SEARCH_EXHAUSTED) invalid();
   if (view.research !== undefined) {
     validate_research(view);
     return;
@@ -118,44 +121,72 @@ function validate_research(view: RunView): void {
     research.round < view.completedRounds ||
     research.round > view.completedRounds + 1 ||
     (view.status === RunStatus.ACTIVE && research.round !== view.completedRounds + 1) ||
-    (view.status === RunStatus.COMPLETED && research.round !== view.completedRounds) ||
+    ([RunStatus.COMPLETED, RunStatus.SEARCH_EXHAUSTED].includes(view.status) &&
+      research.round !== view.completedRounds) ||
     research.bindingSha256?.value.length !== 32 ||
-    ![RunStage.DISCOVERY, RunStage.EVALUATION, RunStage.PORTFOLIO].includes(research.stage) ||
+    ![RunStage.DISCOVERY, RunStage.EVALUATION, RunStage.PORTFOLIO, RunStage.PERTURBATION].includes(
+      research.stage,
+    ) ||
     ![
       RoundDisposition.UNSPECIFIED,
       RoundDisposition.EVALUATED,
       RoundDisposition.DUPLICATE,
       RoundDisposition.PREVIOUSLY_REJECTED,
       RoundDisposition.INSUFFICIENT_COVERAGE,
+      RoundDisposition.EXHAUSTED,
     ].includes(research.disposition)
   )
     invalid();
-  identity(research.discoveryJobId?.value);
+  const perturbation = research.perturbationJobId !== undefined;
+  if (
+    (perturbation &&
+      (view.adaptive === undefined ||
+        research.discoveryJobId !== undefined ||
+        research.round === 1)) ||
+    (!perturbation && research.discoveryJobId === undefined)
+  )
+    invalid();
+  const proposalId = perturbation
+    ? research.perturbationJobId?.value
+    : research.discoveryJobId?.value;
+  identity(proposalId);
+  const proposalStage = [RunStage.DISCOVERY, RunStage.PERTURBATION].includes(research.stage);
+  if (
+    (research.stage === RunStage.PERTURBATION && !perturbation) ||
+    (research.stage === RunStage.DISCOVERY && perturbation)
+  )
+    invalid();
   const filtered = [RoundDisposition.DUPLICATE, RoundDisposition.PREVIOUSLY_REJECTED].includes(
     research.disposition,
   );
-  if (research.stage !== RunStage.DISCOVERY || filtered) {
+  if (!proposalStage || filtered) {
     factor_id(research.expressionId?.value);
     factor_id(research.factorSpecId?.value);
   } else if (research.expressionId !== undefined || research.factorSpecId !== undefined) invalid();
-  if (research.stage === RunStage.DISCOVERY) {
+  if (proposalStage) {
     if (
       research.evaluationJobId !== undefined ||
-      (!filtered && research.disposition !== RoundDisposition.UNSPECIFIED)
+      (!filtered &&
+        ![RoundDisposition.UNSPECIFIED, RoundDisposition.EXHAUSTED].includes(research.disposition))
     )
       invalid();
   } else {
     identity(research.evaluationJobId?.value);
-    if (research.evaluationJobId?.value === research.discoveryJobId?.value) invalid();
+    if (research.evaluationJobId?.value === proposalId) invalid();
   }
   if (
-    (filtered && research.stage !== RunStage.DISCOVERY) ||
+    (filtered && !proposalStage) ||
     (research.disposition === RoundDisposition.INSUFFICIENT_COVERAGE &&
       research.stage !== RunStage.EVALUATION) ||
     (research.disposition === RoundDisposition.EVALUATED &&
       research.stage !== RunStage.PORTFOLIO) ||
     (view.status === RunStatus.ACTIVE && research.disposition !== RoundDisposition.UNSPECIFIED) ||
-    (view.status === RunStatus.COMPLETED && research.disposition === RoundDisposition.UNSPECIFIED)
+    (view.status === RunStatus.COMPLETED &&
+      research.disposition === RoundDisposition.UNSPECIFIED) ||
+    (research.disposition === RoundDisposition.EXHAUSTED &&
+      (view.status !== RunStatus.SEARCH_EXHAUSTED || research.stage !== RunStage.PERTURBATION)) ||
+    (view.status === RunStatus.SEARCH_EXHAUSTED &&
+      research.disposition !== RoundDisposition.EXHAUSTED)
   )
     invalid();
   const current = research.currentChild;
@@ -170,8 +201,10 @@ function validate_research(view: RunView): void {
     (discovery && child.jobId?.value !== research.discoveryJobId?.value) ||
     (research.stage === RunStage.EVALUATION &&
       child.jobId?.value !== research.evaluationJobId?.value) ||
+    (research.stage === RunStage.PERTURBATION &&
+      child.jobId?.value !== research.perturbationJobId?.value) ||
     (research.stage === RunStage.PORTFOLIO &&
-      (child.jobId?.value === research.discoveryJobId?.value ||
+      (child.jobId?.value === proposalId ||
         child.jobId?.value === research.evaluationJobId?.value)) ||
     child.revision <= 0n ||
     child.revision > MAX_SIGNED ||
@@ -182,6 +215,35 @@ function validate_research(view: RunView): void {
   identity(child.jobId?.value);
   const submitted = timestamp(child.submittedAt);
   if (submitted < timestamp(view.submittedAt) || timestamp(child.updatedAt) < submitted) invalid();
+}
+
+function validate_adaptive(view: RunView): void {
+  const adaptive = view.adaptive;
+  if (adaptive === undefined || view.research === undefined) invalid();
+  const policy = adaptive.feedbackPolicy;
+  if (
+    policy === undefined ||
+    policy.policyId === undefined ||
+    /^[a-z][a-z0-9_.-]{0,127}$/.exec(policy.policyId.value)?.[0] !== policy.policyId.value ||
+    /^[1-9][0-9]{0,19}$/.exec(policy.revision)?.[0] !== policy.revision ||
+    BigInt(policy.revision) > 18_446_744_073_709_551_615n ||
+    policy.sha256?.value.length !== 32 ||
+    adaptive.feedbackSha256?.value.length !== 32 ||
+    adaptive.modelContextSha256?.value.length !== 32 ||
+    !Number.isInteger(adaptive.sourceCount) ||
+    adaptive.sourceCount < 0 ||
+    adaptive.sourceCount > 16 ||
+    adaptive.sourceCount > view.completedRounds ||
+    (adaptive.familySha256 === undefined) !== (adaptive.stateSha256 === undefined) ||
+    adaptive.randomDraws < 0n ||
+    adaptive.randomDraws > BigInt(view.maximumRounds * 32) ||
+    (adaptive.familySha256 === undefined &&
+      (adaptive.randomDraws !== 0n || view.research.perturbationJobId !== undefined)) ||
+    [adaptive.familySha256, adaptive.stateSha256].some(
+      (digest) => digest !== undefined && digest.value.length !== 32,
+    )
+  )
+    invalid();
 }
 
 function factor_id(value: string | undefined): void {

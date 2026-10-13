@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file loop/runs/v1/service.proto.
  */
 export const file_loop_runs_v1_service: GenFile = /*@__PURE__*/
-  fileDesc("Chpsb29wL3J1bnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5ydW5zLnYxIrsBCglSdW5CdWRnZXQSFQoNbWF4aW11bV9zdGVwcxgBIAEoBBIcChRtYXhpbXVtX2lucHV0X3Rva2VucxgCIAEoBBIdChVtYXhpbXVtX291dHB1dF90b2tlbnMYAyABKAQSJAoMbWF4aW11bV9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRI0ChFtYXhpbXVtX3dhbGxfdGltZRgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiKJAwoQUnVuU3BlY2lmaWNhdGlvbhImCgRwbGFuGAEgASgLMhgubG9vcC52MS5Qb2xpY3lSZWZlcmVuY2USHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIdCgVvd25lchgDIAEoCzIOLmxvb3AudjEuQWN0b3ISIAoIZXhlY3V0b3IYBCABKAsyDi5sb29wLnYxLkFjdG9yEjcKCWRpc2NvdmVyeRgFIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYklucHV0Ej4KEnByb3RvY29sX3NlbGVjdGlvbhgGIAEoCzIiLmxvb3AudjEuUHJvdG9jb2xTZWxlY3Rpb25TbmFwc2hvdBInCgZidWRnZXQYByABKAsyFy5sb29wLnJ1bnMudjEuUnVuQnVkZ2V0EhYKDm1heGltdW1fcm91bmRzGAggASgNEjIKCW51bWVyaWNhbBgJIAEoCzIfLmxvb3AucnVucy52MS5OdW1lcmljYWxXb3JrZmxvdyKnAgoRTnVtZXJpY2FsV29ya2Zsb3cSKQoRcmVzZWFyY2hfZXhlY3V0b3IYASABKAsyDi5sb29wLnYxLkFjdG9yEigKBnJlY2lwZRgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlEj4KEWV2YWx1YXRpb25fYnVkZ2V0GAMgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI9ChBwb3J0Zm9saW9fYnVkZ2V0GAQgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI+ChJwcm90b2NvbF9zZWxlY3Rpb24YBSABKAsyIi5sb29wLnYxLlByb3RvY29sU2VsZWN0aW9uU25hcHNob3Qi6QMKD1Jlc2VhcmNoUnVuVmlldxINCgVyb3VuZBgBIAEoDRIlCgVzdGFnZRgCIAEoDjIWLmxvb3AucnVucy52MS5SdW5TdGFnZRI6CglkaXNjb3ZlcnkYAyABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGVIABI3CghyZXNlYXJjaBgEIAEoCzIjLmxvb3AucmVzZWFyY2gudjEuUmVzZWFyY2hKb2JIYW5kbGVIABIoChBkaXNjb3Zlcnlfam9iX2lkGAUgASgLMg4ubG9vcC52MS5Kb2JJZBIpChFldmFsdWF0aW9uX2pvYl9pZBgGIAEoCzIOLmxvb3AudjEuSm9iSWQSMgoNZXhwcmVzc2lvbl9pZBgHIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEi0KDmZhY3Rvcl9zcGVjX2lkGAggASgLMhUubG9vcC52MS5GYWN0b3JTcGVjSWQSLQoOYmluZGluZ19zaGEyNTYYCSABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIzCgtkaXNwb3NpdGlvbhgKIAEoDjIeLmxvb3AucnVucy52MS5Sb3VuZERpc3Bvc2l0aW9uQg8KDWN1cnJlbnRfY2hpbGQi0QQKB1J1blZpZXcSHgoGcnVuX2lkGAEgASgLMg4ubG9vcC52MS5SdW5JZBInCgZzdGF0dXMYAiABKA4yFy5sb29wLnJ1bnMudjEuUnVuU3RhdHVzEhAKCHJldmlzaW9uGAMgASgEEhYKDm1heGltdW1fcm91bmRzGAQgASgNEhgKEGNvbXBsZXRlZF9yb3VuZHMYBSABKA0SOgoLY3VycmVudF9qb2IYBiABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGUSJwoGYnVkZ2V0GAcgASgLMhcubG9vcC5ydW5zLnYxLlJ1bkJ1ZGdldBIWCg5yZXNlcnZlZF9zdGVwcxgIIAEoBBIdChVyZXNlcnZlZF9pbnB1dF90b2tlbnMYCSABKAQSHgoWcmVzZXJ2ZWRfb3V0cHV0X3Rva2VucxgKIAEoBBIlCg1yZXNlcnZlZF9jb3N0GAsgASgLMg4ubG9vcC52MS5Nb25leRIwCgxzdWJtaXR0ZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYDSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiwKCGRlYWRsaW5lGA4gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIVCg1wbGFuX3ZlcmlmaWVkGA8gASgIEi8KCHJlc2VhcmNoGBAgASgLMh0ubG9vcC5ydW5zLnYxLlJlc2VhcmNoUnVuVmlldyJ9Cg9TdGFydFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSJgoEcGxhbhgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlEhgKEHdvcmtmbG93X3ZlcnNpb24YAyABKA0iNgoQU3RhcnRSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyKPAQoOU3RlcFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoBBIYChB3b3JrZmxvd192ZXJzaW9uGAQgASgNIjUKD1N0ZXBSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyJzCg1HZXRSdW5SZXF1ZXN0EigKB2NvbnRleHQYASABKAsyFy5sb29wLnYxLkNvbW1hbmRDb250ZXh0Eh4KBnJ1bl9pZBgCIAEoCzIOLmxvb3AudjEuUnVuSWQSGAoQd29ya2Zsb3dfdmVyc2lvbhgDIAEoDSI0Cg5HZXRSdW5SZXNwb25zZRIiCgNydW4YASABKAsyFS5sb29wLnJ1bnMudjEuUnVuVmlldyrBAQoJUnVuU3RhdHVzEhoKFlJVTl9TVEFUVVNfVU5TUEVDSUZJRUQQABIVChFSVU5fU1RBVFVTX0FDVElWRRABEhgKFFJVTl9TVEFUVVNfQ09NUExFVEVEEAISHwobUlVOX1NUQVRVU19CVURHRVRfRVhIQVVTVEVEEAMSJAogUlVOX1NUQVRVU19JTkZSQVNUUlVDVFVSRV9GQUlMRUQQBBIgChxSVU5fU1RBVFVTX0RFQURMSU5FX0VYQ0VFREVEEAUqcQoIUnVuU3RhZ2USGQoVUlVOX1NUQUdFX1VOU1BFQ0lGSUVEEAASFwoTUlVOX1NUQUdFX0RJU0NPVkVSWRABEhgKFFJVTl9TVEFHRV9FVkFMVUFUSU9OEAISFwoTUlVOX1NUQUdFX1BPUlRGT0xJTxADKs8BChBSb3VuZERpc3Bvc2l0aW9uEiEKHVJPVU5EX0RJU1BPU0lUSU9OX1VOU1BFQ0lGSUVEEAASHwobUk9VTkRfRElTUE9TSVRJT05fRVZBTFVBVEVEEAESHwobUk9VTkRfRElTUE9TSVRJT05fRFVQTElDQVRFEAISKQolUk9VTkRfRElTUE9TSVRJT05fUFJFVklPVVNMWV9SRUpFQ1RFRBADEisKJ1JPVU5EX0RJU1BPU0lUSU9OX0lOU1VGRklDSUVOVF9DT1ZFUkFHRRAEMuQBCgpSdW5TZXJ2aWNlEkkKCFN0YXJ0UnVuEh0ubG9vcC5ydW5zLnYxLlN0YXJ0UnVuUmVxdWVzdBoeLmxvb3AucnVucy52MS5TdGFydFJ1blJlc3BvbnNlEkYKB1N0ZXBSdW4SHC5sb29wLnJ1bnMudjEuU3RlcFJ1blJlcXVlc3QaHS5sb29wLnJ1bnMudjEuU3RlcFJ1blJlc3BvbnNlEkMKBkdldFJ1bhIbLmxvb3AucnVucy52MS5HZXRSdW5SZXF1ZXN0GhwubG9vcC5ydW5zLnYxLkdldFJ1blJlc3BvbnNlYgZwcm90bzM", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_discovery_v1_service, file_loop_research_v1_service, file_loop_v1_common]);
+  fileDesc("Chpsb29wL3J1bnMvdjEvc2VydmljZS5wcm90bxIMbG9vcC5ydW5zLnYxIrsBCglSdW5CdWRnZXQSFQoNbWF4aW11bV9zdGVwcxgBIAEoBBIcChRtYXhpbXVtX2lucHV0X3Rva2VucxgCIAEoBBIdChVtYXhpbXVtX291dHB1dF90b2tlbnMYAyABKAQSJAoMbWF4aW11bV9jb3N0GAQgASgLMg4ubG9vcC52MS5Nb25leRI0ChFtYXhpbXVtX3dhbGxfdGltZRgFIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiK8AwoQUnVuU3BlY2lmaWNhdGlvbhImCgRwbGFuGAEgASgLMhgubG9vcC52MS5Qb2xpY3lSZWZlcmVuY2USHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIdCgVvd25lchgDIAEoCzIOLmxvb3AudjEuQWN0b3ISIAoIZXhlY3V0b3IYBCABKAsyDi5sb29wLnYxLkFjdG9yEjcKCWRpc2NvdmVyeRgFIAEoCzIkLmxvb3AuZGlzY292ZXJ5LnYxLkRpc2NvdmVyeUpvYklucHV0Ej4KEnByb3RvY29sX3NlbGVjdGlvbhgGIAEoCzIiLmxvb3AudjEuUHJvdG9jb2xTZWxlY3Rpb25TbmFwc2hvdBInCgZidWRnZXQYByABKAsyFy5sb29wLnJ1bnMudjEuUnVuQnVkZ2V0EhYKDm1heGltdW1fcm91bmRzGAggASgNEjIKCW51bWVyaWNhbBgJIAEoCzIfLmxvb3AucnVucy52MS5OdW1lcmljYWxXb3JrZmxvdxIxCg9mZWVkYmFja19wb2xpY3kYCiABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZSLpAgoRTnVtZXJpY2FsV29ya2Zsb3cSKQoRcmVzZWFyY2hfZXhlY3V0b3IYASABKAsyDi5sb29wLnYxLkFjdG9yEigKBnJlY2lwZRgCIAEoCzIYLmxvb3AudjEuUG9saWN5UmVmZXJlbmNlEj4KEWV2YWx1YXRpb25fYnVkZ2V0GAMgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI9ChBwb3J0Zm9saW9fYnVkZ2V0GAQgASgLMiMubG9vcC5yZXNlYXJjaC52MS5SZXNlYXJjaEpvYkJ1ZGdldBI+ChJwcm90b2NvbF9zZWxlY3Rpb24YBSABKAsyIi5sb29wLnYxLlByb3RvY29sU2VsZWN0aW9uU25hcHNob3QSQAoTcGVydHVyYmF0aW9uX2J1ZGdldBgGIAEoCzIjLmxvb3AucmVzZWFyY2gudjEuUmVzZWFyY2hKb2JCdWRnZXQilgQKD1Jlc2VhcmNoUnVuVmlldxINCgVyb3VuZBgBIAEoDRIlCgVzdGFnZRgCIAEoDjIWLmxvb3AucnVucy52MS5SdW5TdGFnZRI6CglkaXNjb3ZlcnkYAyABKAsyJS5sb29wLmRpc2NvdmVyeS52MS5EaXNjb3ZlcnlKb2JIYW5kbGVIABI3CghyZXNlYXJjaBgEIAEoCzIjLmxvb3AucmVzZWFyY2gudjEuUmVzZWFyY2hKb2JIYW5kbGVIABIoChBkaXNjb3Zlcnlfam9iX2lkGAUgASgLMg4ubG9vcC52MS5Kb2JJZBIpChFldmFsdWF0aW9uX2pvYl9pZBgGIAEoCzIOLmxvb3AudjEuSm9iSWQSMgoNZXhwcmVzc2lvbl9pZBgHIAEoCzIbLmxvb3AudjEuRmFjdG9yRXhwcmVzc2lvbklkEi0KDmZhY3Rvcl9zcGVjX2lkGAggASgLMhUubG9vcC52MS5GYWN0b3JTcGVjSWQSLQoOYmluZGluZ19zaGEyNTYYCSABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIzCgtkaXNwb3NpdGlvbhgKIAEoDjIeLmxvb3AucnVucy52MS5Sb3VuZERpc3Bvc2l0aW9uEisKE3BlcnR1cmJhdGlvbl9qb2JfaWQYCyABKAsyDi5sb29wLnYxLkpvYklkQg8KDWN1cnJlbnRfY2hpbGQisAIKD0FkYXB0aXZlUnVuVmlldxIxCg9mZWVkYmFja19wb2xpY3kYASABKAsyGC5sb29wLnYxLlBvbGljeVJlZmVyZW5jZRIUCgxzb3VyY2VfY291bnQYAiABKA0SLgoPZmVlZGJhY2tfc2hhMjU2GAMgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSMwoUbW9kZWxfY29udGV4dF9zaGEyNTYYBCABKAsyFS5sb29wLnYxLlNoYTI1NkRpZ2VzdBIsCg1mYW1pbHlfc2hhMjU2GAUgASgLMhUubG9vcC52MS5TaGEyNTZEaWdlc3QSFAoMcmFuZG9tX2RyYXdzGAYgASgEEisKDHN0YXRlX3NoYTI1NhgHIAEoCzIVLmxvb3AudjEuU2hhMjU2RGlnZXN0IoIFCgdSdW5WaWV3Eh4KBnJ1bl9pZBgBIAEoCzIOLmxvb3AudjEuUnVuSWQSJwoGc3RhdHVzGAIgASgOMhcubG9vcC5ydW5zLnYxLlJ1blN0YXR1cxIQCghyZXZpc2lvbhgDIAEoBBIWCg5tYXhpbXVtX3JvdW5kcxgEIAEoDRIYChBjb21wbGV0ZWRfcm91bmRzGAUgASgNEjoKC2N1cnJlbnRfam9iGAYgASgLMiUubG9vcC5kaXNjb3ZlcnkudjEuRGlzY292ZXJ5Sm9iSGFuZGxlEicKBmJ1ZGdldBgHIAEoCzIXLmxvb3AucnVucy52MS5SdW5CdWRnZXQSFgoOcmVzZXJ2ZWRfc3RlcHMYCCABKAQSHQoVcmVzZXJ2ZWRfaW5wdXRfdG9rZW5zGAkgASgEEh4KFnJlc2VydmVkX291dHB1dF90b2tlbnMYCiABKAQSJQoNcmVzZXJ2ZWRfY29zdBgLIAEoCzIOLmxvb3AudjEuTW9uZXkSMAoMc3VibWl0dGVkX2F0GAwgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GA0gASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghkZWFkbGluZRgOIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFQoNcGxhbl92ZXJpZmllZBgPIAEoCBIvCghyZXNlYXJjaBgQIAEoCzIdLmxvb3AucnVucy52MS5SZXNlYXJjaFJ1blZpZXcSLwoIYWRhcHRpdmUYESABKAsyHS5sb29wLnJ1bnMudjEuQWRhcHRpdmVSdW5WaWV3In0KD1N0YXJ0UnVuUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBImCgRwbGFuGAIgASgLMhgubG9vcC52MS5Qb2xpY3lSZWZlcmVuY2USGAoQd29ya2Zsb3dfdmVyc2lvbhgDIAEoDSI2ChBTdGFydFJ1blJlc3BvbnNlEiIKA3J1bhgBIAEoCzIVLmxvb3AucnVucy52MS5SdW5WaWV3Io8BCg5TdGVwUnVuUmVxdWVzdBIoCgdjb250ZXh0GAEgASgLMhcubG9vcC52MS5Db21tYW5kQ29udGV4dBIeCgZydW5faWQYAiABKAsyDi5sb29wLnYxLlJ1bklkEhkKEWV4cGVjdGVkX3JldmlzaW9uGAMgASgEEhgKEHdvcmtmbG93X3ZlcnNpb24YBCABKA0iNQoPU3RlcFJ1blJlc3BvbnNlEiIKA3J1bhgBIAEoCzIVLmxvb3AucnVucy52MS5SdW5WaWV3InMKDUdldFJ1blJlcXVlc3QSKAoHY29udGV4dBgBIAEoCzIXLmxvb3AudjEuQ29tbWFuZENvbnRleHQSHgoGcnVuX2lkGAIgASgLMg4ubG9vcC52MS5SdW5JZBIYChB3b3JrZmxvd192ZXJzaW9uGAMgASgNIjQKDkdldFJ1blJlc3BvbnNlEiIKA3J1bhgBIAEoCzIVLmxvb3AucnVucy52MS5SdW5WaWV3KuIBCglSdW5TdGF0dXMSGgoWUlVOX1NUQVRVU19VTlNQRUNJRklFRBAAEhUKEVJVTl9TVEFUVVNfQUNUSVZFEAESGAoUUlVOX1NUQVRVU19DT01QTEVURUQQAhIfChtSVU5fU1RBVFVTX0JVREdFVF9FWEhBVVNURUQQAxIkCiBSVU5fU1RBVFVTX0lORlJBU1RSVUNUVVJFX0ZBSUxFRBAEEiAKHFJVTl9TVEFUVVNfREVBRExJTkVfRVhDRUVERUQQBRIfChtSVU5fU1RBVFVTX1NFQVJDSF9FWEhBVVNURUQQBiqNAQoIUnVuU3RhZ2USGQoVUlVOX1NUQUdFX1VOU1BFQ0lGSUVEEAASFwoTUlVOX1NUQUdFX0RJU0NPVkVSWRABEhgKFFJVTl9TVEFHRV9FVkFMVUFUSU9OEAISFwoTUlVOX1NUQUdFX1BPUlRGT0xJTxADEhoKFlJVTl9TVEFHRV9QRVJUVVJCQVRJT04QBCrwAQoQUm91bmREaXNwb3NpdGlvbhIhCh1ST1VORF9ESVNQT1NJVElPTl9VTlNQRUNJRklFRBAAEh8KG1JPVU5EX0RJU1BPU0lUSU9OX0VWQUxVQVRFRBABEh8KG1JPVU5EX0RJU1BPU0lUSU9OX0RVUExJQ0FURRACEikKJVJPVU5EX0RJU1BPU0lUSU9OX1BSRVZJT1VTTFlfUkVKRUNURUQQAxIrCidST1VORF9ESVNQT1NJVElPTl9JTlNVRkZJQ0lFTlRfQ09WRVJBR0UQBBIfChtST1VORF9ESVNQT1NJVElPTl9FWEhBVVNURUQQBTLkAQoKUnVuU2VydmljZRJJCghTdGFydFJ1bhIdLmxvb3AucnVucy52MS5TdGFydFJ1blJlcXVlc3QaHi5sb29wLnJ1bnMudjEuU3RhcnRSdW5SZXNwb25zZRJGCgdTdGVwUnVuEhwubG9vcC5ydW5zLnYxLlN0ZXBSdW5SZXF1ZXN0Gh0ubG9vcC5ydW5zLnYxLlN0ZXBSdW5SZXNwb25zZRJDCgZHZXRSdW4SGy5sb29wLnJ1bnMudjEuR2V0UnVuUmVxdWVzdBocLmxvb3AucnVucy52MS5HZXRSdW5SZXNwb25zZWIGcHJvdG8z", [file_google_protobuf_duration, file_google_protobuf_timestamp, file_loop_discovery_v1_service, file_loop_research_v1_service, file_loop_v1_common]);
 
 /**
  * Cumulative reservation ceilings over all children of one run. Steps, tokens
@@ -111,11 +111,18 @@ export type RunSpecification = Message<"loop.runs.v1.RunSpecification"> & {
   maximumRounds: number;
 
   /**
-   * Presence opts into the v2 numerical workflow; absent preserves v1 bytes.
+   * Presence opts into numerical workflows; absent preserves v1 bytes.
    *
    * @generated from field: loop.runs.v1.NumericalWorkflow numerical = 9;
    */
   numerical?: NumericalWorkflow | undefined;
+
+  /**
+   * Present only for v3; resolved from the installed immutable plan.
+   *
+   * @generated from field: loop.v1.PolicyReference feedback_policy = 10;
+   */
+  feedbackPolicy?: PolicyReference | undefined;
 };
 
 /**
@@ -156,6 +163,13 @@ export type NumericalWorkflow = Message<"loop.runs.v1.NumericalWorkflow"> & {
    * @generated from field: loop.v1.ProtocolSelectionSnapshot protocol_selection = 5;
    */
   protocolSelection?: ProtocolSelectionSnapshot | undefined;
+
+  /**
+   * v3 only. Uses the safe research budget contract, never a generic job input.
+   *
+   * @generated from field: loop.research.v1.ResearchJobBudget perturbation_budget = 6;
+   */
+  perturbationBudget?: ResearchJobBudget | undefined;
 };
 
 /**
@@ -228,6 +242,13 @@ export type ResearchRunView = Message<"loop.runs.v1.ResearchRunView"> & {
    * @generated from field: loop.runs.v1.RoundDisposition disposition = 10;
    */
   disposition: RoundDisposition;
+
+  /**
+   * v3 only; exactly one of this and discovery_job_id names the real proposer.
+   *
+   * @generated from field: loop.v1.JobId perturbation_job_id = 11;
+   */
+  perturbationJobId?: JobId | undefined;
 };
 
 /**
@@ -236,6 +257,58 @@ export type ResearchRunView = Message<"loop.runs.v1.ResearchRunView"> & {
  */
 export const ResearchRunViewSchema: GenMessage<ResearchRunView> = /*@__PURE__*/
   messageDesc(file_loop_runs_v1_service, 3);
+
+/**
+ * Safe v3 projection. Digests identify frozen evidence but confer no authority.
+ * No raw feedback, work, random seed, model request or data reference is exposed.
+ *
+ * @generated from message loop.runs.v1.AdaptiveRunView
+ */
+export type AdaptiveRunView = Message<"loop.runs.v1.AdaptiveRunView"> & {
+  /**
+   * @generated from field: loop.v1.PolicyReference feedback_policy = 1;
+   */
+  feedbackPolicy?: PolicyReference | undefined;
+
+  /**
+   * @generated from field: uint32 source_count = 2;
+   */
+  sourceCount: number;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest feedback_sha256 = 3;
+   */
+  feedbackSha256?: Sha256Digest | undefined;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest model_context_sha256 = 4;
+   */
+  modelContextSha256?: Sha256Digest | undefined;
+
+  /**
+   * Both family and state are absent until a verified family is established.
+   *
+   * @generated from field: loop.v1.Sha256Digest family_sha256 = 5;
+   */
+  familySha256?: Sha256Digest | undefined;
+
+  /**
+   * @generated from field: uint64 random_draws = 6;
+   */
+  randomDraws: bigint;
+
+  /**
+   * @generated from field: loop.v1.Sha256Digest state_sha256 = 7;
+   */
+  stateSha256?: Sha256Digest | undefined;
+};
+
+/**
+ * Describes the message loop.runs.v1.AdaptiveRunView.
+ * Use `create(AdaptiveRunViewSchema)` to create a new message.
+ */
+export const AdaptiveRunViewSchema: GenMessage<AdaptiveRunView> = /*@__PURE__*/
+  messageDesc(file_loop_runs_v1_service, 4);
 
 /**
  * Safe persisted projection. Reservations charge each child's full frozen
@@ -323,11 +396,18 @@ export type RunView = Message<"loop.runs.v1.RunView"> & {
   planVerified: boolean;
 
   /**
-   * v2 only; mutually exclusive with the v1 current_job field.
+   * v2/v3 only; mutually exclusive with the v1 current_job field.
    *
    * @generated from field: loop.runs.v1.ResearchRunView research = 16;
    */
   research?: ResearchRunView | undefined;
+
+  /**
+   * v3 only; requires a research projection.
+   *
+   * @generated from field: loop.runs.v1.AdaptiveRunView adaptive = 17;
+   */
+  adaptive?: AdaptiveRunView | undefined;
 };
 
 /**
@@ -335,7 +415,7 @@ export type RunView = Message<"loop.runs.v1.RunView"> & {
  * Use `create(RunViewSchema)` to create a new message.
  */
 export const RunViewSchema: GenMessage<RunView> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 4);
+  messageDesc(file_loop_runs_v1_service, 5);
 
 /**
  * @generated from message loop.runs.v1.StartRunRequest
@@ -352,7 +432,7 @@ export type StartRunRequest = Message<"loop.runs.v1.StartRunRequest"> & {
   plan?: PolicyReference | undefined;
 
   /**
-   * 0 preserves v1; 2 explicitly selects numerical workflow semantics.
+   * 0 preserves v1; 2 selects numerical, 3 selects adaptive numerical semantics.
    *
    * @generated from field: uint32 workflow_version = 3;
    */
@@ -364,7 +444,7 @@ export type StartRunRequest = Message<"loop.runs.v1.StartRunRequest"> & {
  * Use `create(StartRunRequestSchema)` to create a new message.
  */
 export const StartRunRequestSchema: GenMessage<StartRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 5);
+  messageDesc(file_loop_runs_v1_service, 6);
 
 /**
  * @generated from message loop.runs.v1.StartRunResponse
@@ -381,7 +461,7 @@ export type StartRunResponse = Message<"loop.runs.v1.StartRunResponse"> & {
  * Use `create(StartRunResponseSchema)` to create a new message.
  */
 export const StartRunResponseSchema: GenMessage<StartRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 6);
+  messageDesc(file_loop_runs_v1_service, 7);
 
 /**
  * @generated from message loop.runs.v1.StepRunRequest
@@ -413,7 +493,7 @@ export type StepRunRequest = Message<"loop.runs.v1.StepRunRequest"> & {
  * Use `create(StepRunRequestSchema)` to create a new message.
  */
 export const StepRunRequestSchema: GenMessage<StepRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 7);
+  messageDesc(file_loop_runs_v1_service, 8);
 
 /**
  * @generated from message loop.runs.v1.StepRunResponse
@@ -430,7 +510,7 @@ export type StepRunResponse = Message<"loop.runs.v1.StepRunResponse"> & {
  * Use `create(StepRunResponseSchema)` to create a new message.
  */
 export const StepRunResponseSchema: GenMessage<StepRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 8);
+  messageDesc(file_loop_runs_v1_service, 9);
 
 /**
  * @generated from message loop.runs.v1.GetRunRequest
@@ -457,7 +537,7 @@ export type GetRunRequest = Message<"loop.runs.v1.GetRunRequest"> & {
  * Use `create(GetRunRequestSchema)` to create a new message.
  */
 export const GetRunRequestSchema: GenMessage<GetRunRequest> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 9);
+  messageDesc(file_loop_runs_v1_service, 10);
 
 /**
  * @generated from message loop.runs.v1.GetRunResponse
@@ -474,7 +554,7 @@ export type GetRunResponse = Message<"loop.runs.v1.GetRunResponse"> & {
  * Use `create(GetRunResponseSchema)` to create a new message.
  */
 export const GetRunResponseSchema: GenMessage<GetRunResponse> = /*@__PURE__*/
-  messageDesc(file_loop_runs_v1_service, 10);
+  messageDesc(file_loop_runs_v1_service, 11);
 
 /**
  * @generated from enum loop.runs.v1.RunStatus
@@ -509,6 +589,13 @@ export enum RunStatus {
    * @generated from enum value: RUN_STATUS_DEADLINE_EXCEEDED = 5;
    */
   DEADLINE_EXCEEDED = 5,
+
+  /**
+   * v3 search exhaustion retains the actual completed-round count.
+   *
+   * @generated from enum value: RUN_STATUS_SEARCH_EXHAUSTED = 6;
+   */
+  SEARCH_EXHAUSTED = 6,
 }
 
 /**
@@ -540,6 +627,11 @@ export enum RunStage {
    * @generated from enum value: RUN_STAGE_PORTFOLIO = 3;
    */
   PORTFOLIO = 3,
+
+  /**
+   * @generated from enum value: RUN_STAGE_PERTURBATION = 4;
+   */
+  PERTURBATION = 4,
 }
 
 /**
@@ -580,6 +672,13 @@ export enum RoundDisposition {
    * @generated from enum value: ROUND_DISPOSITION_INSUFFICIENT_COVERAGE = 4;
    */
   INSUFFICIENT_COVERAGE = 4,
+
+  /**
+   * A successful selector with no remaining candidate; never factor rejection.
+   *
+   * @generated from enum value: ROUND_DISPOSITION_EXHAUSTED = 5;
+   */
+  EXHAUSTED = 5,
 }
 
 /**

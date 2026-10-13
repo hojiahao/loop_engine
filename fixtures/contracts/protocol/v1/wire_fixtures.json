@@ -3,7 +3,7 @@
   "message_type": "loop.v1.ProtocolInfo",
   "schema_descriptor": {
     "path": "schema.current.binpb",
-    "sha256": "sha256:a59a85778dc00eda48ceb23028203e5bf3affb2cd9a4829d7c59853812999d90"
+    "sha256": "sha256:91623ad77458fb15fba3d759cdcbb5d42fd7c58ae8df961b255dedf0e43071be"
   },
   "expected_domain_projection": {
     "supported_packages": [
@@ -43,7 +43,7 @@
       ],
       "source": {
         "path": "tests/contracts/protocol/generate_wire_fixtures.py",
-        "sha256": "sha256:e89278266e353819200aee197b93bd54ac4fe1d0312f2ab48f60f310ca55918c"
+        "sha256": "sha256:b46b8c55652f737676e96ee994a3e6a2249908044c2c85cb83af5e1227a239fb"
       },
       "path": "protocol_info_v1.binpb",
       "wire_sha256": "sha256:f11fdac100eda673c8f370e83fec8a5dff9f5e03504941685eb9c94c85698959"
@@ -100,8 +100,8 @@
     {
       "path": "job_specification_v1_unknown_oneof.binpb",
       "message_type": "loop.v1.JobSpecification",
-      "wire_sha256": "sha256:705976447508b97bf8051848db3ca575bcace1c775647cb0d9753d13de29f04d",
-      "future_oneof_field_number": 16,
+      "wire_sha256": "sha256:061927f8e28c84c9d04d0f13edce9f4b86c3c60429036d035f545242fd523874",
+      "future_oneof_field_number": 17,
       "expected_error": "unsupported_oneof"
     }
   ],

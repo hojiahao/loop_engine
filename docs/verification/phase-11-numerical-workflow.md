@@ -1,10 +1,24 @@
 # Phase 11 unit 2: Candidate-to-numerical research workflow
 
-Status: `in_progress`. Code, fixtures and documentation are being integrated.
-This record is not a claim that local acceptance, remote CI, publication or
-production deployment has completed. Phase 11 remains open.
+Status: `complete` for delivery 11.2. Corrections through `58d6245` passed all
+seven jobs in [branch CI](https://github.com/hojiahao/loop_engine/actions/runs/38350905840)
+and [PR CI](https://github.com/hojiahao/loop_engine/actions/runs/38350909358).
+PR #4 merged as `9dcc2b9` on 2026-10-13; local and remote feature branches were
+removed only after verifying ancestry. Phase 11 remains open. Production
+deployment, licensed-data eligibility and formal admission are separate gates.
 
-The initial implementation is published as `2ec2965` in draft
+Final local targeted acceptance: 67 passed, 0 failed, one helper excluded from
+ordinary discovery and explicitly exercised by the independent-process matrix.
+This includes the installed CLI/Provider/PostgreSQL/Python roundtrip, 2/4/8 CLI
+writers, storage writers and kill/restart, live authority, source/cache drift,
+clock regression and final-commit rollback. Nine Rust run-boundary tests,
+strict all-target/all-feature Clippy, formatting, 4,965 naming declarations and
+fresh workspace binaries also passed. Both remote runs include complete
+workspace and clean DaoCloud container acceptance. The historical investigation
+below records failures and corrections; its earlier pending statements describe
+those checkpoints, not this final status.
+
+The initial implementation was published as `2ec2965` in draft
 [PR #4](https://github.com/hojiahao/loop_engine/pull/4). Review fixes stay on
 the same branch; neither that publication nor a pending CI run closes the unit.
 

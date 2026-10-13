@@ -111,9 +111,23 @@ pub struct PgJobStore {
     pub(super) validation_evidence:
         Option<Arc<crate::manifests::reconciliation::ValidationEvidence>>,
     pub(super) statistics_evidence: Option<Arc<crate::manifests::statistics::StatisticsEvidence>>,
+    pub(super) perturbation_proof:
+        Option<Arc<crate::manifests::perturbation::PerturbationEvidence>>,
 }
 
 impl PgJobStore {
+    /// Attach private, operation-local perturbation completion evidence. This
+    /// does not grant execution or mutate state. Completion and historical
+    /// reads recheck the exact job, source records, files, authority and lease.
+    pub(crate) fn with_perturbation_proof(
+        &self,
+        evidence: Arc<crate::manifests::perturbation::PerturbationEvidence>,
+    ) -> Self {
+        let mut prepared = self.clone();
+        prepared.perturbation_proof = Some(evidence);
+        prepared
+    }
+
     /// Attach operation-local supervised proof; caller artifacts cannot create
     /// this evidence. No state change occurs here. Completion/read transactions
     /// recheck identity, files, trial revisions, authorization and lease/replay.
@@ -248,6 +262,7 @@ impl PgJobStore {
             evaluation_evidence: None,
             validation_evidence: None,
             statistics_evidence: None,
+            perturbation_proof: None,
         })
     }
 
@@ -362,7 +377,7 @@ impl JobRepository for PgJobStore {
         validate_id(&command.request_id)?;
         let specification = &command.specification;
         let shape = validate_job_specification(specification)?;
-        if shape.kind == JobKind::HoldoutBacktest {
+        if matches!(shape.kind, JobKind::HoldoutBacktest | JobKind::Perturbation) {
             return Err(StoreError::AdmissionDenied);
         }
         self.admission.validate_submission(specification)?;
@@ -534,6 +549,9 @@ async fn insert_guarded(
             .bind(run_id)
             .fetch_one(&mut **transaction)
             .await?;
+    if specification.kind == JobKind::Perturbation as i32 && (!managed || permit.is_none()) {
+        return Err(StoreError::AdmissionDenied);
+    }
     if managed {
         let permit = permit.ok_or(StoreError::AdmissionDenied)?;
         permit.verify(specification)?;
@@ -701,6 +719,7 @@ pub(super) fn budget(
         job_specification::Input::Reconciliation(value) => value.budget.as_ref(),
         job_specification::Input::HoldoutBacktest(value) => value.budget.as_ref(),
         job_specification::Input::Artifact(value) => value.budget.as_ref(),
+        job_specification::Input::Perturbation(value) => value.budget.as_ref(),
     }
     .ok_or(StoreError::Invalid("budget"))
 }

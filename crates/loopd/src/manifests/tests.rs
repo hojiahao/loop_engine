@@ -21,6 +21,11 @@ pub(crate) async fn run_fixture() -> Fixture {
     runtime::evaluation::run_fixture().await
 }
 
+/// Longer installed panel with genuine finite-return statistics; no jobs exist.
+pub(crate) async fn run_history() -> Fixture {
+    runtime::evaluation::run_history().await
+}
+
 #[tokio::test]
 // Scenario: bytes are checked before resolution.
 async fn bytes_resolution() {

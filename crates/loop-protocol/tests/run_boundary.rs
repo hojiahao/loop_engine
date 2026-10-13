@@ -354,6 +354,8 @@ fn operator_surface() {
         "JobSpecification",
         "HoldoutGrant",
         "ModelResolutionSnapshot",
+        "PerturbationJobInput",
+        "PerturbationWork",
     ] {
         assert!(
             !visited.iter().any(|name| name.ends_with(forbidden)),

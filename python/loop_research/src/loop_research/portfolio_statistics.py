@@ -287,6 +287,8 @@ def _summarize(
         "observed_sessions": len(navs),
         "return_observations": len(returns),
         "benchmark": "zero-daily-return",
+        "return_basis": "cost-adjusted-simple-nav-return",
+        "sharpe_dispersion": "sample-standard-deviation-ddof-1",
         "sharpe_annualization": "sqrt(252)-descriptive-no-serial-correction",
         "mean_inference": "bartlett-hac-normal-two-sided-95pct",
         "total_return": available(float(navs[-1] / navs[0] - 1), len(returns)).model_dump(),

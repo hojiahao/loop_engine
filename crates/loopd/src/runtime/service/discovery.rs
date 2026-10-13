@@ -84,6 +84,9 @@ impl DiscoveryService for RuntimeService {
             )
             .await
             .map_err(status)?;
+        if self.store.scoped_discovery(&job).await.map_err(status)? {
+            return Err(status(StoreError::AdmissionDenied));
+        }
         validate_context(
             input.context.as_ref(),
             &principal.actor,
@@ -124,6 +127,9 @@ impl DiscoveryService for RuntimeService {
             )
             .await
             .map_err(status)?;
+        if self.store.scoped_discovery(&job).await.map_err(status)? {
+            return Err(status(StoreError::AdmissionDenied));
+        }
         validate_context(
             input.context.as_ref(),
             &principal.actor,
@@ -210,6 +216,9 @@ impl DiscoveryService for RuntimeService {
             )
             .await
             .map_err(status)?;
+        if self.store.scoped_discovery(&job).await.map_err(status)? {
+            return Err(status(StoreError::AdmissionDenied));
+        }
         validate_context(
             command.context.as_ref(),
             &principal.actor,
@@ -264,9 +273,10 @@ impl DiscoveryService for RuntimeService {
             .discovery_status(&principal.actor, id)
             .await
             .map_err(status)?;
-        let view = match &self.discoverer {
-            Some(executor) => executor.view(&job, &history),
-            None => crate::runtime::discovery::metadata(&job, &history),
+        let scoped = self.store.scoped_discovery(&job).await.map_err(status)?;
+        let view = match (&self.discoverer, scoped) {
+            (Some(executor), false) => executor.view(&job, &history),
+            _ => crate::runtime::discovery::metadata(&job, &history),
         }
         .map_err(status)?;
         Ok(Response::new(wire::GetDiscoveryResponse {
