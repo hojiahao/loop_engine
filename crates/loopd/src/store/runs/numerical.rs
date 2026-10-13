@@ -37,8 +37,8 @@ struct Child {
 }
 
 enum ChildCommand {
-    Ordinary(RoleCommand),
-    Perturbation(submission::PerturbationCommand),
+    Ordinary(Box<RoleCommand>),
+    Perturbation(Box<submission::PerturbationCommand>),
 }
 
 struct StepInputs<'a> {
@@ -817,7 +817,7 @@ fn build_child(
         let job = submission::build_perturbation(&command, actor, metadata.clone(), now, &permit)?;
         return Ok(Child {
             permit,
-            command: ChildCommand::Perturbation(command),
+            command: ChildCommand::Perturbation(Box::new(command)),
             specification: job,
             metadata,
         });
@@ -909,7 +909,7 @@ fn build_child(
     let job = submission::build_job(&command, actor, metadata.clone(), now, Some(&permit))?;
     Ok(Child {
         permit,
-        command: ChildCommand::Ordinary(command),
+        command: ChildCommand::Ordinary(Box::new(command)),
         specification: job,
         metadata,
     })
@@ -932,7 +932,7 @@ async fn insert_child(
                 store,
                 transaction,
                 actor,
-                command.clone(),
+                command.as_ref().clone(),
                 child.metadata.clone(),
                 now,
                 Some(&child.permit),
@@ -944,7 +944,7 @@ async fn insert_child(
                 store,
                 transaction,
                 actor,
-                command.clone(),
+                command.as_ref().clone(),
                 child.metadata.clone(),
                 now,
                 &child.permit,

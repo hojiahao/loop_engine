@@ -124,11 +124,19 @@ source objects, receipts, database history and unrelated project files.
   contract integration checkpoint.
 - Descriptor privilege-boundary checks passed with the new internal task
   excluded from public Discovery/Run request reachability.
+- The first focused Rust run passed 36 feedback, source-semantics, immutable-work,
+  private-context, submission/lease and transition tests against the disposable
+  PostgreSQL fixture. Nineteen Python portfolio-statistics golden tests passed.
+  These do not substitute for the installed-process acceptance below.
 - Discovery context, CLI and installed adaptive fixtures passed Rustfmt parsing
   and formatting. The loopback supplier script passed Node syntax checking and
   Biome. These checks do not establish Rust compilation or execution.
-- Rust compilation, installed runtime behavior, concurrency/crash acceptance,
-  full gates, commit, push and remote verification remain pending in this record.
+- Implementation commit `7a1d7ba` was pushed in draft
+  [PR #5](https://github.com/hojiahao/loop_engine/pull/5). Initial branch and PR
+  checks found a large command enum in strict Clippy; both payloads now use
+  indirection, retaining the check rather than suppressing it. Final compilation,
+  installed behavior, concurrency/crash acceptance and green remote verification
+  remain pending in this record.
 - No live model benefit, paid dataset coverage, improved research returns,
   production migration or formal factor admission is claimed.
 
