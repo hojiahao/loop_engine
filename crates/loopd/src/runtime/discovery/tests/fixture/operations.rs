@@ -151,10 +151,7 @@ impl Case {
         operations: &mut Operations,
         stop_only: bool,
     ) {
-        if !self.task.is_finished() {
-            self.task.abort();
-            let _ = (&mut self.task).await;
-        }
+        self.halt_runtime().await;
         operations.stop(false).await;
         let mut deployment = self.deployment();
         deployment["bind"] = self.address.to_string().into();

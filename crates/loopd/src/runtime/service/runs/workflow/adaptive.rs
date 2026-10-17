@@ -219,10 +219,10 @@ impl RuntimeService {
             )
             .await?
             .bind_job(job)?;
-        let context_id = inputs.context_id().to_owned();
         // This is an earlier registered result, not a requested numerical replay.
         // Re-resolve its complete immutable output set and current provenance;
-        // launching the backtest again here would multiply work every round.
+        // later trials may be appended without changing this historical source.
+        // Current adjusted-statistic reads and exports retain their stricter gate.
         let artifact = crate::runtime::portfolio::manifest_artifact(success(record)?)?;
         let portfolio = Arc::new(inputs.seal(&executor.outputs, &artifact).await?);
         let scope = WorkflowAuthority::new(self.authority.clone(), stage.specification, job, None)?;
@@ -231,7 +231,7 @@ impl RuntimeService {
             .with_workflow_authority(Arc::new(scope))
             .with_backtest_policy(portfolio.clone());
         let actual = store
-            .current_backtest(&stage.actor, &job_id(record)?, &context_id)
+            .historical_result(&stage.actor, record, &portfolio)
             .await?;
         if source.result.as_ref() != Some(&actual) {
             return Err(StoreError::Corrupt("feedback registration changed"));

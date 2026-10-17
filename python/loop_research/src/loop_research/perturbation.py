@@ -6,6 +6,7 @@ import math
 import os
 import re
 import sys
+from typing import Literal
 
 import numpy as np
 from google.protobuf.message import DecodeError  # type: ignore[import-untyped]
@@ -177,15 +178,21 @@ def main() -> int:
         work = PerturbationWork.FromString(payload)
         source = os.environ.get("LOOP_ENGINE_BUILD_SOURCE_SHA256")
         environment = os.environ.get("LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256")
-        if source is not None or environment is not None:
+        configured = os.environ.get("LOOP_ENGINE_BUILD_PROFILE")
+        if configured not in (None, "perturbation", "evaluation"):
+            raise ValueError("unsupported worker build profile")
+        profile: Literal["perturbation", "evaluation"] = (
+            "evaluation" if configured == "evaluation" else "perturbation"
+        )
+        if source is not None or environment is not None or configured is not None:
             if source is None or environment is None:
                 raise ValueError("incomplete worker build identity")
             from loop_research.build_identity import require_build
 
-            require_build(source, environment)
+            require_build(source, environment, profile=profile)
         output = advance(work).SerializeToString()
         if source is not None and environment is not None:
-            require_build(source, environment)
+            require_build(source, environment, profile=profile)
         if len(output) > MAX_BYTES:
             raise ValueError("worker output size")
     except ValueError, DecodeError, OverflowError, OSError:

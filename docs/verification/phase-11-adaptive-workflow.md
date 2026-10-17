@@ -188,7 +188,39 @@ source objects, receipts, database history and unrelated project files.
   observed set corrects this without labeling success as failure or changing
   the persisted RNG. Python perturbation passes 32 tests; updated Python wire
   contracts pass 40 cases, TypeScript contracts 88, and protocol privilege
-  boundaries pass. New Rust compilation and installed acceptance remain pending.
+  boundaries pass. The correction is published as `2a6370e`; its local strict
+  Clippy check passes all loopd targets/features, Rust contract tests pass 15
+  cases, and the actual loopd/loopctl binaries and Provider build successfully.
+  Branch CI `39020007949` was cancelled after failed combined gates; PR CI
+  `39020011356` completed with four successful jobs and three failed jobs.
+  The Rust job reached 492 passed, 10 failed and nine explicitly ignored helper
+  tests. Unified/container gates reproduced the nine adaptive failures; Rust
+  additionally exposed a listener-binding race. This is not accepted delivery.
+- The installed failure review identified two execution defects. V3 selected
+  the complete evaluation environment fingerprint but the perturbation worker
+  verified its legacy smaller environment profile. The runtime now explicitly
+  pins the evaluation profile for v3, while legacy calls retain their original
+  profile. Both fingerprints are still checked before and after calculation;
+  61 targeted Python perturbation/build-identity tests pass, including 11 new
+  real-subprocess cases and mismatched/incomplete identities.
+- Earlier result feedback incorrectly called the strict current-statistics
+  reader. Registering the next numerical trial made the old whole-ledger
+  commitment stale and prevented a second evaluation. Feedback now reuses the
+  existing historical-source validation in one authorized ledger snapshot;
+  original trials, job/result bytes, file guards and provenance must still match.
+  Public current reads, exports and admission retain the exact-ledger gate.
+  The new `feedback_preserves_freshness` case requires the historical result to
+  remain readable while its public current result stays stale, without writes.
+- The installed daemon now reserves its configured RPC listener before an
+  ephemeral HTTP listener can claim that port. Collision tests verify ordering,
+  distinct endpoints and listener release on failure; test runtime replacement
+  also awaits task cancellation. No automatic port change or retry is added.
+  The corrected loopd/loopctl binaries build successfully; Rustfmt, the
+  5,257-declaration naming audit, Python type checks and patch-whitespace checks
+  pass. The installed-process test target is still compiling on the small host;
+  final strict Clippy and runtime acceptance remain pending. The correction is
+  published to the existing draft PR so remote gates can run concurrently;
+  prior failed tests are not counted as passing evidence.
 - No live model benefit, paid dataset coverage, improved research returns,
   production migration or formal factor admission is claimed.
 

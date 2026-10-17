@@ -1,6 +1,6 @@
 //! Bind complete-population statistics to existing receipts and transactions.
 
-use loop_protocol::wire::v1::{Actor, JobRecord, JobState, job_outcome};
+use loop_protocol::wire::v1::{Actor, BacktestResult, JobRecord, JobState, job_outcome};
 use sqlx::{Postgres, Transaction};
 
 use super::{PgJobStore, StoreError, StoreResult, TrialLedger};
@@ -46,14 +46,14 @@ pub(super) async fn verify(
     proof.check()
 }
 
-async fn verify_source(
+pub(super) async fn verify_source(
     store: &PgJobStore,
     transaction: &mut Transaction<'_, Postgres>,
     principal: &Actor,
     original: &JobRecord,
     portfolio: &PreparedPortfolio,
     ledger: &TrialLedger,
-) -> StoreResult<()> {
+) -> StoreResult<BacktestResult> {
     let id = &portfolio.inputs.pin.job_id;
     let row = sqlx::query("SELECT * FROM jobs WHERE job_id = $1")
         .bind(id)
@@ -89,7 +89,8 @@ async fn verify_source(
         &current,
         portfolio.inputs.context_id(),
         &result,
-    )
+    )?;
+    Ok(result)
 }
 
 pub(super) fn check_lease(

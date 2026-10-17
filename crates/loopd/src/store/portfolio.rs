@@ -7,6 +7,7 @@ use sqlx::{Postgres, Transaction};
 
 use super::{PgJobStore, StoreError, StoreResult, TrialLedger};
 use crate::manifests::ObjectRef;
+use crate::manifests::portfolio::PreparedPortfolio;
 
 /// Numerical lineage resolved by a service-owned portfolio policy. A client
 /// cannot supply this to a command; runtime execution constructs the proof.
@@ -23,6 +24,38 @@ pub struct PortfolioLineage {
 }
 
 impl PgJobStore {
+    /// Read an exact registered historical source for internal IS feedback.
+    /// Authorize its job and every current trial, verify that original trials
+    /// still exist, and recheck immutable artifacts and current provenance in
+    /// one bounded snapshot. Later trials may be appended; this does not make
+    /// historical search-adjusted statistics current or authorize admission or
+    /// export. Missing, changed or inaccessible evidence denies the read.
+    /// Cancellation or the 30-second deadline rolls back without any writes.
+    pub(crate) async fn historical_result(
+        &self,
+        principal: &Actor,
+        original: &JobRecord,
+        portfolio: &PreparedPortfolio,
+    ) -> StoreResult<BacktestResult> {
+        tokio::time::timeout(std::time::Duration::from_secs(30), async {
+            let mut transaction = super::research_ledger::begin_snapshot(self).await?;
+            let ledger = super::research_ledger::capture(self, &mut transaction, principal).await?;
+            let result = super::statistics::verify_source(
+                self,
+                &mut transaction,
+                principal,
+                original,
+                portfolio,
+                &ledger,
+            )
+            .await?;
+            transaction.commit().await?;
+            Ok(result)
+        })
+        .await
+        .map_err(|_| StoreError::Unavailable("historical result deadline"))?
+    }
+
     pub(crate) async fn portfolio_source(
         &self,
         principal: &Actor,
@@ -50,9 +83,9 @@ pub(super) async fn validate(
     validate_lineage(store, transaction, principal, record, result, lineage).await
 }
 
-// A new global report recomputes search-adjusted statistics. Its numerical
-// sources retain their original search commitment; this check never makes the
-// historical adjusted statistics current or permits deletion of past trials.
+// Historical numerical sources for a new global report or IS feedback retain
+// their original search commitment. This never makes their adjusted statistics
+// current or permits deletion of past trials.
 pub(super) async fn validate_history(
     store: &PgJobStore,
     transaction: &mut Transaction<'_, Postgres>,

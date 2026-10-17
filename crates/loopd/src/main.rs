@@ -82,19 +82,18 @@ async fn main() -> anyhow::Result<()> {
         store.close().await;
         return Ok(());
     }
-    let listener = tokio::net::TcpListener::bind(args.bind)
-        .await
-        .with_context(|| format!("failed to bind loopd to {}", args.bind))?;
-    info!(bind = %args.bind, "loopd listening");
+    let (listener, runtime_listener) =
+        bind_servers(args.bind, runtime.as_ref().map(|runtime| runtime.bind)).await?;
+    info!(bind = %listener.local_addr()?, "loopd listening");
     let http = async {
         axum::serve(listener, loopd::app_with_store(store.clone()))
             .with_graceful_shutdown(shutdown_signal())
             .await
             .context("loopd server failed")
     };
-    let result = if let Some(runtime) = runtime {
+    let result = if let Some((runtime, listener)) = runtime.zip(runtime_listener) {
         let tls = runtime.tls();
-        let address = runtime.bind;
+        let address = listener.local_addr()?;
         let mut service = RuntimeService::new(store.clone(), runtime.authority, runtime.artifacts);
         if let Some(executor) = runtime.evaluator {
             service = service.with_factor_executor(executor);
@@ -115,9 +114,6 @@ async fn main() -> anyhow::Result<()> {
             service = service.with_runs(catalog);
         }
         let rpc = async {
-            let listener = tokio::net::TcpListener::bind(address)
-                .await
-                .context("failed to bind authenticated runtime")?;
             info!(bind = %address, "loopd authenticated runtime listening");
             loopd::runtime::serve(service, listener, tls, shutdown_signal())
                 .await
@@ -129,6 +125,26 @@ async fn main() -> anyhow::Result<()> {
     };
     store.close().await;
     result
+}
+
+async fn bind_servers(
+    http: SocketAddr,
+    rpc: Option<SocketAddr>,
+) -> anyhow::Result<(tokio::net::TcpListener, Option<tokio::net::TcpListener>)> {
+    // Reserve the configured RPC address first. An ephemeral HTTP listener must
+    // not claim that port between a previous runtime's shutdown and this start.
+    let runtime = match rpc {
+        Some(address) => Some(
+            tokio::net::TcpListener::bind(address)
+                .await
+                .context("failed to bind authenticated runtime")?,
+        ),
+        None => None,
+    };
+    let listener = tokio::net::TcpListener::bind(http)
+        .await
+        .with_context(|| format!("failed to bind loopd to {http}"))?;
+    Ok((listener, runtime))
 }
 
 async fn shutdown_signal() {
@@ -149,5 +165,37 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     if tokio::signal::ctrl_c().await.is_err() {
         tracing::error!("failed to install interrupt signal");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn ephemeral_separate() {
+        let reserved = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = reserved.local_addr().unwrap();
+        drop(reserved);
+        let (http, rpc) = bind_servers("127.0.0.1:0".parse().unwrap(), Some(address))
+            .await
+            .unwrap();
+        assert_eq!(rpc.unwrap().local_addr().unwrap(), address);
+        assert_ne!(http.local_addr().unwrap(), address);
+    }
+
+    #[tokio::test]
+    async fn collision_reports_http() {
+        let reserved = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = reserved.local_addr().unwrap();
+        drop(reserved);
+        let error = bind_servers(address, Some(address)).await.unwrap_err();
+        // RPC owns the port before HTTP is attempted; a collision never changes
+        // or retries either configured endpoint and leaves no listener behind.
+        assert_eq!(
+            error.to_string(),
+            format!("failed to bind loopd to {address}")
+        );
+        tokio::net::TcpListener::bind(address).await.unwrap();
     }
 }

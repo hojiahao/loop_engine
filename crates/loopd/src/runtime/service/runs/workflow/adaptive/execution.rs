@@ -47,7 +47,7 @@ impl RuntimeService {
             });
         }
         let executor = self.portfolio.as_ref().ok_or(StoreError::AdmissionDenied)?;
-        let worker = PythonPerturber::verified(&executor.python, prepared.build())?;
+        let worker = PythonPerturber::verified_evaluation(&executor.python, prepared.build())?;
         let result = Box::pin(self.guarded_perturbation(
             stage,
             &job,

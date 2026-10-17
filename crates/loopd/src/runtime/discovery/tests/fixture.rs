@@ -463,8 +463,15 @@ impl Case {
             .execute(&self.store, &self.authority, &actor(), job, revision)
             .await
     }
+    async fn halt_runtime(&mut self) {
+        if !self.task.is_finished() {
+            self.task.abort();
+            let _ = (&mut self.task).await;
+        }
+    }
+
     pub(super) async fn restart(&mut self) {
-        self.task.abort();
+        self.halt_runtime().await;
         self.store.close().await;
         let (store, address, task, authority, executor) = runtime(
             self.directory.path(),
@@ -481,7 +488,7 @@ impl Case {
         self.executor = executor;
     }
     pub(super) async fn stop_only(&mut self) {
-        self.task.abort();
+        self.halt_runtime().await;
         self.store.close().await;
         let now = self.clock.now_millis().unwrap();
         let authority = Arc::new(
@@ -538,7 +545,7 @@ impl Case {
         self.child = child;
     }
     pub(super) async fn close(&mut self) {
-        self.task.abort();
+        self.halt_runtime().await;
         self.child.kill().await.unwrap();
         self.child.wait().await.unwrap();
         self.store.close().await;

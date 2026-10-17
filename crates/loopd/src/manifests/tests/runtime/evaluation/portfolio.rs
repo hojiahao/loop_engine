@@ -296,6 +296,62 @@ async fn changed_trials_stale() {
 }
 
 #[tokio::test]
+async fn feedback_preserves_freshness() {
+    use crate::store::{BacktestRepository, StoreError};
+
+    let mut case = PortfolioCase::new().await;
+    case.base
+        .client()
+        .await
+        .execute_backtest(case.request().await)
+        .await
+        .unwrap();
+    let record = case.record().await;
+    let Some(job_outcome::Outcome::Success(success)) =
+        record.outcome.as_ref().unwrap().outcome.as_ref()
+    else {
+        panic!("registered portfolio required")
+    };
+    let executor = PortfolioExecutor::open(
+        &python(),
+        &case.base.fixture.root,
+        &case.output,
+        vec![case.pin.clone()],
+        case.base.broker.clone(),
+    )
+    .unwrap();
+    let inputs = executor.inputs(&case.job).await.unwrap();
+    let portfolio = Arc::new(executor.replay(inputs, &case.job, success).await.unwrap());
+    let result = case
+        .base
+        .store
+        .with_backtest_policy(portfolio.clone())
+        .current_backtest(&actor(), "job.portfolio", &case.context_id)
+        .await
+        .unwrap();
+    case.add_trial().await;
+    let store = case.base.store.with_backtest_policy(portfolio.clone());
+    let events = store.audit_events(0, 100).await.unwrap();
+    assert_eq!(
+        store
+            .historical_result(&actor(), &record, &portfolio)
+            .await
+            .unwrap(),
+        result
+    );
+    assert!(matches!(
+        store
+            .current_backtest(&actor(), "job.portfolio", &case.context_id)
+            .await,
+        Err(StoreError::StaleTrials)
+    ));
+    // Reading the historical source neither republishes its statistics nor
+    // changes its immutable job, result, or audit history.
+    assert_eq!(case.record().await, record);
+    assert_eq!(store.audit_events(0, 100).await.unwrap(), events);
+}
+
+#[tokio::test]
 async fn expired_lease_denied() {
     let case = PortfolioCase::new().await;
     let request = case.request().await;

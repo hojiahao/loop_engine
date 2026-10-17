@@ -1,6 +1,7 @@
 import math
 import subprocess
 import sys
+from typing import Literal
 
 import pytest
 from hypothesis import given
@@ -17,6 +18,7 @@ from loop.v1.perturbation_pb2 import (
     WindowObservation,
 )
 
+from loop_research.build_identity import describe_build
 from loop_research.perturbation import MAX_BYTES, MAX_DRAWS, advance
 
 
@@ -35,15 +37,78 @@ def work() -> PerturbationWork:
     )
 
 
-def run_worker(payload: bytes) -> subprocess.CompletedProcess[bytes]:
+def run_worker(
+    payload: bytes, environment: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
         [sys.executable, "-I", "-m", "loop_research.perturbation"],
         input=payload,
         capture_output=True,
-        timeout=10,
+        timeout=30 if environment else 10,
         check=False,
-        env={},
+        env={} if environment is None else environment,
     )
+
+
+@pytest.mark.parametrize("profile", ["perturbation", "evaluation"])
+@pytest.mark.parametrize("invalid", [None, "source", "environment"])
+def test_worker_build(profile: Literal["perturbation", "evaluation"], invalid: str | None) -> None:
+    """Both installed profiles attest exact bytes and refuse either wrong digest."""
+    identity = describe_build(profile=profile)
+    environment = {
+        "LOOP_ENGINE_BUILD_PROFILE": profile,
+        "LOOP_ENGINE_BUILD_SOURCE_SHA256": identity.source["sha256"],
+        "LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256": identity.environment["sha256"],
+        "OPENBLAS_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+    }
+    if invalid is not None:
+        environment[f"LOOP_ENGINE_BUILD_{invalid.upper()}_SHA256"] = "sha256:" + "0" * 64
+    request = work()
+    result = run_worker(request.SerializeToString(), environment)
+    if invalid is None:
+        assert result.returncode == 0, result.stderr
+        assert PerturbationStep.FromString(result.stdout) == advance(request)
+    else:
+        assert result.returncode == 2
+        assert result.stdout == b""
+
+
+def test_profile_legacy() -> None:
+    """Existing standalone callers keep the small profile without a new setting."""
+    identity = describe_build()
+    request = work()
+    result = run_worker(
+        request.SerializeToString(),
+        {
+            "LOOP_ENGINE_BUILD_SOURCE_SHA256": identity.source["sha256"],
+            "LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256": identity.environment["sha256"],
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert PerturbationStep.FromString(result.stdout) == advance(request)
+
+
+def test_profile_mismatch() -> None:
+    """A valid digest from another profile cannot substitute for the frozen one."""
+    identity = describe_build(profile="evaluation")
+    result = run_worker(
+        work().SerializeToString(),
+        {
+            "LOOP_ENGINE_BUILD_PROFILE": "perturbation",
+            "LOOP_ENGINE_BUILD_SOURCE_SHA256": identity.source["sha256"],
+            "LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256": identity.environment["sha256"],
+        },
+    )
+    assert result.returncode == 2
+    assert result.stdout == b""
+
+
+@pytest.mark.parametrize("profile", ["", "unknown", "evaluation"])
+def test_profile_incomplete(profile: str) -> None:
+    result = run_worker(work().SerializeToString(), {"LOOP_ENGINE_BUILD_PROFILE": profile})
+    assert result.returncode == 2
+    assert result.stdout == b""
 
 
 # Scenario: cold start proposes new window.

@@ -87,6 +87,11 @@ Before use, resolve the real registered result and files, require the same run
 and an earlier committed round, and recheck all authority and freshness guards.
 Holdout outcomes are forbidden even as summaries. Infrastructure failures and
 missing Sharpe values never become zero scores or empirical failure memory.
+Historical feedback uses the existing whole-ledger historical-source checks:
+the original job, registered result, artifacts, provenance and every original
+trial must still verify, while later trials may be appended. This internal read
+does not refresh historical multiple-testing statistics. Current result reads,
+exports, reports and admission keep their exact-current-ledger requirements.
 Every verified successful same-family factor is also excluded from subsequent
 perturbation proposals, including sources not yet consumed by the incremental
 Sharpe observation state. A bounded `observed_factor_ids` work field carries
@@ -100,6 +105,12 @@ zero risk-free rate, sample standard deviation and sqrt(252) annualization.
 The legacy net_sharpe label alone is not a semantic equivalence check. Preserve
 unavailable statistics and their reasons; only eligible finite values can enter
 the existing numerical observation type.
+
+The v3 numerical worker verifies the same complete `evaluation` source/environment
+profile as its frozen numerical context, before and after selection. The legacy
+standalone perturbator retains its `perturbation` profile. Only the trusted
+runtime selects the profile; neither path tries alternate profiles or skips
+fingerprint checks when a mismatch occurs.
 
 Freeze the complete next model invocation and feedback-source manifest before
 any model call. Add a private server-derived context proof to the v3 Discovery
