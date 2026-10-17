@@ -71,9 +71,16 @@ same private deployment, real database and installed workers, because production
 binaries contain no fault hooks. They reuse existing test-only fault points at
 child completion before/after commit and parent advancement before/after commit.
 After an uncommitted child result is lost, the original lease/deadline is allowed
-to expire; recovery must record a budget failure without another calculation or
+to expire; recovery must record `lease_expired` as an infrastructure failure
+when the total job allowance remains, without another calculation or
 fabricated successful selection. After committed child success, recovery reuses
 that receipt and applies exactly one parent random-state transition.
+
+Normal recovery fixtures freeze a 180-second submission-to-completion allowance;
+the real worker and lease retain their 20-second limits. The queued-expiry test
+separately freezes the original 20-second budget before registration and verifies
+`maximum_wall_time` exhaustion with attempt zero and no worker launch. It does
+not mutate stored times or lengthen existing deadlines.
 
 The failure-memory fixture uses a synthetic factor panel with observations on
 alternating sessions, retaining the complete execution tape. It first evaluates
@@ -223,6 +230,33 @@ source objects, receipts, database history and unrelated project files.
   prior failed tests are not counted as passing evidence.
 - No live model benefit, paid dataset coverage, improved research returns,
   production migration or formal factor admission is claimed.
+
+### Submission deadline correction
+
+The installed `7d75deb` reproduction still stopped at second-round perturbation.
+Source review established that the 20-second Perturbation budget was measured
+from submission, including queueing, restart and source verification; the latter
+already has a separate 30-second bound. The worker need not have started before
+that task allowance expires. Increasing only a test fixture would violate all
+three published validators, so this correction changes their permitted total
+allowance together to 180 seconds and preserves the 20-second worker and lease
+limits. Existing registered budgets are never rewritten.
+
+The new contract boundaries accept 20, 179.999 and 180 seconds and reject zero,
+non-millisecond precision and values above 180 seconds. One step and zero model
+tokens/USD remain mandatory. Rust adaptive/run contracts pass 16 cases. Python
+adaptive/run/job contracts passed 253 cases before the final precision case;
+the final adaptive suite passes 48 cases. The TypeScript protocol suite passed
+213 cases before that precision case; the final adaptive suite passes 27 cases.
+The actual loopd/loopctl binaries build successfully. Rustfmt, Ruff, Biome,
+the 5,261-declaration naming audit and patch whitespace checks pass.
+
+Protocol regeneration changes only the TypeScript field comment; generated
+Rust/Python and the current descriptor bytes remain unchanged. Buf breaking and
+protocol privilege checks pass. Independent review found no authority bypass or
+stored-budget mutation. Installed three-round, concurrent writer and crash
+acceptance and final strict Clippy/remote gates remain pending; these contract
+results do not close the delivery.
 
 ## Rollback and preservation
 

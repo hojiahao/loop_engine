@@ -55,6 +55,17 @@ terminate its child on cancellation, lost authority or deadline. Retain its
 bounded input/output and wall time; do not describe these as an account-wide
 CPU or cost quota. No new queue, service or state table is needed.
 
+The total job wall allowance is positive and at most 180 seconds from submission,
+including queueing, source verification and recovery. The process timeout and
+execution lease remain independently capped at 20 seconds and cannot outlive
+the job deadline. The initial 20-second total cap conflicted with the existing
+30-second pre-execution verification bound and prevented legitimate restart
+before dispatch. This correction changes only the permitted frozen allowance;
+it never renews an existing job or relaxes worker limits. All three contract
+validators enforce the same boundary. Older 20-second plans remain valid and
+unchanged; older readers/writers reject larger budgets, so upgrade them before
+registering such plans and preserve a compatible reader during rollback.
+
 The successful job output is an immutable, versioned receipt binding exact work,
 before/after state, candidate or exhaustion, algorithm and build. A private
 completion proof verifies these bytes, lease, job revision, source authority and

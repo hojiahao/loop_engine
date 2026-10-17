@@ -95,7 +95,8 @@ def test_adaptive_invalid(path: str, value: int | str | None) -> None:
         ("perturbation.budget.maximum_input_tokens", 1),
         ("perturbation.budget.maximum_output_tokens", 1),
         ("perturbation.budget.maximum_cost.amount.value", "1"),
-        ("perturbation.budget.maximum_wall_time.seconds", 21),
+        ("perturbation.budget.maximum_cost.currency_code", "EUR"),
+        ("perturbation.budget.maximum_wall_time.seconds", 181),
         ("submitted_by.kind", common_pb2.ACTOR_KIND_AGENT),
     ],
 )
@@ -104,6 +105,31 @@ def test_perturbation_invalid(path: str, value: int | str | None) -> None:
     _mutate(job, path, value)
     with pytest.raises(JobValidationError):
         validate_job_specification(job)
+
+
+@pytest.mark.parametrize(
+    "seconds,nanos,valid",
+    [
+        (20, 0, True),
+        (179, 999_000_000, True),
+        (180, 0, True),
+        (180, 1_000_000, False),
+        (181, 0, False),
+        (0, 0, False),
+        (179, 1, False),
+    ],
+)
+def test_perturbation_deadlines(seconds: int, nanos: int, valid: bool) -> None:
+    # Preserve old 20-second jobs and enforce the new total-task boundary.
+    job = _job()
+    wall = job.perturbation.budget.maximum_wall_time
+    wall.seconds, wall.nanos = seconds, nanos
+    if valid:
+        validate_job_specification(job)
+    else:
+        with pytest.raises(JobValidationError) as caught:
+            validate_job_specification(job)
+        assert caught.value.code == JobValidationCode.INVALID_BUDGET
 
 
 def _exhausted_job(attempt: int = 0) -> job_pb2.JobRecord:

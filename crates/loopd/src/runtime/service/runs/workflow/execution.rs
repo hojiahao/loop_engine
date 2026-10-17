@@ -333,6 +333,12 @@ mod tests {
                 budget,
                 ..Default::default()
             }),
+            v1::JobKind::Perturbation => {
+                v1::job_specification::Input::Perturbation(v1::PerturbationJobInput {
+                    budget,
+                    ..Default::default()
+                })
+            }
             _ => unreachable!("numerical test kind"),
         };
         v1::JobRecord {
@@ -361,6 +367,14 @@ mod tests {
     #[test]
     fn portfolio_deadline() {
         let job = queued(v1::JobKind::Backtest);
+        assert!(!needs_recovery(&job, 101_999).unwrap());
+        assert!(needs_recovery(&job, 102_000).unwrap());
+        assert!(needs_recovery(&job, 102_001).unwrap());
+    }
+
+    #[test]
+    fn perturbation_deadline() {
+        let job = queued(v1::JobKind::Perturbation);
         assert!(!needs_recovery(&job, 101_999).unwrap());
         assert!(needs_recovery(&job, 102_000).unwrap());
         assert!(needs_recovery(&job, 102_001).unwrap());

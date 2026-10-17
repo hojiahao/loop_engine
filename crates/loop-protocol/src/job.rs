@@ -680,6 +680,8 @@ pub(crate) fn validate_perturbation_budget(
         .maximum_wall_time
         .as_ref()
         .ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, FIELD))?;
+    // Absolute task allowance includes queueing, verification and recovery from
+    // submission. The installed worker and its execution lease remain 20s.
     if budget.maximum_steps != 1
         || budget.maximum_input_tokens != 0
         || budget.maximum_output_tokens != 0
@@ -688,8 +690,8 @@ pub(crate) fn validate_perturbation_budget(
             .amount
             .as_ref()
             .is_none_or(|amount| amount.value != "0")
-        || wall.seconds > 20
-        || (wall.seconds == 20 && wall.nanos != 0)
+        || wall.seconds > 180
+        || (wall.seconds == 180 && wall.nanos != 0)
         || wall.nanos % 1_000_000 != 0
     {
         return invalid_budget(FIELD);

@@ -440,6 +440,8 @@ function validate_perturbation(input: PerturbationJobInput, submitted: Timestamp
   const budget = input.budget;
   if (budget === undefined) fail("missing_field", field);
   const wall = budget.maximumWallTime;
+  // This is the total allowance from submission, including queueing, input
+  // verification and recovery; the worker and execution lease remain 20s.
   if (
     budget.maximumSteps !== 1 ||
     budget.maximumInputTokens !== 0n ||
@@ -447,8 +449,8 @@ function validate_perturbation(input: PerturbationJobInput, submitted: Timestamp
     budget.maximumCost?.currencyCode !== "USD" ||
     budget.maximumCost.amount?.value !== "0" ||
     wall === undefined ||
-    wall.seconds > 20n ||
-    (wall.seconds === 20n && wall.nanos !== 0) ||
+    wall.seconds > 180n ||
+    (wall.seconds === 180n && wall.nanos !== 0) ||
     wall.nanos % 1_000_000 !== 0
   )
     fail("invalid_budget", "specification.input.perturbation.budget");

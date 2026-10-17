@@ -110,6 +110,30 @@ fn perturbation_guards() {
         |input| input.budget = None,
         |input| input.budget.as_mut().unwrap().maximum_steps = 2,
         |input| input.budget.as_mut().unwrap().maximum_input_tokens = 1,
+        |input| input.budget.as_mut().unwrap().maximum_output_tokens = 1,
+        |input| {
+            input
+                .budget
+                .as_mut()
+                .unwrap()
+                .maximum_cost
+                .as_mut()
+                .unwrap()
+                .currency_code = "EUR".into()
+        },
+        |input| {
+            input
+                .budget
+                .as_mut()
+                .unwrap()
+                .maximum_cost
+                .as_mut()
+                .unwrap()
+                .amount
+                .as_mut()
+                .unwrap()
+                .value = "1".into()
+        },
         |input| {
             input
                 .budget
@@ -118,7 +142,7 @@ fn perturbation_guards() {
                 .maximum_wall_time
                 .as_mut()
                 .unwrap()
-                .seconds = 21
+                .seconds = 181
         },
     ];
     for (index, mutate) in changes.iter().enumerate() {
@@ -130,6 +154,33 @@ fn perturbation_guards() {
         assert!(
             validate_job_specification(&value).is_err(),
             "accepted perturbation case {index}"
+        );
+    }
+}
+
+#[test]
+fn perturbation_deadlines() {
+    // The old 20-second envelope remains valid. New envelopes may reserve up
+    // to 180 seconds in total without changing execution/lease limits.
+    for (seconds, nanos, valid) in [
+        (20, 0, true),
+        (179, 999_000_000, true),
+        (180, 0, true),
+        (180, 1_000_000, false),
+        (181, 0, false),
+        (0, 0, false),
+        (179, 1, false),
+    ] {
+        let mut value = job();
+        let Some(job_specification::Input::Perturbation(input)) = value.input.as_mut() else {
+            panic!("fixture input")
+        };
+        input.budget.as_mut().unwrap().maximum_wall_time =
+            Some(prost_types::Duration { seconds, nanos });
+        assert_eq!(
+            validate_job_specification(&value).is_ok(),
+            valid,
+            "perturbation total deadline {seconds}s + {nanos}ns"
         );
     }
 }

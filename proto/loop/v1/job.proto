@@ -145,7 +145,9 @@ message PerturbationJobInput {
   ArtifactRef work = 5;
   Sha256Digest source_code_sha256 = 6;
   Sha256Digest environment_sha256 = 7;
-  // Exactly one step, zero model tokens/cost and at most 20 seconds.
+  // Exactly one step and zero model tokens/cost. Total time from submission,
+  // including queueing, verification and recovery, is at most 180 seconds.
+  // The installed worker and its execution lease retain separate 20-second caps.
   JobBudget budget = 8;
   string algorithm = 9;
 }

@@ -373,7 +373,9 @@ export type PerturbationJobInput = Message<"loop.v1.PerturbationJobInput"> & {
   environmentSha256?: Sha256Digest | undefined;
 
   /**
-   * Exactly one step, zero model tokens/cost and at most 20 seconds.
+   * Exactly one step and zero model tokens/cost. Total time from submission,
+   * including queueing, verification and recovery, is at most 180 seconds.
+   * The installed worker and its execution lease retain separate 20-second caps.
    *
    * @generated from field: loop.v1.JobBudget budget = 8;
    */

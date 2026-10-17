@@ -15,7 +15,8 @@ use crate::store::{Clock, JobRepository, PgJobStore, StoreOptions, SystemClock};
 fn document(output: Output, operation: &str) -> Value {
     assert!(
         output.status.success(),
-        "{operation}: {}",
+        "{operation}: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(
@@ -620,6 +621,21 @@ async fn selection_commit_rollback() {
     assert!(remaining <= 20_000);
     tokio::time::sleep(Duration::from_millis(remaining + 20)).await;
     case.deploy(&mut operations, false).await;
+    let specification = record.specification.as_ref().unwrap();
+    let submitted = specification.submitted_at.as_ref().unwrap();
+    let Some(v1::job_specification::Input::Perturbation(input)) = &specification.input else {
+        panic!("actual perturbation input")
+    };
+    let wall = input
+        .budget
+        .as_ref()
+        .unwrap()
+        .maximum_wall_time
+        .as_ref()
+        .unwrap();
+    let deadline = (submitted.seconds + wall.seconds) * 1000
+        + i64::from(submitted.nanos + wall.nanos) / 1_000_000;
+    assert!(SystemClock.now_millis().unwrap() < deadline);
     let output = operations
         .run_cli(&[
             "--workflow-version",
@@ -639,7 +655,7 @@ async fn selection_commit_rollback() {
     assert!(output.stderr.is_empty());
     let document: Value = serde_json::from_slice(&output.stdout).unwrap();
     let current = &document["run"];
-    assert_eq!(current["status"], "budget_exhausted");
+    assert_eq!(current["status"], "infrastructure_failed");
     assert_eq!(current["revision"], "5");
     assert_eq!(current["completed_rounds"], "1");
     assert_eq!(
@@ -649,6 +665,15 @@ async fn selection_commit_rollback() {
     assert_eq!(current["adaptive"]["random_draws"], "0");
     assert_eq!(operations.perturbation_starts(), 1);
     assert_eq!(case.calls(), 1);
+    let recovered = case.store.get(child(&selection)).await.unwrap().unwrap();
+    assert_eq!(recovered.state, v1::JobState::InfrastructureFailed as i32);
+    let Some(v1::job_outcome::Outcome::InfrastructureFailure(failure)) =
+        recovered.outcome.as_ref().unwrap().outcome.as_ref()
+    else {
+        panic!("expired lease must retain its infrastructure outcome")
+    };
+    assert_eq!(failure.error.as_ref().unwrap().code, "lease_expired");
+    assert_eq!(failure.attempt, 1);
     let mut connection = case.numerical_db().await;
     let counts: (i64, i64, i64, i64) = sqlx::query_as(
         "SELECT (SELECT count(*) FROM jobs), (SELECT count(*) FROM factor_trials),

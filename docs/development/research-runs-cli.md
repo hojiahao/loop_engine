@@ -631,7 +631,7 @@ specification.numerical.perturbation_budget.CopyFrom(research.ResearchJobBudget(
     maximum_cost=common_pb2.Money(
         currency_code="USD", amount=common_pb2.ExactDecimal(value="0"),
     ),
-    maximum_wall_time=Duration(seconds=20),
+    maximum_wall_time=Duration(seconds=180),
 ))
 protocol = specification.numerical.protocol_selection
 del protocol.enabled_features[:]
@@ -649,7 +649,15 @@ perturbation work item, random state, replacement message, lease or protected
 capability. The service derives and reserves that internal job itself.
 
 Perturbation requires exactly one step, zero input/output tokens, zero USD model
-cost and positive wall time no greater than 20 seconds. It executes the installed
+cost and positive total wall time no greater than 180 seconds. This deadline
+starts at job submission and includes queueing, source validation and recovery;
+it is never reset by restart or lease acquisition. The installed Python process
+and its execution lease each remain capped at 20 seconds, additionally bounded
+by the job's remaining time. Previously frozen 20-second jobs retain that exact
+deadline. Upgrade all participating readers/writers before registering a new
+plan above 20 seconds: older versions reject those larger budgets. Rollback
+disables new v3 advancement and retains a compatible reader; it never edits
+stored budgets to make an older writer accept them. The job executes the installed
 Python algorithm under a real job lease, using the existing `portfolio.python`
 interpreter and frozen research build; no new deployment worker section is
 needed. Zero LLM cost does not mean free compute or a server-wide CPU quota.

@@ -12,7 +12,8 @@ use crate::store::{Clock, JobRepository, SystemClock};
 fn document(output: Output, operation: &str) -> Value {
     assert!(
         matches!(output.status.code(), Some(0 | 7)),
-        "{operation}: {}",
+        "{operation}: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(output.stderr.is_empty(), "{operation}");
@@ -179,7 +180,9 @@ async fn unavailable_fallback() {
 #[tokio::test]
 async fn selection_deadline() {
     let mut case = Case::open().await;
-    let mut operations = case.install_adaptive().await;
+    // Freeze a short total budget before registration; never rewrite an
+    // existing deadline or wait out the normal 180s recovery allowance.
+    let mut operations = case.install_timed(20).await;
     case.deploy(&mut operations, false).await;
     let selection = first_round(&operations).await;
     assert_eq!(selection["research"]["stage"], "perturbation");
@@ -215,6 +218,13 @@ async fn selection_deadline() {
     let job = case.store.get(child(&selection)).await.unwrap().unwrap();
     assert_eq!(job.state, v1::JobState::BudgetExhausted as i32);
     assert_eq!(job.attempt, 0);
+    let Some(v1::job_outcome::Outcome::BudgetExhaustion(failure)) =
+        job.outcome.as_ref().unwrap().outcome.as_ref()
+    else {
+        panic!("queued deadline must retain its budget outcome")
+    };
+    assert_eq!(failure.exhausted_limit, "maximum_wall_time");
+    assert_eq!(failure.enforced_budget, input.budget);
     let mut connection = case.numerical_db().await;
     let counts: (i64, i64, i64) = sqlx::query_as(
         "SELECT (SELECT count(*) FROM jobs), (SELECT count(*) FROM factor_trials),

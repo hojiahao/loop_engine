@@ -12,7 +12,8 @@ use crate::store::JobRepository;
 fn document(output: Output, operation: &str) -> Value {
     assert!(
         matches!(output.status.code(), Some(0 | 7)),
-        "{operation}: {}",
+        "{operation}: stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
     assert!(output.stderr.is_empty(), "{operation}");
@@ -21,7 +22,7 @@ fn document(output: Output, operation: &str) -> Value {
     let expected = match value["run"]["status"].as_str().unwrap() {
         "budget_exhausted" => 7,
         "active" | "completed" | "search_exhausted" => 0,
-        status => panic!("unexpected run status {status}"),
+        status => panic!("{operation}: unexpected run status {status}: {value}"),
     };
     assert_eq!(output.status.code(), Some(expected), "{operation}");
     value["run"].clone()

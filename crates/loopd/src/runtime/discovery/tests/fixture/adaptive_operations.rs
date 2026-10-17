@@ -33,15 +33,23 @@ impl Case {
         } else {
             self.install_numerical(3, false).await
         };
-        self.configure_feedback(operations)
+        self.configure_feedback(operations, 180)
     }
 
     pub(in crate::runtime::discovery::tests) async fn install_memory(&mut self) -> Operations {
         let operations = self.install_sparse(3).await;
-        self.configure_feedback(operations)
+        self.configure_feedback(operations, 180)
     }
 
-    fn configure_feedback(&self, mut operations: Operations) -> Operations {
+    pub(in crate::runtime::discovery::tests) async fn install_timed(
+        &mut self,
+        seconds: i64,
+    ) -> Operations {
+        let operations = self.install_history(3).await;
+        self.configure_feedback(operations, seconds)
+    }
+
+    fn configure_feedback(&self, mut operations: Operations, seconds: i64) -> Operations {
         let mut deployment = operations.run_deployment.as_ref().unwrap().clone();
         let root = operations.directory().join("run-plans");
         let reference: ObjectRef =
@@ -89,7 +97,9 @@ impl Case {
                 amount: Some(v1::ExactDecimal { value: "0".into() }),
             }),
             maximum_wall_time: Some(prost_types::Duration {
-                seconds: 20,
+                // Submission-to-completion budget includes source validation
+                // and restart; the actual worker and lease remain capped at 20s.
+                seconds,
                 nanos: 0,
             }),
         });

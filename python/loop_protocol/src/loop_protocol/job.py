@@ -551,14 +551,16 @@ def _validate_perturbation(value: job_pb2.PerturbationJobInput, submitted: tuple
     _validate_budget(value.budget if value.HasField("budget") else None, field)
     budget = value.budget
     wall = budget.maximum_wall_time
+    # Total time from submission includes queueing, verification and recovery.
+    # The installed worker and its execution lease retain their 20-second cap.
     if (
         budget.maximum_steps != 1
         or budget.maximum_input_tokens != 0
         or budget.maximum_output_tokens != 0
         or budget.maximum_cost.currency_code != "USD"
         or budget.maximum_cost.amount.value != "0"
-        or wall.seconds > 20
-        or (wall.seconds == 20 and wall.nanos != 0)
+        or wall.seconds > 180
+        or (wall.seconds == 180 and wall.nanos != 0)
         or wall.nanos % 1_000_000 != 0
     ):
         _fail(JobValidationCode.INVALID_BUDGET, "specification.input.perturbation.budget")

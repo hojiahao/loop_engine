@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { equals, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
-import { JobSpecificationSchema } from "../src/generated/loop/v1/job_pb.js";
+import { type JobBudget, JobSpecificationSchema } from "../src/generated/loop/v1/job_pb.js";
 import { PerturbationWorkSchema } from "../src/generated/loop/v1/perturbation_pb.js";
 import { validate_job_specification } from "../src/job.js";
 import * as runs from "../src/wire/runs.js";
@@ -139,6 +139,50 @@ describe("adaptive workflow", () => {
     if (input.input.case !== "perturbation") throw new Error("perturbation input");
     required(input.input.value.budget).maximumInputTokens = 1n;
     expect(() => validate_job_specification(input)).toThrow();
+  });
+  it.each([
+    { seconds: 20n, nanos: 0, valid: true },
+    { seconds: 179n, nanos: 999_000_000, valid: true },
+    { seconds: 180n, nanos: 0, valid: true },
+    { seconds: 180n, nanos: 1_000_000, valid: false },
+    { seconds: 181n, nanos: 0, valid: false },
+    { seconds: 0n, nanos: 0, valid: false },
+    { seconds: 179n, nanos: 1, valid: false },
+  ])("checks total task deadline $seconds + $nanos", ({ seconds, nanos, valid }) => {
+    const input = job();
+    if (input.input.case !== "perturbation") throw new Error("perturbation input");
+    const wall = required(required(input.input.value.budget).maximumWallTime);
+    wall.seconds = seconds;
+    wall.nanos = nanos;
+    if (valid) expect(() => validate_job_specification(input)).not.toThrow();
+    else expect(() => validate_job_specification(input)).toThrow();
+  });
+  it("retains one step and zero model allowances at the total deadline limit", () => {
+    const changes: ((budget: JobBudget) => void)[] = [
+      (budget) => {
+        budget.maximumSteps = 2;
+      },
+      (budget) => {
+        budget.maximumInputTokens = 1n;
+      },
+      (budget) => {
+        budget.maximumOutputTokens = 1n;
+      },
+      (budget) => {
+        required(budget.maximumCost).currencyCode = "EUR";
+      },
+      (budget) => {
+        required(required(budget.maximumCost).amount).value = "1";
+      },
+    ];
+    for (const change of changes) {
+      const input = job();
+      if (input.input.case !== "perturbation") throw new Error("perturbation input");
+      const budget = required(input.input.value.budget);
+      required(budget.maximumWallTime).seconds = 180n;
+      change(budget);
+      expect(() => validate_job_specification(input)).toThrow();
+    }
   });
   it("keeps the published formerly unknown input denied", () => {
     const input = fromBinary(JobSpecificationSchema, Buffer.from("1805820100", "hex"));
