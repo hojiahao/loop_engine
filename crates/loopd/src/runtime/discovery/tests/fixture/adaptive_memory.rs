@@ -10,11 +10,9 @@ use super::{Case, ObjectRef, operations::Operations, private_file, put};
 use crate::manifests::feedback::{FeedbackPolicy, Proposal};
 
 impl Case {
-    pub(in crate::runtime::discovery::tests) fn coverage_candidates(&self) {
-        // The sparse synthetic panel contains a price every other session.
-        // Both ASTs are legal: ma(5,2) has sufficient coverage, while ma(2,2)
-        // never sees two valid observations. The latter is proposed by the
-        // model, so its exclusion is not prior perturbation-proposal memory.
+    pub(in crate::runtime::discovery::tests) fn window_candidates(&self) {
+        // Two model-originated members of one family. Dense fixtures evaluate
+        // both; on the sparse panel only ma(5,2) has sufficient coverage.
         let sequence: Vec<_> = [5, 2]
             .into_iter()
             .map(|window| {
@@ -62,7 +60,7 @@ impl Operations {
         });
     }
 
-    pub(in crate::runtime::discovery::tests) fn coverage_schedule(&mut self) {
+    pub(in crate::runtime::discovery::tests) fn family_schedule(&mut self) {
         self.edit_adaptive(|specification, policy| {
             policy.proposal_schedule = vec![
                 Proposal::Discovery,

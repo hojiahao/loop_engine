@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
-import { fromBinary, toBinary } from "@bufbuild/protobuf";
+import { equals, fromBinary, toBinary } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 import { JobSpecificationSchema } from "../src/generated/loop/v1/job_pb.js";
+import { PerturbationWorkSchema } from "../src/generated/loop/v1/perturbation_pb.js";
 import { validate_job_specification } from "../src/job.js";
 import * as runs from "../src/wire/runs.js";
 
@@ -10,7 +11,7 @@ const fixture = JSON.parse(
     new URL("../../../fixtures/contracts/protocol/v1/adaptive_workflow_v3.json", import.meta.url),
     "utf8",
   ),
-) as { view_wire_hex: string; job_wire_hex: string };
+) as { view_wire_hex: string; job_wire_hex: string; observed_work_wire_hex: string };
 
 function golden(): runs.RunView {
   return fromBinary(runs.RunViewSchema, Buffer.from(fixture.view_wire_hex, "hex"));
@@ -24,6 +25,25 @@ function required<T>(value: T | undefined): T {
 }
 
 describe("adaptive workflow", () => {
+  it("preserves successful observations separately from failed and proposed IDs", () => {
+    const work = fromBinary(
+      PerturbationWorkSchema,
+      Buffer.from(fixture.observed_work_wire_hex, "hex"),
+    );
+    expect(work.observedFactorIds).toHaveLength(2);
+    expect(work.observedFactorIds).toEqual(
+      work.candidates.map((candidate) => candidate.factorSpecId),
+    );
+    expect(work.failedFactorIds).toEqual([]);
+    expect(required(work.state).proposedFactorIds).toEqual([]);
+    expect(
+      equals(
+        PerturbationWorkSchema,
+        fromBinary(PerturbationWorkSchema, toBinary(PerturbationWorkSchema, work)),
+        work,
+      ),
+    ).toBe(true);
+  });
   it("preserves the shared v3 projection and real perturbation envelope", () => {
     const view = golden();
     const input = job();

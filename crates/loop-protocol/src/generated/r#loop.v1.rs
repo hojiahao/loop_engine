@@ -2538,6 +2538,8 @@ pub struct PerturbationWork {
     pub observation: ::core::option::Option<WindowObservation>,
     #[prost(uint32, tag = "5")]
     pub current_window: u32,
+    #[prost(message, repeated, tag = "6")]
+    pub observed_factor_ids: ::prost::alloc::vec::Vec<FactorSpecId>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PerturbationStep {

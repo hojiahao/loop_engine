@@ -159,6 +159,7 @@ impl NumericalResolver {
         let mut jobs = BTreeSet::new();
         let mut eligible = Vec::new();
         let mut sources = Vec::new();
+        let mut observed = BTreeSet::new();
         let mut previous_round = 0;
         for source in &request.sources {
             source.check()?;
@@ -167,11 +168,22 @@ impl NumericalResolver {
                 return Err(StoreError::Corrupt("perturbation duplicate source"));
             }
             previous_round = source.entry().round;
+            observed.insert(source.entry().factor_spec_id.as_str());
             if let Some(value) = source.eligible(&request.family)? {
                 eligible.push(value);
             }
             let (record, result) = source.source();
             sources.push((record.clone(), result.clone()));
+        }
+        let expected_observed: Vec<_> = space
+            .candidates
+            .iter()
+            .filter_map(|candidate| candidate.factor_spec_id.as_ref())
+            .filter(|id| observed.contains(id.value.as_str()))
+            .cloned()
+            .collect();
+        if request.work.observed_factor_ids != expected_observed {
+            return Err(StoreError::Corrupt("perturbation observed candidates"));
         }
         for observation in before.history.iter().chain(request.work.observation.iter()) {
             if !eligible.contains(observation) {

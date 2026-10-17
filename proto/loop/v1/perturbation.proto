@@ -51,6 +51,10 @@ message PerturbationWork {
   repeated FactorSpecId failed_factor_ids = 3;
   WindowObservation observation = 4;
   uint32 current_window = 5;
+  // At most 64 unique members of this family with verified successful results.
+  // These are exclusion evidence, not failures or synthetic proposal history.
+  // Empty preserves the original global perturbation workflow.
+  repeated FactorSpecId observed_factor_ids = 6;
 }
 
 enum PerturbationReason {

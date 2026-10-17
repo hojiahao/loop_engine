@@ -112,6 +112,32 @@ def test_exhaustion_randomness() -> None:
     assert result.state.random_draws == 0
 
 
+def test_observed_excluded() -> None:
+    """Successful sources need not have entered the incremental Sharpe history."""
+    request = work()
+    request.observed_factor_ids.extend(candidate.factor_spec_id for candidate in request.candidates)
+    result = advance(request)
+    assert result.reason == PERTURBATION_REASON_EXHAUSTED
+    assert not result.HasField("candidate")
+    assert result.state.random_draws == 0
+    assert not result.state.proposed_factor_ids
+    assert list(result.state.history) == [request.observation]
+    assert not request.failed_factor_ids
+
+
+@pytest.mark.parametrize("invalid", ["unknown", "duplicate", "oversized"])
+def test_observed_invalid(invalid: str) -> None:
+    request = work()
+    if invalid == "unknown":
+        request.observed_factor_ids.append(FactorSpecId(value=f"sha256:{999:064x}"))
+    elif invalid == "duplicate":
+        request.observed_factor_ids.extend([request.candidates[0].factor_spec_id] * 2)
+    else:
+        request.observed_factor_ids.extend([request.candidates[0].factor_spec_id] * 65)
+    with pytest.raises(ValueError, match="observed candidate identities"):
+        advance(request)
+
+
 # Scenario: same source is observed once.
 def test_source_observed() -> None:
     request = work()
@@ -195,22 +221,30 @@ def test_worker_invalid(payload: bytes) -> None:
     assert result.stderr == b"invalid perturbation work\n"
 
 
-@given(st.binary(min_size=32, max_size=32), st.sets(st.integers(0, 4), max_size=5))
+@given(
+    st.binary(min_size=32, max_size=32),
+    st.sets(st.integers(0, 4), max_size=5),
+    st.sets(st.integers(0, 4), max_size=5),
+)
 # Scenario: proposals are bounded and never repeat.
-def test_proposals_bounded(seed: bytes, failures: set[int]) -> None:
+def test_proposals_bounded(seed: bytes, failures: set[int], observations: set[int]) -> None:
     request = work()
     request.state.random_seed.value = seed
     request.failed_factor_ids.extend(
         request.candidates[index].factor_spec_id for index in sorted(failures)
     )
+    request.observed_factor_ids.extend(
+        request.candidates[index].factor_spec_id for index in sorted(observations)
+    )
     seen = {request.observation.candidate.factor_spec_id.value}
     failed = {item.value for item in request.failed_factor_ids}
+    observed = {item.value for item in request.observed_factor_ids}
     for _ in range(5):
         result = advance(request)
         if not result.HasField("candidate"):
-            assert len(seen | failed) == 5
+            assert len(seen | failed | observed) == 5
             break
         identity = result.candidate.factor_spec_id.value
-        assert identity not in seen | failed
+        assert identity not in seen | failed | observed
         seen.add(identity)
         request.state.CopyFrom(result.state)

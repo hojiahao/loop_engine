@@ -520,6 +520,18 @@ impl RuntimeService {
                         .filter(|id| family.candidate(id).is_some())
                         .cloned()
                         .collect(),
+                    observed_factor_ids: family
+                        .space()
+                        .candidates
+                        .iter()
+                        .filter_map(|candidate| candidate.factor_spec_id.as_ref())
+                        .filter(|id| {
+                            sources
+                                .iter()
+                                .any(|source| source.entry().factor_spec_id == id.value)
+                        })
+                        .cloned()
+                        .collect(),
                     current_window: latest
                         .candidate
                         .as_ref()

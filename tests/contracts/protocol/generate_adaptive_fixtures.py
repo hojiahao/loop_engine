@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from loop.runs.v1 import service_pb2 as runs
-from loop.v1 import artifact_pb2, common_pb2, development_data_pb2, job_pb2
+from loop.v1 import artifact_pb2, common_pb2, development_data_pb2, job_pb2, perturbation_pb2
 from loop_protocol.job import protocol_selection_sha256, validate_job_specification
 from loop_protocol.runs import validate_view
 
@@ -118,10 +118,23 @@ def main() -> None:
     )
     job.submitted_at.seconds = 2
     validate_job_specification(job)
+    identities = [
+        common_pb2.FactorSpecId(value="sha256:" + digest(value).value.hex()) for value in (21, 22)
+    ]
+    observed = perturbation_pb2.PerturbationWork(
+        state=perturbation_pb2.PerturbationState(version=1, random_seed=digest(23)),
+        candidates=[
+            perturbation_pb2.WindowCandidate(window=window, factor_spec_id=identity)
+            for window, identity in zip((2, 5), identities, strict=True)
+        ],
+        current_window=5,
+        observed_factor_ids=identities,
+    )
     fixture = {
         "schema": "loop.adaptive-contract/v1",
         "view_wire_hex": view.SerializeToString(deterministic=True).hex(),
         "job_wire_hex": job.SerializeToString(deterministic=True).hex(),
+        "observed_work_wire_hex": observed.SerializeToString(deterministic=True).hex(),
     }
     (directory / "adaptive_workflow_v3.json").write_text(json.dumps(fixture, indent=2) + "\n")
 

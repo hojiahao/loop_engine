@@ -87,6 +87,12 @@ Before use, resolve the real registered result and files, require the same run
 and an earlier committed round, and recheck all authority and freshness guards.
 Holdout outcomes are forbidden even as summaries. Infrastructure failures and
 missing Sharpe values never become zero scores or empirical failure memory.
+Every verified successful same-family factor is also excluded from subsequent
+perturbation proposals, including sources not yet consumed by the incremental
+Sharpe observation state. A bounded `observed_factor_ids` work field carries
+this source-derived set separately from failures and proposal history. Preparation,
+receipt recovery and transition replay require the exact frozen-family-ordered
+set; the legacy global perturbation writer leaves this additive field empty.
 
 The installed portfolio statistic is sharpe_annualized/ratio/daily-statistics.1.
 Adapt it only after checking the underlying cost-adjusted daily return basis,
@@ -109,6 +115,8 @@ leased perturbation and the same numerical path, then a model invocation with
 both eligible prior results. Cover unavailable Sharpe, insufficient coverage,
 duplicate/failed candidates, exhaustion, budget limits, stale/corrupt/cross-run
 and protected evidence, forged completion, expired leases and cancellation.
+Two successful model proposals covering a two-window family must make the next
+perturbation exhaust without a duplicate evaluation or a random draw.
 Race 2/4/8 independent clients and count actual worker launches. Kill/restart
 before/after child completion and parent commit must preserve one result, one
 RNG application, immutable receipts and exact trial/accounting counts.

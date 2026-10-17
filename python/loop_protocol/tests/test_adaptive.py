@@ -6,7 +6,7 @@ import pytest
 
 from loop.research.v1 import service_pb2 as research
 from loop.runs.v1 import service_pb2 as runs
-from loop.v1 import common_pb2, job_pb2
+from loop.v1 import common_pb2, job_pb2, perturbation_pb2
 from loop_protocol.job import (
     JobValidationCode,
     JobValidationError,
@@ -37,6 +37,17 @@ def test_adaptive_golden() -> None:
     assert view.SerializeToString(deterministic=True).hex() == _FIXTURE["view_wire_hex"]
     assert job.SerializeToString(deterministic=True).hex() == _FIXTURE["job_wire_hex"]
     assert runs.StartRunRequest(workflow_version=3).SerializeToString() == b"\x18\x03"
+
+
+def test_observed_golden() -> None:
+    work = perturbation_pb2.PerturbationWork.FromString(
+        bytes.fromhex(_FIXTURE["observed_work_wire_hex"])
+    )
+    assert len(work.observed_factor_ids) == 2
+    assert list(work.observed_factor_ids) == [item.factor_spec_id for item in work.candidates]
+    assert not work.failed_factor_ids
+    assert not work.state.proposed_factor_ids
+    assert perturbation_pb2.PerturbationWork.FromString(work.SerializeToString()) == work
 
 
 @pytest.mark.parametrize(

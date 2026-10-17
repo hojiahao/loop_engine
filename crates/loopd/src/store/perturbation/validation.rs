@@ -101,6 +101,18 @@ pub(crate) fn transition(
         .as_ref()
         .ok_or(StoreError::Invalid("worker output state"))?;
     state(after, space).map_err(|_| StoreError::Invalid("worker output state"))?;
+    let mut observed = BTreeSet::new();
+    if work.observed_factor_ids.len() > 64
+        || work.observed_factor_ids.iter().any(|id| {
+            !observed.insert(&id.value)
+                || !space
+                    .candidates
+                    .iter()
+                    .any(|candidate| candidate.factor_spec_id.as_ref() == Some(id))
+        })
+    {
+        return Err(StoreError::Corrupt("worker observed candidates"));
+    }
     let mut expected = before.history.clone();
     if let Some(observation) = &work.observation {
         match expected
@@ -130,7 +142,9 @@ pub(crate) fn transition(
                 .iter()
                 .any(|item| item.candidate.as_ref() == Some(candidate))
                 && candidate.factor_spec_id.as_ref().is_some_and(|id| {
-                    !work.failed_factor_ids.contains(id) && !before.proposed_factor_ids.contains(id)
+                    !work.failed_factor_ids.contains(id)
+                        && !work.observed_factor_ids.contains(id)
+                        && !before.proposed_factor_ids.contains(id)
                 })
         })
         .collect();
@@ -161,4 +175,79 @@ pub(crate) fn transition(
         return Err(StoreError::Invalid("worker proposal history"));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::perturbation;
+
+    fn observed_work() -> (PerturbationSpace, PerturbationWork, PerturbationStep) {
+        let space = perturbation::space();
+        let state = PerturbationState {
+            version: 1,
+            random_seed: space.random_seed.clone(),
+            ..Default::default()
+        };
+        let work = PerturbationWork {
+            state: Some(state.clone()),
+            candidates: space.candidates.clone(),
+            current_window: 5,
+            observed_factor_ids: space
+                .candidates
+                .iter()
+                .map(|candidate| candidate.factor_spec_id.clone().unwrap())
+                .collect(),
+            ..Default::default()
+        };
+        let step = PerturbationStep {
+            state: Some(state),
+            reason: PerturbationReason::Exhausted as i32,
+            ..Default::default()
+        };
+        (space, work, step)
+    }
+
+    #[test]
+    fn observed_exhaustion() {
+        let (space, work, step) = observed_work();
+        transition(&work, &space, &step).unwrap();
+        assert!(step.state.unwrap().proposed_factor_ids.is_empty());
+        assert!(work.failed_factor_ids.is_empty());
+    }
+
+    #[test]
+    fn observed_proposal() {
+        let (space, work, mut step) = observed_work();
+        step.candidate = Some(space.candidates[0].clone());
+        step.reason = PerturbationReason::Exploration as i32;
+        let state = step.state.as_mut().unwrap();
+        state.random_draws = 1;
+        state
+            .proposed_factor_ids
+            .push(work.observed_factor_ids[0].clone());
+        assert!(matches!(
+            transition(&work, &space, &step),
+            Err(StoreError::Invalid("worker proposal"))
+        ));
+    }
+
+    #[test]
+    fn observed_invalid() {
+        let (space, mut work, step) = observed_work();
+        work.observed_factor_ids
+            .push(work.observed_factor_ids[0].clone());
+        assert!(matches!(
+            transition(&work, &space, &step),
+            Err(StoreError::Corrupt("worker observed candidates"))
+        ));
+        work.observed_factor_ids.pop();
+        work.observed_factor_ids[0] = loop_protocol::wire::v1::FactorSpecId {
+            value: format!("sha256:{}", "ab".repeat(32)),
+        };
+        assert!(matches!(
+            transition(&work, &space, &step),
+            Err(StoreError::Corrupt("worker observed candidates"))
+        ));
+    }
 }

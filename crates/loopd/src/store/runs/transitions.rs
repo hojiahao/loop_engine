@@ -419,6 +419,27 @@ fn check_work(
     if expected != actual || actual.len() != work.failed_factor_ids.len() {
         return Err(StoreError::Corrupt("adaptive work failure memory"));
     }
+    let observed: BTreeSet<_> = current
+        .sources
+        .iter()
+        .filter_map(|source| {
+            let job = source.record.as_ref()?.specification.as_ref()?;
+            let Some(job_specification::Input::Backtest(input)) = &job.input else {
+                return None;
+            };
+            input.factor_spec_id.as_ref().map(|id| id.value.as_str())
+        })
+        .collect();
+    let expected_observed: Vec<_> = work
+        .candidates
+        .iter()
+        .filter_map(|candidate| candidate.factor_spec_id.as_ref())
+        .filter(|id| observed.contains(id.value.as_str()))
+        .cloned()
+        .collect();
+    if work.observed_factor_ids != expected_observed {
+        return Err(StoreError::Corrupt("adaptive work observation memory"));
+    }
     for observation in work
         .state
         .iter()
@@ -1559,6 +1580,7 @@ mod tests {
         };
         let work = PerturbationWork {
             state: Some(state.clone()),
+            observed_factor_ids: vec![candidates[0].factor_spec_id.clone().unwrap()],
             observation: Some(WindowObservation {
                 source_job_id: source_id,
                 candidate: Some(candidates[0].clone()),
@@ -1624,6 +1646,39 @@ mod tests {
         ));
         work.failed_factor_ids.push(factor);
         check_work(&current, &work).unwrap();
+    }
+
+    #[test]
+    fn observed_binding() {
+        let (current, mut work) = work_fixture();
+        check_work(&current, &work).unwrap();
+        work.observed_factor_ids.clear();
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation memory"))
+        ));
+    }
+
+    #[test]
+    fn observed_forgery() {
+        let (current, mut work) = work_fixture();
+        work.observed_factor_ids
+            .push(work.candidates[1].factor_spec_id.clone().unwrap());
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation memory"))
+        ));
+    }
+
+    #[test]
+    fn observed_duplicate() {
+        let (current, mut work) = work_fixture();
+        work.observed_factor_ids
+            .push(work.observed_factor_ids[0].clone());
+        assert!(matches!(
+            check_work(&current, &work),
+            Err(StoreError::Corrupt("adaptive work observation memory"))
+        ));
     }
 
     #[test]

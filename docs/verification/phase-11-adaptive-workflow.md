@@ -79,12 +79,22 @@ The failure-memory fixture uses a synthetic factor panel with observations on
 alternating sessions, retaining the complete execution tape. It first evaluates
 `ma(close,5,2)` to obtain a real observation, then evaluates the model-proposed
 `ma(close,2,2)`. The latter never has two valid prices in its window and fails
-the actual coverage gate. Both expressions satisfy the operator contract. Its factor ID must
-appear in the next perturbation's failed set. With windows `[2,5]` and no prior
+the actual coverage gate. Both expressions satisfy the operator contract. The
+rejected factor ID must appear in the next perturbation's failed set. With windows `[2,5]` and no prior
 perturbation proposals, a restarted worker must exhaust the remaining search
 without creating another evaluation. Separate parent-budget fixtures stop after
 Discovery and after successful Perturbation; both require unchanged child
 receipts and accounting after restart and command replay.
+
+The successful-memory case instead uses complete prices and two successful
+model candidates before the first perturbation. Every previously evaluated
+family member is placed in `observed_factor_ids`, a source-verified exclusion
+set separate from empirical failures, Sharpe history and numerical proposals.
+Preparation, receipt recovery and transactional replay require this exact set.
+The D/D/P fixture must exhaust the two-window family after restart without a
+random draw or another numerical trial. Empty observed sets retain the previous
+global perturbation behavior; unavailable Sharpe never becomes a fabricated
+observation.
 
 ## Reproduction
 
@@ -170,6 +180,15 @@ source objects, receipts, database history and unrelated project files.
   Workspace Rustfmt, the 5,231-declaration naming audit and `git diff --check`
   also passed. The three new installed budget/memory cases remain subject to
   the actual PostgreSQL/process gate; they are not counted as executed here.
+- Commit `4e74828` passed the four remote Python/TypeScript/legacy jobs, while
+  strict Clippy rejected an avoidable clone in the new failure-memory assertion.
+  The assertion now compares reference slices without suppressing that lint.
+  A subsequent review found that two consecutive successful model proposals
+  could leave an older candidate eligible for perturbation. The source-bound
+  observed set corrects this without labeling success as failure or changing
+  the persisted RNG. Python perturbation passes 32 tests; updated Python wire
+  contracts pass 40 cases, TypeScript contracts 88, and protocol privilege
+  boundaries pass. New Rust compilation and installed acceptance remain pending.
 - No live model benefit, paid dataset coverage, improved research returns,
   production migration or formal factor admission is claimed.
 

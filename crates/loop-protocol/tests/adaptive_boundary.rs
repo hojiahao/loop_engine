@@ -6,7 +6,7 @@ use loop_protocol::wire::research::v1::ResearchJobStatus;
 use loop_protocol::wire::runs::v1::{
     RoundDisposition, RunStatus, RunView, research_run_view::CurrentChild,
 };
-use loop_protocol::wire::v1::{JobSpecification, job_specification};
+use loop_protocol::wire::v1::{JobSpecification, PerturbationWork, job_specification};
 use prost::Message;
 
 fn wire(field: &str) -> Vec<u8> {
@@ -46,6 +46,21 @@ fn adaptive_golden() {
     assert_eq!(
         JobSpecification::decode(job.encode_to_vec().as_slice()).unwrap(),
         job
+    );
+}
+
+#[test]
+fn observed_golden() {
+    let work = PerturbationWork::decode(wire("observed_work_wire_hex").as_slice()).unwrap();
+    assert_eq!(work.observed_factor_ids.len(), 2);
+    assert!(work.failed_factor_ids.is_empty());
+    assert!(work.state.as_ref().unwrap().proposed_factor_ids.is_empty());
+    for (candidate, observed) in work.candidates.iter().zip(&work.observed_factor_ids) {
+        assert_eq!(candidate.factor_spec_id.as_ref(), Some(observed));
+    }
+    assert_eq!(
+        PerturbationWork::decode(work.encode_to_vec().as_slice()).unwrap(),
+        work
     );
 }
 

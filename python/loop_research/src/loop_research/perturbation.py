@@ -121,6 +121,13 @@ def advance(work: PerturbationWork) -> PerturbationStep:
     failed = [identity.value for identity in work.failed_factor_ids]
     if len(failed) > 64 or len(set(failed)) != len(failed) or not set(failed) <= candidates.keys():
         raise ValueError("failed candidate identities")
+    observed_ids = [identity.value for identity in work.observed_factor_ids]
+    if (
+        len(observed_ids) > 64
+        or len(set(observed_ids)) != len(observed_ids)
+        or not set(observed_ids) <= candidates.keys()
+    ):
+        raise ValueError("observed candidate identities")
     if work.HasField("observation"):
         observation = work.observation
         previous = next(
@@ -139,7 +146,12 @@ def advance(work: PerturbationWork) -> PerturbationStep:
             state.second_moment = 0.7 * state.second_moment + 0.3 * gradient * gradient
     _validate_state(state, candidates)
     observed = {item.candidate.factor_spec_id.value for item in state.history}
-    excluded = observed | set(failed) | {item.value for item in state.proposed_factor_ids}
+    excluded = (
+        observed
+        | set(observed_ids)
+        | set(failed)
+        | {item.value for item in state.proposed_factor_ids}
+    )
     available = [item for identity, item in candidates.items() if identity not in excluded]
     if not available:
         return PerturbationStep(state=state, reason=PERTURBATION_REASON_EXHAUSTED)

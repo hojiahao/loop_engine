@@ -123,6 +123,7 @@ async fn restart_history_rng() {
                 net_sharpe: 2.5,
             }),
             failed_factor_ids: vec![],
+            observed_factor_ids: vec![],
         })
         .await
         .unwrap();

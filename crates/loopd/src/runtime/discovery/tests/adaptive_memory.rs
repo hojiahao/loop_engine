@@ -195,8 +195,8 @@ async fn selection_budget() {
 async fn coverage_exclusion() {
     let mut case = Case::open().await;
     let mut operations = case.install_memory().await;
-    case.coverage_candidates();
-    operations.coverage_schedule();
+    case.window_candidates();
+    operations.family_schedule();
     case.deploy(&mut operations, false).await;
     let discovery = first_round(&operations).await;
     assert_eq!(discovery["research"]["stage"], "discovery");
@@ -243,7 +243,24 @@ async fn coverage_exclusion() {
 
     let job = case.store.get(child(&selection)).await.unwrap().unwrap();
     let work = case.selection_work(&job);
-    assert_eq!(work.failed_factor_ids, [rejected.clone()]);
+    assert_eq!(
+        work.failed_factor_ids.as_slice(),
+        std::slice::from_ref(&rejected)
+    );
+    assert_eq!(
+        work.observed_factor_ids.as_slice(),
+        std::slice::from_ref(
+            work.observation
+                .as_ref()
+                .unwrap()
+                .candidate
+                .as_ref()
+                .unwrap()
+                .factor_spec_id
+                .as_ref()
+                .unwrap()
+        )
+    );
     let before = work.state.as_ref().unwrap();
     assert!(before.history.is_empty());
     assert!(before.proposed_factor_ids.is_empty());
@@ -275,6 +292,68 @@ async fn coverage_exclusion() {
         step(&operations, &selection, "memory.failed.excluded").await,
         exhausted
     );
+    assert_eq!(operations.perturbation_starts(), 1);
+    operations.stop(false).await;
+    case.close().await;
+}
+
+#[tokio::test]
+async fn observed_exclusion() {
+    let mut case = Case::open().await;
+    let mut operations = case.install_adaptive().await;
+    case.window_candidates();
+    operations.family_schedule();
+    case.deploy(&mut operations, false).await;
+    let discovery = first_round(&operations).await;
+    assert_eq!(discovery["research"]["stage"], "discovery");
+    let evaluation = step(&operations, &discovery, "memory.observed.discovery").await;
+    assert_eq!(evaluation["research"]["stage"], "evaluation");
+    let portfolio = step(&operations, &evaluation, "memory.observed.evaluation").await;
+    assert_eq!(portfolio["research"]["stage"], "portfolio");
+    let selection = step(&operations, &portfolio, "memory.observed.portfolio").await;
+    assert_eq!(selection["research"]["stage"], "perturbation");
+    assert_eq!(selection["adaptive"]["source_count"], "2");
+    let record = case.store.get(child(&selection)).await.unwrap().unwrap();
+    let work = case.selection_work(&record);
+    assert_eq!(
+        work.observed_factor_ids,
+        work.candidates
+            .iter()
+            .map(|candidate| candidate.factor_spec_id.clone().unwrap())
+            .collect::<Vec<_>>()
+    );
+    assert!(work.failed_factor_ids.is_empty());
+    let before = work.state.as_ref().unwrap();
+    assert!(before.history.is_empty());
+    assert!(before.proposed_factor_ids.is_empty());
+    assert_eq!(
+        work.observation
+            .as_ref()
+            .unwrap()
+            .candidate
+            .as_ref()
+            .unwrap()
+            .window,
+        2
+    );
+    operations.stop(true).await;
+    case.deploy(&mut operations, false).await;
+    assert_eq!(status(&operations).await, selection);
+    let exhausted = step(&operations, &selection, "memory.observed.exhausted").await;
+    assert_eq!(exhausted["status"], "search_exhausted");
+    assert_eq!(exhausted["completed_rounds"], "3");
+    assert_eq!(exhausted["maximum_rounds"], "4");
+    assert_eq!(exhausted["adaptive"]["random_draws"], "0");
+    restart_replay(
+        &mut case,
+        &mut operations,
+        &selection,
+        "memory.observed.exhausted",
+        &exhausted,
+    )
+    .await;
+    assert_eq!(counts(&case).await, (7, 2, 4, 2, 2, 8));
+    assert_eq!(case.calls(), 2);
     assert_eq!(operations.perturbation_starts(), 1);
     operations.stop(false).await;
     case.close().await;
