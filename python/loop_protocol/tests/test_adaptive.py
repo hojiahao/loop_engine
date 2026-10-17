@@ -7,7 +7,12 @@ import pytest
 from loop.research.v1 import service_pb2 as research
 from loop.runs.v1 import service_pb2 as runs
 from loop.v1 import common_pb2, job_pb2
-from loop_protocol.job import JobValidationError, validate_job_specification
+from loop_protocol.job import (
+    JobValidationCode,
+    JobValidationError,
+    validate_job_record,
+    validate_job_specification,
+)
 from loop_protocol.runs import validate_view
 
 _FIXTURE = json.loads(
@@ -88,6 +93,43 @@ def test_perturbation_invalid(path: str, value: int | str | None) -> None:
     _mutate(job, path, value)
     with pytest.raises(JobValidationError):
         validate_job_specification(job)
+
+
+def _exhausted_job(attempt: int = 0) -> job_pb2.JobRecord:
+    job = _job()
+    record = job_pb2.JobRecord(
+        specification=job,
+        state=job_pb2.JOB_STATE_BUDGET_EXHAUSTED,
+        revision=attempt + 2,
+        attempt=attempt,
+        updated_at=job.submitted_at,
+    )
+    record.updated_at.seconds += 20
+    exhausted = record.outcome.budget_exhaustion
+    exhausted.exhausted_limit = "maximum_wall_time"
+    exhausted.enforced_budget.CopyFrom(job.perturbation.budget)
+    exhausted.exhausted_at.CopyFrom(record.updated_at)
+    return record
+
+
+@pytest.mark.parametrize("attempt", [0, 1])
+def test_perturbation_exhausted(attempt: int) -> None:
+    # Deadline expiry remains a valid terminal receipt before or after leasing.
+    record = _exhausted_job(attempt)
+    shape = validate_job_record(record)
+    assert shape.kind == job_pb2.JOB_KIND_PERTURBATION
+    assert shape.state == job_pb2.JOB_STATE_BUDGET_EXHAUSTED
+
+
+@pytest.mark.parametrize("path,value", [("maximum_steps", 2), ("maximum_wall_time.seconds", 19)])
+def test_perturbation_budget(path: str, value: int) -> None:
+    # A well-formed receipt cannot substitute a different enforced allowance.
+    record = _exhausted_job()
+    _mutate(record.outcome.budget_exhaustion.enforced_budget, path, value)
+    with pytest.raises(JobValidationError) as caught:
+        validate_job_record(record)
+    assert caught.value.code == JobValidationCode.BINDING_MISMATCH
+    assert caught.value.field == "outcome.budget_exhaustion.enforced_budget"
 
 
 def test_search_exhaustion() -> None:

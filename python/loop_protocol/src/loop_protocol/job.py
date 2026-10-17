@@ -1565,6 +1565,9 @@ def _job_budget(specification: job_pb2.JobSpecification) -> job_pb2.JobBudget:
     elif input_name == "artifact":
         budget = specification.artifact.budget
         present = specification.artifact.HasField("budget")
+    elif input_name == "perturbation":
+        budget = specification.perturbation.budget
+        present = specification.perturbation.HasField("budget")
     else:
         _fail(JobValidationCode.MISSING_FIELD, "specification.input")
     if not present:

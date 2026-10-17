@@ -38,17 +38,17 @@ leases or protected capabilities.
 
 | Boundary | Acceptance requirement | Current evidence |
 | --- | --- | --- |
-| Three-language contracts | Old request/response compatibility; v3 fields/feature bounds; genuine Perturbation shape and zero-model budget; no public arbitrary-work route | Shared fixture and Rust/TS/Python cases implemented; targeted TS and complete Python protocol checks passed; Rust execution pending |
+| Three-language contracts | Old request/response compatibility; v3 fields/feature bounds; genuine Perturbation shape and zero-model budget; no public arbitrary-work route | Targeted Rust 14, TS 87 and Python adaptive 39 cases passed; complete prior Python protocol checks passed; final workspace gate pending |
 | Private context | Exact installed template plus server-verified feedback; bounded messages; replay matches the complete stored invocation; static executors reject dynamic history | Context guards and focused tests implemented; Rust execution pending |
 | Public execution fence | Generic Discovery Execute/Resume/Reconcile cannot replace a queued v3 child's frozen invocation; safe status/stop remain available | Installed `generic_bypass` with a controlled-tool plan implemented; not yet passed |
 | Real three-round flow | Discovery → evaluation → portfolio; leased Perturbation → evaluation → portfolio; next Discovery receives both verified earlier results | Installed `adaptive_roundtrip` implemented; not yet passed |
 | Source semantics | Earlier same-run registered IS result and actual bytes; correct Sharpe profile; unavailable statistic never becomes zero; no protected evidence | Manifest/proof tests implemented; final execution pending |
 | Random state/recovery | Restart before selection and after parent commit; exact receipt replay; one applied transition and no additional worker/model call | Roundtrip and independent-process commit/crash cases implemented; not yet passed |
 | Independent writers | 2/4/8 independent installed CLI processes race one parent revision; one actual worker launch, one next child, one state advance | `adaptive_writers` implemented; not yet passed |
-| Failure integrity | Duplicate/failed/coverage paths create no fabricated trial or score; infrastructure failure remains distinct; unavailable observation uses a frozen model fallback | Required targeted coverage and final execution pending |
+| Failure integrity | Duplicate/failed/coverage paths create no fabricated trial or score; infrastructure failure remains distinct; unavailable observation uses a frozen model fallback | Installed `coverage_exclusion` and `unavailable_fallback` implemented; full execution pending |
 | Corruption | Changing actual frozen feedback or a consumed historical selection receipt prevents the next stage, leaves queued state and accounting unchanged | Installed `corrupt_feedback` and `selection_history_corruption` implemented; not yet passed |
 | Worker lifecycle | Lease fencing, cancellation, expiry and crash/restart before/after child completion; no unleased or repeated numerical execution | Storage/proof cases and before/after-commit process matrix implemented; full execution and cancellation gate pending |
-| Budget and termination | Frozen parent and child ceilings, no refunds, deadline checks, actual-round `search_exhausted` without fake evaluation | Contract cases implemented; end-to-end terminal/budget acceptance pending |
+| Budget and termination | Frozen parent and child ceilings, no refunds, deadline checks, actual-round `search_exhausted` without fake evaluation | Installed `discovery_budget`, `selection_budget`, deadline and exhaustion cases implemented; full execution pending |
 | Regression/release | Default thread stack, numerical goldens, formatter, Clippy, workspace/container gates, Chinese task commit, push and remote checks | Pending |
 
 The installed fixtures use 18 synthetic sessions and six securities to produce
@@ -74,6 +74,17 @@ After an uncommitted child result is lost, the original lease/deadline is allowe
 to expire; recovery must record a budget failure without another calculation or
 fabricated successful selection. After committed child success, recovery reuses
 that receipt and applies exactly one parent random-state transition.
+
+The failure-memory fixture uses a synthetic factor panel with observations on
+alternating sessions, retaining the complete execution tape. It first evaluates
+`ma(close,5,2)` to obtain a real observation, then evaluates the model-proposed
+`ma(close,2,2)`. The latter never has two valid prices in its window and fails
+the actual coverage gate. Both expressions satisfy the operator contract. Its factor ID must
+appear in the next perturbation's failed set. With windows `[2,5]` and no prior
+perturbation proposals, a restarted worker must exhaust the remaining search
+without creating another evaluation. Separate parent-budget fixtures stop after
+Discovery and after successful Perturbation; both require unchanged child
+receipts and accounting after restart and command replay.
 
 ## Reproduction
 
@@ -128,15 +139,37 @@ source objects, receipts, database history and unrelated project files.
   private-context, submission/lease and transition tests against the disposable
   PostgreSQL fixture. Nineteen Python portfolio-statistics golden tests passed.
   These do not substitute for the installed-process acceptance below.
+- All 20 Python statistics-workflow tests passed when run serially after the
+  local compiler stopped. Earlier concurrent runs hit the installed build's
+  verification deadline on the 1.6 GiB host; the deadline was not relaxed. The
+  current implementation also passed the complete remote Python research job.
 - Discovery context, CLI and installed adaptive fixtures passed Rustfmt parsing
   and formatting. The loopback supplier script passed Node syntax checking and
   Biome. These checks do not establish Rust compilation or execution.
 - Implementation commit `7a1d7ba` was pushed in draft
   [PR #5](https://github.com/hojiahao/loop_engine/pull/5). Initial branch and PR
   checks found a large command enum in strict Clippy; both payloads now use
-  indirection, retaining the check rather than suppressing it. Final compilation,
-  installed behavior, concurrency/crash acceptance and green remote verification
-  remain pending in this record.
+  indirection, retaining the check rather than suppressing it. Correction
+  `bdd9b46` passed remote strict Clippy and all four TypeScript, Python protocol,
+  Python research and legacy jobs. Raw logs from branch run `38378332755`
+  identify the same initial failure in Rust, unified and container jobs:
+  `adaptive_golden` compared a Python-produced JobSpecification's bytes with
+  prost's encoding. The new input oneof uses tag 16; the producers emit that
+  field in different valid orders. The contract now checks full decoded-message
+  equality after re-encoding, consistent with the existing wire-compatibility
+  tests. Artifact byte/hash checks remain unchanged. Installed workflow and
+  concurrency/crash tests were not reached by these failed jobs; final green
+  remote verification remains pending in this record.
+- The Python terminal-record validator omitted the new Perturbation input when
+  resolving its frozen budget. Four new cases reproduced that failure before
+  the fix. The adaptive module now passes all 39 cases, including expiry before
+  and after leasing and rejection of substituted step/time budgets. Ruff lint
+  and formatting pass; this does not establish installed Rust acceptance.
+- On 2026-10-17, the corrected Rust `adaptive_boundary` (5) and `run_boundary`
+  (9) suites passed locally with the pinned toolchain and default thread stack.
+  Workspace Rustfmt, the 5,231-declaration naming audit and `git diff --check`
+  also passed. The three new installed budget/memory cases remain subject to
+  the actual PostgreSQL/process gate; they are not counted as executed here.
 - No live model benefit, paid dataset coverage, improved research returns,
   production migration or formal factor admission is claimed.
 

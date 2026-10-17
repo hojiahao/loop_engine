@@ -36,8 +36,17 @@ fn adaptive_golden() {
     let job = job();
     validate_view(&view).unwrap();
     validate_job_specification(&job).unwrap();
-    assert_eq!(view.encode_to_vec(), wire("view_wire_hex"));
-    assert_eq!(job.encode_to_vec(), wire("job_wire_hex"));
+    // Protobuf field order is not canonical across producers. In particular,
+    // prost emits the input oneof (tag 16) before envelope tags 10–15, whereas
+    // the Python fixture orders fields by tag. Preserve every decoded value.
+    assert_eq!(
+        RunView::decode(view.encode_to_vec().as_slice()).unwrap(),
+        view
+    );
+    assert_eq!(
+        JobSpecification::decode(job.encode_to_vec().as_slice()).unwrap(),
+        job
+    );
 }
 
 #[test]

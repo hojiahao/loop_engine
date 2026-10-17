@@ -2,6 +2,7 @@
 
 mod adaptive;
 mod adaptive_limits;
+mod adaptive_memory;
 mod cli;
 mod fixture;
 mod lifecycle;

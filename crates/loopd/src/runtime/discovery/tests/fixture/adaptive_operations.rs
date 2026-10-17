@@ -28,11 +28,20 @@ impl Case {
         &mut self,
         history: bool,
     ) -> Operations {
-        let mut operations = if history {
+        let operations = if history {
             self.install_history(3).await
         } else {
             self.install_numerical(3, false).await
         };
+        self.configure_feedback(operations)
+    }
+
+    pub(in crate::runtime::discovery::tests) async fn install_memory(&mut self) -> Operations {
+        let operations = self.install_sparse(3).await;
+        self.configure_feedback(operations)
+    }
+
+    fn configure_feedback(&self, mut operations: Operations) -> Operations {
         let mut deployment = operations.run_deployment.as_ref().unwrap().clone();
         let root = operations.directory().join("run-plans");
         let reference: ObjectRef =

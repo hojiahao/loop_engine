@@ -27,6 +27,7 @@ use crate::store::{AdmissionPolicy, Clock, JobRepository, PgJobStore, StoreResul
 use crate::test_support;
 
 mod adaptive_limits;
+mod adaptive_memory;
 mod adaptive_operations;
 pub(super) mod operations;
 mod run_operations;
