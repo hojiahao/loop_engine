@@ -78,6 +78,7 @@ _JOB_INPUT_BY_KIND = {
     job_pb2.JOB_KIND_REPORT: "artifact",
     job_pb2.JOB_KIND_PROSPECTIVE_OBSERVATION: "artifact",
     job_pb2.JOB_KIND_HOLDOUT_BACKTEST: "holdout_backtest",
+    job_pb2.JOB_KIND_PERTURBATION: "perturbation",
 }
 _TERMINAL_STATE_OUTCOME = {
     job_pb2.JOB_STATE_SUCCEEDED: "success",
@@ -212,6 +213,12 @@ def validate_job_specification(
     shape = validate_job_shape(specification)
     submitted_at = _validate_job_envelope(specification)
     _validate_job_input(specification, submitted_at)
+    if shape.kind == job_pb2.JOB_KIND_PERTURBATION and (
+        specification.submitted_by.kind != common_pb2.ACTOR_KIND_SERVICE
+        or specification.protocol_selection.selected_package != "loop.v1"
+        or "jobs.perturbation.v1" not in specification.protocol_selection.enabled_features
+    ):
+        _fail(JobValidationCode.INVALID_INPUT, "specification.perturbation_authority")
     return shape
 
 
@@ -489,6 +496,8 @@ def _validate_job_input(
         )
     elif input_name == "holdout_backtest":
         _validate_holdout_input(specification.holdout_backtest, submitted_at)
+    elif input_name == "perturbation":
+        _validate_perturbation(specification.perturbation, submitted_at)
     elif input_name == "artifact":
         value = specification.artifact
         if not value.HasField("input"):
@@ -509,6 +518,52 @@ def _validate_job_input(
         )
     else:
         _fail(JobValidationCode.MISSING_FIELD, "specification.input")
+
+
+def _validate_perturbation(value: job_pb2.PerturbationJobInput, submitted: tuple[int, int]) -> None:
+    field = "specification.input.perturbation"
+    _validate_development_dataset(value.dataset if value.HasField("dataset") else None)
+    _validate_policy(value.feedback_policy if value.HasField("feedback_policy") else None, field)
+    for name in (
+        "parent_binding_sha256",
+        "family_sha256",
+        "source_code_sha256",
+        "environment_sha256",
+    ):
+        _require_digest(getattr(value, name) if value.HasField(name) else None, field)
+    if not value.HasField("work"):
+        _fail(JobValidationCode.MISSING_FIELD, field)
+    work = value.work
+    try:
+        validate_artifact_ref(work)
+    except ArtifactValidationError as error:
+        raise JobValidationError(JobValidationCode.INVALID_INPUT, field) from error
+    if (
+        work.schema.name != "loop.perturbation_work"
+        or work.schema.version != 1
+        or work.media_type != "application/x-protobuf"
+        or not 1 <= work.byte_size <= 1_048_576
+        or work.HasField("row_count")
+        or _require_timestamp(work.created_at, field) > submitted
+        or value.algorithm != "window.ema-gradient-pcg64.v1"
+    ):
+        _fail(JobValidationCode.INVALID_INPUT, field)
+    _validate_budget(value.budget if value.HasField("budget") else None, field)
+    budget = value.budget
+    wall = budget.maximum_wall_time
+    # Total time from submission includes queueing, verification and recovery.
+    # The installed worker and its execution lease retain their 20-second cap.
+    if (
+        budget.maximum_steps != 1
+        or budget.maximum_input_tokens != 0
+        or budget.maximum_output_tokens != 0
+        or budget.maximum_cost.currency_code != "USD"
+        or budget.maximum_cost.amount.value != "0"
+        or wall.seconds > 180
+        or (wall.seconds == 180 and wall.nanos != 0)
+        or wall.nanos % 1_000_000 != 0
+    ):
+        _fail(JobValidationCode.INVALID_BUDGET, "specification.input.perturbation.budget")
 
 
 def _validate_development_dataset(
@@ -1512,6 +1567,9 @@ def _job_budget(specification: job_pb2.JobSpecification) -> job_pb2.JobBudget:
     elif input_name == "artifact":
         budget = specification.artifact.budget
         present = specification.artifact.HasField("budget")
+    elif input_name == "perturbation":
+        budget = specification.perturbation.budget
+        present = specification.perturbation.HasField("budget")
     else:
         _fail(JobValidationCode.MISSING_FIELD, "specification.input")
     if not present:

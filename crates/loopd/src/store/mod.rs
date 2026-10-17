@@ -20,6 +20,7 @@ pub(crate) use model_step::{
     model_money,
 };
 mod perturbation;
+mod perturbation_job;
 mod portfolio;
 mod postgres;
 pub(crate) use postgres::timestamp_millis;
@@ -52,6 +53,9 @@ pub use library::{
 };
 pub use lifecycle::{JobMutation, RecoveryCommand};
 pub use perturbation::{AdvancePerturbation, PerturbationRepository, PerturbationResult};
+pub(crate) use perturbation::{
+    validate_state as validate_perturbation_state, validate_transition as validate_perturbation,
+};
 pub use portfolio::PortfolioLineage;
 pub use postgres::{PgJobStore, StoreOptions};
 pub(crate) use research_ledger::TrialSnapshot;

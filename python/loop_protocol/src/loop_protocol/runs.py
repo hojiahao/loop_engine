@@ -5,7 +5,13 @@ from loop.research.v1 import service_pb2 as research
 from loop.runs.v1 import service_pb2 as runs
 from loop.v1.common_pb2 import Money
 
-from .job import _require_timestamp, _require_token_id, _Timestamp, _validate_money
+from .job import (
+    _require_timestamp,
+    _require_token_id,
+    _Timestamp,
+    _validate_money,
+    _validate_policy,
+)
 
 _MAX_SIGNED = 9_223_372_036_854_775_807
 _MAX_WALL = 2_592_000
@@ -13,7 +19,7 @@ _MAX_WALL = 2_592_000
 
 def validate_workflow(version: int) -> None:
     """Reject unknown workflow semantics before observation, mutation or dispatch."""
-    if type(version) is not int or version not in (0, 2):
+    if type(version) is not int or version not in (0, 2, 3):
         raise ValueError("invalid_workflow_version")
 
 
@@ -28,6 +34,7 @@ def validate_view(view: runs.RunView) -> None:
             runs.RUN_STATUS_BUDGET_EXHAUSTED,
             runs.RUN_STATUS_INFRASTRUCTURE_FAILED,
             runs.RUN_STATUS_DEADLINE_EXCEEDED,
+            runs.RUN_STATUS_SEARCH_EXHAUSTED,
         )
         or not 1 <= view.revision <= _MAX_SIGNED
     ):
@@ -79,6 +86,10 @@ def validate_view(view: runs.RunView) -> None:
         != wall.seconds * 1_000_000_000 + wall.nanos
     ):
         raise ValueError("invalid_run_view")
+    if view.HasField("adaptive"):
+        _validate_adaptive(view)
+    elif view.status == runs.RUN_STATUS_SEARCH_EXHAUSTED:
+        raise ValueError("invalid_adaptive_view")
     if view.HasField("research"):
         _validate_research(view)
         return
@@ -112,31 +123,54 @@ def _validate_research(view: runs.RunView) -> None:
         or not 1 <= projection.round <= view.maximum_rounds
         or not view.completed_rounds <= projection.round <= view.completed_rounds + 1
         or (view.status == runs.RUN_STATUS_ACTIVE and projection.round != view.completed_rounds + 1)
-        or (view.status == runs.RUN_STATUS_COMPLETED and projection.round != view.completed_rounds)
+        or (
+            view.status in (runs.RUN_STATUS_COMPLETED, runs.RUN_STATUS_SEARCH_EXHAUSTED)
+            and projection.round != view.completed_rounds
+        )
         or len(projection.binding_sha256.value) != 32
         or projection.stage
-        not in (runs.RUN_STAGE_DISCOVERY, runs.RUN_STAGE_EVALUATION, runs.RUN_STAGE_PORTFOLIO)
+        not in (
+            runs.RUN_STAGE_DISCOVERY,
+            runs.RUN_STAGE_EVALUATION,
+            runs.RUN_STAGE_PORTFOLIO,
+            runs.RUN_STAGE_PERTURBATION,
+        )
         or projection.disposition not in runs.RoundDisposition.values()
     ):
         raise ValueError("invalid_research_view")
-    _require_token_id(
-        projection.discovery_job_id.value if projection.HasField("discovery_job_id") else None,
-        "run.discovery_job_id",
-    )
+    perturbation = projection.HasField("perturbation_job_id")
+    if (
+        perturbation
+        and (
+            not view.HasField("adaptive")
+            or projection.HasField("discovery_job_id")
+            or projection.round == 1
+        )
+    ) or (not perturbation and not projection.HasField("discovery_job_id")):
+        raise ValueError("invalid_research_view")
+    proposal_id = projection.perturbation_job_id if perturbation else projection.discovery_job_id
+    _require_token_id(proposal_id.value, "run.proposal_job_id")
+    proposal_stage = projection.stage in (runs.RUN_STAGE_DISCOVERY, runs.RUN_STAGE_PERTURBATION)
+    if (projection.stage == runs.RUN_STAGE_PERTURBATION and not perturbation) or (
+        projection.stage == runs.RUN_STAGE_DISCOVERY and perturbation
+    ):
+        raise ValueError("invalid_research_view")
     filtered = projection.disposition in (
         runs.ROUND_DISPOSITION_DUPLICATE,
         runs.ROUND_DISPOSITION_PREVIOUSLY_REJECTED,
     )
-    if projection.stage != runs.RUN_STAGE_DISCOVERY or filtered:
+    if not proposal_stage or filtered:
         _factor_id(projection.expression_id.value if projection.HasField("expression_id") else None)
         _factor_id(
             projection.factor_spec_id.value if projection.HasField("factor_spec_id") else None
         )
     elif projection.HasField("expression_id") or projection.HasField("factor_spec_id"):
         raise ValueError("invalid_research_view")
-    if projection.stage == runs.RUN_STAGE_DISCOVERY:
+    if proposal_stage:
         if projection.HasField("evaluation_job_id") or (
-            not filtered and projection.disposition != runs.ROUND_DISPOSITION_UNSPECIFIED
+            not filtered
+            and projection.disposition
+            not in (runs.ROUND_DISPOSITION_UNSPECIFIED, runs.ROUND_DISPOSITION_EXHAUSTED)
         ):
             raise ValueError("invalid_research_view")
     else:
@@ -146,10 +180,10 @@ def _validate_research(view: runs.RunView) -> None:
             else None,
             "run.evaluation_job_id",
         )
-        if projection.evaluation_job_id == projection.discovery_job_id:
+        if projection.evaluation_job_id == proposal_id:
             raise ValueError("invalid_research_view")
     if (
-        (filtered and projection.stage != runs.RUN_STAGE_DISCOVERY)
+        (filtered and not proposal_stage)
         or (
             projection.disposition == runs.ROUND_DISPOSITION_INSUFFICIENT_COVERAGE
             and projection.stage != runs.RUN_STAGE_EVALUATION
@@ -165,6 +199,17 @@ def _validate_research(view: runs.RunView) -> None:
         or (
             view.status == runs.RUN_STATUS_COMPLETED
             and projection.disposition == runs.ROUND_DISPOSITION_UNSPECIFIED
+        )
+        or (
+            projection.disposition == runs.ROUND_DISPOSITION_EXHAUSTED
+            and (
+                view.status != runs.RUN_STATUS_SEARCH_EXHAUSTED
+                or projection.stage != runs.RUN_STAGE_PERTURBATION
+            )
+        )
+        or (
+            view.status == runs.RUN_STATUS_SEARCH_EXHAUSTED
+            and projection.disposition != runs.ROUND_DISPOSITION_EXHAUSTED
         )
     ):
         raise ValueError("invalid_research_view")
@@ -193,8 +238,12 @@ def _validate_research(view: runs.RunView) -> None:
             and child.job_id != projection.evaluation_job_id
         )
         or (
+            projection.stage == runs.RUN_STAGE_PERTURBATION
+            and child.job_id != projection.perturbation_job_id
+        )
+        or (
             projection.stage == runs.RUN_STAGE_PORTFOLIO
-            and child.job_id in (projection.discovery_job_id, projection.evaluation_job_id)
+            and child.job_id in (proposal_id, projection.evaluation_job_id)
         )
         or (
             projection.disposition != runs.ROUND_DISPOSITION_UNSPECIFIED
@@ -209,6 +258,32 @@ def _validate_research(view: runs.RunView) -> None:
         or _time_value(child.updated_at if child.HasField("updated_at") else None) < submitted
     ):
         raise ValueError("invalid_research_view")
+
+
+def _validate_adaptive(view: runs.RunView) -> None:
+    value = view.adaptive
+    if not view.HasField("research"):
+        raise ValueError("invalid_adaptive_view")
+    _validate_policy(
+        value.feedback_policy if value.HasField("feedback_policy") else None, "run.feedback_policy"
+    )
+    if (
+        len(value.feedback_sha256.value) != 32
+        or len(value.model_context_sha256.value) != 32
+        or value.source_count > 16
+        or value.source_count > view.completed_rounds
+        or value.HasField("family_sha256") != value.HasField("state_sha256")
+        or value.random_draws > view.maximum_rounds * 32
+        or (
+            not value.HasField("family_sha256")
+            and (value.random_draws != 0 or view.research.HasField("perturbation_job_id"))
+        )
+        or any(
+            value.HasField(field) and len(getattr(value, field).value) != 32
+            for field in ("family_sha256", "state_sha256")
+        )
+    ):
+        raise ValueError("invalid_adaptive_view")
 
 
 def _factor_id(value: str | None) -> None:

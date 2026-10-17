@@ -18,8 +18,10 @@ use super::policy::check_files;
 use super::{EvaluationPin, EvaluationResolver, LocalArtifacts, ObjectRef, PortfolioPin, model};
 use crate::store::{StoreError, StoreResult};
 
+mod family;
 mod portfolio;
 mod publication;
+pub(crate) use family::VerifiedFamily;
 
 const POLICY_ROLES: [&str; 9] = [
     "universe_policy",
@@ -52,8 +54,8 @@ struct Recipe {
 /// Resolver for the explicit recipe and its actual numerical dependencies.
 /// Publication is append-only; replay only verifies already published objects.
 pub(crate) struct NumericalResolver {
-    plans: LocalArtifacts,
-    artifacts: LocalArtifacts,
+    pub(super) plans: LocalArtifacts,
+    pub(super) artifacts: LocalArtifacts,
     evaluation: EvaluationResolver,
     root: PathBuf,
     identity: (u64, u64),
@@ -361,4 +363,4 @@ fn narrative(value: &str) -> StoreResult<()> {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

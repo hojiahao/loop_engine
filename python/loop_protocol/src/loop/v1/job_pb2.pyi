@@ -29,6 +29,7 @@ class JobKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     JOB_KIND_REPORT: _ClassVar[JobKind]
     JOB_KIND_PROSPECTIVE_OBSERVATION: _ClassVar[JobKind]
     JOB_KIND_HOLDOUT_BACKTEST: _ClassVar[JobKind]
+    JOB_KIND_PERTURBATION: _ClassVar[JobKind]
 
 class JobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -62,6 +63,7 @@ JOB_KIND_INDEPENDENT_RECONCILIATION: JobKind
 JOB_KIND_REPORT: JobKind
 JOB_KIND_PROSPECTIVE_OBSERVATION: JobKind
 JOB_KIND_HOLDOUT_BACKTEST: JobKind
+JOB_KIND_PERTURBATION: JobKind
 JOB_STATE_UNSPECIFIED: JobState
 JOB_STATE_QUEUED: JobState
 JOB_STATE_LEASED: JobState
@@ -186,8 +188,30 @@ class ArtifactJobInput(_message.Message):
     budget: JobBudget
     def __init__(self, input: _Optional[_Union[_artifact_pb2.ArtifactRef, _Mapping]] = ..., policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ..., budget: _Optional[_Union[JobBudget, _Mapping]] = ...) -> None: ...
 
+class PerturbationJobInput(_message.Message):
+    __slots__ = ("dataset", "feedback_policy", "parent_binding_sha256", "family_sha256", "work", "source_code_sha256", "environment_sha256", "budget", "algorithm")
+    DATASET_FIELD_NUMBER: _ClassVar[int]
+    FEEDBACK_POLICY_FIELD_NUMBER: _ClassVar[int]
+    PARENT_BINDING_SHA256_FIELD_NUMBER: _ClassVar[int]
+    FAMILY_SHA256_FIELD_NUMBER: _ClassVar[int]
+    WORK_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_CODE_SHA256_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_SHA256_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
+    dataset: _development_data_pb2.DevelopmentDatasetReference
+    feedback_policy: _common_pb2.PolicyReference
+    parent_binding_sha256: _common_pb2.Sha256Digest
+    family_sha256: _common_pb2.Sha256Digest
+    work: _artifact_pb2.ArtifactRef
+    source_code_sha256: _common_pb2.Sha256Digest
+    environment_sha256: _common_pb2.Sha256Digest
+    budget: JobBudget
+    algorithm: str
+    def __init__(self, dataset: _Optional[_Union[_development_data_pb2.DevelopmentDatasetReference, _Mapping]] = ..., feedback_policy: _Optional[_Union[_common_pb2.PolicyReference, _Mapping]] = ..., parent_binding_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., family_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., work: _Optional[_Union[_artifact_pb2.ArtifactRef, _Mapping]] = ..., source_code_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., environment_sha256: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., budget: _Optional[_Union[JobBudget, _Mapping]] = ..., algorithm: _Optional[str] = ...) -> None: ...
+
 class JobSpecification(_message.Message):
-    __slots__ = ("job_id", "run_id", "kind", "discovery", "factor_evaluation", "backtest", "reconciliation", "holdout_backtest", "artifact", "submitted_at", "submitted_by", "idempotency_key", "correlation_id", "causation_id", "protocol_selection")
+    __slots__ = ("job_id", "run_id", "kind", "discovery", "factor_evaluation", "backtest", "reconciliation", "holdout_backtest", "artifact", "perturbation", "submitted_at", "submitted_by", "idempotency_key", "correlation_id", "causation_id", "protocol_selection")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     RUN_ID_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
@@ -197,6 +221,7 @@ class JobSpecification(_message.Message):
     RECONCILIATION_FIELD_NUMBER: _ClassVar[int]
     HOLDOUT_BACKTEST_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_FIELD_NUMBER: _ClassVar[int]
+    PERTURBATION_FIELD_NUMBER: _ClassVar[int]
     SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
     SUBMITTED_BY_FIELD_NUMBER: _ClassVar[int]
     IDEMPOTENCY_KEY_FIELD_NUMBER: _ClassVar[int]
@@ -212,13 +237,14 @@ class JobSpecification(_message.Message):
     reconciliation: ReconciliationJobInput
     holdout_backtest: HoldoutBacktestJobInput
     artifact: ArtifactJobInput
+    perturbation: PerturbationJobInput
     submitted_at: _timestamp_pb2.Timestamp
     submitted_by: _common_pb2.Actor
     idempotency_key: _common_pb2.IdempotencyKey
     correlation_id: _common_pb2.CorrelationId
     causation_id: _common_pb2.CausationId
     protocol_selection: _common_pb2.ProtocolSelectionSnapshot
-    def __init__(self, job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., run_id: _Optional[_Union[_common_pb2.RunId, _Mapping]] = ..., kind: _Optional[_Union[JobKind, str]] = ..., discovery: _Optional[_Union[DiscoveryJobInput, _Mapping]] = ..., factor_evaluation: _Optional[_Union[FactorEvaluationJobInput, _Mapping]] = ..., backtest: _Optional[_Union[BacktestJobInput, _Mapping]] = ..., reconciliation: _Optional[_Union[ReconciliationJobInput, _Mapping]] = ..., holdout_backtest: _Optional[_Union[HoldoutBacktestJobInput, _Mapping]] = ..., artifact: _Optional[_Union[ArtifactJobInput, _Mapping]] = ..., submitted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., submitted_by: _Optional[_Union[_common_pb2.Actor, _Mapping]] = ..., idempotency_key: _Optional[_Union[_common_pb2.IdempotencyKey, _Mapping]] = ..., correlation_id: _Optional[_Union[_common_pb2.CorrelationId, _Mapping]] = ..., causation_id: _Optional[_Union[_common_pb2.CausationId, _Mapping]] = ..., protocol_selection: _Optional[_Union[_common_pb2.ProtocolSelectionSnapshot, _Mapping]] = ...) -> None: ...
+    def __init__(self, job_id: _Optional[_Union[_common_pb2.JobId, _Mapping]] = ..., run_id: _Optional[_Union[_common_pb2.RunId, _Mapping]] = ..., kind: _Optional[_Union[JobKind, str]] = ..., discovery: _Optional[_Union[DiscoveryJobInput, _Mapping]] = ..., factor_evaluation: _Optional[_Union[FactorEvaluationJobInput, _Mapping]] = ..., backtest: _Optional[_Union[BacktestJobInput, _Mapping]] = ..., reconciliation: _Optional[_Union[ReconciliationJobInput, _Mapping]] = ..., holdout_backtest: _Optional[_Union[HoldoutBacktestJobInput, _Mapping]] = ..., artifact: _Optional[_Union[ArtifactJobInput, _Mapping]] = ..., perturbation: _Optional[_Union[PerturbationJobInput, _Mapping]] = ..., submitted_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., submitted_by: _Optional[_Union[_common_pb2.Actor, _Mapping]] = ..., idempotency_key: _Optional[_Union[_common_pb2.IdempotencyKey, _Mapping]] = ..., correlation_id: _Optional[_Union[_common_pb2.CorrelationId, _Mapping]] = ..., causation_id: _Optional[_Union[_common_pb2.CausationId, _Mapping]] = ..., protocol_selection: _Optional[_Union[_common_pb2.ProtocolSelectionSnapshot, _Mapping]] = ...) -> None: ...
 
 class JobLease(_message.Message):
     __slots__ = ("lease_id", "job_id", "owner", "acquired_revision", "issued_at", "heartbeat_at", "expires_at")

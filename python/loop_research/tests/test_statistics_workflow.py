@@ -186,6 +186,10 @@ def test_actual_statistics(extended: Case) -> None:
     report = run(extended, request)
     summary = document(extended, report.artifacts.summary)
     assert summary["return_observations"] == 16
+    assert summary["return_basis"] == "cost-adjusted-simple-nav-return"
+    assert summary["sharpe_dispersion"] == "sample-standard-deviation-ddof-1"
+    assert summary["benchmark"] == "zero-daily-return"
+    assert summary["sharpe_annualization"] == "sqrt(252)-descriptive-no-serial-correction"
     assert summary["return_mean"]["p_value"]["status"] == "available"
     assert summary["cross_section"]["ic"]["mean"]["status"] == "available"
     multiple = document(extended, report.artifacts.multiple_testing)

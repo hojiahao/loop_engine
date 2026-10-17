@@ -13,6 +13,7 @@ use crate::output::{self, Failure};
 
 pub(crate) const SCHEMA: &str = "loop.run-cli/v1";
 pub(crate) const NUMERICAL_SCHEMA: &str = "loop.run-cli/v2";
+pub(crate) const ADAPTIVE_SCHEMA: &str = "loop.run-cli/v3";
 
 #[derive(Args)]
 pub(crate) struct Arguments {
@@ -22,7 +23,7 @@ pub(crate) struct Arguments {
     /// Total connection and RPC deadline; commands are never retried automatically.
     #[arg(long, global = true, default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..=240))]
     timeout_seconds: u64,
-    /// Explicitly select numerical workflow 2; 0 preserves discovery-only runs.
+    /// Select numerical 2 or adaptive 3; 0 preserves discovery-only runs.
     #[arg(long, global = true, default_value = "0", value_parser = workflow)]
     workflow_version: u32,
     #[command(subcommand)]
@@ -31,15 +32,16 @@ pub(crate) struct Arguments {
 
 impl Arguments {
     pub(crate) fn schema(&self) -> &'static str {
-        if self.workflow_version == 2 {
-            NUMERICAL_SCHEMA
-        } else {
-            SCHEMA
+        match self.workflow_version {
+            3 => ADAPTIVE_SCHEMA,
+            2 => NUMERICAL_SCHEMA,
+            _ => SCHEMA,
         }
     }
 
     fn timeout(&self) -> Result<Duration, Failure> {
-        let maximum = if self.workflow_version == 2 && matches!(self.command, Command::Step { .. })
+        let maximum = if matches!(self.workflow_version, 2 | 3)
+            && matches!(self.command, Command::Step { .. })
         {
             240
         } else {
@@ -56,7 +58,8 @@ fn workflow(value: &str) -> Result<u32, String> {
     match value {
         "0" => Ok(0),
         "2" => Ok(2),
-        _ => Err("workflow version must be 0 or 2".into()),
+        "3" => Ok(3),
+        _ => Err("workflow version must be 0, 2 or 3".into()),
     }
 }
 
@@ -243,10 +246,10 @@ async fn invoke(
                 .run
         }
     };
-    if view
-        .as_ref()
-        .is_some_and(|view| view.research.is_some() != (workflow_version == 2))
-    {
+    if view.as_ref().is_some_and(|view| {
+        view.research.is_some() != matches!(workflow_version, 2 | 3)
+            || view.adaptive.is_some() != (workflow_version == 3)
+    }) {
         return Err(Failure::Protocol);
     }
     render(command.name(), view)
@@ -262,9 +265,11 @@ fn render(command: &str, view: Option<wire::RunView>) -> Result<(serde_json::Val
         wire::RunStatus::BudgetExhausted => ("budget_exhausted", 7),
         wire::RunStatus::InfrastructureFailed => ("infrastructure_failed", 7),
         wire::RunStatus::DeadlineExceeded => ("deadline_exceeded", 7),
+        wire::RunStatus::SearchExhausted => ("search_exhausted", 0),
         wire::RunStatus::Unspecified => return Err(Failure::Protocol),
     };
     let numerical = view.research;
+    let adaptive = view.adaptive;
     let child = match view.current_job {
         Some(child) => Some(output::handle(child)?.0),
         None => None,
@@ -299,17 +304,25 @@ fn render(command: &str, view: Option<wire::RunView>) -> Result<(serde_json::Val
             .as_object_mut()
             .ok_or(Failure::Internal)?
             .remove("current_job");
-        document["run"]["research"] = render_research(numerical)?;
+        document["run"]["research"] = render_research(numerical, adaptive.is_some())?;
+    }
+    if let Some(adaptive) = adaptive {
+        document["schema"] = ADAPTIVE_SCHEMA.into();
+        document["run"]["adaptive"] = render_adaptive(adaptive)?;
     }
     Ok((document, code))
 }
 
-fn render_research(view: wire::ResearchRunView) -> Result<serde_json::Value, Failure> {
+fn render_research(
+    view: wire::ResearchRunView,
+    adaptive: bool,
+) -> Result<serde_json::Value, Failure> {
     use wire::research_run_view::CurrentChild;
     let stage = match wire::RunStage::try_from(view.stage).map_err(|_| Failure::Protocol)? {
         wire::RunStage::Discovery => "discovery",
         wire::RunStage::Evaluation => "evaluation",
         wire::RunStage::Portfolio => "portfolio",
+        wire::RunStage::Perturbation => "perturbation",
         wire::RunStage::Unspecified => return Err(Failure::Protocol),
     };
     let disposition =
@@ -319,6 +332,7 @@ fn render_research(view: wire::ResearchRunView) -> Result<serde_json::Value, Fai
             wire::RoundDisposition::Duplicate => "duplicate",
             wire::RoundDisposition::PreviouslyRejected => "previously_rejected",
             wire::RoundDisposition::InsufficientCoverage => "insufficient_coverage",
+            wire::RoundDisposition::Exhausted => "exhausted",
         };
     let child = match view.current_child.ok_or(Failure::Protocol)? {
         CurrentChild::Discovery(child) => output::handle(child)?.0,
@@ -329,14 +343,48 @@ fn render_research(view: wire::ResearchRunView) -> Result<serde_json::Value, Fai
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
-    Ok(serde_json::json!({
+    let mut value = serde_json::json!({
         "round":view.round.to_string(), "stage":stage, "current_child":child,
-        "discovery_job_id":view.discovery_job_id.ok_or(Failure::Protocol)?.value,
+        "discovery_job_id":view.discovery_job_id.map(|id| id.value),
         "evaluation_job_id":view.evaluation_job_id.map(|id| id.value),
         "expression_id":view.expression_id.map(|id| id.value),
         "factor_spec_id":view.factor_spec_id.map(|id| id.value),
         "binding_sha256":format!("sha256:{binding}"), "disposition":disposition
+    });
+    if adaptive {
+        value["perturbation_job_id"] =
+            serde_json::json!(view.perturbation_job_id.map(|id| id.value));
+    }
+    Ok(value)
+}
+
+fn render_adaptive(view: wire::AdaptiveRunView) -> Result<serde_json::Value, Failure> {
+    let policy = view.feedback_policy.ok_or(Failure::Protocol)?;
+    Ok(serde_json::json!({
+        "feedback_policy":{"id":policy.policy_id.ok_or(Failure::Protocol)?.value,"revision":policy.revision,
+            "sha256":digest(policy.sha256.as_ref())?},
+        "source_count":view.source_count.to_string(),
+        "feedback_sha256":digest(view.feedback_sha256.as_ref())?,
+        "model_context_sha256":digest(view.model_context_sha256.as_ref())?,
+        "family_sha256":view.family_sha256.as_ref().map(|value| digest(Some(value))).transpose()?,
+        "state_sha256":view.state_sha256.as_ref().map(|value| digest(Some(value))).transpose()?,
+        "random_draws":view.random_draws.to_string(),
     }))
+}
+
+fn digest(value: Option<&v1::Sha256Digest>) -> Result<String, Failure> {
+    let value = value.ok_or(Failure::Protocol)?;
+    if value.value.len() != 32 {
+        return Err(Failure::Protocol);
+    }
+    Ok(format!(
+        "sha256:{}",
+        value
+            .value
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    ))
 }
 
 fn render_child(

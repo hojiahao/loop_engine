@@ -72,7 +72,8 @@ describe("operator run projection", () => {
     expect(Buffer.from(toBinary(runs.RunViewSchema, view))).toEqual(numerical_wire);
     runs.validate_workflow(0);
     runs.validate_workflow(2);
-    for (const value of [1, 3, -1, 0.5, Number.NaN])
+    runs.validate_workflow(3);
+    for (const value of [1, 4, -1, 0.5, Number.NaN])
       expect(() => runs.validate_workflow(value)).toThrow();
   });
   it("accepts completed coverage and portfolio evidence without implying admission", () => {

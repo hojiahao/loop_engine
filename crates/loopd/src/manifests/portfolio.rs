@@ -376,6 +376,18 @@ impl PortfolioInputs {
 }
 
 impl PreparedPortfolio {
+    pub(in crate::manifests) fn feedback_work(&self) -> &FactorEvaluationWork {
+        &self.inputs.work
+    }
+
+    pub(in crate::manifests) fn feedback_policy(&self) -> StoreResult<&model::PolicyDocument> {
+        self.inputs
+            .recipe
+            .policies
+            .get("evaluation_policy")
+            .ok_or(StoreError::Corrupt("portfolio evaluation policy"))
+    }
+
     pub(crate) fn check(&self, job: &JobSpecification) -> StoreResult<()> {
         if job != &self.inputs.job {
             return Err(StoreError::Corrupt("prepared portfolio job"));

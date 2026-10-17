@@ -36,6 +36,8 @@ pub struct RunSpecification {
     pub maximum_rounds: u32,
     #[prost(message, optional, tag = "9")]
     pub numerical: ::core::option::Option<NumericalWorkflow>,
+    #[prost(message, optional, tag = "10")]
+    pub feedback_policy: ::core::option::Option<super::super::v1::PolicyReference>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct NumericalWorkflow {
@@ -54,6 +56,10 @@ pub struct NumericalWorkflow {
     #[prost(message, optional, tag = "5")]
     pub protocol_selection: ::core::option::Option<
         super::super::v1::ProtocolSelectionSnapshot,
+    >,
+    #[prost(message, optional, tag = "6")]
+    pub perturbation_budget: ::core::option::Option<
+        super::super::research::v1::ResearchJobBudget,
     >,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -74,6 +80,8 @@ pub struct ResearchRunView {
     pub binding_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
     #[prost(enumeration = "RoundDisposition", tag = "10")]
     pub disposition: i32,
+    #[prost(message, optional, tag = "11")]
+    pub perturbation_job_id: ::core::option::Option<super::super::v1::JobId>,
     #[prost(oneof = "research_run_view::CurrentChild", tags = "3, 4")]
     pub current_child: ::core::option::Option<research_run_view::CurrentChild>,
 }
@@ -86,6 +94,23 @@ pub mod research_run_view {
         #[prost(message, tag = "4")]
         Research(super::super::super::research::v1::ResearchJobHandle),
     }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AdaptiveRunView {
+    #[prost(message, optional, tag = "1")]
+    pub feedback_policy: ::core::option::Option<super::super::v1::PolicyReference>,
+    #[prost(uint32, tag = "2")]
+    pub source_count: u32,
+    #[prost(message, optional, tag = "3")]
+    pub feedback_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
+    #[prost(message, optional, tag = "4")]
+    pub model_context_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
+    #[prost(message, optional, tag = "5")]
+    pub family_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
+    #[prost(uint64, tag = "6")]
+    pub random_draws: u64,
+    #[prost(message, optional, tag = "7")]
+    pub state_sha256: ::core::option::Option<super::super::v1::Sha256Digest>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct RunView {
@@ -123,6 +148,8 @@ pub struct RunView {
     pub plan_verified: bool,
     #[prost(message, optional, tag = "16")]
     pub research: ::core::option::Option<ResearchRunView>,
+    #[prost(message, optional, tag = "17")]
+    pub adaptive: ::core::option::Option<AdaptiveRunView>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StartRunRequest {
@@ -177,6 +204,7 @@ pub enum RunStatus {
     BudgetExhausted = 3,
     InfrastructureFailed = 4,
     DeadlineExceeded = 5,
+    SearchExhausted = 6,
 }
 impl RunStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -191,6 +219,7 @@ impl RunStatus {
             Self::BudgetExhausted => "RUN_STATUS_BUDGET_EXHAUSTED",
             Self::InfrastructureFailed => "RUN_STATUS_INFRASTRUCTURE_FAILED",
             Self::DeadlineExceeded => "RUN_STATUS_DEADLINE_EXCEEDED",
+            Self::SearchExhausted => "RUN_STATUS_SEARCH_EXHAUSTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -202,6 +231,7 @@ impl RunStatus {
             "RUN_STATUS_BUDGET_EXHAUSTED" => Some(Self::BudgetExhausted),
             "RUN_STATUS_INFRASTRUCTURE_FAILED" => Some(Self::InfrastructureFailed),
             "RUN_STATUS_DEADLINE_EXCEEDED" => Some(Self::DeadlineExceeded),
+            "RUN_STATUS_SEARCH_EXHAUSTED" => Some(Self::SearchExhausted),
             _ => None,
         }
     }
@@ -213,6 +243,7 @@ pub enum RunStage {
     Discovery = 1,
     Evaluation = 2,
     Portfolio = 3,
+    Perturbation = 4,
 }
 impl RunStage {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -225,6 +256,7 @@ impl RunStage {
             Self::Discovery => "RUN_STAGE_DISCOVERY",
             Self::Evaluation => "RUN_STAGE_EVALUATION",
             Self::Portfolio => "RUN_STAGE_PORTFOLIO",
+            Self::Perturbation => "RUN_STAGE_PERTURBATION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -234,6 +266,7 @@ impl RunStage {
             "RUN_STAGE_DISCOVERY" => Some(Self::Discovery),
             "RUN_STAGE_EVALUATION" => Some(Self::Evaluation),
             "RUN_STAGE_PORTFOLIO" => Some(Self::Portfolio),
+            "RUN_STAGE_PERTURBATION" => Some(Self::Perturbation),
             _ => None,
         }
     }
@@ -246,6 +279,7 @@ pub enum RoundDisposition {
     Duplicate = 2,
     PreviouslyRejected = 3,
     InsufficientCoverage = 4,
+    Exhausted = 5,
 }
 impl RoundDisposition {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -259,6 +293,7 @@ impl RoundDisposition {
             Self::Duplicate => "ROUND_DISPOSITION_DUPLICATE",
             Self::PreviouslyRejected => "ROUND_DISPOSITION_PREVIOUSLY_REJECTED",
             Self::InsufficientCoverage => "ROUND_DISPOSITION_INSUFFICIENT_COVERAGE",
+            Self::Exhausted => "ROUND_DISPOSITION_EXHAUSTED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -269,6 +304,7 @@ impl RoundDisposition {
             "ROUND_DISPOSITION_DUPLICATE" => Some(Self::Duplicate),
             "ROUND_DISPOSITION_PREVIOUSLY_REJECTED" => Some(Self::PreviouslyRejected),
             "ROUND_DISPOSITION_INSUFFICIENT_COVERAGE" => Some(Self::InsufficientCoverage),
+            "ROUND_DISPOSITION_EXHAUSTED" => Some(Self::Exhausted),
             _ => None,
         }
     }

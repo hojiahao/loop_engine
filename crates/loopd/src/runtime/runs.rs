@@ -10,6 +10,7 @@ use sha2::{Digest, Sha256};
 
 use super::{DiscoveryExecutor, deployment::read_file};
 use crate::manifests::ObjectRef;
+use crate::manifests::feedback::FrozenFeedback;
 use crate::manifests::numerical::{FrozenNumerical, NumericalResolver};
 use crate::store::{Clock, StoreError, StoreResult, SystemClock, validate_id};
 
@@ -33,12 +34,15 @@ struct Document {
     specification: ObjectRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     numerical_recipe: Option<ObjectRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    feedback_policy: Option<ObjectRef>,
 }
 
 struct FrozenRun {
     specification: wire::RunSpecification,
     files: Vec<(PathBuf, ObjectRef)>,
     numerical_recipe: Option<ObjectRef>,
+    feedback_policy: Option<ObjectRef>,
 }
 
 /// Startup-pinned run plans sharing the existing Discovery executor. The catalog
@@ -72,7 +76,7 @@ impl RunCatalog {
                 .map_err(|_| StoreError::Invalid("run document JSON"))?;
             if !matches!(
                 document.schema.as_str(),
-                "loop.research-run/v1" | "loop.research-run/v2"
+                "loop.research-run/v1" | "loop.research-run/v2" | "loop.research-run/v3"
             ) {
                 return Err(StoreError::Invalid("run document schema"));
             }
@@ -85,9 +89,12 @@ impl RunCatalog {
             if specification.plan.is_some() || specification.encode_to_vec() != bytes {
                 return Err(StoreError::Invalid("run specification encoding"));
             }
-            let numerical = document.schema == "loop.research-run/v2";
+            let numerical = document.schema != "loop.research-run/v1";
+            let adaptive = document.schema == "loop.research-run/v3";
             if numerical != specification.numerical.is_some()
                 || numerical != document.numerical_recipe.is_some()
+                || adaptive != specification.feedback_policy.is_some()
+                || adaptive != document.feedback_policy.is_some()
             {
                 return Err(StoreError::Invalid("run workflow version"));
             }
@@ -109,6 +116,20 @@ impl RunCatalog {
                     return Err(StoreError::Invalid("run recipe binding"));
                 }
                 files.push((recipe_path, recipe.clone()));
+            }
+            if let Some(feedback) = &document.feedback_policy {
+                let feedback_path = object_path(&config.plan_store, feedback)?;
+                checked_read(&feedback_path, feedback)?;
+                if specification
+                    .feedback_policy
+                    .as_ref()
+                    .and_then(|policy| policy.sha256.as_ref())
+                    .map(|digest| digest.value.as_slice())
+                    != Some(feedback.digest()?.as_slice())
+                {
+                    return Err(StoreError::Invalid("run feedback binding"));
+                }
+                files.push((feedback_path, feedback.clone()));
             }
             specification.plan = Some(v1::PolicyReference {
                 policy_id: Some(v1::PolicyId { value: document.id }),
@@ -136,6 +157,7 @@ impl RunCatalog {
                 specification,
                 files,
                 numerical_recipe: document.numerical_recipe,
+                feedback_policy: document.feedback_policy,
             });
         }
         let numerical = plans
@@ -229,6 +251,30 @@ impl RunCatalog {
             )
             .await?;
         Ok((resolver.clone(), Arc::new(frozen)))
+    }
+
+    pub(super) async fn feedback(
+        &self,
+        specification: &wire::RunSpecification,
+        resolver: &NumericalResolver,
+    ) -> StoreResult<Option<Arc<FrozenFeedback>>> {
+        self.verify(specification)?;
+        let plan = self
+            .plans
+            .iter()
+            .find(|plan| plan.specification == *specification)
+            .ok_or(StoreError::AdmissionDenied)?;
+        match (&specification.feedback_policy, &plan.feedback_policy) {
+            (None, None) => Ok(None),
+            (Some(policy), Some(reference)) => {
+                let frozen = resolver.feedback(policy, reference).await?;
+                if frozen.schedule_len() != specification.maximum_rounds as usize {
+                    return Err(StoreError::Invalid("feedback schedule length"));
+                }
+                Ok(Some(Arc::new(frozen)))
+            }
+            _ => Err(StoreError::AdmissionDenied),
+        }
     }
 }
 

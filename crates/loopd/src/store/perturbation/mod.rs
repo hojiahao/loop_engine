@@ -3,6 +3,8 @@
 mod evidence;
 mod validation;
 
+pub(crate) use validation::{state as validate_state, transition as validate_transition};
+
 use std::future::Future;
 use std::time::Duration;
 

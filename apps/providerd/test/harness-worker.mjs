@@ -45,6 +45,13 @@ const supplier = createServer(async (request, response) => {
   const field = await readFile(join(root, "invalid-ast"))
     .then(() => "market.unknown")
     .catch(() => "market.close");
+  // Only this loopback fixture reads explicit candidate scripts. Production
+  // provider code still validates the complete request and journals its receipt.
+  const sequence = JSON.parse(
+    await readFile(join(root, "candidate-sequence.json"), "utf8").catch(() => "null"),
+  );
+  const ast = sequence === null ? { node: "field", field } : sequence[calls - 1];
+  if (ast === undefined) throw new Error("fixture_candidate_sequence_exhausted");
   const result = body.messages.find((message) => message.role === "tool");
   const first = body.tools?.length > 0 && !result;
   const invalid = await readFile(join(root, "invalid-tool"), "utf8").catch(() => "");
@@ -93,7 +100,7 @@ const supplier = createServer(async (request, response) => {
               }
             : {
                 role: "assistant",
-                content: JSON.stringify({ ast: { node: "field", field } }),
+                content: JSON.stringify({ ast }),
               },
         },
       ],

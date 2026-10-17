@@ -16,6 +16,177 @@ use super::postgres::{
 };
 use super::{PgJobStore, StoreError, StoreResult, SubmitJob, audit, validate_id};
 
+/// Internal parent-owned proposal input, with no corresponding public RPC.
+/// The private run permit and operation-local authority remain mandatory.
+#[derive(Clone, PartialEq, Message)]
+pub(in crate::store) struct PerturbationCommand {
+    /// Server-attributed child command metadata.
+    #[prost(message, optional, tag = "1")]
+    pub context: Option<CommandContext>,
+    /// Exact server-derived work and frozen execution allowance.
+    #[prost(message, optional, tag = "2")]
+    pub input: Option<loop_protocol::wire::v1::PerturbationJobInput>,
+}
+
+/// Build the exact child envelope before its parent binding is sealed. No work
+/// is submitted and no reference becomes authority through this constructor.
+pub(super) fn build_perturbation(
+    command: &PerturbationCommand,
+    principal: &Actor,
+    metadata: SubmissionMetadata,
+    now: i64,
+    permit: &super::runs::RunPermit,
+) -> StoreResult<JobSpecification> {
+    let context = validate_context(command.context.as_ref(), principal)?;
+    let specification = JobSpecification {
+        job_id: Some(JobId {
+            value: permit.job_id().to_owned(),
+        }),
+        run_id: Some(metadata.run_id),
+        kind: JobKind::Perturbation as i32,
+        input: Some(job_specification::Input::Perturbation(
+            command
+                .input
+                .clone()
+                .ok_or(StoreError::Invalid("perturbation input"))?,
+        )),
+        submitted_at: Some(timestamp(now)),
+        submitted_by: Some(principal.clone()),
+        idempotency_key: context.idempotency_key.clone(),
+        correlation_id: context.correlation_id.clone(),
+        causation_id: context.causation_id.clone(),
+        protocol_selection: Some(metadata.protocol_selection),
+    };
+    validate_job_specification(&specification)?;
+    permit.verify(&specification)?;
+    Ok(specification)
+}
+
+/// Submit a real proposal child inside the parent's reservation transaction.
+/// Missing permit/authority, changed replay input, invalid protocol and database
+/// fences deny. Cancellation rolls back together with the parent; a replay
+/// returns the original queued handle and never launches numerical work.
+pub(super) async fn submit_perturbation(
+    store: &PgJobStore,
+    transaction: &mut Transaction<'_, Postgres>,
+    principal: &Actor,
+    command: PerturbationCommand,
+    metadata: SubmissionMetadata,
+    now: i64,
+    permit: &super::runs::RunPermit,
+) -> StoreResult<RoleSubmissionResult> {
+    const OPERATION: &str = "loop.research.perturb";
+    let context = validate_context(command.context.as_ref(), principal)?;
+    if timestamp_millis(
+        context.requested_at.as_ref().expect("validated context"),
+        true,
+    )? > now
+    {
+        return Err(StoreError::Invalid("future command time"));
+    }
+    let specification = build_perturbation(&command, principal, metadata.clone(), now, permit)?;
+    store.admission.validate_submission(&specification)?;
+    let mut normalized = command.clone();
+    let normalized_context = normalized.context.as_mut().expect("validated context");
+    normalized_context.request_id = None;
+    normalized_context.requested_at = None;
+    let request_blob = encode_message(&normalized)?;
+    let receipt = sqlx::query(
+        "SELECT * FROM command_receipts WHERE actor_id=$1 AND operation=$2 AND idempotency_key=$3",
+    )
+    .bind(&principal.actor_id.as_ref().expect("validated actor").value)
+    .bind(OPERATION)
+    .bind(
+        &context
+            .idempotency_key
+            .as_ref()
+            .expect("validated key")
+            .value,
+    )
+    .fetch_optional(&mut **transaction)
+    .await?;
+    if let Some(receipt) = receipt {
+        let request = verified_blob(&receipt, "request_blob", "request_sha256")?;
+        if PerturbationCommand::decode(request.as_slice())
+            .map_err(|_| StoreError::Corrupt("perturbation submission receipt"))?
+            != normalized
+        {
+            return Err(StoreError::IdempotencyConflict);
+        }
+        let bytes = verified_blob(&receipt, "response_blob", "response_sha256")?;
+        let record = decode_record(&bytes)?;
+        let original = record
+            .specification
+            .as_ref()
+            .expect("validated specification");
+        permit.verify(original)?;
+        if original.run_id.as_ref() != Some(&metadata.run_id)
+            || original.input != specification.input
+            || original.submitted_by.as_ref() != Some(principal)
+            || original.protocol_selection.as_ref() != Some(&metadata.protocol_selection)
+            || original.correlation_id != specification.correlation_id
+            || original.causation_id != specification.causation_id
+            || record.revision != 1
+            || record.state != JobState::Queued as i32
+            || record.updated_at != original.submitted_at
+            || receipt.try_get::<String, _>("job_id")? != permit.job_id()
+        {
+            return Err(StoreError::Corrupt("perturbation submission binding"));
+        }
+        let row = sqlx::query("SELECT * FROM jobs WHERE job_id=$1")
+            .bind(permit.job_id())
+            .fetch_optional(&mut **transaction)
+            .await?
+            .ok_or(StoreError::Corrupt("perturbation submission job"))?;
+        if record_from_row(&row)?.specification != record.specification {
+            return Err(StoreError::Corrupt("perturbation submission changed"));
+        }
+        store.admission.validate_submission(original)?;
+        return perturbation_handle(record, true);
+    }
+    let submitted = SubmitJob {
+        request_id: context
+            .request_id
+            .as_ref()
+            .expect("validated request")
+            .value
+            .clone(),
+        specification,
+    };
+    let record =
+        super::postgres::insert_scoped(transaction, &submitted.specification, now, permit).await?;
+    audit::append_command(transaction, &store.ledger_id, &submitted, OPERATION, now).await?;
+    save_receipt(
+        transaction,
+        context,
+        OPERATION,
+        permit.job_id(),
+        &request_blob,
+        &record,
+        now,
+    )
+    .await?;
+    perturbation_handle(record, false)
+}
+
+fn perturbation_handle(record: JobRecord, replayed: bool) -> StoreResult<RoleSubmissionResult> {
+    let specification = record
+        .specification
+        .ok_or(StoreError::Corrupt("perturbation specification"))?;
+    let status = research::ResearchJobStatus::try_from(record.state)
+        .map_err(|_| StoreError::Corrupt("perturbation projection"))?;
+    Ok(RoleSubmissionResult {
+        handle: RoleJobHandle::Research(research::ResearchJobHandle {
+            job_id: specification.job_id,
+            status: status as i32,
+            revision: record.revision,
+            submitted_at: specification.submitted_at,
+            updated_at: record.updated_at,
+        }),
+        replayed,
+    })
+}
+
 /// Narrow role-owned requests. No generic job input or holdout variant is accepted.
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoleCommand {

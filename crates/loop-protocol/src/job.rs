@@ -21,9 +21,9 @@ use crate::wire::v1::{
     FactorAstNode, FactorDirection, FactorRejection, FactorRejectionCode, FactorSpec,
     HoldoutBacktestJobInput, HoldoutGrantReference, InfrastructureFailure, JobBudget,
     JobCancellation, JobKind, JobRecord, JobSpecification, JobState, ModelProtocolFamily,
-    ModelResolutionSnapshot, PolicyReference, ProtocolLimits, ProtocolSelectionSnapshot,
-    ResearchProvenanceFingerprint, ReturnDefinition, SampleRole, ServiceError, Sha256Digest,
-    factor_ast_node, factor_literal, job_outcome, job_specification,
+    ModelResolutionSnapshot, PerturbationJobInput, PolicyReference, ProtocolLimits,
+    ProtocolSelectionSnapshot, ResearchProvenanceFingerprint, ReturnDefinition, SampleRole,
+    ServiceError, Sha256Digest, factor_ast_node, factor_literal, job_outcome, job_specification,
 };
 
 const MAX_ID_BYTES: usize = 128;
@@ -194,6 +194,10 @@ pub fn validate_job_shape(
                 JobKind::HoldoutBacktest,
                 job_specification::Input::HoldoutBacktest(_)
             )
+            | (
+                JobKind::Perturbation,
+                job_specification::Input::Perturbation(_)
+            )
     );
     if !compatible {
         return Err(JobValidationError::new(
@@ -223,6 +227,24 @@ pub fn validate_job_specification(
         .as_ref()
         .expect("shape validation requires an input");
     validate_job_input(input, submitted_at)?;
+    if shape.kind == JobKind::Perturbation
+        && (specification
+            .submitted_by
+            .as_ref()
+            .is_none_or(|actor| actor.kind != ActorKind::Service as i32)
+            || specification
+                .protocol_selection
+                .as_ref()
+                .is_none_or(|selection| {
+                    selection.selected_package != "loop.v1"
+                        || !selection
+                            .enabled_features
+                            .iter()
+                            .any(|feature| feature == "jobs.perturbation.v1")
+                }))
+    {
+        return invalid_input("specification.perturbation_authority");
+    }
     Ok(shape)
 }
 
@@ -584,6 +606,7 @@ fn validate_job_input(
         job_specification::Input::HoldoutBacktest(value) => {
             validate_holdout_input(value, submitted_at)
         }
+        job_specification::Input::Perturbation(value) => validate_perturbation(value, submitted_at),
         job_specification::Input::Artifact(value) => {
             let artifact = value.input.as_ref().ok_or_else(|| {
                 JobValidationError::new(
@@ -604,6 +627,76 @@ fn validate_job_input(
             validate_budget(value.budget.as_ref(), "specification.input.artifact.budget")
         }
     }
+}
+
+fn validate_perturbation(
+    input: &PerturbationJobInput,
+    submitted: (i64, i32),
+) -> Result<(), JobValidationError> {
+    const FIELD: &str = "specification.input.perturbation";
+    validate_development_dataset(input.dataset.as_ref())?;
+    validate_policy_reference(input.feedback_policy.as_ref(), FIELD)?;
+    for digest in [
+        &input.parent_binding_sha256,
+        &input.family_sha256,
+        &input.source_code_sha256,
+        &input.environment_sha256,
+    ] {
+        require_digest(digest.as_ref(), FIELD)?;
+    }
+    let work = input
+        .work
+        .as_ref()
+        .ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, FIELD))?;
+    validate_artifact_ref(work)
+        .map_err(|_| JobValidationError::new(JobValidationCode::InvalidInput, FIELD))?;
+    if work
+        .schema
+        .as_ref()
+        .is_none_or(|schema| schema.name != "loop.perturbation_work" || schema.version != 1)
+        || work.media_type != "application/x-protobuf"
+        || !(1..=1_048_576).contains(&work.byte_size)
+        || work.row_count.is_some()
+        || require_timestamp(work.created_at.as_ref(), FIELD)? > submitted
+        || input.algorithm != "window.ema-gradient-pcg64.v1"
+    {
+        return invalid_input(FIELD);
+    }
+    validate_perturbation_budget(input.budget.as_ref())
+}
+
+pub(crate) fn validate_perturbation_budget(
+    budget: Option<&JobBudget>,
+) -> Result<(), JobValidationError> {
+    const FIELD: &str = "specification.input.perturbation.budget";
+    validate_budget(budget, FIELD)?;
+    let budget =
+        budget.ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, FIELD))?;
+    let cost = budget
+        .maximum_cost
+        .as_ref()
+        .ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, FIELD))?;
+    let wall = budget
+        .maximum_wall_time
+        .as_ref()
+        .ok_or_else(|| JobValidationError::new(JobValidationCode::MissingField, FIELD))?;
+    // Absolute task allowance includes queueing, verification and recovery from
+    // submission. The installed worker and its execution lease remain 20s.
+    if budget.maximum_steps != 1
+        || budget.maximum_input_tokens != 0
+        || budget.maximum_output_tokens != 0
+        || cost.currency_code != "USD"
+        || cost
+            .amount
+            .as_ref()
+            .is_none_or(|amount| amount.value != "0")
+        || wall.seconds > 180
+        || (wall.seconds == 180 && wall.nanos != 0)
+        || wall.nanos % 1_000_000 != 0
+    {
+        return invalid_budget(FIELD);
+    }
+    Ok(())
 }
 
 fn validate_development_dataset(
@@ -1958,6 +2051,7 @@ fn job_budget(specification: &JobSpecification) -> &JobBudget {
         job_specification::Input::Reconciliation(value) => value.budget.as_ref(),
         job_specification::Input::HoldoutBacktest(value) => value.budget.as_ref(),
         job_specification::Input::Artifact(value) => value.budget.as_ref(),
+        job_specification::Input::Perturbation(value) => value.budget.as_ref(),
     }
     .expect("validated job budget")
 }

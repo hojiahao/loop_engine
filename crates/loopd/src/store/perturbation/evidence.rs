@@ -185,6 +185,7 @@ pub(super) async fn prepare(
         observation,
         failed_factor_ids,
         current_window: candidate.window,
+        observed_factor_ids: vec![],
     };
     Ok(Prepared {
         record,

@@ -38,11 +38,27 @@ impl Case {
         rounds: u32,
         missing: bool,
     ) -> Operations {
+        self.install_workflow(rounds, missing, false).await
+    }
+
+    pub(super) async fn install_history(&mut self, rounds: u32) -> Operations {
+        self.install_workflow(rounds, false, true).await
+    }
+
+    pub(super) async fn install_sparse(&mut self, rounds: u32) -> Operations {
+        self.install_workflow(rounds, true, true).await
+    }
+
+    async fn install_workflow(&mut self, rounds: u32, missing: bool, history: bool) -> Operations {
         // The helper runs the installed Python producer and freezes its actual
         // source/environment manifests, but never submits a predecessor job.
-        let mut fixture = crate::manifests::tests::run_fixture().await;
+        let mut fixture = if history {
+            crate::manifests::tests::run_history().await
+        } else {
+            crate::manifests::tests::run_fixture().await
+        };
         if missing {
-            fixture.context.data = missing_panel(&fixture.root, &fixture.context.data);
+            fixture.context.data = missing_panel(&fixture.root, &fixture.context.data, history);
         }
         let data_root = self.directory.path().join("data");
         let (dataset, tape) = fixture.numerical_data();
@@ -154,6 +170,7 @@ impl Case {
             evaluation_budget: Some(numerical_budget()),
             portfolio_budget: Some(numerical_budget()),
             protocol_selection: Some(protocol),
+            perturbation_budget: None,
         });
         let budget = specification.budget.as_mut().unwrap();
         budget.maximum_steps += u64::from(rounds) * 2;
@@ -212,9 +229,9 @@ impl Case {
     }
 }
 
-fn missing_panel(root: &Path, reference: &ObjectRef) -> ObjectRef {
-    // Publish an explicit synthetic variant; keep every symbol/session eligible
-    // while four observations become genuinely absent, not rejected by a mock.
+fn missing_panel(root: &Path, reference: &ObjectRef, history: bool) -> ObjectRef {
+    // Publish an explicit synthetic variant; retain every eligible grid cell
+    // while selected observations become genuinely absent, never mocked rejects.
     let mut dataset = fs::read_to_string(root.join(&reference.sha256[7..])).unwrap();
     let metadata: Value = serde_json::from_str(&dataset).unwrap();
     let snapshot = metadata["snapshots"]
@@ -250,7 +267,14 @@ fn missing_panel(root: &Path, reference: &ObjectRef) -> ObjectRef {
         let mut fields: Vec<_> = row.split(',').collect();
         assert_eq!(fields.len(), 5);
         assert_eq!(fields[2], "1");
-        if index < 4 {
+        // In the longer panel, observations arrive every other session. ma(5,2)
+        // has 16 valid evaluation sessions; ma(2,2) never sees two observations.
+        let absent = if history {
+            (index / 6) % 2 == 1
+        } else {
+            index < 4
+        };
+        if absent {
             fields[3] = "";
             fields[4] = "";
         }
@@ -258,7 +282,7 @@ fn missing_panel(root: &Path, reference: &ObjectRef) -> ObjectRef {
         missing.push('\n');
         count += 1;
     }
-    assert_eq!(count, 6);
+    assert_eq!(count, if history { 18 * 6 } else { 6 });
     let new_values = put(root, missing.as_bytes());
     replace_reference(&mut declaration, &values, &new_values);
     let new_panel = put(root, declaration.as_bytes());

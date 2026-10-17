@@ -169,7 +169,9 @@ fn specification(
             evaluation_budget: Some(numerical.clone()),
             portfolio_budget: Some(numerical),
             protocol_selection: protocol,
+            perturbation_budget: None,
         }),
+        feedback_policy: None,
     }
 }
 

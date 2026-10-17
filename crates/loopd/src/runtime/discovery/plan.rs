@@ -33,7 +33,7 @@ const OPERATIONS_DESCRIPTOR: [u8; 32] = [
     0x15, 0x60, 0xea, 0x74, 0x46, 0x17, 0xc0, 0x7d, 0x3f, 0x74, 0x90, 0x73, 0x17, 0x0d, 0xb0, 0xf7,
     0x7c, 0x50, 0x00, 0x0e, 0xa6, 0xe2, 0xaa, 0x38, 0xcb, 0x20, 0xbf, 0xb3, 0xe2, 0x9d, 0xb4, 0x8f,
 ];
-use crate::runtime::authority::RUNS_DESCRIPTOR;
+use crate::runtime::authority::{NUMERICAL_DESCRIPTOR, RUNS_DESCRIPTOR};
 const FEATURES: [&str; 5] = [
     "discovery.model-step.v1",
     "jobs.envelope.v1",
@@ -62,6 +62,7 @@ struct PlanDocument {
 
 /// An administrator-pinned, bounded discovery plan; not caller-supplied authority.
 /// Content is rechecked before each use and never repaired or overwritten.
+#[derive(Clone)]
 pub(super) struct FrozenPlan {
     pub(super) actor_id: String,
     pub(super) run_id: String,
@@ -73,6 +74,7 @@ pub(super) struct FrozenPlan {
     pub(super) data: ObjectRef,
     pub(super) protocol: wire::ProtocolSelectionSnapshot,
     files: Vec<(PathBuf, ObjectRef)>,
+    feedback: Option<Arc<crate::manifests::feedback::DerivedFeedback>>,
 }
 
 impl FrozenPlan {
@@ -174,6 +176,7 @@ impl FrozenPlan {
             data: document.data,
             protocol,
             files,
+            feedback: None,
         };
         plan.validate_input()?;
         Ok(plan)
@@ -185,7 +188,28 @@ impl FrozenPlan {
         for (path, reference) in &self.files {
             checked_read(path, reference)?;
         }
+        if let Some(feedback) = &self.feedback {
+            feedback.check()?;
+        }
         Ok(())
+    }
+
+    pub(super) fn with_context(
+        &self,
+        invocation: wire::ModelInvocation,
+        tool_invocation: Option<wire::ModelInvocation>,
+        feedback: Arc<crate::manifests::feedback::DerivedFeedback>,
+    ) -> StoreResult<Self> {
+        self.check()?;
+        feedback.check()?;
+        if self.feedback.is_some() {
+            return Err(StoreError::AdmissionDenied);
+        }
+        let mut scoped = self.clone();
+        scoped.invocation = invocation;
+        scoped.tool_invocation = tool_invocation;
+        scoped.feedback = Some(feedback);
+        Ok(scoped)
     }
 
     /// Match the complete immutable plan inputs and owner before an existing job
@@ -413,6 +437,7 @@ fn validate_protocol(
                     && digest.value.as_slice() != LIFECYCLE_DESCRIPTOR
                     && digest.value.as_slice() != OPERATIONS_DESCRIPTOR
                     && digest.value.as_slice() != RUNS_DESCRIPTOR
+                    && digest.value.as_slice() != NUMERICAL_DESCRIPTOR
             })
         || protocol.selection_sha256.as_ref().is_none_or(|digest| {
             protocol_selection_sha256(protocol).map_or(true, |expected| digest.value != expected)

@@ -76,6 +76,7 @@ impl Case {
             protocol_selection: Some(metadata.protocol_selection),
             maximum_rounds: rounds,
             numerical: None,
+            feedback_policy: None,
             budget: Some(wire::RunBudget {
                 maximum_steps: u64::from(budget.maximum_steps) * allowance,
                 maximum_input_tokens: budget.maximum_input_tokens * allowance,

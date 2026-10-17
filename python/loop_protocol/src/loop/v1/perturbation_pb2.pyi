@@ -74,18 +74,20 @@ class PerturbationState(_message.Message):
     def __init__(self, version: _Optional[int] = ..., random_seed: _Optional[_Union[_common_pb2.Sha256Digest, _Mapping]] = ..., random_draws: _Optional[int] = ..., history: _Optional[_Iterable[_Union[WindowObservation, _Mapping]]] = ..., momentum: _Optional[float] = ..., second_moment: _Optional[float] = ..., proposed_factor_ids: _Optional[_Iterable[_Union[_common_pb2.FactorSpecId, _Mapping]]] = ...) -> None: ...
 
 class PerturbationWork(_message.Message):
-    __slots__ = ("state", "candidates", "failed_factor_ids", "observation", "current_window")
+    __slots__ = ("state", "candidates", "failed_factor_ids", "observation", "current_window", "observed_factor_ids")
     STATE_FIELD_NUMBER: _ClassVar[int]
     CANDIDATES_FIELD_NUMBER: _ClassVar[int]
     FAILED_FACTOR_IDS_FIELD_NUMBER: _ClassVar[int]
     OBSERVATION_FIELD_NUMBER: _ClassVar[int]
     CURRENT_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_FACTOR_IDS_FIELD_NUMBER: _ClassVar[int]
     state: PerturbationState
     candidates: _containers.RepeatedCompositeFieldContainer[WindowCandidate]
     failed_factor_ids: _containers.RepeatedCompositeFieldContainer[_common_pb2.FactorSpecId]
     observation: WindowObservation
     current_window: int
-    def __init__(self, state: _Optional[_Union[PerturbationState, _Mapping]] = ..., candidates: _Optional[_Iterable[_Union[WindowCandidate, _Mapping]]] = ..., failed_factor_ids: _Optional[_Iterable[_Union[_common_pb2.FactorSpecId, _Mapping]]] = ..., observation: _Optional[_Union[WindowObservation, _Mapping]] = ..., current_window: _Optional[int] = ...) -> None: ...
+    observed_factor_ids: _containers.RepeatedCompositeFieldContainer[_common_pb2.FactorSpecId]
+    def __init__(self, state: _Optional[_Union[PerturbationState, _Mapping]] = ..., candidates: _Optional[_Iterable[_Union[WindowCandidate, _Mapping]]] = ..., failed_factor_ids: _Optional[_Iterable[_Union[_common_pb2.FactorSpecId, _Mapping]]] = ..., observation: _Optional[_Union[WindowObservation, _Mapping]] = ..., current_window: _Optional[int] = ..., observed_factor_ids: _Optional[_Iterable[_Union[_common_pb2.FactorSpecId, _Mapping]]] = ...) -> None: ...
 
 class PerturbationStep(_message.Message):
     __slots__ = ("state", "candidate", "reason")

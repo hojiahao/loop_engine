@@ -12,6 +12,7 @@ use crate::store::{JobMutation, JobRepository, RecoveryCommand, StoreError, Stor
 pub(super) struct CompletedChild {
     pub(super) job: Box<v1::JobRecord>,
     pub(super) portfolio: Option<Arc<PreparedPortfolio>>,
+    pub(super) perturbation: Option<Arc<crate::manifests::perturbation::PerturbationEvidence>>,
 }
 
 impl RuntimeService {
@@ -22,6 +23,9 @@ impl RuntimeService {
     ) -> StoreResult<CompletedChild> {
         if stage.stage == runs::RunStage::Discovery {
             return Box::pin(self.discover_child(stage, job)).await;
+        }
+        if stage.stage == runs::RunStage::Perturbation {
+            return Box::pin(self.perturb_child(stage, job)).await;
         }
         Box::pin(self.execute_research(stage, job)).await
     }
@@ -35,6 +39,20 @@ impl RuntimeService {
             .discoverer
             .as_ref()
             .ok_or(StoreError::AdmissionDenied)?;
+        let scoped = stage
+            .adaptive
+            .as_ref()
+            .map(|adaptive| {
+                discoverer.scope_existing(
+                    job.specification
+                        .as_ref()
+                        .ok_or(StoreError::Corrupt("adaptive discovery job"))?,
+                    &adaptive.binding,
+                    adaptive.feedback.clone(),
+                )
+            })
+            .transpose()?;
+        let discoverer = scoped.as_ref().unwrap_or(discoverer);
         let actor = stage
             .specification
             .executor
@@ -51,6 +69,7 @@ impl RuntimeService {
                     .await?,
             ),
             portfolio: None,
+            perturbation: None,
         })
     }
 
@@ -91,6 +110,7 @@ impl RuntimeService {
             return Ok(CompletedChild {
                 job,
                 portfolio: None,
+                perturbation: None,
             });
         }
         match stage.stage {
@@ -135,6 +155,7 @@ impl RuntimeService {
         Ok(CompletedChild {
             job: Box::new(completed),
             portfolio: None,
+            perturbation: None,
         })
     }
 
@@ -173,16 +194,18 @@ impl RuntimeService {
         Ok(CompletedChild {
             job: Box::new(completed),
             portfolio: Some(proof),
+            perturbation: None,
         })
     }
 
-    async fn claim_numerical(
+    pub(super) async fn claim_numerical(
         &self,
         stage: &StageContext<'_>,
         job: &v1::JobRecord,
     ) -> StoreResult<Box<v1::JobRecord>> {
         let id = job_id(job)?;
-        let mutation = if needs_recovery(job, self.authority.now()?)? {
+        let recover = needs_recovery(job, self.authority.now()?)?;
+        let mutation = if recover {
             // Never borrow an in-flight handler's lease. An abandoned numerical
             // execution becomes a distinct infrastructure failure after expiry.
             // Queued work past its own deadline instead exhausts wall time;
@@ -198,7 +221,9 @@ impl RuntimeService {
                 job_id: Some(v1::JobId { value: id }),
                 expected_revision: job.revision,
                 requested_duration: Some(prost_types::Duration {
-                    seconds: if stage.stage == runs::RunStage::Portfolio {
+                    seconds: if stage.stage == runs::RunStage::Perturbation {
+                        20
+                    } else if stage.stage == runs::RunStage::Portfolio {
                         240
                     } else {
                         90
@@ -207,12 +232,16 @@ impl RuntimeService {
                 }),
             })
         };
-        Ok(Box::new(
-            stage.store.mutate(&stage.actor, mutation).await?.job,
-        ))
+        let result = stage.store.mutate(&stage.actor, mutation).await?;
+        // Replaying the acquisition receipt grants observation, not ownership
+        // of the first handler's in-flight worker. Only a fresh lease dispatches.
+        if result.replayed && (!recover || !terminal(result.job.state)) {
+            return Err(StoreError::LeaseFenced);
+        }
+        Ok(Box::new(result.job))
     }
 
-    fn numerical_context(
+    pub(super) fn numerical_context(
         &self,
         actor: &v1::Actor,
         job: &str,
@@ -259,6 +288,7 @@ fn needs_recovery(job: &v1::JobRecord, now: i64) -> StoreResult<bool> {
     let budget = match &specification.input {
         Some(v1::job_specification::Input::FactorEvaluation(input)) => input.budget.as_ref(),
         Some(v1::job_specification::Input::Backtest(input)) => input.budget.as_ref(),
+        Some(v1::job_specification::Input::Perturbation(input)) => input.budget.as_ref(),
         _ => return Err(StoreError::Corrupt("numerical child input")),
     }
     .ok_or(StoreError::Corrupt("numerical child budget"))?;
@@ -303,6 +333,12 @@ mod tests {
                 budget,
                 ..Default::default()
             }),
+            v1::JobKind::Perturbation => {
+                v1::job_specification::Input::Perturbation(v1::PerturbationJobInput {
+                    budget,
+                    ..Default::default()
+                })
+            }
             _ => unreachable!("numerical test kind"),
         };
         v1::JobRecord {
@@ -331,6 +367,14 @@ mod tests {
     #[test]
     fn portfolio_deadline() {
         let job = queued(v1::JobKind::Backtest);
+        assert!(!needs_recovery(&job, 101_999).unwrap());
+        assert!(needs_recovery(&job, 102_000).unwrap());
+        assert!(needs_recovery(&job, 102_001).unwrap());
+    }
+
+    #[test]
+    fn perturbation_deadline() {
+        let job = queued(v1::JobKind::Perturbation);
         assert!(!needs_recovery(&job, 101_999).unwrap());
         assert!(needs_recovery(&job, 102_000).unwrap());
         assert!(needs_recovery(&job, 102_001).unwrap());

@@ -2037,6 +2037,27 @@ pub struct ArtifactJobInput {
     pub budget: ::core::option::Option<JobBudget>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PerturbationJobInput {
+    #[prost(message, optional, tag = "1")]
+    pub dataset: ::core::option::Option<DevelopmentDatasetReference>,
+    #[prost(message, optional, tag = "2")]
+    pub feedback_policy: ::core::option::Option<PolicyReference>,
+    #[prost(message, optional, tag = "3")]
+    pub parent_binding_sha256: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "4")]
+    pub family_sha256: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "5")]
+    pub work: ::core::option::Option<ArtifactRef>,
+    #[prost(message, optional, tag = "6")]
+    pub source_code_sha256: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "7")]
+    pub environment_sha256: ::core::option::Option<Sha256Digest>,
+    #[prost(message, optional, tag = "8")]
+    pub budget: ::core::option::Option<JobBudget>,
+    #[prost(string, tag = "9")]
+    pub algorithm: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct JobSpecification {
     #[prost(message, optional, tag = "1")]
     pub job_id: ::core::option::Option<JobId>,
@@ -2056,7 +2077,7 @@ pub struct JobSpecification {
     pub causation_id: ::core::option::Option<CausationId>,
     #[prost(message, optional, tag = "15")]
     pub protocol_selection: ::core::option::Option<ProtocolSelectionSnapshot>,
-    #[prost(oneof = "job_specification::Input", tags = "4, 5, 6, 7, 8, 9")]
+    #[prost(oneof = "job_specification::Input", tags = "4, 5, 6, 7, 8, 9, 16")]
     pub input: ::core::option::Option<job_specification::Input>,
 }
 /// Nested message and enum types in `JobSpecification`.
@@ -2075,6 +2096,8 @@ pub mod job_specification {
         HoldoutBacktest(super::HoldoutBacktestJobInput),
         #[prost(message, tag = "9")]
         Artifact(super::ArtifactJobInput),
+        #[prost(message, tag = "16")]
+        Perturbation(super::PerturbationJobInput),
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2188,6 +2211,7 @@ pub enum JobKind {
     Report = 5,
     ProspectiveObservation = 6,
     HoldoutBacktest = 7,
+    Perturbation = 8,
 }
 impl JobKind {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2204,6 +2228,7 @@ impl JobKind {
             Self::Report => "JOB_KIND_REPORT",
             Self::ProspectiveObservation => "JOB_KIND_PROSPECTIVE_OBSERVATION",
             Self::HoldoutBacktest => "JOB_KIND_HOLDOUT_BACKTEST",
+            Self::Perturbation => "JOB_KIND_PERTURBATION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2219,6 +2244,7 @@ impl JobKind {
             "JOB_KIND_REPORT" => Some(Self::Report),
             "JOB_KIND_PROSPECTIVE_OBSERVATION" => Some(Self::ProspectiveObservation),
             "JOB_KIND_HOLDOUT_BACKTEST" => Some(Self::HoldoutBacktest),
+            "JOB_KIND_PERTURBATION" => Some(Self::Perturbation),
             _ => None,
         }
     }
@@ -2512,6 +2538,8 @@ pub struct PerturbationWork {
     pub observation: ::core::option::Option<WindowObservation>,
     #[prost(uint32, tag = "5")]
     pub current_window: u32,
+    #[prost(message, repeated, tag = "6")]
+    pub observed_factor_ids: ::prost::alloc::vec::Vec<FactorSpecId>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PerturbationStep {

@@ -11,6 +11,7 @@ use super::ProviderConfig;
 use crate::runtime::deployment::read_file;
 use crate::store::{ModelStep, StoreError, StoreResult, model_money};
 
+#[derive(Clone)]
 pub(super) struct ProviderConnection {
     pub(super) actor: v1::Actor,
     pub(super) sha256: String,

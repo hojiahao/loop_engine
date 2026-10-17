@@ -31,9 +31,14 @@ use super::{
 
 struct Child {
     permit: RunPermit,
-    command: RoleCommand,
+    command: ChildCommand,
     specification: JobSpecification,
     metadata: SubmissionMetadata,
+}
+
+enum ChildCommand {
+    Ordinary(Box<RoleCommand>),
+    Perturbation(Box<submission::PerturbationCommand>),
 }
 
 struct StepInputs<'a> {
@@ -127,9 +132,16 @@ impl PgJobStore {
             current_specification: Some(child.specification.clone()),
             created_child: true,
             evidence: prepared.binding().to_vec(),
+            adaptive: prepared.adaptive().map(|proof| proof.current().clone()),
             ..Default::default()
         });
+        view.adaptive = binding
+            .adaptive
+            .as_ref()
+            .map(|state| state.project())
+            .transpose()?;
         let bytes = transitions::seal(specification, &mut view, &mut binding)?;
+        transitions::check_adaptive(specification, None, &view, &binding)?;
         prepared.check_for(specification)?;
         let checked = final_time(self, now, Some(deadline))?;
         persist(
@@ -243,6 +255,15 @@ impl PgJobStore {
         if prepared.is_some_and(|proof| proof.source() != &snapshot.current_job) {
             return Err(StoreError::RevisionConflict);
         }
+        if let Some(proof) = prepared.and_then(PreparedStage::adaptive)
+            && proof.before()
+                != snapshot
+                    .binding
+                    .as_ref()
+                    .and_then(|binding| binding.adaptive.as_ref())
+        {
+            return Err(StoreError::Corrupt("adaptive predecessor"));
+        }
         let mut view = snapshot.view.clone();
         refresh(&mut view, &snapshot.current_job)?;
         view.revision += 1;
@@ -275,6 +296,16 @@ impl PgJobStore {
                         .expect("v2 binding")
                         .evidence
                         .clone()
+                }),
+            adaptive: prepared
+                .filter(|_| !expired)
+                .and_then(PreparedStage::adaptive)
+                .map(|proof| proof.current().clone())
+                .or_else(|| {
+                    snapshot
+                        .binding
+                        .as_ref()
+                        .and_then(|binding| binding.adaptive.clone())
                 }),
             ..Default::default()
         });
@@ -310,7 +341,13 @@ impl PgJobStore {
         if let Some(child) = &next {
             binding.current_specification = Some(child.specification.clone());
         }
+        view.adaptive = binding
+            .adaptive
+            .as_ref()
+            .map(|state| state.project())
+            .transpose()?;
         let bytes = transitions::seal(specification, &mut view, &mut binding)?;
+        transitions::check_adaptive(specification, snapshot.binding.as_deref(), &view, &binding)?;
         if let Some(prepared) = prepared {
             prepared.check_for(specification)?;
         }
@@ -346,6 +383,26 @@ impl PgJobStore {
         super::super::crash_tests::fault_point("run_step_before").await;
         final_time(self, checked, final_deadline)?;
         self.admission.authorize_run(principal, specification)?;
+        if !expired
+            && matches!(
+                snapshot
+                    .current_job
+                    .specification
+                    .as_ref()
+                    .and_then(|job| job.input.as_ref()),
+                Some(job_specification::Input::Perturbation(_))
+            )
+        {
+            self.admission.authorize_job_command(
+                "loop.jobs.read",
+                specification
+                    .numerical
+                    .as_ref()
+                    .and_then(|workflow| workflow.research_executor.as_ref())
+                    .ok_or(StoreError::AdmissionDenied)?,
+                &snapshot.current_job,
+            )?;
+        }
         // Recheck the live reader identity for numerical observations, including
         // a pre-screened candidate with no new child. Pure Discovery expiry
         // needs only its owner; it neither reads nor authorizes numerical work.
@@ -415,7 +472,23 @@ async fn advance_stage(
     let stage = RunStage::try_from(view.research.as_ref().expect("validated research").stage)
         .map_err(|_| StoreError::Corrupt("numerical stage"))?;
     match stage {
-        RunStage::Discovery => {
+        RunStage::Discovery | RunStage::Perturbation => {
+            if stage == RunStage::Perturbation {
+                let completed = prepared
+                    .and_then(PreparedStage::adaptive)
+                    .and_then(|proof| proof.completion())
+                    .ok_or(StoreError::AdmissionDenied)?;
+                completed.check_record(&snapshot.current_job)?;
+                if completed.step().candidate.is_none() {
+                    view.completed_rounds += 1;
+                    view.status = RunStatus::SearchExhausted as i32;
+                    view.research
+                        .as_mut()
+                        .expect("validated research")
+                        .disposition = RoundDisposition::Exhausted as i32;
+                    return Ok(None);
+                }
+            }
             let input = prepared
                 .and_then(PreparedStage::input)
                 .ok_or(StoreError::AdmissionDenied)?;
@@ -460,9 +533,14 @@ async fn advance_stage(
                 binding.previous_trial = Some(previous.trial);
                 binding.previous_context = previous.context_sha256.to_vec();
                 project_factor(view, input)?;
-                return finish_round(snapshot, view, context, disposition, now);
+                return finish_round(snapshot, view, binding, context, prepared, disposition, now);
             }
-            reserve_child(snapshot, view, child, RunStage::Evaluation, now)
+            let attempted = child.specification.clone();
+            let next = reserve_child(snapshot, view, child, RunStage::Evaluation, now)?;
+            if next.is_none() && snapshot.specification.feedback_policy.is_some() {
+                binding.attempted_specification = Some(attempted);
+            }
+            Ok(next)
         }
         RunStage::Evaluation => {
             let trial = binding
@@ -473,7 +551,9 @@ async fn advance_stage(
                 return finish_round(
                     snapshot,
                     view,
+                    binding,
                     context,
+                    prepared,
                     RoundDisposition::InsufficientCoverage,
                     now,
                 );
@@ -501,7 +581,15 @@ async fn advance_stage(
             if binding.source_backtest.is_none() {
                 return Err(StoreError::Corrupt("missing portfolio result"));
             }
-            finish_round(snapshot, view, context, RoundDisposition::Evaluated, now)
+            finish_round(
+                snapshot,
+                view,
+                binding,
+                context,
+                prepared,
+                RoundDisposition::Evaluated,
+                now,
+            )
         }
         RunStage::Unspecified => Err(StoreError::Corrupt("unspecified numerical stage")),
     }
@@ -510,7 +598,9 @@ async fn advance_stage(
 fn finish_round(
     snapshot: &RunSnapshot,
     view: &mut RunView,
+    binding: &mut RunBinding,
     context: &CommandContext,
+    prepared: Option<&PreparedStage>,
     disposition: RoundDisposition,
     now: i64,
 ) -> StoreResult<Option<Child>> {
@@ -522,6 +612,31 @@ fn finish_round(
     if view.completed_rounds == view.maximum_rounds {
         view.status = RunStatus::Completed as i32;
         return Ok(None);
+    }
+    if snapshot.specification.feedback_policy.is_some() {
+        let proposal = prepared
+            .and_then(PreparedStage::adaptive)
+            .and_then(|proof| proof.next())
+            .ok_or(StoreError::AdmissionDenied)?;
+        let input = proposal
+            .perturbation
+            .as_ref()
+            .map(|prepared| job_specification::Input::Perturbation(prepared.input().clone()));
+        let stage = if input.is_some() {
+            RunStage::Perturbation
+        } else {
+            RunStage::Discovery
+        };
+        let child = build_child(
+            &snapshot.specification,
+            context,
+            view.completed_rounds + 1,
+            input.as_ref(),
+            Some(&proposal.job_id),
+            now,
+        )?;
+        binding.adaptive = Some(proposal.binding.clone());
+        return reserve_child(snapshot, view, child, stage, now);
     }
     let child = build_child(
         &snapshot.specification,
@@ -590,11 +705,19 @@ fn project_child(view: &mut RunView, child: &Child, stage: RunStage, now: i64) -
     });
     if stage == RunStage::Discovery {
         research.discovery_job_id = id;
+        research.perturbation_job_id = None;
         research.evaluation_job_id = None;
         research.expression_id = None;
         research.factor_spec_id = None;
         research.current_child = Some(CurrentChild::Discovery(queued_handle(&child.permit, now)));
     } else {
+        if stage == RunStage::Perturbation {
+            research.perturbation_job_id = id.clone();
+            research.discovery_job_id = None;
+            research.evaluation_job_id = None;
+            research.expression_id = None;
+            research.factor_spec_id = None;
+        }
         if stage == RunStage::Evaluation {
             research.evaluation_job_id = id.clone();
         }
@@ -626,6 +749,7 @@ fn build_child(
         None => RunStage::Discovery,
         Some(job_specification::Input::FactorEvaluation(_)) => RunStage::Evaluation,
         Some(job_specification::Input::Backtest(_)) => RunStage::Portfolio,
+        Some(job_specification::Input::Perturbation(_)) => RunStage::Perturbation,
         _ => return Err(StoreError::AdmissionDenied),
     };
     let actor = if stage == RunStage::Discovery {
@@ -657,6 +781,47 @@ fn build_child(
                 .clone(),
         }),
     };
+    if let Some(job_specification::Input::Perturbation(input)) = input {
+        if specification.feedback_policy != input.feedback_policy
+            || input.dataset
+                != specification
+                    .discovery
+                    .as_ref()
+                    .expect("validated discovery")
+                    .dataset
+            || input.budget.as_ref().map(Message::encode_to_vec)
+                != numerical
+                    .perturbation_budget
+                    .as_ref()
+                    .map(Message::encode_to_vec)
+        {
+            return Err(StoreError::AdmissionDenied);
+        }
+        let id = child_id.ok_or(StoreError::AdmissionDenied)?;
+        super::super::validate_id(id)?;
+        let permit = RunPermit {
+            run_id: run_id.clone(),
+            job_id: id.to_owned(),
+        };
+        let command = submission::PerturbationCommand {
+            context: Some(context),
+            input: Some(input.clone()),
+        };
+        let metadata = SubmissionMetadata {
+            run_id: specification.run_id.clone().expect("validated run"),
+            protocol_selection: numerical
+                .protocol_selection
+                .clone()
+                .expect("validated protocol"),
+        };
+        let job = submission::build_perturbation(&command, actor, metadata.clone(), now, &permit)?;
+        return Ok(Child {
+            permit,
+            command: ChildCommand::Perturbation(Box::new(command)),
+            specification: job,
+            metadata,
+        });
+    }
     let command = match input {
         None => RoleCommand::Discovery(discovery::StartDiscoveryRequest {
             context: Some(context),
@@ -719,7 +884,7 @@ fn build_child(
     };
     let permit = if let Some(id) = child_id {
         super::super::validate_id(id)?;
-        if input.is_none() {
+        if input.is_none() && specification.feedback_policy.is_none() {
             return Err(StoreError::AdmissionDenied);
         }
         RunPermit {
@@ -744,7 +909,7 @@ fn build_child(
     let job = submission::build_job(&command, actor, metadata.clone(), now, Some(&permit))?;
     Ok(Child {
         permit,
-        command,
+        command: ChildCommand::Ordinary(Box::new(command)),
         specification: job,
         metadata,
     })
@@ -756,20 +921,37 @@ async fn insert_child(
     child: &Child,
     now: i64,
 ) -> StoreResult<()> {
-    let submitted = submission::submit_in(
-        store,
-        transaction,
-        child
-            .specification
-            .submitted_by
-            .as_ref()
-            .expect("validated executor"),
-        child.command.clone(),
-        child.metadata.clone(),
-        now,
-        Some(&child.permit),
-    )
-    .await?;
+    let actor = child
+        .specification
+        .submitted_by
+        .as_ref()
+        .expect("validated executor");
+    let submitted = match &child.command {
+        ChildCommand::Ordinary(command) => {
+            submission::submit_in(
+                store,
+                transaction,
+                actor,
+                command.as_ref().clone(),
+                child.metadata.clone(),
+                now,
+                Some(&child.permit),
+            )
+            .await?
+        }
+        ChildCommand::Perturbation(command) => {
+            submission::submit_perturbation(
+                store,
+                transaction,
+                actor,
+                command.as_ref().clone(),
+                child.metadata.clone(),
+                now,
+                &child.permit,
+            )
+            .await?
+        }
+    };
     if submitted.replayed {
         return Err(StoreError::Corrupt("run child already submitted"));
     }

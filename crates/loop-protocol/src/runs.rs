@@ -6,7 +6,7 @@
 use crate::job::{
     JobValidationCode, JobValidationError, protocol_selection_sha256, require_timestamp,
     require_token_id, validate_actor, validate_discovery_input, validate_money,
-    validate_policy_reference,
+    validate_perturbation_budget, validate_policy_reference,
 };
 use crate::wire::discovery::v1::DiscoveryJobStatus;
 use crate::wire::research::v1::{ResearchJobBudget, ResearchJobStatus};
@@ -93,16 +93,43 @@ pub fn validate_specification(
         validate_policy_reference(numerical.recipe.as_ref(), "run.recipe")?;
         numerical_budget(numerical.evaluation_budget.as_ref())?;
         numerical_budget(numerical.portfolio_budget.as_ref())?;
-        validate_protocol(numerical.protocol_selection.as_ref(), submitted_at)?;
+        let adaptive = specification.feedback_policy.is_some();
+        if adaptive {
+            validate_policy_reference(
+                specification.feedback_policy.as_ref(),
+                "run.feedback_policy",
+            )?;
+            let budget = numerical
+                .perturbation_budget
+                .as_ref()
+                .ok_or(error("run.perturbation_budget"))?;
+            validate_perturbation_budget(Some(&JobBudget {
+                maximum_steps: budget.maximum_steps,
+                maximum_input_tokens: budget.maximum_input_tokens,
+                maximum_output_tokens: budget.maximum_output_tokens,
+                maximum_cost: budget.maximum_cost.clone(),
+                maximum_wall_time: budget.maximum_wall_time,
+            }))?;
+        } else if numerical.perturbation_budget.is_some() {
+            return Err(error("run.perturbation_budget"));
+        }
+        validate_protocol(
+            numerical.protocol_selection.as_ref(),
+            submitted_at,
+            adaptive,
+        )?;
+    } else if specification.feedback_policy.is_some() {
+        return Err(error("run.feedback_policy"));
     }
     Ok(())
 }
 
 /// Reject unknown workflow versions before observation, mutation or dispatch.
 /// Zero preserves the original discovery-only contract; two selects numerical
-/// workflow semantics. This check does not resolve plans or establish authority.
+/// workflow semantics; three selects bounded adaptive research. This check does
+/// not resolve plans or establish authority.
 pub fn validate_workflow(version: u32) -> Result<(), JobValidationError> {
-    if matches!(version, 0 | 2) {
+    if matches!(version, 0 | 2 | 3) {
         Ok(())
     } else {
         Err(error("run.workflow_version"))
@@ -167,6 +194,11 @@ pub fn validate_view(view: &RunView) -> Result<(), JobValidationError> {
     {
         return Err(error("run.timestamps"));
     }
+    if view.adaptive.is_some() {
+        validate_adaptive(view)?;
+    } else if status == RunStatus::SearchExhausted {
+        return Err(error("run.adaptive"));
+    }
     if view.research.is_some() {
         return validate_research(view, status, submitted);
     }
@@ -211,7 +243,8 @@ fn validate_research(
         || research.round < view.completed_rounds
         || research.round > view.completed_rounds + 1
         || (status == RunStatus::Active && research.round != view.completed_rounds + 1)
-        || (status == RunStatus::Completed && research.round != view.completed_rounds)
+        || (matches!(status, RunStatus::Completed | RunStatus::SearchExhausted)
+            && research.round != view.completed_rounds)
         || research
             .binding_sha256
             .as_ref()
@@ -219,27 +252,46 @@ fn validate_research(
     {
         return Err(error("run.research"));
     }
+    let perturbation = research.perturbation_job_id.is_some();
+    if perturbation
+        && (view.adaptive.is_none() || research.discovery_job_id.is_some() || research.round == 1)
+        || !perturbation && research.discovery_job_id.is_none()
+    {
+        return Err(error("run.proposal_job_id"));
+    }
+    let proposal_id = if perturbation {
+        &research.perturbation_job_id
+    } else {
+        &research.discovery_job_id
+    };
     require_token_id(
-        research
-            .discovery_job_id
-            .as_ref()
-            .map(|id| id.value.as_str()),
-        "run.discovery_job_id",
+        proposal_id.as_ref().map(|id| id.value.as_str()),
+        "run.proposal_job_id",
     )?;
+    let proposal_stage = matches!(stage, RunStage::Discovery | RunStage::Perturbation);
+    if (stage == RunStage::Perturbation && !perturbation)
+        || (stage == RunStage::Discovery && perturbation)
+    {
+        return Err(error("run.stage"));
+    }
     let filtered = matches!(
         disposition,
         RoundDisposition::Duplicate | RoundDisposition::PreviouslyRejected
     );
-    let has_factor = stage != RunStage::Discovery || filtered;
+    let has_factor = !proposal_stage || filtered;
     if has_factor {
         factor_id(research.expression_id.as_ref().map(|id| id.value.as_str()))?;
         factor_id(research.factor_spec_id.as_ref().map(|id| id.value.as_str()))?;
     } else if research.expression_id.is_some() || research.factor_spec_id.is_some() {
         return Err(error("run.factor_ids"));
     }
-    if stage == RunStage::Discovery {
+    if proposal_stage {
         if research.evaluation_job_id.is_some()
-            || (!filtered && disposition != RoundDisposition::Unspecified)
+            || (!filtered
+                && !matches!(
+                    disposition,
+                    RoundDisposition::Unspecified | RoundDisposition::Exhausted
+                ))
         {
             return Err(error("run.discovery"));
         }
@@ -251,15 +303,18 @@ fn validate_research(
                 .map(|id| id.value.as_str()),
             "run.evaluation_job_id",
         )?;
-        if research.evaluation_job_id == research.discovery_job_id {
+        if &research.evaluation_job_id == proposal_id {
             return Err(error("run.evaluation_job_id"));
         }
     }
-    if (filtered && stage != RunStage::Discovery)
+    if (filtered && !proposal_stage)
         || (disposition == RoundDisposition::InsufficientCoverage && stage != RunStage::Evaluation)
         || (disposition == RoundDisposition::Evaluated && stage != RunStage::Portfolio)
         || (status == RunStatus::Active && disposition != RoundDisposition::Unspecified)
         || (status == RunStatus::Completed && disposition == RoundDisposition::Unspecified)
+        || (disposition == RoundDisposition::Exhausted
+            && (status != RunStatus::SearchExhausted || stage != RunStage::Perturbation))
+        || (status == RunStatus::SearchExhausted && disposition != RoundDisposition::Exhausted)
     {
         return Err(error("run.disposition"));
     }
@@ -281,11 +336,14 @@ fn validate_research(
                 child.status == DiscoveryJobStatus::Succeeded as i32,
             )
         }
-        (Some(CurrentChild::Research(child)), RunStage::Evaluation | RunStage::Portfolio) => {
-            if (stage == RunStage::Evaluation && child.job_id != research.evaluation_job_id)
+        (
+            Some(CurrentChild::Research(child)),
+            RunStage::Evaluation | RunStage::Portfolio | RunStage::Perturbation,
+        ) => {
+            if (stage == RunStage::Perturbation && child.job_id != research.perturbation_job_id)
+                || (stage == RunStage::Evaluation && child.job_id != research.evaluation_job_id)
                 || (stage == RunStage::Portfolio
-                    && (child.job_id == research.discovery_job_id
-                        || child.job_id == research.evaluation_job_id))
+                    && (&child.job_id == proposal_id || child.job_id == research.evaluation_job_id))
                 || !matches!(ResearchJobStatus::try_from(child.status), Ok(value) if value != ResearchJobStatus::Unspecified)
             {
                 return Err(error("run.current_child"));
@@ -314,6 +372,37 @@ fn validate_research(
             < child_submitted
     {
         return Err(error("run.current_child"));
+    }
+    Ok(())
+}
+
+fn validate_adaptive(view: &RunView) -> Result<(), JobValidationError> {
+    let adaptive = view.adaptive.as_ref().ok_or(error("run.adaptive"))?;
+    let research = view.research.as_ref().ok_or(error("run.research"))?;
+    validate_policy_reference(adaptive.feedback_policy.as_ref(), "run.feedback_policy")?;
+    for digest in [&adaptive.feedback_sha256, &adaptive.model_context_sha256] {
+        if digest
+            .as_ref()
+            .is_none_or(|digest| digest.value.len() != 32)
+        {
+            return Err(error("run.adaptive_digest"));
+        }
+    }
+    if adaptive.source_count > 16
+        || adaptive.source_count > view.completed_rounds
+        || adaptive.family_sha256.is_some() != adaptive.state_sha256.is_some()
+        || adaptive.random_draws > u64::from(view.maximum_rounds) * 32
+        || (adaptive.family_sha256.is_none()
+            && (adaptive.random_draws != 0 || research.perturbation_job_id.is_some()))
+        || [&adaptive.family_sha256, &adaptive.state_sha256]
+            .iter()
+            .any(|digest| {
+                digest
+                    .as_ref()
+                    .is_some_and(|digest| digest.value.len() != 32)
+            })
+    {
+        return Err(error("run.adaptive"));
     }
     Ok(())
 }
@@ -359,14 +448,29 @@ fn numerical_budget(budget: Option<&ResearchJobBudget>) -> Result<(), JobValidat
 fn validate_protocol(
     protocol: Option<&ProtocolSelectionSnapshot>,
     submitted: &prost_types::Timestamp,
+    adaptive: bool,
 ) -> Result<(), JobValidationError> {
     let protocol = protocol.ok_or(error("run.numerical_protocol"))?;
-    if protocol.selected_package != "loop.v1"
-        || !protocol.enabled_features.iter().map(String::as_str).eq([
+    let features: &[&str] = if adaptive {
+        &[
+            "jobs.envelope.v1",
+            "jobs.kind-input.v1",
+            "jobs.perturbation.v1",
+            "jobs.prelease-terminal.v1",
+        ]
+    } else {
+        &[
             "jobs.envelope.v1",
             "jobs.kind-input.v1",
             "jobs.prelease-terminal.v1",
-        ])
+        ]
+    };
+    if protocol.selected_package != "loop.v1"
+        || !protocol
+            .enabled_features
+            .iter()
+            .map(String::as_str)
+            .eq(features.iter().copied())
         || protocol
             .selection_sha256
             .as_ref()
@@ -517,19 +621,19 @@ mod tests {
         protocol.selection_sha256 = Some(Sha256Digest {
             value: protocol_selection_sha256(&protocol).unwrap().to_vec(),
         });
-        validate_protocol(Some(&protocol), &now).unwrap();
+        validate_protocol(Some(&protocol), &now, false).unwrap();
         protocol
             .enabled_features
             .push("provider.invocation-lookup.v1".into());
         protocol.selection_sha256 = Some(Sha256Digest {
             value: protocol_selection_sha256(&protocol).unwrap().to_vec(),
         });
-        assert!(validate_protocol(Some(&protocol), &now).is_err());
+        assert!(validate_protocol(Some(&protocol), &now, false).is_err());
         protocol.enabled_features.pop();
         protocol.selected_package = "loop.discovery.v1".into();
         protocol.selection_sha256 = Some(Sha256Digest {
             value: protocol_selection_sha256(&protocol).unwrap().to_vec(),
         });
-        assert!(validate_protocol(Some(&protocol), &now).is_err());
+        assert!(validate_protocol(Some(&protocol), &now, false).is_err());
     }
 }

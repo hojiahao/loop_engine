@@ -3,10 +3,12 @@
 
 pub(crate) mod data;
 pub(crate) mod evaluation;
+pub(crate) mod feedback;
 pub(crate) mod files;
 mod loading;
 pub(crate) mod model;
 pub(crate) mod numerical;
+pub(crate) mod perturbation;
 mod policy;
 pub(crate) mod portfolio;
 pub(crate) mod reconciliation;

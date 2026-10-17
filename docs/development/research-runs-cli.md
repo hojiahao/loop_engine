@@ -211,10 +211,9 @@ seconds (default 30); a deadline does not authorize resending a model invocation
 
 ## Numerical workflow (opt-in)
 
-Phase 11.2 adds an explicitly selected workflow for candidate-to-evaluation and
-portfolio execution. The configuration below describes the implemented contract;
-acceptance remains in progress until the installed service, database, worker,
-restart and remote gates are recorded in the
+Version 2 selects the candidate-to-evaluation and portfolio workflow. The
+installed service, database, worker, restart and remote acceptance for delivery
+11.2 are recorded in the
 [numerical workflow evidence](../verification/phase-11-numerical-workflow.md).
 It does not enable formal factor admission.
 
@@ -222,7 +221,8 @@ The default `--workflow-version 0` preserves existing discovery-only plans,
 request bytes and `loop.run-cli/v1` output. Select `--workflow-version 2` for
 every start, step and status request against a numerical plan; the version must
 match the stored plan. A version flag cannot convert an existing run or grant
-Discovery access to Research or holdout data. Only versions 0 and 2 are valid.
+Discovery access to Research or holdout data. Version 3 additionally requires
+the frozen feedback policy described below; versions 0 and 2 remain unchanged.
 The numerical executor is a separately registered Research **Service** identity,
 distinct from both the Human owner and Discovery Agent. Its frozen protocol uses
 `loop.v1` and exactly `jobs.envelope.v1`, `jobs.kind-input.v1` and
@@ -557,6 +557,189 @@ All integers remain decimal strings. The view never contains input data, an AST,
 lease or capability. `evaluated` means portfolio evidence was registered; it is
 not factor admission, a positive finding or independent backtest agreement.
 
+## Adaptive workflow (opt-in)
+
+Version 3 adds verified IS feedback and leased numerical window perturbation to
+the same evaluation/portfolio path. Delivery 11.3a is **in progress**: the code
+and examples describe the implemented interface, while installed acceptance,
+complete workspace/container CI, publication and release remain unverified.
+Consult the [adaptive acceptance record](../verification/phase-11-adaptive-workflow.md)
+for actual evidence. These commands do not enable formal admission, autonomous
+scheduling or live trading.
+
+### Freeze the feedback policy
+
+Prepare a new run using the v2 prerequisites above: a new run ID, independent
+Human/Discovery/Research identities, installed numerical workers, an immutable
+IS context and the complete frozen numerical recipe. Do not upgrade an existing
+v0/v2 run or change its historical requests. Publish a compact canonical policy
+in `runs.plan_store`:
+
+```json
+{
+  "schema": "loop.run-feedback/v1",
+  "id": "feedback.us.baseline",
+  "revision": "1",
+  "proposal_schedule": ["discovery", "perturbation", "discovery"],
+  "window_path": [1],
+  "eligible_windows": [2, 3, 4, 5],
+  "random_seed": "sha256:0101010101010101010101010101010101010101010101010101010101010101",
+  "max_observations": 16,
+  "max_bytes": 16384
+}
+```
+
+The displayed seed is an explicit synthetic example; choose and freeze the
+research seed before search. Preserve the top-level field order shown, encode
+UTF-8 with no insignificant whitespace or trailing newline, and hash/publish
+the exact bytes using the no-overwrite procedure above. Unknown fields fail
+validation. Keep the resulting `policy_bytes`, `policy_ref` and policy ID/revision
+when constructing the template.
+
+The schedule has exactly `maximum_rounds` entries, between 1 and 64, and begins
+with `discovery`. Each entry replaces only the proposal stage: a round still
+contains at most proposal, evaluation and portfolio. `[1]` selects the second
+argument of the root AST call, for example the window of `ma(market.close,5,2)`.
+Nested argument indices are supported; only an allowed window position in a
+verified canonical expression can establish a perturbation family. The list of
+eligible windows must be strictly increasing, contain 2–64 integers, and keep
+each window within 1–4096. A malformed or semantically invalid candidate cannot
+be made valid by the schedule.
+
+The first eligible model candidate fixes the run-local family: the exact AST
+except for that window, frozen direction, data, policies, seeds and numerical
+build. Later model candidates may belong to another family and still contribute
+verified feedback. If a scheduled perturbation has no established family with
+an eligible finite Sharpe observation, the server freezes a Discovery fallback
+before reserving the next child; it consumes no random draw. Size the parent
+token/USD ceilings for that possible model call, or accept a budget stop.
+
+### Encode and register v3
+
+Extend the fresh, unregistered numerical specification; retain every v2 binding.
+Set `RunSpecification.feedback_policy` to the policy's `PolicyReference` and
+`NumericalWorkflow.perturbation_budget` as follows:
+
+```python
+specification.feedback_policy.CopyFrom(common_pb2.PolicyReference(
+    policy_id=common_pb2.PolicyId(value="feedback.us.baseline"),
+    revision="1",
+    sha256=common_pb2.Sha256Digest(value=hashlib.sha256(policy_bytes).digest()),
+))
+specification.numerical.perturbation_budget.CopyFrom(research.ResearchJobBudget(
+    maximum_steps=1, maximum_input_tokens=0, maximum_output_tokens=0,
+    maximum_cost=common_pb2.Money(
+        currency_code="USD", amount=common_pb2.ExactDecimal(value="0"),
+    ),
+    maximum_wall_time=Duration(seconds=180),
+))
+protocol = specification.numerical.protocol_selection
+del protocol.enabled_features[:]
+protocol.enabled_features.extend([
+    "jobs.envelope.v1", "jobs.kind-input.v1", "jobs.perturbation.v1",
+    "jobs.prelease-terminal.v1",
+])
+protocol.selection_sha256.value = protocol_selection_sha256(protocol)
+```
+
+Use the current deployed descriptor/build snapshot and `selected_package =
+"loop.v1"`; the four features above are exact and sorted. The existing Discovery
+snapshot keeps its own capabilities. Public Run/Discovery RPCs do not accept a
+perturbation work item, random state, replacement message, lease or protected
+capability. The service derives and reserves that internal job itself.
+
+Perturbation requires exactly one step, zero input/output tokens, zero USD model
+cost and positive total wall time no greater than 180 seconds. This deadline
+starts at job submission and includes queueing, source validation and recovery;
+it is never reset by restart or lease acquisition. The installed Python process
+and its execution lease each remain capped at 20 seconds, additionally bounded
+by the job's remaining time. Previously frozen 20-second jobs retain that exact
+deadline. Upgrade all participating readers/writers before registering a new
+plan above 20 seconds: older versions reject those larger budgets. Rollback
+disables new v3 advancement and retains a compatible reader; it never edits
+stored budgets to make an older writer accept them. The job executes the installed
+Python algorithm under a real job lease, using the existing `portfolio.python`
+interpreter and frozen research build; no new deployment worker section is
+needed. Zero LLM cost does not mean free compute or a server-wide CPU quota.
+The same conservative parent reservation rules apply, including no refund on
+failure and no clipped child allowance. Three full rounds need up to nine steps
+when each proposal and numerical child has a one-step allowance.
+
+Serialize and publish the new canonical template, then publish this wrapper:
+
+```json
+{
+  "schema": "loop.research-run/v3",
+  "id": "research.us.adaptive",
+  "revision": "1",
+  "specification": {"sha256": "sha256:<v3 template digest>", "byte_size": 2600},
+  "numerical_recipe": {"sha256": "sha256:<recipe digest>", "byte_size": 1200},
+  "feedback_policy": {"sha256": "sha256:<policy digest>", "byte_size": 400}
+}
+```
+
+Replace every digest/byte count with actual values. Both policy references must
+match the template exactly. Register the wrapper in `runs.plans`, restart the
+compatible runtime, and create the operator's binary `PolicyReference` from the
+wrapper's ID/revision/digest. The runtime publishes derived feedback, perturbation
+work and successful receipt/step evidence into the trusted development artifact
+store. These are immutable evidence objects, not new market-data snapshots; do
+not delete them when clearing temporary worker directories.
+
+### Execute, inspect and recover
+
+```bash
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 3 start \
+  --timeout-seconds 120 --plan /srv/loop/operator/adaptive-plan.binpb --key start.adaptive.001
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 3 step \
+  --timeout-seconds 240 --run run.adaptive.001 --revision 1 --key step.adaptive.001
+loopctl run --config /srv/loop/operator/run-client.json --workflow-version 3 status \
+  --run run.adaptive.001
+```
+
+Use the actual registered run ID and the revision returned by the last response.
+One command still executes at most one current child and commits one parent
+transition. All three operations require version 3. The response schema is
+`loop.run-cli/v3`; `research.stage` adds `perturbation`, with a typed Research
+child and `perturbation_job_id` instead of a Discovery origin. `run.adaptive`
+reports the frozen policy, source count, feedback/context/family/state digests
+and cumulative random draws. It does not expose messages, raw source contents,
+work, seed, lease or capability. `search_exhausted` is a successful selection
+terminal state with the true completed-round count, not a claim that all planned
+rounds were evaluated.
+
+Public Discovery `execute`, `resume` and `reconcile` reject v3-owned children,
+including a queued child with no model history. Their static templates cannot
+replace the frozen feedback invocation. Discovery status exposes only safe
+metadata for these children; event reads and authority-reducing stop operations
+remain available to the registered Agent. A stop operation grants no new
+execution authority. Run-level pause/resume is outside this delivery.
+
+Only registered successful portfolio results from earlier rounds of the same
+run can enter feedback. Source result identity, actual files, freshness,
+authority and IS applicability are checked again before use. The model receives
+at most the last 16 selected sources and 16 KiB of structured feedback, subject
+also to its existing context/token ceilings. The complete source history remains
+bound to immutable evidence. The full next model invocation is frozen before
+any Provider call, and continuation verifies that exact message history.
+
+Unavailable Sharpe remains `unavailable` with its reason; it is never converted
+to zero. Coverage rejection and prior empirical failure affect deterministic
+filtering and failure memory. Infrastructure faults, stale/corrupt evidence and
+unresolved model call outcomes do not become empirical rejection or successful
+feedback. An `unknown`/ambiguous model call remains subject to Provider receipt
+reconciliation; restarting or changing a command key does not authorize another
+possibly chargeable invocation.
+
+After a lost CLI response, reuse the exact version, key and revision. A committed
+command receipt returns its original projection without another worker launch.
+If the child completed but parent advancement did not commit, recovery rechecks
+its original work, lease-bound receipt and step, then applies the saved random
+state exactly once in the parent transaction. Missing immutable evidence fails
+closed; never recreate it, reset the seed or modify committed state to force
+progress. Offline synthetic acceptance establishes execution/accounting behavior,
+not improved model quality, investment performance or production data eligibility.
+
 ## Disable and recover
 
 Remove the optional `runs` section from the deployment configuration and restart
@@ -567,6 +750,12 @@ commands require the registered Agent identity; changing an operator JSON actor
 does not grant that role. Run-level pause/cancel/resume and background scheduling
 are subsequent delivery units.
 
+To disable only v3, remove its wrappers from `runs.plans` while retaining the
+registered v1/v2 wrappers and restart. If no plans remain, omit `runs` entirely
+rather than using an empty array. Retain compatible owner-scoped readers and all
+state/evidence. This stops new adaptive starts/advancement without changing old
+v0/v2 contracts or rewriting already committed v3 work.
+
 Migrations 0015 and 0016 are additive. The latter adds immutable v2 transition
 evidence and fences incompatible writers; installing it does not convert v1
 runs. Disable writers before a deployment rollback, keep a
@@ -574,5 +763,7 @@ migration-aware binary and preserve research history. Do not deploy an older
 writer over the new schema or perform destructive down-migrations. The design
 and verification requirements are recorded in
 [ADR 0051](../adr/0051-persistent-research-runs.md) and
-[ADR 0053](../adr/0053-numerical-run-workflow.md). Local acceptance commands do not
+[ADR 0053](../adr/0053-numerical-run-workflow.md); the v3 extension and its additive
+writer fences follow [ADR 0054](../adr/0054-adaptive-research-workflow.md).
+Local acceptance commands do not
 authorize production migration, dataset purchases or confirmation-set unlocks.

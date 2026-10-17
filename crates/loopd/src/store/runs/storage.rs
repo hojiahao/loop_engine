@@ -213,7 +213,9 @@ async fn load_snapshot(
             != timestamp_millis(view.deadline.as_ref().expect("validated deadline"), true)?
         || row.try_get::<String, _>("current_job_id")? != current_id(&view)?
         || row.try_get::<i32, _>("workflow_version")?
-            != if specification.numerical.is_some() {
+            != if specification.feedback_policy.is_some() {
+                3
+            } else if specification.numerical.is_some() {
                 2
             } else {
                 1
@@ -394,7 +396,9 @@ pub(super) async fn persist(
     loop_protocol::runs::validate_view(view)?;
     let spec_bytes = encode_message(specification)?;
     let view_bytes = encode_message(view)?;
-    let workflow_version = if specification.numerical.is_some() {
+    let workflow_version = if specification.feedback_policy.is_some() {
+        3
+    } else if specification.numerical.is_some() {
         2
     } else {
         1

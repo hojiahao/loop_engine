@@ -62,6 +62,29 @@ impl RunPermit {
 }
 
 impl PgJobStore {
+    /// Identify a persisted adaptive child after transport/job authorization.
+    /// This lookup grants no execution authority: generic Discovery endpoints
+    /// must deny execution and may expose metadata only when it returns true.
+    /// Parent version is immutable; pool and statement deadlines bound the read.
+    /// Database errors fail closed, and cancellation leaves no state changes.
+    pub(crate) async fn scoped_discovery(&self, job: &JobRecord) -> StoreResult<bool> {
+        let run = job
+            .specification
+            .as_ref()
+            .and_then(|specification| specification.run_id.as_ref())
+            .ok_or(StoreError::AdmissionDenied)?;
+        let version: Option<i32> =
+            sqlx::query_scalar("SELECT workflow_version FROM research_runs WHERE run_id=$1")
+                .bind(&run.value)
+                .fetch_optional(&self.pool)
+                .await?;
+        match version {
+            None | Some(1 | 2) => Ok(false),
+            Some(3) => Ok(true),
+            _ => Err(StoreError::Corrupt("unknown discovery parent version")),
+        }
+    }
+
     /// Atomically reserve and create the first child of an administrator-pinned
     /// run. The principal must be authenticated and match its frozen Human owner.
     /// A semantic replay returns the original receipt without executing a job.
@@ -363,7 +386,9 @@ impl PgJobStore {
 
 fn check_version(version: u32, specification: &RunSpecification) -> StoreResult<()> {
     if version
-        == if specification.numerical.is_some() {
+        == if specification.feedback_policy.is_some() {
+            3
+        } else if specification.numerical.is_some() {
             2
         } else {
             0

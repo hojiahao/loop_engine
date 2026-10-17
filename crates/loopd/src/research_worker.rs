@@ -45,6 +45,7 @@ pub trait PerturbationWorker: Send + Sync {
 pub struct PythonPerturber {
     python: PathBuf,
     build: Option<ResearchBuild>,
+    profile: &'static str,
 }
 
 impl PythonPerturber {
@@ -58,6 +59,7 @@ impl PythonPerturber {
         Ok(Self {
             python: python.to_owned(),
             build: None,
+            profile: "perturbation",
         })
     }
 
@@ -68,6 +70,15 @@ impl PythonPerturber {
     pub fn verified(python: &Path, build: ResearchBuild) -> StoreResult<Self> {
         let mut worker = Self::new(python)?;
         worker.build = Some(build);
+        Ok(worker)
+    }
+
+    /// Bind a v3 proposal to the complete numerical evaluation environment.
+    /// The profile is selected by the runtime, never by a model or RPC caller.
+    /// Invalid executables deny before dispatch; cancellation emits no result.
+    pub(crate) fn verified_evaluation(python: &Path, build: ResearchBuild) -> StoreResult<Self> {
+        let mut worker = Self::verified(python, build)?;
+        worker.profile = "evaluation";
         Ok(worker)
     }
 }
@@ -98,6 +109,7 @@ impl PerturbationWorker for PythonPerturber {
                     )
                 };
                 process
+                    .env("LOOP_ENGINE_BUILD_PROFILE", self.profile)
                     .env("LOOP_ENGINE_BUILD_SOURCE_SHA256", hex(build.source_sha256))
                     .env(
                         "LOOP_ENGINE_BUILD_ENVIRONMENT_SHA256",

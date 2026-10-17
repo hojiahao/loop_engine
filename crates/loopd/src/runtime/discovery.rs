@@ -1,5 +1,6 @@
 //! A single pinned discovery step; no supplier logic or factor admission.
 
+mod context;
 mod execution;
 mod plan;
 mod projection;
@@ -10,6 +11,7 @@ mod tools;
 mod transport;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use loop_protocol::wire::{discovery::v1 as wire, v1};
 use serde::Deserialize;
@@ -58,8 +60,9 @@ pub struct ProviderConfig {
 /// Opening validates configuration without connecting to a Provider or database.
 pub struct DiscoveryExecutor {
     plans: Vec<FrozenPlan>,
-    data: LocalArtifacts,
+    data: Arc<LocalArtifacts>,
     provider: ProviderConnection,
+    context_scope: Option<context::ContextScope>,
 }
 
 impl DiscoveryExecutor {
@@ -95,8 +98,9 @@ impl DiscoveryExecutor {
         }
         Ok(Self {
             plans,
-            data: LocalArtifacts::open(development)?,
+            data: Arc::new(LocalArtifacts::open(development)?),
             provider,
+            context_scope: None,
         })
     }
 
@@ -154,6 +158,9 @@ impl DiscoveryExecutor {
     }
 
     fn plan(&self, job: &v1::JobSpecification) -> StoreResult<&FrozenPlan> {
+        if let Some(scope) = &self.context_scope {
+            scope.check(job)?;
+        }
         if job.submitted_by.as_ref() != Some(&self.provider.actor) {
             return Err(StoreError::AdmissionDenied);
         }
